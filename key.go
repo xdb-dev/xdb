@@ -28,5 +28,5 @@ func (k *Key) ID() string {
 
 // String returns a readable form of the key.
 func (k *Key) String() string {
-	return fmt.Sprintf("Key(%s:%s)", k.kind, k.id)
+	return fmt.Sprintf("%s:%s", k.kind, k.id)
 }

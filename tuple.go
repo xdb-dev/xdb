@@ -1,54 +1,47 @@
 package xdb
 
-// Tuple is a tuple of a key, name and value.
-type Tuple struct {
-	typ   Type
-	key   *Key
-	name  string
-	value *Value
+import (
+	"time"
+)
+
+type Empty struct{}
+
+type Value interface {
+	int | int32 | uint32 | int64 | uint64 |
+		float32 | float64 | string | bool | []byte |
+		time.Time | Empty |
+		[]int | []int32 | []uint32 | []int64 | []uint64 |
+		[]float32 | []float64 | []string | []bool
 }
 
-// NewAttr creates a new attribute.
-func NewAttr(key *Key, name string, value *Value) *Tuple {
+// Tuple is a key-attribute-value tuple.
+type Tuple struct {
+	key   *Key
+	name  string
+	value any
+}
+
+// NewTuple creates a new tuple.
+func NewTuple[T Value](key *Key, name string, value T) *Tuple {
 	return &Tuple{
-		typ:   TypeAttr,
 		key:   key,
 		name:  name,
 		value: value,
 	}
 }
 
-// NewEdge creates a new edge.
-func NewEdge(k *Key, name string, target *Key) *Tuple {
-	return &Tuple{
-		typ:   TypeEdge,
-		key:   k,
-		name:  name,
-		value: key(target),
-	}
+func (t *Tuple) Key() *Key {
+	return t.key
 }
 
-// Type returns the tuple's type.
-func (a *Tuple) Type() Type {
-	return a.typ
+func (t *Tuple) Name() string {
+	return t.name
 }
 
-// Key returns the tuple's key.
-func (a *Tuple) Key() *Key {
-	return a.key
+func (t *Tuple) Value() any {
+	return t.value
 }
 
-// Name returns the tuple's name.
-func (a *Tuple) Name() string {
-	return a.name
-}
-
-// Value returns the tuple's value.
-func (a *Tuple) Value() *Value {
-	return a.value
-}
-
-// Ref returns a reference to the tuple.
-func (a *Tuple) Ref() *Ref {
-	return AttrRef(a.key, a.name)
+func (t *Tuple) Hash() string {
+	return t.key.String() + "/" + t.name
 }
