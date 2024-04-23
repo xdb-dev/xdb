@@ -90,7 +90,9 @@ func (m *Migration) Generate(ctx context.Context) ([]string, error) {
 
 		colsToCreate := diff(attrNames, colNames)
 
-		queries = append(queries, genAlterTableQuery(table, colsToCreate, attrMap))
+		if len(colsToCreate) > 0 {
+			queries = append(queries, genAlterTableQuery(table, colsToCreate, attrMap))
+		}
 	}
 
 	return queries, nil
@@ -115,12 +117,12 @@ func (m *Migration) Run(ctx context.Context) error {
 	return nil
 }
 
-func (m *Migration) getAllTables(ctx context.Context) (map[string]map[string]sqlite.ColumnType, error) {
-	tables := make(map[string]map[string]sqlite.ColumnType, 0)
+func (m *Migration) getAllTables(ctx context.Context) (map[string]map[string]string, error) {
+	tables := make(map[string]map[string]string, 0)
 
 	err := sqlitex.Execute(m.db, allTablesQuery, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			tables[stmt.ColumnText(0)] = make(map[string]sqlite.ColumnType)
+			tables[stmt.ColumnText(0)] = make(map[string]string)
 
 			return nil
 		},
@@ -141,15 +143,20 @@ func (m *Migration) getAllTables(ctx context.Context) (map[string]map[string]sql
 	return tables, nil
 }
 
-func (m *Migration) getAllColumns(_ context.Context, table string) (map[string]sqlite.ColumnType, error) {
-	colsMap := make(map[string]sqlite.ColumnType, 0)
-	query := `SELECT * FROM ` + table + ` LIMIT 0`
+func (m *Migration) getAllColumns(_ context.Context, table string) (map[string]string, error) {
+	colsMap := make(map[string]string, 0)
+	query := `SELECT * FROM pragma_table_info('` + table + `');`
 
 	err := sqlitex.Execute(m.db, query, &sqlitex.ExecOptions{
 		ResultFunc: func(stmt *sqlite.Stmt) error {
-			for i := 0; i < stmt.ColumnCount(); i++ {
-				colsMap[stmt.ColumnName(i)] = stmt.ColumnType(i)
+			name := stmt.ColumnText(1)
+			typ := stmt.ColumnText(2)
+
+			if name == "id" {
+				return nil
 			}
+
+			colsMap[name] = typ
 
 			return nil
 		},
@@ -199,10 +206,11 @@ func genAlterTableQuery(table string, cols []string, attrMap map[string]schema.A
 
 	sb.WriteString("ALTER TABLE ")
 	sb.WriteString(table)
+	sb.WriteString(" ")
 
 	for i, col := range cols {
 		attr := attrMap[col]
-		sb.WriteString(" ADD COLUMN ")
+		sb.WriteString("ADD COLUMN ")
 		sb.WriteString(col)
 		sb.WriteString(" ")
 		sb.WriteString(getDBType(attr))

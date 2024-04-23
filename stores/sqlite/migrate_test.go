@@ -10,32 +10,61 @@ import (
 	"zombiezen.com/go/sqlite"
 )
 
-func TestMigration_Generate(t *testing.T) {
+func TestMigration(t *testing.T) {
 	db, err := sqlite.OpenConn(":memory:", sqlite.OpenReadWrite)
 	require.NoError(t, err)
 
 	defer db.Close()
 
-	schema := &schema.Schema{
+	s := &schema.Schema{
 		Records: []schema.Record{
 			{
 				Kind:  "User",
 				Table: "users",
 				Attributes: []schema.Attribute{
 					{Name: "name", Type: schema.String},
+					{Name: "birth_date", Type: schema.Time},
+					{Name: "tags", Type: schema.String, Repeated: true},
+					{Name: "is_active", Type: schema.Bool},
+					{Name: "score", Type: schema.Float},
 				},
 			},
 		},
 	}
 
-	expected := []string{
-		`CREATE TABLE IF NOT EXISTS users (name STRING);`,
-	}
+	t.Run("Generate", func(t *testing.T) {
+		expected := []string{
+			`CREATE TABLE IF NOT EXISTS users (id VARCHAR PRIMARY KEY, name VARCHAR, birth_date TIMESTAMP, tags VARCHAR[], is_active BOOLEAN, score REAL);`,
+		}
 
-	m := NewMigration(db, schema)
+		m := NewMigration(db, s)
 
-	queries, err := m.Generate(context.Background())
-	require.NoError(t, err)
+		queries, err := m.Generate(context.Background())
+		require.NoError(t, err)
+		assert.EqualValues(t, expected, queries)
 
-	assert.EqualValues(t, expected, queries)
+		err = m.Run(context.Background())
+		require.NoError(t, err)
+	})
+
+	t.Run("Generate alter table", func(t *testing.T) {
+		s.Records[0].Attributes = append(
+			s.Records[0].Attributes,
+			schema.Attribute{Name: "age", Type: schema.Int},
+			schema.Attribute{Name: "is_admin", Type: schema.Bool},
+		)
+
+		expected := []string{
+			`ALTER TABLE users ADD COLUMN age INTEGER, ADD COLUMN is_admin BOOLEAN;`,
+		}
+
+		m := NewMigration(db, s)
+
+		queries, err := m.Generate(context.Background())
+		require.NoError(t, err)
+		assert.EqualValues(t, expected, queries)
+
+		err = m.Run(context.Background())
+		require.NoError(t, err)
+	})
 }
