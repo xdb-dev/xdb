@@ -34,7 +34,7 @@ func TestMigration(t *testing.T) {
 
 	t.Run("Generate", func(t *testing.T) {
 		expected := []string{
-			`CREATE TABLE IF NOT EXISTS users (id VARCHAR PRIMARY KEY, name VARCHAR, birth_date TIMESTAMP, tags VARCHAR[], is_active BOOLEAN, score REAL);`,
+			`CREATE TABLE IF NOT EXISTS users (id VARCHAR PRIMARY KEY, name VARCHAR, birth_date INTEGER, tags VARCHAR[], is_active BOOLEAN, score REAL);`,
 		}
 
 		m := NewMigration(db, s)

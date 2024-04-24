@@ -237,7 +237,7 @@ func getDBType(a schema.Attribute) string {
 	case schema.Bool:
 		dbType = "BOOLEAN"
 	case schema.Time:
-		dbType = "TIMESTAMP"
+		dbType = "INTEGER"
 	}
 
 	if a.Repeated {
