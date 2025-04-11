@@ -25,8 +25,8 @@ func (d *MemoryDriver) GetTuples(ctx context.Context, keys []*types.Key) ([]*typ
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	missed := make([]*types.Key, 0, len(keys))
 	tuples := make([]*types.Tuple, 0, len(keys))
+	missed := make([]*types.Key, 0, len(keys))
 
 	for _, key := range keys {
 		tuple, ok := d.tuples[key.String()]

@@ -1,9 +1,42 @@
 package types
 
-import "time"
+import (
+	"time"
+)
 
-// Empty is an empty value.
-type Empty struct{}
+// TypeID represents the type of a value.
+type TypeID int
+
+const (
+	UnknownType TypeID = iota
+	StringType
+	IntegerType
+	FloatType
+	BooleanType
+	BytesType
+	TimeType
+	PointType
+)
+
+var typeNames = map[TypeID]string{
+	UnknownType: "UNKNOWN",
+	StringType:  "STRING",
+	IntegerType: "INTEGER",
+	FloatType:   "FLOAT",
+	BooleanType: "BOOLEAN",
+	BytesType:   "BYTES",
+	TimeType:    "TIME",
+	PointType:   "POINT",
+}
+
+// String returns the name of the type.
+func (t TypeID) String() string {
+	return typeNames[t]
+}
+
+type Type interface {
+	Integer | Float | String | Boolean | Bytes | Hybrid
+}
 
 // Integer is an union of all possible integer types.
 type Integer interface {
@@ -43,18 +76,3 @@ type Hybrid interface {
 	time.Time | []time.Time |
 		Point | []Point
 }
-
-type Type interface {
-	Empty | Integer | Float | String | Boolean | Bytes | Hybrid
-}
-
-const (
-	StringType  = "STRING"
-	IntegerType = "INTEGER"
-	FloatType   = "FLOAT"
-	BooleanType = "BOOLEAN"
-	TimeType    = "TIME"
-	PointType   = "POINT"
-	BytesType   = "BYTES"
-	JSONType    = "JSON"
-)

@@ -13,8 +13,8 @@ func TestMemoryDriver(t *testing.T) {
 	ctx := context.Background()
 
 	tuples := []*types.Tuple{
-		types.NewTuple(types.NewKey("User", "1", "name"), "Alice"),
-		types.NewTuple(types.NewKey("User", "2", "name"), "Bob"),
+		types.NewTuple("User", "1", "name", "Alice"),
+		types.NewTuple("User", "2", "name", "Bob"),
 	}
 
 	t.Run("PutTuples", func(t *testing.T) {
@@ -29,8 +29,8 @@ func TestMemoryDriver(t *testing.T) {
 		})
 		assert.NoError(t, err)
 		assert.Empty(t, missed)
-		assert.Equal(t, tuples[0].Value().ToString(), "Alice")
-		assert.Equal(t, tuples[1].Value().ToString(), "Bob")
+		assert.Equal(t, tuples[0].Value().Unwrap(), "Alice")
+		assert.Equal(t, tuples[1].Value().Unwrap(), "Bob")
 	})
 
 	t.Run("DeleteTuples", func(t *testing.T) {
@@ -48,7 +48,7 @@ func TestMemoryDriver(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, len(tuples), 1)
 		assert.Equal(t, len(missed), 1)
-		assert.Equal(t, tuples[0].Value().ToString(), "Bob")
-		assert.Equal(t, missed[0].String(), "User/1/name")
+		assert.Equal(t, tuples[0].Value().Unwrap(), "Bob")
+		assert.Equal(t, missed[0].String(), "Key(User/1/name)")
 	})
 }
