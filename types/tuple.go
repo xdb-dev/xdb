@@ -1,6 +1,9 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Tuple is the core data structure of XDB.
 //
@@ -22,8 +25,8 @@ func NewTuple[T Type](kind string, id string, attr string, value T) *Tuple {
 	return &Tuple{kind: kind, id: id, attr: attr, value: NewValue(value)}
 }
 
-func newTuple(kind string, id string, attr string, value *Value) *Tuple {
-	return &Tuple{kind: kind, id: id, attr: attr, value: value}
+func newTuple(kind string, id string, attr string, value any) *Tuple {
+	return &Tuple{kind: kind, id: id, attr: attr, value: NewValue(value)}
 }
 
 // Key returns a reference to the tuple.
@@ -54,4 +57,14 @@ func (t *Tuple) Value() *Value {
 // String returns the string representation of the tuple.
 func (t *Tuple) String() string {
 	return fmt.Sprintf("Tuple(%s, %s, %s, %v)", t.kind, t.id, t.attr, t.value)
+}
+
+// ToString returns the tuple's value as a string.
+func (t *Tuple) ToString() string {
+	return t.value.ToString()
+}
+
+// ToTime returns the tuple's value as a time.Time.
+func (t *Tuple) ToTime() time.Time {
+	return t.value.ToTime()
 }

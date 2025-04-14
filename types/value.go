@@ -3,6 +3,9 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"time"
+
+	"github.com/spf13/cast"
 )
 
 // Value represents an attribute value.
@@ -13,7 +16,7 @@ type Value struct {
 }
 
 // NewValue creates a new value of the given type.
-func NewValue[T Type](value T) *Value {
+func NewValue(value any) *Value {
 	tid, repeated := TypeIDOf(value)
 	return &Value{tid: tid, val: value, repeated: repeated}
 }
@@ -36,6 +39,16 @@ func (v *Value) Repeated() bool {
 // String returns a string representation.
 func (v *Value) String() string {
 	return fmt.Sprintf("Value(%v)", v.val)
+}
+
+// ToString returns the value as a string.
+func (v *Value) ToString() string {
+	return cast.ToString(v.val)
+}
+
+// ToTime returns the value as a time.Time.
+func (v *Value) ToTime() time.Time {
+	return cast.ToTime(v.val)
 }
 
 // TypeIDOf returns the TypeID and whether the value is an array.

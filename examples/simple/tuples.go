@@ -8,7 +8,7 @@ import (
 	"github.com/xdb-dev/xdb/types"
 )
 
-func main() {
+func TupleAPIExample() {
 	// create tuples
 	tuples := []*types.Tuple{
 		types.NewTuple("User", "123", "name", "John Doe"),
