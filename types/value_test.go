@@ -10,64 +10,119 @@ import (
 )
 
 func TestNewValue(t *testing.T) {
-	t.Run("string", func(t *testing.T) {
-		v := types.NewValue("hello")
-		assert.Equal(t, types.StringType, v.TypeID())
-		assert.EqualValues(t, "hello", v.Unwrap())
-	})
+	testcases := []struct {
+		name     string
+		value    any
+		expected types.TypeID
+		repeated bool
+	}{
+		{
+			name:     "string",
+			value:    "hello",
+			expected: types.StringType,
+			repeated: false,
+		},
+		{
+			name:     "string slice",
+			value:    []string{"hello", "world"},
+			expected: types.StringType,
+			repeated: true,
+		},
+		{
+			name:     "int",
+			value:    1,
+			expected: types.IntegerType,
+			repeated: false,
+		},
+		{
+			name:     "int slice",
+			value:    []int{1, 2, 3},
+			expected: types.IntegerType,
+			repeated: true,
+		},
+		{
+			name:     "float",
+			value:    1.0,
+			expected: types.FloatType,
+			repeated: false,
+		},
+		{
+			name:     "float slice",
+			value:    []float64{1.0, 2.0, 3.0},
+			expected: types.FloatType,
+			repeated: true,
+		},
+		{
+			name:     "bool",
+			value:    true,
+			expected: types.BooleanType,
+			repeated: false,
+		},
+		{
+			name:     "bool slice",
+			value:    []bool{true, false, true},
+			expected: types.BooleanType,
+			repeated: true,
+		},
+		{
+			name:     "bytes",
+			value:    []byte("hello"),
+			expected: types.BytesType,
+			repeated: false,
+		},
+		{
+			name:     "bytes slice",
+			value:    [][]byte{[]byte("hello"), []byte("world")},
+			expected: types.BytesType,
+			repeated: true,
+		},
+		{
+			name:     "time",
+			value:    time.Now(),
+			expected: types.TimeType,
+			repeated: false,
+		},
+		{
+			name:     "time slice",
+			value:    []time.Time{time.Now(), time.Now().Add(time.Hour)},
+			expected: types.TimeType,
+			repeated: true,
+		},
+		{
+			name:     "point",
+			value:    types.Point{Lat: 1.0, Long: 2.0},
+			expected: types.PointType,
+			repeated: false,
+		},
+		{
+			name: "point slice",
+			value: []types.Point{
+				{Lat: 1.0, Long: 2.0},
+				{Lat: 3.0, Long: 4.0},
+			},
+			expected: types.PointType,
+			repeated: true,
+		},
+		{
+			name:     "unknown",
+			value:    struct{ A int }{A: 1},
+			expected: types.UnknownType,
+			repeated: false,
+		},
+		{
+			name:     "map",
+			value:    map[string]any{"a": 1},
+			expected: types.UnknownType,
+			repeated: false,
+		},
+	}
 
-	t.Run("int", func(t *testing.T) {
-		v := types.NewValue(1)
-		assert.Equal(t, types.IntegerType, v.TypeID())
-		assert.EqualValues(t, 1, v.Unwrap())
-	})
-
-	t.Run("float", func(t *testing.T) {
-		v := types.NewValue(1.0)
-		assert.Equal(t, types.FloatType, v.TypeID())
-		assert.EqualValues(t, 1.0, v.Unwrap())
-	})
-
-	t.Run("bool", func(t *testing.T) {
-		v := types.NewValue(true)
-		assert.Equal(t, types.BooleanType, v.TypeID())
-		assert.EqualValues(t, true, v.Unwrap())
-	})
-
-	t.Run("bytes", func(t *testing.T) {
-		v := types.NewValue([]byte("hello"))
-		assert.Equal(t, types.BytesType, v.TypeID())
-		assert.EqualValues(t, []byte("hello"), v.Unwrap())
-	})
-
-	t.Run("time", func(t *testing.T) {
-		v := types.NewValue(time.Now())
-		assert.Equal(t, types.TimeType, v.TypeID())
-		assert.EqualValues(t, time.Now(), v.Unwrap())
-	})
-
-	t.Run("point", func(t *testing.T) {
-		v := types.NewValue(types.Point{Lat: 1.0, Long: 2.0})
-		assert.Equal(t, types.PointType, v.TypeID())
-		assert.EqualValues(t, types.Point{Lat: 1.0, Long: 2.0}, v.Unwrap())
-	})
-
-	t.Run("string slice", func(t *testing.T) {
-		v := types.NewValue([]string{"hello", "world"})
-		assert.Equal(t, types.StringType, v.TypeID())
-		assert.EqualValues(t, []string{"hello", "world"}, v.Unwrap())
-	})
-
-	t.Run("unknown", func(t *testing.T) {
-		tid, _ := types.TypeIDOf(map[string]string{})
-		assert.Equal(t, types.UnknownType, tid)
-	})
-
-	t.Run("unknown struct", func(t *testing.T) {
-		tid, _ := types.TypeIDOf(struct {
-			ID   int
-			Name string
-		}{})
-		assert.Equal(t, types.UnknownType, tid)
-	})
+	for _, testcase := range testcases {
+		t.Run(testcase.name, func(t *testing.T) {
+			value := types.NewValue(testcase.value)
+			assert.Equal(t, testcase.expected, value.TypeID())
+			assert.Equal(t, testcase.repeated, value.Repeated())
+			assert.EqualValues(t, testcase.value, value.Unwrap())
+		})
+	}
 }

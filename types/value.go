@@ -38,7 +38,7 @@ func (v *Value) Repeated() bool {
 
 // String returns a string representation.
 func (v *Value) String() string {
-	return fmt.Sprintf("Value(%v)", v.val)
+	return fmt.Sprintf("Value(%s, %v)", v.tid.String(), v.val)
 }
 
 // ToString returns the value as a string.
