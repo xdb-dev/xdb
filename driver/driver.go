@@ -17,17 +17,6 @@ type TupleWriter interface {
 	DeleteTuples(ctx context.Context, keys []*types.Key) error
 }
 
-// EdgeReader is an interface for reading edges.
-type EdgeReader interface {
-	GetEdges(ctx context.Context, keys []*types.Key) ([]*types.Edge, []*types.Key, error)
-}
-
-// EdgeWriter is an interface for writing & deleting edges.
-type EdgeWriter interface {
-	PutEdges(ctx context.Context, edges []*types.Edge) error
-	DeleteEdges(ctx context.Context, keys []*types.Key) error
-}
-
 // RecordReader is an interface for reading records.
 type RecordReader interface {
 	GetRecords(ctx context.Context, keys []*types.Key) ([]*types.Record, []*types.Key, error)

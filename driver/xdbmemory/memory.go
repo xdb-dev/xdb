@@ -12,14 +12,12 @@ import (
 type MemoryDriver struct {
 	mu     sync.RWMutex
 	tuples map[string]*types.Tuple
-	edges  map[string]*types.Edge
 }
 
 // New creates a new in-memory driver.
 func New() *MemoryDriver {
 	return &MemoryDriver{
 		tuples: make(map[string]*types.Tuple),
-		edges:  make(map[string]*types.Edge),
 	}
 }
 
@@ -68,51 +66,6 @@ func (d *MemoryDriver) DeleteTuples(ctx context.Context, keys []*types.Key) erro
 	return nil
 }
 
-// GetEdges returns the edges for the given keys.
-func (d *MemoryDriver) GetEdges(ctx context.Context, keys []*types.Key) ([]*types.Edge, []*types.Key, error) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	edges := make([]*types.Edge, 0, len(keys))
-	missed := make([]*types.Key, 0, len(keys))
-
-	for _, key := range keys {
-		edge, ok := d.edges[key.String()]
-		if !ok {
-			missed = append(missed, key)
-			continue
-		}
-
-		edges = append(edges, edge)
-	}
-
-	return edges, missed, nil
-}
-
-// PutEdges saves the edges.
-func (d *MemoryDriver) PutEdges(ctx context.Context, edges []*types.Edge) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	for _, edge := range edges {
-		d.edges[edge.Key().String()] = edge
-	}
-
-	return nil
-}
-
-// DeleteEdges deletes the edges for the given keys.
-func (d *MemoryDriver) DeleteEdges(ctx context.Context, keys []*types.Key) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	for _, key := range keys {
-		delete(d.edges, key.String())
-	}
-
-	return nil
-}
-
 // GetRecords returns the records for the given keys.
 func (d *MemoryDriver) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.Record, []*types.Key, error) {
 	d.mu.RLock()
@@ -132,13 +85,6 @@ func (d *MemoryDriver) GetRecords(ctx context.Context, keys []*types.Key) ([]*ty
 			record.Set(t.Attr(), t.Value())
 		}
 
-		for k, e := range d.edges {
-			if !strings.HasPrefix(k, key.String()) {
-				continue
-			}
-
-			record.AddEdge(e.Name(), e.Target())
-		}
 		if record.IsEmpty() {
 			missed = append(missed, key)
 			continue
@@ -159,10 +105,6 @@ func (d *MemoryDriver) PutRecords(ctx context.Context, records []*types.Record) 
 		for _, tuple := range record.Tuples() {
 			d.tuples[tuple.Key().String()] = tuple
 		}
-
-		for _, edge := range record.Edges() {
-			d.edges[edge.Key().String()] = edge
-		}
 	}
 
 	return nil
@@ -180,14 +122,6 @@ func (d *MemoryDriver) DeleteRecords(ctx context.Context, keys []*types.Key) err
 			}
 
 			delete(d.tuples, k)
-		}
-
-		for k := range d.edges {
-			if !strings.HasPrefix(k, key.String()) {
-				continue
-			}
-
-			delete(d.edges, k)
 		}
 	}
 

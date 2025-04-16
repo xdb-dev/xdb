@@ -53,70 +53,15 @@ func TestMemoryDriver_Tuples(t *testing.T) {
 	})
 }
 
-func TestMemoryDriver_Edges(t *testing.T) {
-	driver := New()
-	ctx := context.Background()
-
-	edges := []*types.Edge{
-		types.NewEdge(
-			types.NewKey("User", "1"),
-			"posts",
-			types.NewKey("Post", "1"),
-		),
-		types.NewEdge(
-			types.NewKey("User", "1"),
-			"posts",
-			types.NewKey("Post", "2"),
-		),
-	}
-
-	t.Run("PutEdges", func(t *testing.T) {
-		err := driver.PutEdges(ctx, edges)
-		assert.NoError(t, err)
-	})
-
-	t.Run("GetEdges", func(t *testing.T) {
-		edges, missed, err := driver.GetEdges(ctx, []*types.Key{
-			types.NewKey("User", "1", "posts", "Post", "1"),
-			types.NewKey("User", "1", "posts", "Post", "2"),
-		})
-		assert.NoError(t, err)
-		assert.Empty(t, missed)
-		assert.Equal(t, edges[0].Target().String(), "Key(Post/1)")
-		assert.Equal(t, edges[1].Target().String(), "Key(Post/2)")
-	})
-
-	t.Run("DeleteEdges", func(t *testing.T) {
-		err := driver.DeleteEdges(ctx, []*types.Key{
-			types.NewKey("User", "1", "posts", "Post", "1"),
-		})
-		assert.NoError(t, err)
-	})
-
-	t.Run("GetEdges after deletion", func(t *testing.T) {
-		edges, missed, err := driver.GetEdges(ctx, []*types.Key{
-			types.NewKey("User", "1", "posts", "Post", "1"),
-			types.NewKey("User", "1", "posts", "Post", "2"),
-		})
-		assert.NoError(t, err)
-		assert.Equal(t, len(edges), 1)
-		assert.Equal(t, len(missed), 1)
-		assert.Equal(t, edges[0].Target().String(), "Key(Post/2)")
-		assert.Equal(t, missed[0].String(), "Key(User/1/posts/Post/1)")
-	})
-}
-
 func TestMemoryDriver_Records(t *testing.T) {
 	driver := New()
 	ctx := context.Background()
 
 	records := []*types.Record{
 		types.NewRecord("User", "1").
-			Set("name", "Alice").
-			AddEdge("posts", types.NewKey("Post", "1")),
+			Set("name", "Alice"),
 		types.NewRecord("User", "2").
-			Set("name", "Bob").
-			AddEdge("posts", types.NewKey("Post", "2")),
+			Set("name", "Bob"),
 	}
 
 	t.Run("PutRecords", func(t *testing.T) {

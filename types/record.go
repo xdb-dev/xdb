@@ -11,15 +11,17 @@ type Record struct {
 	kind string
 	id   string
 
-	mu       sync.RWMutex
-	tuples   map[string]*Tuple
-	edges    map[string]*Edge
-	edgeKeys map[string][]*Key
+	mu     sync.RWMutex
+	tuples map[string]*Tuple
 }
 
 // NewRecord creates a new Record.
 func NewRecord(kind string, id string) *Record {
-	return &Record{kind: kind, id: id}
+	return &Record{
+		kind:   kind,
+		id:     id,
+		tuples: make(map[string]*Tuple),
+	}
 }
 
 // Key returns a reference to the Record.
@@ -58,53 +60,11 @@ func (r *Record) Get(attr string) *Tuple {
 	return r.tuples[attr]
 }
 
-// AddEdge adds an edge to the Record.
-func (r *Record) AddEdge(name string, target *Key) *Record {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.edges[name] = NewEdge(r.Key(), name, target)
-
-	if _, ok := r.edgeKeys[name]; !ok {
-		r.edgeKeys[name] = make([]*Key, 0)
-	}
-
-	r.edgeKeys[name] = append(r.edgeKeys[name], target)
-
-	return r
-}
-
-// GetEdge returns the edge's target key.
-func (r *Record) GetEdge(name string) *Key {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	edgeKeys := r.GetEdges(name)
-	if len(edgeKeys) == 0 {
-		return nil
-	}
-
-	return edgeKeys[0]
-}
-
-// GetEdges returns the edges's target keys.
-func (r *Record) GetEdges(name string) []*Key {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	edgeKeys, ok := r.edgeKeys[name]
-	if !ok {
-		return nil
-	}
-
-	return edgeKeys
-}
-
 // IsEmpty returns true if the Record has no tuples or edges.
 func (r *Record) IsEmpty() bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return len(r.tuples) == 0 && len(r.edges) == 0
+	return len(r.tuples) == 0
 }
 
 // Tuples returns the tuples of the Record.
@@ -117,16 +77,4 @@ func (r *Record) Tuples() []*Tuple {
 		tuples = append(tuples, tuple)
 	}
 	return tuples
-}
-
-// Edges returns the edges of the Record.
-func (r *Record) Edges() []*Edge {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	edges := make([]*Edge, 0, len(r.edges))
-	for _, edge := range r.edges {
-		edges = append(edges, edge)
-	}
-	return edges
 }

@@ -15,9 +15,8 @@ func RecordAPIExample() {
 		Set("title", "Hello, World!").
 		Set("content", "This is my first post").
 		Set("created_at", time.Now()).
-		AddEdge("author", types.NewKey("User", "123")).
-		AddEdge("tags", types.NewKey("Tag", "xdb")).
-		AddEdge("tags", types.NewKey("Tag", "golang"))
+		Set("author_id", "123").
+		Set("tags", []string{"xdb", "golang"})
 
 	// create a store
 	store := xdbmemory.New()
@@ -40,13 +39,13 @@ func RecordAPIExample() {
 		content := record.Get("content").ToString()
 		createdAt := record.Get("created_at").ToTime()
 
-		author := record.GetEdge("author")
-		tags := record.GetEdges("tags")
+		authorID := record.Get("author_id").ToString()
+		tags := record.Get("tags").ToString()
 
 		fmt.Printf("Title: %s\n", title)
 		fmt.Printf("Content: %s\n", content)
 		fmt.Printf("Created At: %s\n", createdAt)
-		fmt.Printf("Author: %s\n", author)
+		fmt.Printf("Author ID: %s\n", authorID)
 		fmt.Printf("Tags: %v\n", tags)
 	}
 
