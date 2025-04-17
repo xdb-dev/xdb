@@ -3,9 +3,6 @@ package types
 import (
 	"fmt"
 	"reflect"
-	"time"
-
-	"github.com/spf13/cast"
 )
 
 // Value represents an attribute value.
@@ -39,16 +36,6 @@ func (v *Value) Repeated() bool {
 // String returns a string representation.
 func (v *Value) String() string {
 	return fmt.Sprintf("Value(%s, %v)", v.tid.String(), v.val)
-}
-
-// ToString returns the value as a string.
-func (v *Value) ToString() string {
-	return cast.ToString(v.val)
-}
-
-// ToTime returns the value as a time.Time.
-func (v *Value) ToTime() time.Time {
-	return cast.ToTime(v.val)
 }
 
 // TypeIDOf returns the TypeID and whether the value is an array.

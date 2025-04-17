@@ -49,7 +49,7 @@ func (r *Record) Set(attr string, value any) *Record {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.tuples[attr] = newTuple(r.kind, r.id, attr, value)
+	r.tuples[attr] = NewTuple(r.kind, r.id, attr, value)
 	return r
 }
 
