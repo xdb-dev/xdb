@@ -1,40 +1,34 @@
 # XDB
 
-XDB is a Go library providing a tuple-based abstraction for modeling, storing, and querying data. It is designed to be a lightweight, flexible, and efficient alternative to implementing database-specific models, queries, and repository layers.
+XDB is a database library that provides a tuple-based abstraction for modeling, storing, and querying data across multiple databases. Rather than writing database-specific schemas, queries, and migrations, XDB allows developers to model their domain once and use it with one or more databases.
 
-The primary use-case for XDB is making it easier to build and maintain fully managed data services.
+## Why XDB?
 
-## Tuple
+Read about the motivation behind XDB in [Introducing XDB](https://raviatluri.in/articles/introducing-xdb).
 
-Tuple is the fundamental data structure of XDB. It is based on N-quads. XDB breaks down any kind of data into tuples.
+## Core Concepts
 
-Tuples are grouped into "Records" which are similar to objects/structs/rows in a database. Records are organized by "kind" - similar to tables and "id" - similar to primary keys.
+### Tuple
 
-A typical tuple looks like this:
+A **Tuple** is the fundamental building block in XDB. It combines:
+
+- Kind: Type of the record (similar to a table name)
+- ID: Unique identifier within the kind
+- Name: Attribute name (similar to a column)
+- Value: The attribute's value
+- Options: Key-value pairs for metadata
 
 ![tuple.png](./docs/tuple.png)
 
-- Kind: Type/kind of the record where the tuple belongs to
-- ID: Unique identifier of the record
-- Name: Name of the attribute. It is similar to column names in a database
-- Value: Value of the attribute. It can be any one of the supported types
-- Options: Options are key-value pairs used by different components & operations
+### Edge
 
-## Edge
+An **Edge** is a special kind of tuple that defines a unidirectional relationship between two records. Edges are used to model relationships in your domain model.
 
-Edge is a special kind of tuple that defines a unidirectional relationship between two records. Edges are used to model relationships between records.
+### Record
 
-## Record
+A **Record** is a collection of tuples that share the same kind and id. Records are similar to objects, structs, or rows in a database.
 
-Record is a collection of tuples grouped by kind and id. It is similar to a row in a database table. Records are uniquely identified by combination of kind and id.
-
-## Key
-
-Key is a generic identifier used to uniquely identify records, tuples and edges.
-
-## Types
-
-XDB supports the following types:
+## Supported Types
 
 | Type      | PostgreSQL       | Description                  |
 | --------- | ---------------- | ---------------------------- |
@@ -54,10 +48,20 @@ XDB supports the following types:
 | Money | JSONB      | Currency and Amount                                              |
 | File  | JSONB      | File/Image metadata. Actual file is stored in a separate storage |
 
-## Drivers
+## Building Blocks
 
-Drivers are interfaces for storing, querying, searching and iterating records, tuples and edges. Think of drivers as "capabilities" implemented by different databases. Drivers can be chained, layered, and combined to provide features or simply to work around limitations of a specific database.
+### Drivers
 
-## Stores
+Drivers serve as the bridge between XDB's tuple-based model and specific database implementations. All drivers implement basic **Reader** and **Writer** capabilities, with advanced features like full-text search, aggregation, and iteration available based on the database's capabilities.
 
-Stores manage storage, retrieval, indexing, and querying of records, tuples, and edges. Stores use drivers to interact with databases.
+### Stores
+
+Stores provide higher-level APIs that combine multiple drivers to support common use-cases. Store implementations satisfy capability interfaces, allowing them to be used as drivers or layered together for complex scenarios.
+
+### Schema
+
+The Schema APIs provide a database-agnostic way to define and manage your application's domain models. These APIs enable:
+
+- Runtime type checking and constraint enforcement
+- Generation of database-specific schemas
+- Migration management
