@@ -11,11 +11,11 @@ import (
 )
 
 var (
-	ErrNotStruct = errors.New("xdbstruct: Marshal expects a pointer to a struct")
+	ErrNotStruct = errors.New("xdbstruct: ToRecord expects a pointer to a struct")
 )
 
-// Marshal converts a struct to a types.Record.
-func Marshal(obj any) (*types.Record, error) {
+// ToRecord converts a struct to a types.Record.
+func ToRecord(obj any) (*types.Record, error) {
 	v := reflect.ValueOf(obj)
 
 	if v.Kind() == reflect.Ptr {
@@ -50,6 +50,11 @@ func Marshal(obj any) (*types.Record, error) {
 	return record, nil
 }
 
+// FromRecord converts a types.Record to a struct.
+func FromRecord(record *types.Record, obj any) error {
+	return nil
+}
+
 func marshalStruct(v reflect.Value, parent *field) (map[string]*field, error) {
 	typ := v.Type()
 	tuples := make(map[string]*field)
@@ -59,7 +64,12 @@ func marshalStruct(v reflect.Value, parent *field) (map[string]*field, error) {
 		fieldValue := v.Field(i)
 
 		tag := field.Tag.Get("xdb")
-		if tag == "-" {
+		if tag == "" || tag == "-" {
+			continue
+		}
+
+		// skip unexported fields
+		if field.PkgPath != "" {
 			continue
 		}
 
@@ -70,9 +80,12 @@ func marshalStruct(v reflect.Value, parent *field) (map[string]*field, error) {
 
 		if parent != nil {
 			tuple.Name = parent.Name + "." + tuple.Name
+			// nested primary keys are not supported
+			tuple.PrimaryKey = false
 		}
 
-		if fieldValue.Kind() == reflect.Struct {
+		switch fieldValue.Kind() {
+		case reflect.Struct:
 			switch fieldValue.Interface().(type) {
 			case json.Marshaler:
 				tuple.Value, err = fieldValue.Interface().(json.Marshaler).MarshalJSON()
@@ -95,11 +108,10 @@ func marshalStruct(v reflect.Value, parent *field) (map[string]*field, error) {
 				}
 			}
 
-			continue
+		default:
+			tuple.Value = fieldValue.Interface()
+			tuples[tuple.Name] = tuple
 		}
-
-		tuple.Value = fieldValue.Interface()
-		tuples[tuple.Name] = tuple
 	}
 
 	return tuples, nil

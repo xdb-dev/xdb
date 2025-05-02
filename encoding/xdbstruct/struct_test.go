@@ -59,8 +59,8 @@ func TestIntTypesStruct(t *testing.T) {
 		Set("uint64", input.Uint64).
 		Set("uint_array", input.UintArray)
 
-	t.Run("Marshal", func(t *testing.T) {
-		encoded, err := xdbstruct.Marshal(input)
+	t.Run("ToRecord", func(t *testing.T) {
+		encoded, err := xdbstruct.ToRecord(input)
 		require.NoError(t, err)
 		require.NotNil(t, encoded)
 
@@ -89,8 +89,8 @@ func TestFloatTypesStruct(t *testing.T) {
 		Set("float64", input.Float64).
 		Set("float_array", input.FloatArray)
 
-	t.Run("Marshal", func(t *testing.T) {
-		encoded, err := xdbstruct.Marshal(input)
+	t.Run("ToRecord", func(t *testing.T) {
+		encoded, err := xdbstruct.ToRecord(input)
 		require.NoError(t, err)
 		require.NotNil(t, encoded)
 
@@ -116,8 +116,8 @@ func TestStringTypesStruct(t *testing.T) {
 		Set("string", input.String).
 		Set("string_array", input.StringArray)
 
-	t.Run("Marshal", func(t *testing.T) {
-		encoded, err := xdbstruct.Marshal(input)
+	t.Run("ToRecord", func(t *testing.T) {
+		encoded, err := xdbstruct.ToRecord(input)
 		require.NoError(t, err)
 		require.NotNil(t, encoded)
 
@@ -143,8 +143,8 @@ func TestBoolTypesStruct(t *testing.T) {
 		Set("bool", input.Bool).
 		Set("bool_array", input.BoolArray)
 
-	t.Run("Marshal", func(t *testing.T) {
-		encoded, err := xdbstruct.Marshal(input)
+	t.Run("ToRecord", func(t *testing.T) {
+		encoded, err := xdbstruct.ToRecord(input)
 		require.NoError(t, err)
 		require.NotNil(t, encoded)
 
@@ -207,8 +207,8 @@ func TestByteTypesStruct(t *testing.T) {
 		Set("binary", []byte("Hello, World!")).
 		Set("binary_array", [][]byte{[]byte("Hello"), []byte("World"), []byte("!")})
 
-	t.Run("Marshal", func(t *testing.T) {
-		encoded, err := xdbstruct.Marshal(input)
+	t.Run("ToRecord", func(t *testing.T) {
+		encoded, err := xdbstruct.ToRecord(input)
 		require.NoError(t, err)
 		require.NotNil(t, encoded)
 
@@ -241,8 +241,8 @@ func TestMapTypesStruct(t *testing.T) {
 		Set("map", input.Map).
 		Set("map_array", input.MapArray)
 
-	t.Run("Marshal", func(t *testing.T) {
-		encoded, err := xdbstruct.Marshal(input)
+	t.Run("ToRecord", func(t *testing.T) {
+		encoded, err := xdbstruct.ToRecord(input)
 		require.NoError(t, err)
 		require.NotNil(t, encoded)
 
@@ -283,8 +283,8 @@ func TestCompositeTypesStruct(t *testing.T) {
 		Set("point", input.Point).
 		Set("point_array", input.PointArray)
 
-	t.Run("Marshal", func(t *testing.T) {
-		encoded, err := xdbstruct.Marshal(input)
+	t.Run("ToRecord", func(t *testing.T) {
+		encoded, err := xdbstruct.ToRecord(input)
 		require.NoError(t, err)
 		require.NotNil(t, encoded)
 
@@ -292,44 +292,73 @@ func TestCompositeTypesStruct(t *testing.T) {
 	})
 }
 
-type NestedStruct struct {
-	ID      string  `xdb:"id,primary_key"`
-	Name    string  `xdb:"name"`
-	Age     int     `xdb:"age"`
-	Address Address `xdb:"address"`
+type Post struct {
+	ID              string    `xdb:"id,primary_key"`
+	Title           string    `xdb:"title"`
+	Content         string    `xdb:"content"`
+	Author          Author    `xdb:"author"`
+	LastComment     Comment   `xdb:"last_comment"`
+	CommentCount    int       `xdb:"comment_count"`
+	CreatedAt       time.Time `xdb:"created_at"`
+	ModerationScore float64   `xdb:"moderation_score"`
+
+	Comments []Comment
+
+	private string
+	skipped string `xdb:"-"`
 }
 
-type Address struct {
-	Street string `xdb:"street"`
-	City   string `xdb:"city"`
-	State  string `xdb:"state"`
-	Zip    string `xdb:"zip"`
+type Author struct {
+	ID   string `xdb:"id,primary_key"`
+	Name string `xdb:"name"`
+}
+
+type Comment struct {
+	ID              string    `xdb:"id,primary_key"`
+	Content         string    `xdb:"content"`
+	Author          Author    `xdb:"author"`
+	CreatedAt       time.Time `xdb:"created_at"`
+	ModerationScore float64   `xdb:"moderation_score"`
 }
 
 func TestNestedStruct(t *testing.T) {
 	t.Parallel()
 
-	input := NestedStruct{
-		ID:   "123-456-789",
-		Name: "John Doe",
-		Age:  30,
-		Address: Address{
-			Street: "123 Main St",
-			City:   "Anytown",
-			State:  "CA",
-			Zip:    "12345",
+	input := Post{
+		ID:      "123-456-789",
+		Title:   "My First Post",
+		Content: "This is my first post",
+		Author:  Author{ID: "987-654-321", Name: "John Doe"},
+		LastComment: Comment{
+			ID:              "111-222-333",
+			Content:         "This is my first comment",
+			Author:          Author{ID: "999-888-777", Name: "Jane Doe"},
+			CreatedAt:       time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC),
+			ModerationScore: 0.5,
 		},
+		CommentCount:    1,
+		CreatedAt:       time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC),
+		ModerationScore: 0.5,
+		private:         "private",
+		skipped:         "skipped",
 	}
-	record := types.NewRecord("NestedStruct", input.ID).
-		Set("name", input.Name).
-		Set("age", input.Age).
-		Set("address.street", input.Address.Street).
-		Set("address.city", input.Address.City).
-		Set("address.state", input.Address.State).
-		Set("address.zip", input.Address.Zip)
+	record := types.NewRecord("Post", input.ID).
+		Set("title", input.Title).
+		Set("content", input.Content).
+		Set("author.id", input.Author.ID).
+		Set("author.name", input.Author.Name).
+		Set("last_comment.id", input.LastComment.ID).
+		Set("last_comment.content", input.LastComment.Content).
+		Set("last_comment.author.id", input.LastComment.Author.ID).
+		Set("last_comment.author.name", input.LastComment.Author.Name).
+		Set("last_comment.created_at", input.LastComment.CreatedAt).
+		Set("last_comment.moderation_score", input.LastComment.ModerationScore).
+		Set("comment_count", input.CommentCount).
+		Set("created_at", input.CreatedAt).
+		Set("moderation_score", input.ModerationScore)
 
-	t.Run("Marshal", func(t *testing.T) {
-		encoded, err := xdbstruct.Marshal(input)
+	t.Run("ToRecord", func(t *testing.T) {
+		encoded, err := xdbstruct.ToRecord(input)
 		require.NoError(t, err)
 		require.NotNil(t, encoded)
 
