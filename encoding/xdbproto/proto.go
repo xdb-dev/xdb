@@ -2,8 +2,9 @@
 package xdbproto
 
 import (
-	"github.com/xdb-dev/xdb/types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/xdb-dev/xdb/types"
 )
 
 // FromRecord converts a record to a protobuf message.
