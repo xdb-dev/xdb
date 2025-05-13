@@ -3,6 +3,7 @@ module github.com/xdb-dev/xdb
 go 1.24.1
 
 require (
+	github.com/brianvoe/gofakeit/v7 v7.2.1
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
 )
