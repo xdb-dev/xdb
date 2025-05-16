@@ -145,3 +145,11 @@ func (t *Tuple) ToPoint() Point {
 func (t *Tuple) ToPointSlice() []Point {
 	return t.value.ToPointSlice()
 }
+
+func castArray[T any](arr []any, fn func(any) T) []T {
+	res := make([]T, len(arr))
+	for i, v := range arr {
+		res[i] = fn(v)
+	}
+	return res
+}

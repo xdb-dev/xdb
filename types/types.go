@@ -8,25 +8,25 @@ import (
 type TypeID int
 
 const (
-	UnknownType TypeID = iota
-	StringType
-	IntegerType
-	FloatType
-	BooleanType
-	BytesType
-	TimeType
-	PointType
+	TypeUnknown TypeID = iota
+	TypeString
+	TypeInteger
+	TypeFloat
+	TypeBoolean
+	TypeBytes
+	TypeTime
+	TypePoint
 )
 
 var typeNames = map[TypeID]string{
-	UnknownType: "UNKNOWN",
-	StringType:  "STRING",
-	IntegerType: "INTEGER",
-	FloatType:   "FLOAT",
-	BooleanType: "BOOLEAN",
-	BytesType:   "BYTES",
-	TimeType:    "TIME",
-	PointType:   "POINT",
+	TypeUnknown: "UNKNOWN",
+	TypeString:  "STRING",
+	TypeInteger: "INTEGER",
+	TypeFloat:   "FLOAT",
+	TypeBoolean: "BOOLEAN",
+	TypeBytes:   "BYTES",
+	TypeTime:    "TIME",
+	TypePoint:   "POINT",
 }
 
 // String returns the name of the type.

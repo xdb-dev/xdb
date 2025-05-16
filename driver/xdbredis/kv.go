@@ -7,6 +7,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/xdb-dev/xdb/driver"
+	"github.com/xdb-dev/xdb/encoding/xdbkv"
 	"github.com/xdb-dev/xdb/types"
 )
 
@@ -51,7 +52,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 			return nil, cmd.Err()
 		}
 
-		val, err := decodeValue(cmd.Val())
+		val, err := xdbkv.DecodeValue([]byte(cmd.Val()))
 		if err != nil {
 			return nil, err
 		}
@@ -74,7 +75,7 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 
 	for _, tuple := range tuples {
 		hmkey := makeHashKey(tuple)
-		hmval, err := encodeValue(tuple.Value().Unwrap())
+		hmval, err := xdbkv.EncodeValue(tuple.Value())
 		if err != nil {
 			return err
 		}

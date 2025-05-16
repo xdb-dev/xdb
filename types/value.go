@@ -14,6 +14,14 @@ type Value struct {
 
 // NewValue creates a new value of the given type.
 func NewValue(value any) *Value {
+	if value == nil {
+		return nil
+	}
+
+	if vv, ok := value.(*Value); ok {
+		return vv
+	}
+
 	tid, repeated := TypeIDOf(value)
 	return &Value{tid: tid, val: value, repeated: repeated}
 }
@@ -45,29 +53,29 @@ func TypeIDOf(value any) (TypeID, bool) {
 	case reflect.Array, reflect.Slice:
 		first := reflect.ValueOf(value).Index(0)
 		if first.Kind() == reflect.Uint8 {
-			return BytesType, false
+			return TypeBytes, false
 		}
 
 		t, _ := TypeIDOf(first.Interface())
 		return t, true
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return IntegerType, false
+		return TypeInteger, false
 	case reflect.Float32, reflect.Float64:
-		return FloatType, false
+		return TypeFloat, false
 	case reflect.String:
-		return StringType, false
+		return TypeString, false
 	case reflect.Bool:
-		return BooleanType, false
+		return TypeBoolean, false
 	case reflect.Struct:
 		switch reflect.TypeOf(value).String() {
 		case "time.Time":
-			return TimeType, false
+			return TypeTime, false
 		case "types.Point":
-			return PointType, false
+			return TypePoint, false
 		default:
-			return UnknownType, false
+			return TypeUnknown, false
 		}
 	default:
-		return UnknownType, false
+		return TypeUnknown, false
 	}
 }

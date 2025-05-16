@@ -3,6 +3,7 @@ package xdbsqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"github.com/doug-martin/goqu/v9"
@@ -31,6 +32,30 @@ func NewSQLStore(db *sql.DB) *SQLStore {
 
 // GetTuples gets tuples from the SQLite database.
 func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.Tuple, error) {
+	grouped := x.GroupAttrs(keys...)
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	defer tx.Rollback()
+
+	for kind, rows := range grouped {
+		for id, attrs := range rows {
+			query, args, err := goqu.Select(attrs).
+				From(kind).
+				Where(goqu.L("id = ?", id)).
+				ToSQL()
+
+			rows, err := tx.QueryContext(ctx, query, args...)
+			if err != nil {
+				return nil, err
+			}
+
+			defer rows.Close()
+		}
+	}
 	return nil, nil
 }
 
@@ -100,4 +125,50 @@ func (s *SQLStore) PutRecords(ctx context.Context, records []*types.Record) erro
 // DeleteRecords deletes records from the SQLite database.
 func (s *SQLStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
 	return nil
+}
+
+// encodeValue encodes a value to SQLite compatible type.
+// mapping:
+// - string -> TEXT
+// - int -> INTEGER
+// - float -> REAL
+// - bool -> INTEGER
+// - bytes -> BLOB
+// - time -> INTEGER
+// - point -> TEXT(JSON)
+// - []string -> TEXT(JSON)
+// - []int -> TEXT(JSON)
+// - []float -> TEXT(JSON)
+// - []bool -> TEXT(JSON)
+// - []bytes -> TEXT(JSON)
+// - []time -> TEXT(JSON)
+// - []point -> TEXT(JSON)
+func encodeValue(value *types.Value) (any, error) {
+	if value.Repeated() {
+		// encode arrays as JSON
+		return json.Marshal(value.Unwrap())
+	}
+
+	switch value.TypeID() {
+	case types.TypeString:
+		return value.ToString(), nil
+	case types.TypeInteger:
+		return value.ToInt(), nil
+	case types.TypeFloat:
+		return value.ToFloat(), nil
+	case types.TypeBoolean:
+		return value.ToBool(), nil
+	case types.TypeBytes:
+		return value.ToBytes(), nil
+	case types.TypeTime:
+		return value.ToTime(), nil
+	case types.TypePoint:
+		return value.ToPoint(), nil
+	}
+
+	return nil, fmt.Errorf("unsupported value type: %s", value.TypeID())
+}
+
+func decodeValue(value any) (*types.Value, error) {
+	return nil, nil
 }
