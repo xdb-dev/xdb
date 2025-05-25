@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/spf13/cast"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/xdb-dev/xdb/types"
 )
@@ -86,23 +87,23 @@ func DecodeValue(flatvalue []byte) (*types.Value, error) {
 	case []any:
 		switch v.TypeID {
 		case types.TypeString:
-			v.Value = castArray[string](v.Value.([]any))
+			v.Value = castArray(v.Value.([]any), cast.ToString)
 		case types.TypeInteger:
-			v.Value = castArray[int64](v.Value.([]any))
+			v.Value = castArray(v.Value.([]any), cast.ToInt64)
 		case types.TypeFloat:
-			v.Value = castArray[float64](v.Value.([]any))
+			v.Value = castArray(v.Value.([]any), cast.ToFloat64)
 		case types.TypeBoolean:
-			v.Value = castArray[bool](v.Value.([]any))
+			v.Value = castArray(v.Value.([]any), cast.ToBool)
 		}
 	}
 
 	return types.NewValue(v.Value), nil
 }
 
-func castArray[T any](v []any) []T {
+func castArray[T any](v []any, f func(any) T) []T {
 	arr := make([]T, len(v))
 	for i, v := range v {
-		arr[i] = v.(T)
+		arr[i] = f(v)
 	}
 	return arr
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/encoding/xdbkv"
 	"github.com/xdb-dev/xdb/types"
@@ -124,23 +123,4 @@ func makeHashKey(key interface {
 	ID() string
 }) string {
 	return fmt.Sprintf("%s:%s", key.Kind(), key.ID())
-}
-
-func encodeValue(value any) (string, error) {
-	b, err := msgpack.Marshal(value)
-	if err != nil {
-		return "", err
-	}
-
-	return string(b), nil
-}
-
-func decodeValue(value string) (any, error) {
-	var v any
-	err := msgpack.Unmarshal([]byte(value), &v)
-	if err != nil {
-		return nil, err
-	}
-
-	return v, nil
 }

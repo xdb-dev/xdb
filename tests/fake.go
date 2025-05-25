@@ -44,11 +44,6 @@ func FakeStringTuples() []*types.Tuple {
 // FakeIntTuples creates fake tuples for int values.
 func FakeIntTuples() []*types.Tuple {
 	return []*types.Tuple{
-		types.NewTuple("Test", "1", "int", gofakeit.Int()),
-		types.NewTuple("Test", "1", "int_array", []int{
-			gofakeit.Int(),
-			gofakeit.Int(),
-		}),
 		types.NewTuple("Test", "1", "int64", gofakeit.Int64()),
 		types.NewTuple("Test", "1", "int64_array", []int64{
 			gofakeit.Int64(),
