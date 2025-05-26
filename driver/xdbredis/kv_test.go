@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/xdb-dev/xdb/driver/xdbredis"
 	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/types"
 	"github.com/xdb-dev/xdb/x"
 )
 
@@ -45,8 +46,21 @@ func (s *KVStoreTestSuite) TestTuples() {
 	})
 
 	s.Run("GetTuples", func() {
-		got, err := s.kv.GetTuples(ctx, keys)
+		got, missing, err := s.kv.GetTuples(ctx, keys)
 		s.NoError(err)
+		s.Len(missing, 0)
+		tests.AssertEqualTuples(s.T(), tuples, got)
+	})
+
+	s.Run("GetTuplesSomeMissing", func() {
+		missing := []*types.Key{
+			types.NewKey("Test", "1", "not_found"),
+			types.NewKey("Test", "2", "not_found"),
+		}
+
+		got, missing, err := s.kv.GetTuples(ctx, append(keys, missing...))
+		s.NoError(err)
+		s.NotEmpty(missing)
 		tests.AssertEqualTuples(s.T(), tuples, got)
 	})
 
@@ -55,7 +69,10 @@ func (s *KVStoreTestSuite) TestTuples() {
 		s.NoError(err)
 	})
 
-	s.Run("GetTuplesAfterDelete", func() {
-
+	s.Run("GetTuplesAllMissing", func() {
+		got, missing, err := s.kv.GetTuples(ctx, keys)
+		s.NoError(err)
+		s.NotEmpty(missing)
+		s.Len(got, 0)
 	})
 }

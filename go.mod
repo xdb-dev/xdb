@@ -4,6 +4,7 @@ go 1.24.1
 
 require (
 	github.com/brianvoe/gofakeit/v7 v7.2.1
+	github.com/gojekfarm/xtools/errors v0.10.0
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1

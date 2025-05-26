@@ -31,12 +31,12 @@ func NewSQLStore(db *sql.DB) *SQLStore {
 }
 
 // GetTuples gets tuples from the SQLite database.
-func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.Tuple, error) {
+func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.Tuple, []*types.Key, error) {
 	grouped := x.GroupAttrs(keys...)
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	defer tx.Rollback()
@@ -50,13 +50,13 @@ func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 
 			rows, err := tx.QueryContext(ctx, query, args...)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 
 			defer rows.Close()
 		}
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 // PutTuples puts tuples into the SQLite database.

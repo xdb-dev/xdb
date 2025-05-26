@@ -2,6 +2,7 @@ package xdbredis
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
@@ -29,7 +30,7 @@ func New(c *redis.Client) *KVStore {
 }
 
 // GetTuples gets tuples from the key-value store.
-func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.Tuple, error) {
+func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.Tuple, []*types.Key, error) {
 	tx := kv.getTx(ctx)
 
 	cmds := make([]*redis.StringCmd, 0, len(keys))
@@ -39,21 +40,27 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 	}
 
 	_, err := tx.Exec(ctx)
-	if err != nil {
-		return nil, err
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return nil, nil, err
 	}
 
 	tuples := make([]*types.Tuple, 0, len(keys))
+	missing := make([]*types.Key, 0, len(keys))
 
 	for i, key := range keys {
 		cmd := cmds[i]
-		if cmd.Err() != nil {
-			return nil, cmd.Err()
+
+		err := cmd.Err()
+		if errors.Is(err, redis.Nil) {
+			missing = append(missing, key)
+			continue
+		} else if err != nil {
+			return nil, nil, err
 		}
 
 		val, err := xdbkv.DecodeValue([]byte(cmd.Val()))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		tuple := types.NewTuple(
@@ -65,7 +72,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 		tuples = append(tuples, tuple)
 	}
 
-	return tuples, nil
+	return tuples, missing, nil
 }
 
 // PutTuples puts tuples into the key-value store.
@@ -115,7 +122,7 @@ func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
 }
 
 func (kv *KVStore) getTx(_ context.Context) redis.Pipeliner {
-	return kv.db.TxPipeline()
+	return kv.db.Pipeline()
 }
 
 func makeHashKey(key interface {
