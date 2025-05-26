@@ -8,8 +8,8 @@ import (
 // Value represents an attribute value.
 type Value struct {
 	tid      TypeID
-	val      any
 	repeated bool
+	val      any
 }
 
 // NewValue creates a new value of the given type.

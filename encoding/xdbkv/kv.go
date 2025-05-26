@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gojekfarm/xtools/errors"
 	"github.com/spf13/cast"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/xdb-dev/xdb/types"
 )
 
-type value struct {
-	TypeID   types.TypeID `msgpack:"t"`
-	Value    any          `msgpack:"v"`
-	Repeated bool         `msgpack:"r"`
-}
+var (
+	ErrTypeMismatch = errors.New("encoding/xdbkv: type mismatch")
+)
 
 // EncodeTuple encodes a tuple to a key-value pair.
 func EncodeTuple(tuple *types.Tuple) ([]byte, []byte, error) {
@@ -63,6 +62,12 @@ func DecodeKey(key []byte) (*types.Key, error) {
 	return types.NewKey(parts...), nil
 }
 
+type value struct {
+	TypeID   types.TypeID `msgpack:"t"`
+	Repeated bool         `msgpack:"r"`
+	Value    any          `msgpack:"v"`
+}
+
 // EncodeValue encodes a types.Value to []byte.
 func EncodeValue(v *types.Value) ([]byte, error) {
 	vv := value{
@@ -76,28 +81,51 @@ func EncodeValue(v *types.Value) ([]byte, error) {
 
 // DecodeValue decodes a []byte to a types.Value.
 func DecodeValue(flatvalue []byte) (*types.Value, error) {
-
-	var v value
-	err := msgpack.Unmarshal(flatvalue, &v)
+	var vv value
+	err := msgpack.Unmarshal(flatvalue, &vv)
 	if err != nil {
 		return nil, err
 	}
 
-	switch v.Value.(type) {
-	case []any:
-		switch v.TypeID {
-		case types.TypeString:
-			v.Value = castArray(v.Value.([]any), cast.ToString)
-		case types.TypeInteger:
-			v.Value = castArray(v.Value.([]any), cast.ToInt64)
-		case types.TypeFloat:
-			v.Value = castArray(v.Value.([]any), cast.ToFloat64)
-		case types.TypeBoolean:
-			v.Value = castArray(v.Value.([]any), cast.ToBool)
+	switch vv.TypeID {
+	case types.TypeString:
+		arr, ok := vv.Value.([]any)
+		if ok {
+			vv.Value = castArray(arr, cast.ToString)
+		} else {
+			vv.Value = cast.ToString(vv.Value)
+		}
+	case types.TypeInteger:
+		arr, ok := vv.Value.([]any)
+		if ok {
+			vv.Value = castArray(arr, cast.ToInt64)
+		} else {
+			vv.Value = cast.ToInt64(vv.Value)
+		}
+	case types.TypeFloat:
+		arr, ok := vv.Value.([]any)
+		if ok {
+			vv.Value = castArray(arr, cast.ToFloat64)
+		} else {
+			vv.Value = cast.ToFloat64(vv.Value)
+		}
+	case types.TypeBoolean:
+		arr, ok := vv.Value.([]any)
+		if ok {
+			vv.Value = castArray(arr, cast.ToBool)
+		} else {
+			vv.Value = cast.ToBool(vv.Value)
+		}
+	case types.TypeBytes:
+		arr, ok := vv.Value.([]any)
+		if ok {
+			vv.Value = castArray(arr, toBytes)
+		} else {
+			vv.Value = toBytes(vv.Value)
 		}
 	}
 
-	return types.NewValue(v.Value), nil
+	return types.NewValue(vv.Value), nil
 }
 
 func castArray[T any](v []any, f func(any) T) []T {
@@ -106,4 +134,15 @@ func castArray[T any](v []any, f func(any) T) []T {
 		arr[i] = f(v)
 	}
 	return arr
+}
+
+func toBytes(v any) []byte {
+	switch v := v.(type) {
+	case []byte:
+		return v
+	case string:
+		return []byte(v)
+	default:
+		return []byte(cast.ToString(v))
+	}
 }
