@@ -16,7 +16,30 @@ func FakePost() *types.Record {
 	return types.NewRecord(kind, id).
 		Set("title", gofakeit.Sentence(10)).
 		Set("content", gofakeit.Paragraph(10, 10, 10, " ")).
-		Set("created_at", gofakeit.Date())
+		Set("tags", []string{
+			gofakeit.Word(),
+			gofakeit.Word(),
+		}).
+		Set("rating", gofakeit.Float64Range(0, 5)).
+		Set("published", gofakeit.Bool()).
+		Set("comments.count", gofakeit.IntRange(0, 100)).
+		Set("views.count", gofakeit.IntRange(0, 1000)).
+		Set("likes.count", gofakeit.IntRange(0, 1000)).
+		Set("shares.count", gofakeit.IntRange(0, 1000)).
+		Set("favorites.count", gofakeit.IntRange(0, 1000)).
+		Set("author.id", gofakeit.UUID()).
+		Set("author.name", gofakeit.Name())
+}
+
+// FakePosts creates a list of fake records.
+func FakePosts(n int) []*types.Record {
+	records := make([]*types.Record, 0, n)
+
+	for i := 0; i < n; i++ {
+		records = append(records, FakePost())
+	}
+
+	return records
 }
 
 // FakeTuples creates a list of fake tuples covering all types.

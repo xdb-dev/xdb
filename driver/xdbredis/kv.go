@@ -108,17 +108,78 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
 
 // GetRecords gets records from the key-value store.
 func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.Record, []*types.Key, error) {
-	return nil, nil, nil
+	tx := kv.getTx(ctx)
+
+	cmds := make([]*redis.MapStringStringCmd, 0, len(keys))
+	for _, key := range keys {
+		cmd := tx.HGetAll(ctx, makeHashKey(key))
+		cmds = append(cmds, cmd)
+	}
+
+	_, err := tx.Exec(ctx)
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return nil, nil, err
+	}
+
+	records := make([]*types.Record, 0, len(keys))
+	missing := make([]*types.Key, 0, len(keys))
+
+	for i, key := range keys {
+		cmd := cmds[i]
+
+		err := cmd.Err()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		attrs := cmd.Val()
+		if len(attrs) == 0 {
+			missing = append(missing, key)
+			continue
+		}
+
+		record := types.NewRecord(
+			key.Kind(),
+			key.ID(),
+		)
+
+		for attr, val := range attrs {
+			vv, err := xdbkv.DecodeValue([]byte(val))
+			if err != nil {
+				return nil, nil, err
+			}
+
+			record.Set(attr, vv)
+		}
+
+		records = append(records, record)
+	}
+
+	return records, missing, nil
 }
 
 // PutRecords puts records into the key-value store.
 func (kv *KVStore) PutRecords(ctx context.Context, records []*types.Record) error {
-	return nil
+	tuples := make([]*types.Tuple, 0, len(records))
+
+	for _, record := range records {
+		tuples = append(tuples, record.Tuples()...)
+	}
+
+	return kv.PutTuples(ctx, tuples)
 }
 
 // DeleteRecords deletes records from the key-value store.
 func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
-	return nil
+	tx := kv.getTx(ctx)
+
+	for _, key := range keys {
+		tx.Del(ctx, makeHashKey(key))
+	}
+
+	_, err := tx.Exec(ctx)
+
+	return err
 }
 
 func (kv *KVStore) getTx(_ context.Context) redis.Pipeliner {

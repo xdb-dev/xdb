@@ -9,6 +9,18 @@ import (
 	"github.com/xdb-dev/xdb/types"
 )
 
+// AssertEqualRecords asserts that two lists of records are equal.
+func AssertEqualRecords(t *testing.T, expected, actual []*types.Record) {
+	t.Helper()
+
+	require.Equal(t, len(expected), len(actual), "record lists have different lengths")
+
+	for i, expected := range expected {
+		actual := actual[i]
+		AssertEqualRecord(t, expected, actual)
+	}
+}
+
 // AssertEqualRecord asserts that two records are equal.
 // It checks for the following:
 // - The record keys are equal.
@@ -61,4 +73,23 @@ func AssertEqualTuple(t *testing.T, expected, actual *types.Tuple) {
 		actual.Value().Unwrap(),
 		"tuple value mismatch",
 	)
+}
+
+// AssertEqualKeys asserts that two lists of keys are equal.
+func AssertEqualKeys(t *testing.T, expected, actual []*types.Key) {
+	t.Helper()
+
+	require.Equal(t, len(expected), len(actual), "key lists have different lengths")
+
+	for i, expected := range expected {
+		actual := actual[i]
+		AssertEqualKey(t, expected, actual)
+	}
+}
+
+// AssertEqualKey asserts that two keys are equal.
+func AssertEqualKey(t *testing.T, expected, actual *types.Key) {
+	t.Helper()
+
+	assert.Equal(t, expected.String(), actual.String(), "key mismatch")
 }
