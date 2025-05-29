@@ -45,3 +45,25 @@ func GroupAttrs(keys ...*types.Key) map[string]map[string][]string {
 
 	return grouped
 }
+
+// GroupBy groups a list using a function.
+func GroupBy[T any](items []T, fn func(T) string) map[string][]T {
+	grouped := make(map[string][]T)
+
+	for _, item := range items {
+		grouped[fn(item)] = append(grouped[fn(item)], item)
+	}
+
+	return grouped
+}
+
+// Map maps a list using a function.
+func Map[T any, R any](items []T, fn func(T) R) []R {
+	mapped := make([]R, 0, len(items))
+
+	for _, item := range items {
+		mapped = append(mapped, fn(item))
+	}
+
+	return mapped
+}
