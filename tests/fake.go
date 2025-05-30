@@ -8,6 +8,27 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
+// FakePostSchema creates a fake schema of a Post.
+func FakePostSchema() *types.Schema {
+	return &types.Schema{
+		Kind: "Post",
+		Attributes: []types.Attribute{
+			{Name: "title", Type: "string"},
+			{Name: "content", Type: "string"},
+			{Name: "tags", Type: "string", Repeated: true},
+			{Name: "rating", Type: "float"},
+			{Name: "published", Type: "boolean"},
+			{Name: "comments.count", Type: "integer"},
+			{Name: "views.count", Type: "integer"},
+			{Name: "likes.count", Type: "integer"},
+			{Name: "shares.count", Type: "integer"},
+			{Name: "favorites.count", Type: "integer"},
+			{Name: "author.id", Type: "string"},
+			{Name: "author.name", Type: "string"},
+		},
+	}
+}
+
 // FakePost creates a fakerecord with fake Post data.
 func FakePost() *types.Record {
 	kind := "Post"

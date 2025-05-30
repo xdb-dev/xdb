@@ -1,6 +1,8 @@
 package types
 
 import (
+	"errors"
+	"strings"
 	"time"
 )
 
@@ -32,6 +34,19 @@ var typeNames = map[TypeID]string{
 // String returns the name of the type.
 func (t TypeID) String() string {
 	return typeNames[t]
+}
+
+// ParseType parses a type name into a TypeID.
+func ParseType(name string) (TypeID, error) {
+	name = strings.TrimSpace(strings.ToUpper(name))
+
+	for t, n := range typeNames {
+		if n == name {
+			return t, nil
+		}
+	}
+
+	return TypeUnknown, errors.New("unknown type: " + name)
 }
 
 type Type interface {
