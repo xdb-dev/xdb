@@ -144,12 +144,7 @@ func (m *Migrator) getTableColumns(ctx context.Context, name string) (map[string
 
 // sqliteTypeForField maps types.Field to SQLite types.
 func sqliteTypeForField(attr types.Attribute) (string, error) {
-	t, err := types.ParseType(attr.Type)
-	if err != nil {
-		return "", err
-	}
-
-	switch t {
+	switch attr.Type {
 	case types.TypeString:
 		return "TEXT", nil
 	case types.TypeInteger,

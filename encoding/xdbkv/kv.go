@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cast"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/x"
 )
 
 var (
@@ -91,58 +92,39 @@ func DecodeValue(flatvalue []byte) (*types.Value, error) {
 	case types.TypeString:
 		arr, ok := vv.Value.([]any)
 		if ok {
-			vv.Value = castArray(arr, cast.ToString)
+			vv.Value = x.CastArray(arr, cast.ToString)
 		} else {
 			vv.Value = cast.ToString(vv.Value)
 		}
 	case types.TypeInteger:
 		arr, ok := vv.Value.([]any)
 		if ok {
-			vv.Value = castArray(arr, cast.ToInt64)
+			vv.Value = x.CastArray(arr, cast.ToInt64)
 		} else {
 			vv.Value = cast.ToInt64(vv.Value)
 		}
 	case types.TypeFloat:
 		arr, ok := vv.Value.([]any)
 		if ok {
-			vv.Value = castArray(arr, cast.ToFloat64)
+			vv.Value = x.CastArray(arr, cast.ToFloat64)
 		} else {
 			vv.Value = cast.ToFloat64(vv.Value)
 		}
 	case types.TypeBoolean:
 		arr, ok := vv.Value.([]any)
 		if ok {
-			vv.Value = castArray(arr, cast.ToBool)
+			vv.Value = x.CastArray(arr, cast.ToBool)
 		} else {
 			vv.Value = cast.ToBool(vv.Value)
 		}
 	case types.TypeBytes:
 		arr, ok := vv.Value.([]any)
 		if ok {
-			vv.Value = castArray(arr, toBytes)
+			vv.Value = x.CastArray(arr, x.ToBytes)
 		} else {
-			vv.Value = toBytes(vv.Value)
+			vv.Value = x.ToBytes(vv.Value)
 		}
 	}
 
 	return types.NewValue(vv.Value), nil
-}
-
-func castArray[T any](v []any, f func(any) T) []T {
-	arr := make([]T, len(v))
-	for i, v := range v {
-		arr[i] = f(v)
-	}
-	return arr
-}
-
-func toBytes(v any) []byte {
-	switch v := v.(type) {
-	case []byte:
-		return v
-	case string:
-		return []byte(v)
-	default:
-		return []byte(cast.ToString(v))
-	}
 }

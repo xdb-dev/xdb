@@ -13,18 +13,18 @@ func FakePostSchema() *types.Schema {
 	return &types.Schema{
 		Kind: "Post",
 		Attributes: []types.Attribute{
-			{Name: "title", Type: "string"},
-			{Name: "content", Type: "string"},
-			{Name: "tags", Type: "string", Repeated: true},
-			{Name: "rating", Type: "float"},
-			{Name: "published", Type: "boolean"},
-			{Name: "comments.count", Type: "integer"},
-			{Name: "views.count", Type: "integer"},
-			{Name: "likes.count", Type: "integer"},
-			{Name: "shares.count", Type: "integer"},
-			{Name: "favorites.count", Type: "integer"},
-			{Name: "author.id", Type: "string"},
-			{Name: "author.name", Type: "string"},
+			{Name: "title", Type: types.TypeString},
+			{Name: "content", Type: types.TypeString},
+			{Name: "tags", Type: types.TypeString, Repeated: true},
+			{Name: "rating", Type: types.TypeFloat},
+			{Name: "published", Type: types.TypeBoolean},
+			{Name: "comments.count", Type: types.TypeInteger},
+			{Name: "views.count", Type: types.TypeInteger},
+			{Name: "likes.count", Type: types.TypeInteger},
+			{Name: "shares.count", Type: types.TypeInteger},
+			{Name: "favorites.count", Type: types.TypeInteger},
+			{Name: "author.id", Type: types.TypeString},
+			{Name: "author.name", Type: types.TypeString},
 		},
 	}
 }
@@ -61,6 +61,29 @@ func FakePosts(n int) []*types.Record {
 	}
 
 	return records
+}
+
+// FakeTupleSchema creates a fake schema for all types of tuples.
+func FakeTupleSchema() *types.Schema {
+	return &types.Schema{
+		Kind: "Test",
+		Attributes: []types.Attribute{
+			{Name: "id", Type: types.TypeString, PrimaryKey: true},
+			{Name: "string", Type: types.TypeString},
+			{Name: "int64", Type: types.TypeInteger},
+			{Name: "float", Type: types.TypeFloat},
+			{Name: "bool", Type: types.TypeBoolean},
+			{Name: "bytes", Type: types.TypeBytes},
+			{Name: "time", Type: types.TypeTime},
+			{Name: "string_array", Type: types.TypeString, Repeated: true},
+			{Name: "int64_array", Type: types.TypeInteger, Repeated: true},
+			{Name: "float_array", Type: types.TypeFloat, Repeated: true},
+			{Name: "bool_array", Type: types.TypeBoolean, Repeated: true},
+			{Name: "bytes_array", Type: types.TypeBytes, Repeated: true},
+			{Name: "time_array", Type: types.TypeTime, Repeated: true},
+			{Name: "not_found", Type: types.TypeString},
+		},
+	}
 }
 
 // FakeTuples creates a list of fake tuples covering all types.

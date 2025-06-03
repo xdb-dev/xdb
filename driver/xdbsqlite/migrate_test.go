@@ -59,7 +59,9 @@ func TestGenerateMigrations(t *testing.T) {
 	t.Run("Generate Alter Table", func(t *testing.T) {
 		buf := bytes.NewBuffer(nil)
 
-		schemas[0].Attributes = append(schemas[0].Attributes, types.Attribute{Name: "created_at", Type: "time"})
+		schemas[0].Attributes = append(schemas[0].Attributes,
+			types.Attribute{Name: "created_at", Type: types.TypeTime},
+		)
 
 		err := migrator.GenerateMigrations(context.Background(), schemas, buf)
 		require.NoError(t, err)
