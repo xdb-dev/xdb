@@ -67,3 +67,16 @@ func Map[T any, R any](items []T, fn func(T) R) []R {
 
 	return mapped
 }
+
+// Filter filters a list using a function.
+func Filter[T any](items []T, fn func(T) bool) []T {
+	filtered := make([]T, 0, len(items))
+
+	for _, item := range items {
+		if fn(item) {
+			filtered = append(filtered, item)
+		}
+	}
+
+	return filtered
+}

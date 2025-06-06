@@ -206,17 +206,141 @@ func (s *SQLStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
 
 // GetRecords gets records from the SQLite database.
 func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.Record, []*types.Key, error) {
-	return nil, nil, nil
+	if len(keys) == 0 {
+		return nil, nil, nil
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	defer tx.Rollback()
+
+	grouped := x.GroupBy(keys, func(key *types.Key) string {
+		return key.Kind()
+	})
+
+	recordsMap := make(map[string]*types.Record)
+
+	for kind, keys := range grouped {
+		ids := x.Map(keys, func(key *types.Key) string {
+			return key.ID()
+		})
+
+		schema := s.registry.Get(kind)
+		if schema == nil {
+			return nil, nil, errors.Wrap(ErrSchemaNotFound, "kind", kind)
+		}
+
+		attrs := x.Map(schema.Attributes, func(attr types.Attribute) any {
+			return attr.Name
+		})
+
+		query, args, err := goqu.Select(attrs...).
+			From(kind).
+			Where(goqu.Ex{
+				"id": ids,
+			}).
+			ToSQL()
+
+		rows, err := tx.QueryContext(ctx, query, args...)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		defer rows.Close()
+
+		for rows.Next() {
+			values := x.Map(attrs, func(attr any) any {
+				attrSchema := schema.GetAttribute(attr.(string))
+
+				return &sqlValue{Attribute: *attrSchema}
+			})
+
+			err := rows.Scan(values...)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			pk := x.Filter(values, func(v any) bool {
+				return v.(*sqlValue).Attribute.PrimaryKey
+			})
+
+			id := pk[0].(*sqlValue).Value.ToString()
+
+			record := types.NewRecord(kind, id)
+
+			for i := range attrs {
+				v := values[i].(*sqlValue)
+				record.Set(v.Name, v.Value)
+			}
+
+			recordsMap[record.Key().String()] = record
+		}
+	}
+
+	records := make([]*types.Record, 0)
+	missing := make([]*types.Key, 0)
+
+	for _, key := range keys {
+		record, ok := recordsMap[key.String()]
+		if !ok {
+			missing = append(missing, key)
+		}
+
+		records = append(records, record)
+	}
+
+	return records, missing, nil
 }
 
 // PutRecords puts records into the SQLite database.
 func (s *SQLStore) PutRecords(ctx context.Context, records []*types.Record) error {
-	return nil
+	tuples := make([]*types.Tuple, 0, len(records))
+
+	for _, record := range records {
+		tuples = append(tuples, record.Tuples()...)
+	}
+
+	return s.PutTuples(ctx, tuples)
 }
 
 // DeleteRecords deletes records from the SQLite database.
 func (s *SQLStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
-	return nil
+	if len(keys) == 0 {
+		return nil
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	defer tx.Rollback()
+
+	grouped := x.GroupBy(keys, func(key *types.Key) string {
+		return key.Kind()
+	})
+
+	for kind, keys := range grouped {
+		ids := x.Map(keys, func(key *types.Key) string {
+			return key.ID()
+		})
+
+		query, args, err := goqu.Delete(kind).
+			Where(goqu.Ex{
+				"id": ids,
+			}).
+			ToSQL()
+
+		_, err = tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 // encodeValue encodes a value to SQLite compatible type.
