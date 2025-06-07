@@ -89,21 +89,6 @@ func TestNewValue(t *testing.T) {
 			repeated: true,
 		},
 		{
-			name:     "point",
-			value:    types.Point{Lat: 1.0, Long: 2.0},
-			expected: types.TypePoint,
-			repeated: false,
-		},
-		{
-			name: "point slice",
-			value: []types.Point{
-				{Lat: 1.0, Long: 2.0},
-				{Lat: 3.0, Long: 4.0},
-			},
-			expected: types.TypePoint,
-			repeated: true,
-		},
-		{
 			name:     "unknown",
 			value:    struct{ A int }{A: 1},
 			expected: types.TypeUnknown,
@@ -120,9 +105,8 @@ func TestNewValue(t *testing.T) {
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
 			value := types.NewValue(testcase.value)
-			assert.Equal(t, testcase.expected, value.TypeID())
-			assert.Equal(t, testcase.repeated, value.Repeated())
-			assert.EqualValues(t, testcase.value, value.Unwrap())
+			assert.Equal(t, testcase.expected, value.Type().ID())
+			assert.EqualValues(t, testcase.value, value)
 		})
 	}
 }

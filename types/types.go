@@ -1,9 +1,15 @@
 package types
 
 import (
-	"errors"
+	"fmt"
 	"strings"
-	"time"
+
+	"github.com/gojekfarm/xtools/errors"
+)
+
+var (
+	// ErrUnknownType is returned when an unknown type is encountered.
+	ErrUnknownType = errors.New("unknown type")
 )
 
 // TypeID represents the type of a value.
@@ -11,29 +17,33 @@ type TypeID int
 
 const (
 	TypeUnknown TypeID = iota
-	TypeString
-	TypeInteger
-	TypeFloat
 	TypeBoolean
+	TypeInteger
+	TypeUnsigned
+	TypeFloat
+	TypeString
 	TypeBytes
 	TypeTime
-	TypePoint
+	TypeArray
+	TypeMap
 )
 
 var typeNames = map[TypeID]string{
-	TypeUnknown: "UNKNOWN",
-	TypeString:  "STRING",
-	TypeInteger: "INTEGER",
-	TypeFloat:   "FLOAT",
-	TypeBoolean: "BOOLEAN",
-	TypeBytes:   "BYTES",
-	TypeTime:    "TIME",
-	TypePoint:   "POINT",
+	TypeUnknown:  "UNKNOWN",
+	TypeBoolean:  "BOOLEAN",
+	TypeInteger:  "INTEGER",
+	TypeUnsigned: "UNSIGNED",
+	TypeFloat:    "FLOAT",
+	TypeString:   "STRING",
+	TypeBytes:    "BYTES",
+	TypeTime:     "TIME",
+	TypeArray:    "ARRAY",
+	TypeMap:      "MAP",
 }
 
 // String returns the name of the type.
 func (t TypeID) String() string {
-	return typeNames[t]
+	return fmt.Sprintf("TypeID(%s)", typeNames[t])
 }
 
 // ParseType parses a type name into a TypeID.
@@ -46,48 +56,92 @@ func ParseType(name string) (TypeID, error) {
 		}
 	}
 
-	return TypeUnknown, errors.New("unknown type: " + name)
+	return TypeUnknown, errors.Wrap(ErrUnknownType, "type", name)
 }
 
+// Type represents a type of a value.
 type Type interface {
-	Integer | Float | String | Boolean | Bytes | Hybrid
+	ID() TypeID
+	Name() string
 }
 
-// Integer is an union of all possible integer types.
-type Integer interface {
-	int | int8 | int16 | int32 | int64 |
-		[]int | []int8 | []int16 | []int32 | []int64
+var (
+	typeBoolean  = &PrimitiveType{id: TypeBoolean}
+	typeInteger  = &PrimitiveType{id: TypeInteger}
+	typeUnsigned = &PrimitiveType{id: TypeUnsigned}
+	typeFloat    = &PrimitiveType{id: TypeFloat}
+	typeString   = &PrimitiveType{id: TypeString}
+	typeBytes    = &PrimitiveType{id: TypeBytes}
+	typeTime     = &PrimitiveType{id: TypeTime}
+)
+
+// PrimitiveType represents a primitive type.
+type PrimitiveType struct {
+	id TypeID
 }
 
-// Float is an union of all possible floating point types.
-type Float interface {
-	float32 | float64 |
-		[]float32 | []float64
+// ID returns the type ID.
+func (t *PrimitiveType) ID() TypeID {
+	return t.id
 }
 
-// String is an union of all possible string types.
-type String interface {
-	string | []string
+// Name returns the name of the type.
+func (t *PrimitiveType) Name() string {
+	return typeNames[t.id]
 }
 
-// Boolean is an union of all possible boolean types.
-type Boolean interface {
-	bool | []bool
+// ArrayType represents an array type.
+type ArrayType struct {
+	valueType Type
 }
 
-// Bytes is an union of all possible byte types.
-type Bytes interface {
-	[]byte | [][]byte
+// NewArrayType creates a new array type.
+func NewArrayType(valueType Type) *ArrayType {
+	return &ArrayType{valueType: valueType}
 }
 
-// Point is a point on the Earth's surface.
-type Point struct {
-	Lat  float64 `json:"lat"`
-	Long float64 `json:"long"`
+// ValueType returns the array value type.
+func (t *ArrayType) ValueType() Type {
+	return t.valueType
 }
 
-// Hybrid is all supported composite types.
-type Hybrid interface {
-	time.Time | []time.Time |
-		Point | []Point
+// ID returns the type ID.
+func (t *ArrayType) ID() TypeID {
+	return TypeArray
+}
+
+// Name returns the name of the type.
+func (t *ArrayType) Name() string {
+	return typeNames[TypeArray]
+}
+
+// MapType represents a map type.
+type MapType struct {
+	keyType   Type
+	valueType Type
+}
+
+// NewMapType creates a new map type.
+func NewMapType(keyType, valueType Type) *MapType {
+	return &MapType{keyType: keyType, valueType: valueType}
+}
+
+// KeyType returns the key type.
+func (t *MapType) KeyType() Type {
+	return t.keyType
+}
+
+// ValueType returns the value type.
+func (t *MapType) ValueType() Type {
+	return t.valueType
+}
+
+// ID returns the type ID.
+func (t *MapType) ID() TypeID {
+	return TypeMap
+}
+
+// Name returns the name of the type.
+func (t *MapType) Name() string {
+	return typeNames[TypeMap]
 }

@@ -37,7 +37,7 @@ func ExampleTuple() {
 	fmt.Println(tuple.Kind())
 	fmt.Println(tuple.ID())
 	fmt.Println(tuple.Attr())
-	fmt.Println(tuple.Value().ToString())
+	fmt.Println(tuple.Value())
 
 	// Output:
 	// User
@@ -54,9 +54,9 @@ func ExampleRecord() {
 		Set("interests", []string{"reading", "traveling", "coding"})
 
 	// Reading attributes
-	fmt.Println(record.Get("name").ToString())
-	fmt.Println(record.Get("age").ToInt())
-	fmt.Println(record.Get("interests").ToStringSlice())
+	fmt.Println(record.Get("name"))
+	fmt.Println(record.Get("age"))
+	fmt.Println(record.Get("interests"))
 
 	// Output:
 	// John Doe
