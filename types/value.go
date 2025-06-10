@@ -3,12 +3,22 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/gojekfarm/xtools/errors"
+)
+
+var (
+	// ErrUnsupportedValue is returned when a value is not supported.
+	ErrUnsupportedValue = errors.New("xdb/types: unsupported value")
 )
 
 // Value represents an attribute value.
 type Value interface {
 	Type() Type
+	String() string
 }
 
 // NewValue creates a new value.
@@ -35,7 +45,7 @@ func NewSafeValue(input any) (Value, error) {
 
 	iv := reflect.ValueOf(input)
 
-	if iv.Kind() == reflect.Ptr {
+	for iv.Kind() == reflect.Ptr {
 		iv = iv.Elem()
 	}
 
@@ -45,23 +55,30 @@ func NewSafeValue(input any) (Value, error) {
 func newValue(iv reflect.Value) (Value, error) {
 	switch iv.Kind() {
 	case reflect.Bool:
-		b := Bool(iv.Interface().(bool))
-		return &b, nil
+		return Bool(iv.Bool()), nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		i := Int64(iv.Interface().(int64))
-		return &i, nil
+		return Int64(iv.Int()), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		u := Uint64(iv.Interface().(uint64))
-		return &u, nil
+		return Uint64(iv.Uint()), nil
 	case reflect.Float32, reflect.Float64:
-		f := Float64(iv.Interface().(float64))
-		return &f, nil
+		return Float64(iv.Float()), nil
 	case reflect.String:
-		s := String(iv.Interface().(string))
-		return &s, nil
+		return String(iv.String()), nil
+	case reflect.Struct:
+		if iv.Type() == reflect.TypeOf(time.Time{}) {
+			return Time(iv.Interface().(time.Time)), nil
+		}
+
+		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
 	case reflect.Slice:
 		if iv.Len() == 0 {
 			return nil, nil
+		}
+
+		first := iv.Index(0)
+
+		if first.Kind() == reflect.Uint8 {
+			return Bytes(iv.Interface().([]byte)), nil
 		}
 
 		arr := make([]Value, iv.Len())
@@ -124,36 +141,64 @@ type (
 	Time    time.Time
 )
 
-func (b *Bool) Type() Type {
+func (b Bool) Type() Type {
 	return typeBoolean
 }
 
-func (t *Int64) Type() Type {
+func (b Bool) String() string {
+	return strconv.FormatBool(bool(b))
+}
+
+func (t Int64) Type() Type {
 	return typeInteger
 }
 
-func (t *Uint64) Type() Type {
+func (t Int64) String() string {
+	return strconv.FormatInt(int64(t), 10)
+}
+
+func (t Uint64) Type() Type {
 	return typeUnsigned
 }
 
-func (t *Float64) Type() Type {
+func (t Uint64) String() string {
+	return strconv.FormatUint(uint64(t), 10)
+}
+
+func (t Float64) Type() Type {
 	return typeFloat
 }
 
-func (t *String) Type() Type {
+func (t Float64) String() string {
+	return strconv.FormatFloat(float64(t), 'f', -1, 64)
+}
+
+func (t String) Type() Type {
 	return typeString
 }
 
-func (t *Bytes) Type() Type {
+func (t String) String() string {
+	return string(t)
+}
+
+func (t Bytes) Type() Type {
 	return typeBytes
 }
 
-func (t *Time) Type() Type {
+func (t Bytes) String() string {
+	return string(t)
+}
+
+func (t Time) Type() Type {
 	return typeTime
 }
 
+func (t Time) String() string {
+	return time.Time(t).Format(time.RFC3339)
+}
+
 type Array struct {
-	typ    *ArrayType
+	typ    ArrayType
 	values []Value
 }
 
@@ -166,6 +211,15 @@ func NewArray(t Type, values ...Value) *Array {
 
 func (t *Array) Type() Type {
 	return t.typ
+}
+
+func (t *Array) String() string {
+	values := make([]string, len(t.values))
+	for i, v := range t.values {
+		values[i] = v.String()
+	}
+
+	return fmt.Sprintf("[%s]", strings.Join(values, ", "))
 }
 
 func (t *Array) Values() []Value {
@@ -182,7 +236,7 @@ func (t *Array) Get(i int) Value {
 }
 
 type Map struct {
-	typ    *MapType
+	typ    MapType
 	values map[Value]Value
 }
 
@@ -195,6 +249,17 @@ func NewMap(kt, vt Type) *Map {
 
 func (t *Map) Type() Type {
 	return t.typ
+}
+
+func (t *Map) String() string {
+	values := make([]string, 0, len(t.values))
+	for k, v := range t.values {
+		values = append(values,
+			fmt.Sprintf("%s: %s", k.String(), v.String()),
+		)
+	}
+
+	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
 }
 
 func (t *Map) Values() map[Value]Value {

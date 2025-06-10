@@ -9,7 +9,7 @@ import (
 
 var (
 	// ErrUnknownType is returned when an unknown type is encountered.
-	ErrUnknownType = errors.New("unknown type")
+	ErrUnknownType = errors.New("xdb/types: unknown type")
 )
 
 // TypeID represents the type of a value.
@@ -66,13 +66,13 @@ type Type interface {
 }
 
 var (
-	typeBoolean  = &PrimitiveType{id: TypeBoolean}
-	typeInteger  = &PrimitiveType{id: TypeInteger}
-	typeUnsigned = &PrimitiveType{id: TypeUnsigned}
-	typeFloat    = &PrimitiveType{id: TypeFloat}
-	typeString   = &PrimitiveType{id: TypeString}
-	typeBytes    = &PrimitiveType{id: TypeBytes}
-	typeTime     = &PrimitiveType{id: TypeTime}
+	typeBoolean  = PrimitiveType{id: TypeBoolean}
+	typeInteger  = PrimitiveType{id: TypeInteger}
+	typeUnsigned = PrimitiveType{id: TypeUnsigned}
+	typeFloat    = PrimitiveType{id: TypeFloat}
+	typeString   = PrimitiveType{id: TypeString}
+	typeBytes    = PrimitiveType{id: TypeBytes}
+	typeTime     = PrimitiveType{id: TypeTime}
 )
 
 // PrimitiveType represents a primitive type.
@@ -81,12 +81,12 @@ type PrimitiveType struct {
 }
 
 // ID returns the type ID.
-func (t *PrimitiveType) ID() TypeID {
+func (t PrimitiveType) ID() TypeID {
 	return t.id
 }
 
 // Name returns the name of the type.
-func (t *PrimitiveType) Name() string {
+func (t PrimitiveType) Name() string {
 	return typeNames[t.id]
 }
 
@@ -96,22 +96,22 @@ type ArrayType struct {
 }
 
 // NewArrayType creates a new array type.
-func NewArrayType(valueType Type) *ArrayType {
-	return &ArrayType{valueType: valueType}
+func NewArrayType(valueType Type) ArrayType {
+	return ArrayType{valueType: valueType}
 }
 
 // ValueType returns the array value type.
-func (t *ArrayType) ValueType() Type {
+func (t ArrayType) ValueType() Type {
 	return t.valueType
 }
 
 // ID returns the type ID.
-func (t *ArrayType) ID() TypeID {
+func (t ArrayType) ID() TypeID {
 	return TypeArray
 }
 
 // Name returns the name of the type.
-func (t *ArrayType) Name() string {
+func (t ArrayType) Name() string {
 	return typeNames[TypeArray]
 }
 
@@ -122,26 +122,26 @@ type MapType struct {
 }
 
 // NewMapType creates a new map type.
-func NewMapType(keyType, valueType Type) *MapType {
-	return &MapType{keyType: keyType, valueType: valueType}
+func NewMapType(keyType, valueType Type) MapType {
+	return MapType{keyType: keyType, valueType: valueType}
 }
 
 // KeyType returns the key type.
-func (t *MapType) KeyType() Type {
+func (t MapType) KeyType() Type {
 	return t.keyType
 }
 
 // ValueType returns the value type.
-func (t *MapType) ValueType() Type {
+func (t MapType) ValueType() Type {
 	return t.valueType
 }
 
 // ID returns the type ID.
-func (t *MapType) ID() TypeID {
+func (t MapType) ID() TypeID {
 	return TypeMap
 }
 
 // Name returns the name of the type.
-func (t *MapType) Name() string {
+func (t MapType) Name() string {
 	return typeNames[TypeMap]
 }
