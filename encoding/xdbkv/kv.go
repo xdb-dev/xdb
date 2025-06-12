@@ -7,10 +7,8 @@ import (
 	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
-	"github.com/spf13/cast"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/xdb-dev/xdb/types"
-	"github.com/xdb-dev/xdb/x"
 )
 
 var (
@@ -63,68 +61,52 @@ func DecodeKey(key []byte) (*types.Key, error) {
 	return types.NewKey(parts...), nil
 }
 
-type value struct {
-	TypeID   types.TypeID `msgpack:"t"`
-	Repeated bool         `msgpack:"r"`
-	Value    any          `msgpack:"v"`
-}
-
 // EncodeValue encodes a types.Value to []byte.
-func EncodeValue(v *types.Value) ([]byte, error) {
-	vv := value{
-		TypeID:   v.TypeID(),
-		Value:    v.Unwrap(),
-		Repeated: v.Repeated(),
+func EncodeValue(v types.Value) ([]byte, error) {
+	switch v := v.(type) {
+	case types.Bool:
+		return msgpack.Marshal(&boolExt{v})
+	case types.Int64:
+		return msgpack.Marshal(&int64Ext{v})
+	case types.Uint64:
+		return msgpack.Marshal(&uint64Ext{v})
+	case types.Float64:
+		return msgpack.Marshal(&float64Ext{v})
+	case types.String:
+		return msgpack.Marshal(&stringExt{v})
+	case types.Bytes:
+		return msgpack.Marshal(&bytesExt{v})
+	case types.Time:
+		return msgpack.Marshal(&timeExt{v})
+	default:
+		return msgpack.Marshal(v)
 	}
-
-	return msgpack.Marshal(vv)
 }
 
 // DecodeValue decodes a []byte to a types.Value.
-func DecodeValue(flatvalue []byte) (*types.Value, error) {
-	var vv value
-	err := msgpack.Unmarshal(flatvalue, &vv)
+func DecodeValue(flatvalue []byte) (types.Value, error) {
+	var v any
+	err := msgpack.Unmarshal(flatvalue, &v)
 	if err != nil {
 		return nil, err
 	}
 
-	switch vv.TypeID {
-	case types.TypeString:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, cast.ToString)
-		} else {
-			vv.Value = cast.ToString(vv.Value)
-		}
-	case types.TypeInteger:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, cast.ToInt64)
-		} else {
-			vv.Value = cast.ToInt64(vv.Value)
-		}
-	case types.TypeFloat:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, cast.ToFloat64)
-		} else {
-			vv.Value = cast.ToFloat64(vv.Value)
-		}
-	case types.TypeBoolean:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, cast.ToBool)
-		} else {
-			vv.Value = cast.ToBool(vv.Value)
-		}
-	case types.TypeBytes:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, x.ToBytes)
-		} else {
-			vv.Value = x.ToBytes(vv.Value)
-		}
+	switch vv := v.(type) {
+	case *boolExt:
+		return types.Bool(vv.Bool), nil
+	case *int64Ext:
+		return types.Int64(vv.Int64), nil
+	case *uint64Ext:
+		return types.Uint64(vv.Uint64), nil
+	case *float64Ext:
+		return types.Float64(vv.Float64), nil
+	case *stringExt:
+		return types.String(vv.String), nil
+	case *bytesExt:
+		return types.Bytes(vv.Bytes), nil
+	case *timeExt:
+		return types.Time(vv.Time), nil
+	default:
+		return nil, fmt.Errorf("unsupported value type: %T", v)
 	}
-
-	return types.NewValue(vv.Value), nil
 }
