@@ -20,7 +20,6 @@ func (s *Schema) GetAttribute(name string) *Attribute {
 // Attribute defines a single attribute in a record.
 type Attribute struct {
 	Name       string `json:"name" yaml:"name"`
-	Type       TypeID `json:"type" yaml:"type"`
+	Type       Type   `json:"type" yaml:"type"`
 	PrimaryKey bool   `json:"primary_key" yaml:"primary_key"`
-	Repeated   bool   `json:"repeated" yaml:"repeated"`
 }

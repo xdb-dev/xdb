@@ -65,35 +65,68 @@ type Type interface {
 	Name() string
 }
 
-var (
-	typeBoolean  = PrimitiveType{id: TypeBoolean}
-	typeInteger  = PrimitiveType{id: TypeInteger}
-	typeUnsigned = PrimitiveType{id: TypeUnsigned}
-	typeFloat    = PrimitiveType{id: TypeFloat}
-	typeString   = PrimitiveType{id: TypeString}
-	typeBytes    = PrimitiveType{id: TypeBytes}
-	typeTime     = PrimitiveType{id: TypeTime}
-)
-
-// PrimitiveType represents a primitive type.
-type PrimitiveType struct {
-	id TypeID
-}
-
-// NewPrimitiveType creates a new primitive type.
-func NewPrimitiveType(id TypeID) PrimitiveType {
-	return PrimitiveType{id: id}
-}
+// BooleanType represents a boolean type.
+type BooleanType struct{}
 
 // ID returns the type ID.
-func (t PrimitiveType) ID() TypeID {
-	return t.id
-}
+func (t BooleanType) ID() TypeID { return TypeBoolean }
 
 // Name returns the name of the type.
-func (t PrimitiveType) Name() string {
-	return typeNames[t.id]
-}
+func (t BooleanType) Name() string { return typeNames[TypeBoolean] }
+
+// IntegerType represents an integer type.
+type IntegerType struct{}
+
+// ID returns the type ID.
+func (t IntegerType) ID() TypeID { return TypeInteger }
+
+// Name returns the name of the type.
+func (t IntegerType) Name() string { return typeNames[TypeInteger] }
+
+// UnsignedType represents an unsigned integer type.
+type UnsignedType struct{}
+
+// ID returns the type ID.
+func (t UnsignedType) ID() TypeID { return TypeUnsigned }
+
+// Name returns the name of the type.
+func (t UnsignedType) Name() string { return typeNames[TypeUnsigned] }
+
+// FloatType represents a float type.
+type FloatType struct{}
+
+// ID returns the type ID.
+func (t FloatType) ID() TypeID { return TypeFloat }
+
+// Name returns the name of the type.
+func (t FloatType) Name() string { return typeNames[TypeFloat] }
+
+// StringType represents a string type.
+type StringType struct{}
+
+// ID returns the type ID.
+func (t StringType) ID() TypeID { return TypeString }
+
+// Name returns the name of the type.
+func (t StringType) Name() string { return typeNames[TypeString] }
+
+// BytesType represents a bytes type.
+type BytesType struct{}
+
+// ID returns the type ID.
+func (t BytesType) ID() TypeID { return TypeBytes }
+
+// Name returns the name of the type.
+func (t BytesType) Name() string { return typeNames[TypeBytes] }
+
+// TimeType represents a time type.
+type TimeType struct{}
+
+// ID returns the type ID.
+func (t TimeType) ID() TypeID { return TypeTime }
+
+// Name returns the name of the type.
+func (t TimeType) Name() string { return typeNames[TypeTime] }
 
 // ArrayType represents an array type.
 type ArrayType struct {

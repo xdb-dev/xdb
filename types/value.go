@@ -132,71 +132,55 @@ func newValue(iv reflect.Value) (Value, error) {
 	}
 }
 
-type (
-	Bool    bool
-	Int64   int64
-	Uint64  uint64
-	Float64 float64
-	String  string
-	Bytes   []byte
-	Time    time.Time
-)
+type Bool bool
 
-func (b Bool) Type() Type {
-	return typeBoolean
-}
+func (b Bool) Type() Type { return BooleanType{} }
 
 func (b Bool) String() string {
 	return strconv.FormatBool(bool(b))
 }
 
-func (t Int64) Type() Type {
-	return typeInteger
-}
+type Int64 int64
+
+func (t Int64) Type() Type { return IntegerType{} }
 
 func (t Int64) String() string {
 	return strconv.FormatInt(int64(t), 10)
 }
 
-func (t Uint64) Type() Type {
-	return typeUnsigned
-}
+type Uint64 uint64
+
+func (t Uint64) Type() Type { return UnsignedType{} }
 
 func (t Uint64) String() string {
 	return strconv.FormatUint(uint64(t), 10)
 }
 
-func (t Float64) Type() Type {
-	return typeFloat
-}
+type Float64 float64
+
+func (t Float64) Type() Type { return FloatType{} }
 
 func (t Float64) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 64)
 }
 
-func (t String) Type() Type {
-	return typeString
-}
+type String string
 
-func (t String) String() string {
-	return string(t)
-}
+func (t String) Type() Type { return StringType{} }
 
-func (t Bytes) Type() Type {
-	return typeBytes
-}
+func (t String) String() string { return string(t) }
 
-func (t Bytes) String() string {
-	return string(t)
-}
+type Bytes []byte
 
-func (t Time) Type() Type {
-	return typeTime
-}
+func (t Bytes) Type() Type { return BytesType{} }
 
-func (t Time) String() string {
-	return time.Time(t).Format(time.RFC3339)
-}
+func (t Bytes) String() string { return string(t) }
+
+type Time time.Time
+
+func (t Time) Type() Type { return TimeType{} }
+
+func (t Time) String() string { return time.Time(t).Format(time.RFC3339) }
 
 type Array struct {
 	typ    ArrayType
@@ -210,9 +194,7 @@ func NewArray(t Type, values ...Value) *Array {
 	}
 }
 
-func (t *Array) Type() Type {
-	return t.typ
-}
+func (t *Array) Type() Type { return t.typ }
 
 func (t *Array) String() string {
 	values := make([]string, len(t.values))

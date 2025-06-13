@@ -83,7 +83,7 @@ func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 						return nil
 					}
 
-					return &sqlValue{Attribute: *attrSchema}
+					return &sqlValue{attr: attrSchema}
 				})
 
 				err := rows.Scan(dest...)
@@ -92,7 +92,7 @@ func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 				}
 
 				for i, attr := range attrs {
-					val := dest[i].(*sqlValue).Value
+					val := dest[i].(*sqlValue).value
 					if val == nil {
 						continue
 					}
@@ -273,7 +273,7 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 				return v.(*sqlValue).attr.PrimaryKey
 			})
 
-			id := pk[0].(*sqlValue).value.ToString()
+			id := pk[0].(*sqlValue).value.String()
 
 			record := types.NewRecord(kind, id)
 
@@ -413,25 +413,45 @@ func (s *sqlValue) Scan(src any) error {
 	if src == nil {
 		return nil
 	}
-	switch s.attr.Type {
-	case types.TypeString:
-		s.value = types.String(cast.ToString(src))
-	case types.TypeInteger:
-		s.value = types.Int64(cast.ToInt64(src))
-	case types.TypeFloat:
-		s.value = types.Float64(cast.ToFloat64(src))
-	case types.TypeBoolean:
-		s.value = types.Bool(cast.ToBool(src))
-	case types.TypeBytes:
-		s.value = types.Bytes(src.([]byte))
-	case types.TypeTime:
-		s.value = types.Time(time.UnixMilli(cast.ToInt64(src)))
+	switch s.attr.Type.ID() {
 	case types.TypeArray:
 		var decoded []any
 		if err := json.Unmarshal(src.([]byte), &decoded); err != nil {
 			return err
 		}
 
+		s.value = castValue(decoded, s.attr.Type)
+	default:
+		s.value = castValue(src, s.attr.Type)
 	}
+
+	return nil
+}
+
+func castValue(src any, typ types.Type) types.Value {
+	switch typ.ID() {
+	case types.TypeBoolean:
+		return types.Bool(cast.ToBool(src))
+	case types.TypeInteger:
+		return types.Int64(cast.ToInt64(src))
+	case types.TypeUnsigned:
+		return types.Uint64(cast.ToUint64(src))
+	case types.TypeFloat:
+		return types.Float64(cast.ToFloat64(src))
+	case types.TypeString:
+		return types.String(cast.ToString(src))
+	case types.TypeBytes:
+		return types.Bytes(src.([]byte))
+	case types.TypeTime:
+		return types.Time(time.UnixMilli(cast.ToInt64(src)))
+	case types.TypeArray:
+		at := typ.(types.ArrayType)
+		values := x.Map(src.([]any), func(v any) types.Value {
+			return castValue(v, at.ValueType())
+		})
+
+		return types.NewArray(at.ValueType(), values...)
+	}
+
 	return nil
 }
