@@ -6,7 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/x"
 )
 
 func TestMemoryDriver_Tuples(t *testing.T) {
@@ -55,15 +57,12 @@ func TestMemoryDriver_Tuples(t *testing.T) {
 }
 
 func TestMemoryDriver_Records(t *testing.T) {
+	t.Parallel()
+
 	driver := New()
 	ctx := context.Background()
-
-	records := []*types.Record{
-		types.NewRecord("User", "1").
-			Set("name", "Alice"),
-		types.NewRecord("User", "2").
-			Set("name", "Bob"),
-	}
+	records := tests.FakePosts(2)
+	keys := x.Keys(records...)
 
 	t.Run("PutRecords", func(t *testing.T) {
 		err := driver.PutRecords(ctx, records)
@@ -71,32 +70,21 @@ func TestMemoryDriver_Records(t *testing.T) {
 	})
 
 	t.Run("GetRecords", func(t *testing.T) {
-		records, missed, err := driver.GetRecords(ctx, []*types.Key{
-			types.NewKey("User", "1"),
-			types.NewKey("User", "2"),
-		})
+		records, missed, err := driver.GetRecords(ctx, keys)
 		assert.NoError(t, err)
-		assert.Empty(t, missed)
-		assert.Equal(t, records[0].Key().String(), "Key(User/1)")
-		assert.Equal(t, records[1].Key().String(), "Key(User/2)")
+		assert.Len(t, missed, 0)
+		tests.AssertEqualRecords(t, records, records)
 	})
 
 	t.Run("DeleteRecords", func(t *testing.T) {
-		err := driver.DeleteRecords(ctx, []*types.Key{
-			types.NewKey("User", "1"),
-		})
+		err := driver.DeleteRecords(ctx, keys)
 		assert.NoError(t, err)
 	})
 
 	t.Run("GetRecords after deletion", func(t *testing.T) {
-		records, missed, err := driver.GetRecords(ctx, []*types.Key{
-			types.NewKey("User", "1"),
-			types.NewKey("User", "2"),
-		})
+		records, missed, err := driver.GetRecords(ctx, keys)
 		assert.NoError(t, err)
-		assert.Equal(t, len(records), 1)
-		assert.Equal(t, len(missed), 1)
-		assert.Equal(t, records[0].Key().String(), "Key(User/2)")
-		assert.Equal(t, missed[0].String(), "Key(User/1)")
+		assert.Len(t, records, 0)
+		tests.AssertEqualKeys(t, missed, keys)
 	})
 }
