@@ -80,6 +80,11 @@ type PrimitiveType struct {
 	id TypeID
 }
 
+// NewPrimitiveType creates a new primitive type.
+func NewPrimitiveType(id TypeID) PrimitiveType {
+	return PrimitiveType{id: id}
+}
+
 // ID returns the type ID.
 func (t PrimitiveType) ID() TypeID {
 	return t.id

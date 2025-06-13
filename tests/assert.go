@@ -95,3 +95,14 @@ func AssertEqualKey(t *testing.T, expected, actual *types.Key) {
 
 	assert.Equal(t, expected.String(), actual.String(), "key mismatch")
 }
+
+// AssertEqualValues asserts that two values are equal.
+func AssertEqualValues(t *testing.T, expected, actual any) {
+	t.Helper()
+
+	ev := types.NewValue(expected)
+	av := types.NewValue(actual)
+
+	assert.Equal(t, ev.Type(), av.Type(), "value type mismatch")
+	assert.EqualValues(t, ev, av, "value mismatch")
+}

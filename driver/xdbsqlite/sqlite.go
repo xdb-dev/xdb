@@ -3,7 +3,7 @@ package xdbsqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
+	sqldriver "database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -26,8 +26,9 @@ var (
 )
 
 var (
-	ErrSchemaNotFound = errors.New("xdb/driver/xdbsqlite: schema not found")
-	ErrUnknownAttr    = errors.New("xdb/driver/xdbsqlite: unknown attribute")
+	ErrSchemaNotFound   = errors.New("xdb/driver/xdbsqlite: schema not found")
+	ErrUnknownAttr      = errors.New("xdb/driver/xdbsqlite: unknown attribute")
+	ErrUnsupportedValue = errors.New("xdb/driver/xdbsqlite: unsupported value type")
 )
 
 // SQLStore is a store that uses SQLite as the underlying database.
@@ -131,15 +132,20 @@ func (s *SQLStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 	defer tx.Rollback()
 
 	for kind, rows := range grouped {
+		schema := s.registry.Get(kind)
+		if schema == nil {
+			return errors.Wrap(ErrSchemaNotFound, "kind", kind)
+		}
+
 		for id, tuples := range rows {
 			insertRecord := goqu.Record{"id": id}
 			updateRecord := goqu.Record{}
 
 			for _, tuple := range tuples {
 				attr := tuple.Attr()
-				val, err := s.encodeValue(tuple.Value())
-				if err != nil {
-					return err
+				val := &sqlValue{
+					attr:  schema.GetAttribute(attr),
+					value: tuple.Value(),
 				}
 
 				insertRecord[attr] = val
@@ -255,7 +261,7 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 			values := x.Map(attrs, func(attr any) any {
 				attrSchema := schema.GetAttribute(attr.(string))
 
-				return &sqlValue{Attribute: *attrSchema}
+				return &sqlValue{attr: attrSchema}
 			})
 
 			err := rows.Scan(values...)
@@ -264,16 +270,16 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 			}
 
 			pk := x.Filter(values, func(v any) bool {
-				return v.(*sqlValue).Attribute.PrimaryKey
+				return v.(*sqlValue).attr.PrimaryKey
 			})
 
-			id := pk[0].(*sqlValue).Value.ToString()
+			id := pk[0].(*sqlValue).value.ToString()
 
 			record := types.NewRecord(kind, id)
 
 			for i := range attrs {
 				v := values[i].(*sqlValue)
-				record.Set(v.Name, v.Value)
+				record.Set(v.attr.Name, v.value)
 			}
 
 			recordsMap[record.Key().String()] = record
@@ -343,7 +349,12 @@ func (s *SQLStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
 	return tx.Commit()
 }
 
-// encodeValue encodes a value to SQLite compatible type.
+type sqlValue struct {
+	attr  *types.Attribute
+	value types.Value
+}
+
+// Value returns a SQLite compatible type for a xdb/types.Value.
 // mapping:
 // - string -> TEXT
 // - int -> INTEGER
@@ -359,99 +370,68 @@ func (s *SQLStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
 // - []bytes -> TEXT(JSON)
 // - []time -> TEXT(JSON)
 // - []point -> TEXT(JSON)
-func (s *SQLStore) encodeValue(value *types.Value) (any, error) {
-	if value.Repeated() {
-		switch value.TypeID() {
-		case types.TypeInteger:
-			// convert to string array to maintain precision
-			// integer can be lossy when converted to float in JSON
-			return json.Marshal(value.ToStringSlice())
-		default:
-			return json.Marshal(value.Unwrap())
+func (s *sqlValue) Value() (sqldriver.Value, error) {
+	switch v := s.value.(type) {
+	case types.Bool:
+		if v {
+			return 1, nil
 		}
-	}
 
-	switch value.TypeID() {
-	case types.TypeString:
-		return value.ToString(), nil
-	case types.TypeInteger:
-		return value.ToInt(), nil
-	case types.TypeFloat:
-		return value.ToFloat(), nil
-	case types.TypeBoolean:
-		return value.ToBool(), nil
-	case types.TypeBytes:
-		return value.ToBytes(), nil
-	case types.TypeTime:
-		return value.ToTime().UnixMilli(), nil
-	case types.TypePoint:
-		return value.ToPoint(), nil
-	}
+		return 0, nil
+	case types.Int64:
+		return int64(v), nil
+	case types.Uint64:
+		return uint64(v), nil
+	case types.Float64:
+		return float64(v), nil
+	case types.String:
+		return string(v), nil
+	case types.Bytes:
+		return v, nil
+	case types.Time:
+		return time.Time(v).UnixMilli(), nil
+	case *types.Array:
+		at := v.Type().(types.ArrayType)
+		switch at.ValueType().ID() {
+		case types.TypeInteger:
+			// Convert integers to strings to maintain precision
+			values := x.Map(v.Values(), func(v types.Value) string {
+				return fmt.Sprintf("%d", v)
+			})
 
-	return nil, fmt.Errorf("unsupported value type: %s", value.TypeID())
+			return json.Marshal(values)
+		default:
+			return json.Marshal(v.Values())
+		}
+	default:
+		return nil, errors.Wrap(ErrUnsupportedValue, "type", s.value.Type().Name())
+	}
 }
 
-type sqlValue struct {
-	types.Attribute
-	Value *types.Value
-}
-
-func (v *sqlValue) Scan(src any) error {
+// Scan converts a SQLite compatible type to a xdb/types.Value.
+func (s *sqlValue) Scan(src any) error {
 	if src == nil {
 		return nil
 	}
-
-	var decoded any
-
-	if v.Attribute.Repeated {
-		var val []any
-		if err := json.Unmarshal(src.([]byte), &val); err != nil {
+	switch s.attr.Type {
+	case types.TypeString:
+		s.value = types.String(cast.ToString(src))
+	case types.TypeInteger:
+		s.value = types.Int64(cast.ToInt64(src))
+	case types.TypeFloat:
+		s.value = types.Float64(cast.ToFloat64(src))
+	case types.TypeBoolean:
+		s.value = types.Bool(cast.ToBool(src))
+	case types.TypeBytes:
+		s.value = types.Bytes(src.([]byte))
+	case types.TypeTime:
+		s.value = types.Time(time.UnixMilli(cast.ToInt64(src)))
+	case types.TypeArray:
+		var decoded []any
+		if err := json.Unmarshal(src.([]byte), &decoded); err != nil {
 			return err
 		}
 
-		switch v.Attribute.Type {
-		case types.TypeString:
-			decoded = x.CastArray(val, cast.ToString)
-		case types.TypeInteger:
-			decoded = x.CastArray(val, cast.ToInt64)
-		case types.TypeFloat:
-			decoded = x.CastArray(val, cast.ToFloat64)
-		case types.TypeBoolean:
-			decoded = x.CastArray(val, cast.ToBool)
-		case types.TypeBytes:
-			decoded = x.Map(val, func(v any) []byte {
-				decoded, err := base64.StdEncoding.DecodeString(v.(string))
-				if err != nil {
-					return nil
-				}
-
-				return decoded
-			})
-		case types.TypeTime:
-			decoded = x.CastArray(val, func(v any) time.Time {
-				return time.UnixMilli(cast.ToInt64(v))
-			})
-		}
-	} else {
-		switch v.Attribute.Type {
-		case types.TypeString:
-			decoded = cast.ToString(src)
-		case types.TypeInteger:
-			decoded = cast.ToInt64(src)
-		case types.TypeFloat:
-			decoded = cast.ToFloat64(src)
-		case types.TypeBoolean:
-			decoded = cast.ToBool(src)
-		case types.TypeBytes:
-			decoded = x.ToBytes(src)
-		case types.TypeTime:
-			decoded = time.UnixMilli(cast.ToInt64(src))
-		}
 	}
-
-	if decoded != nil {
-		v.Value = types.NewValue(decoded)
-	}
-
 	return nil
 }

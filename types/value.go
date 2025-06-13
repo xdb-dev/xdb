@@ -65,12 +65,13 @@ func newValue(iv reflect.Value) (Value, error) {
 	case reflect.String:
 		return String(iv.String()), nil
 	case reflect.Struct:
+		// Well-known types
 		if iv.Type() == reflect.TypeOf(time.Time{}) {
 			return Time(iv.Interface().(time.Time)), nil
 		}
 
 		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
-	case reflect.Slice:
+	case reflect.Slice, reflect.Array:
 		if iv.Len() == 0 {
 			return nil, nil
 		}
@@ -91,7 +92,7 @@ func newValue(iv reflect.Value) (Value, error) {
 			arr[i] = v
 		}
 
-		return NewArray(NewArrayType(arr[0].Type()), arr...), nil
+		return NewArray(arr[0].Type(), arr...), nil
 	case reflect.Map:
 		if iv.Len() == 0 {
 			return nil, nil
@@ -127,7 +128,7 @@ func newValue(iv reflect.Value) (Value, error) {
 
 		return mp, nil
 	default:
-		return nil, fmt.Errorf("unsupported value type: %T", iv.Interface())
+		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
 	}
 }
 

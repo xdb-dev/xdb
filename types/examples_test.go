@@ -54,9 +54,9 @@ func ExampleRecord() {
 		Set("interests", []string{"reading", "traveling", "coding"})
 
 	// Reading attributes
-	fmt.Println(record.Get("name"))
-	fmt.Println(record.Get("age"))
-	fmt.Println(record.Get("interests"))
+	fmt.Println(record.Get("name").ToString())
+	fmt.Println(record.Get("age").ToInt())
+	fmt.Println(record.Get("interests").ToStringArray())
 
 	// Output:
 	// John Doe
