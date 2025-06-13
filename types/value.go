@@ -3,79 +3,274 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gojekfarm/xtools/errors"
+)
+
+var (
+	// ErrUnsupportedValue is returned when a value is not supported.
+	ErrUnsupportedValue = errors.New("xdb/types: unsupported value")
 )
 
 // Value represents an attribute value.
-type Value struct {
-	tid      TypeID
-	repeated bool
-	val      any
+type Value interface {
+	Type() Type
+	String() string
 }
 
-// NewValue creates a new value of the given type.
-func NewValue(value any) *Value {
-	if value == nil {
-		return nil
+// NewValue creates a new value.
+// Panics if the value is not supported.
+func NewValue(input any) Value {
+	v, err := NewSafeValue(input)
+	if err != nil {
+		panic(err)
 	}
 
-	if vv, ok := value.(*Value); ok {
-		return vv
+	return v
+}
+
+// NewSafeValue creates a new value.
+// Returns an error if the value is not supported.
+func NewSafeValue(input any) (Value, error) {
+	if input == nil {
+		return nil, nil
 	}
 
-	tid, repeated := TypeIDOf(value)
-	return &Value{tid: tid, val: value, repeated: repeated}
+	if v, ok := input.(Value); ok {
+		return v, nil
+	}
+
+	iv := reflect.ValueOf(input)
+
+	for iv.Kind() == reflect.Ptr {
+		iv = iv.Elem()
+	}
+
+	return newValue(iv)
 }
 
-// Unwrap returns the value as is.
-func (v *Value) Unwrap() any {
-	return v.val
-}
-
-// TypeID returns the type ID of the value.
-func (v *Value) TypeID() TypeID {
-	return v.tid
-}
-
-// Repeated returns whether the value is an array.
-func (v *Value) Repeated() bool {
-	return v.repeated
-}
-
-// String returns a string representation.
-func (v *Value) String() string {
-	return fmt.Sprintf("Value(%s, %v)", v.tid.String(), v.val)
-}
-
-// TypeIDOf returns the TypeID and whether the value is an array.
-func TypeIDOf(value any) (TypeID, bool) {
-	kind := reflect.TypeOf(value).Kind()
-	switch kind {
-	case reflect.Array, reflect.Slice:
-		first := reflect.ValueOf(value).Index(0)
-		if first.Kind() == reflect.Uint8 {
-			return TypeBytes, false
-		}
-
-		t, _ := TypeIDOf(first.Interface())
-		return t, true
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return TypeInteger, false
-	case reflect.Float32, reflect.Float64:
-		return TypeFloat, false
-	case reflect.String:
-		return TypeString, false
+func newValue(iv reflect.Value) (Value, error) {
+	switch iv.Kind() {
 	case reflect.Bool:
-		return TypeBoolean, false
+		return Bool(iv.Bool()), nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return Int64(iv.Int()), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return Uint64(iv.Uint()), nil
+	case reflect.Float32, reflect.Float64:
+		return Float64(iv.Float()), nil
+	case reflect.String:
+		return String(iv.String()), nil
 	case reflect.Struct:
-		switch reflect.TypeOf(value).String() {
-		case "time.Time":
-			return TypeTime, false
-		case "types.Point":
-			return TypePoint, false
-		default:
-			return TypeUnknown, false
+		if iv.Type() == reflect.TypeOf(time.Time{}) {
+			return Time(iv.Interface().(time.Time)), nil
 		}
+
+		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
+	case reflect.Slice:
+		if iv.Len() == 0 {
+			return nil, nil
+		}
+
+		first := iv.Index(0)
+
+		if first.Kind() == reflect.Uint8 {
+			return Bytes(iv.Interface().([]byte)), nil
+		}
+
+		arr := make([]Value, iv.Len())
+		for i := 0; i < iv.Len(); i++ {
+			v, err := NewSafeValue(iv.Index(i).Interface())
+			if err != nil {
+				return nil, err
+			}
+
+			arr[i] = v
+		}
+
+		return NewArray(NewArrayType(arr[0].Type()), arr...), nil
+	case reflect.Map:
+		if iv.Len() == 0 {
+			return nil, nil
+		}
+
+		keys := iv.MapKeys()
+
+		key1, err := NewSafeValue(keys[0].Interface())
+		if err != nil {
+			return nil, err
+		}
+
+		value1, err := NewSafeValue(iv.MapIndex(keys[0]).Interface())
+		if err != nil {
+			return nil, err
+		}
+
+		mp := NewMap(key1.Type(), value1.Type())
+
+		for _, key := range keys {
+			k, err := NewSafeValue(key.Interface())
+			if err != nil {
+				return nil, err
+			}
+
+			v, err := NewSafeValue(iv.MapIndex(key).Interface())
+			if err != nil {
+				return nil, err
+			}
+
+			mp.Set(k, v)
+		}
+
+		return mp, nil
 	default:
-		return TypeUnknown, false
+		return nil, fmt.Errorf("unsupported value type: %T", iv.Interface())
 	}
+}
+
+type (
+	Bool    bool
+	Int64   int64
+	Uint64  uint64
+	Float64 float64
+	String  string
+	Bytes   []byte
+	Time    time.Time
+)
+
+func (b Bool) Type() Type {
+	return typeBoolean
+}
+
+func (b Bool) String() string {
+	return strconv.FormatBool(bool(b))
+}
+
+func (t Int64) Type() Type {
+	return typeInteger
+}
+
+func (t Int64) String() string {
+	return strconv.FormatInt(int64(t), 10)
+}
+
+func (t Uint64) Type() Type {
+	return typeUnsigned
+}
+
+func (t Uint64) String() string {
+	return strconv.FormatUint(uint64(t), 10)
+}
+
+func (t Float64) Type() Type {
+	return typeFloat
+}
+
+func (t Float64) String() string {
+	return strconv.FormatFloat(float64(t), 'f', -1, 64)
+}
+
+func (t String) Type() Type {
+	return typeString
+}
+
+func (t String) String() string {
+	return string(t)
+}
+
+func (t Bytes) Type() Type {
+	return typeBytes
+}
+
+func (t Bytes) String() string {
+	return string(t)
+}
+
+func (t Time) Type() Type {
+	return typeTime
+}
+
+func (t Time) String() string {
+	return time.Time(t).Format(time.RFC3339)
+}
+
+type Array struct {
+	typ    ArrayType
+	values []Value
+}
+
+func NewArray(t Type, values ...Value) *Array {
+	return &Array{
+		typ:    NewArrayType(t),
+		values: values,
+	}
+}
+
+func (t *Array) Type() Type {
+	return t.typ
+}
+
+func (t *Array) String() string {
+	values := make([]string, len(t.values))
+	for i, v := range t.values {
+		values[i] = v.String()
+	}
+
+	return fmt.Sprintf("[%s]", strings.Join(values, ", "))
+}
+
+func (t *Array) Values() []Value {
+	return t.values
+}
+
+func (t *Array) Append(v ...Value) *Array {
+	t.values = append(t.values, v...)
+	return t
+}
+
+func (t *Array) Get(i int) Value {
+	return t.values[i]
+}
+
+type Map struct {
+	typ    MapType
+	values map[Value]Value
+}
+
+func NewMap(kt, vt Type) *Map {
+	return &Map{
+		typ:    NewMapType(kt, vt),
+		values: map[Value]Value{},
+	}
+}
+
+func (t *Map) Type() Type {
+	return t.typ
+}
+
+func (t *Map) String() string {
+	values := make([]string, 0, len(t.values))
+	for k, v := range t.values {
+		values = append(values,
+			fmt.Sprintf("%s: %s", k.String(), v.String()),
+		)
+	}
+
+	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
+}
+
+func (t *Map) Values() map[Value]Value {
+	return t.values
+}
+
+func (t *Map) Set(k, v Value) *Map {
+	t.values[k] = v
+	return t
+}
+
+func (t *Map) Get(k Value) Value {
+	return t.values[k]
 }

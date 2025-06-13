@@ -7,6 +7,9 @@ require (
 	google.golang.org/protobuf v1.31.0
 )
 
-require github.com/spf13/cast v1.7.1 // indirect
+require (
+	github.com/gojekfarm/xtools/errors v0.10.0 // indirect
+	github.com/spf13/cast v1.7.1 // indirect
+)
 
 replace github.com/xdb-dev/xdb => ../..

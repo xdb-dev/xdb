@@ -70,8 +70,8 @@ func AssertEqualTuple(t *testing.T, expected, actual *types.Tuple) {
 		expected.Key().String(),
 	)
 	assert.EqualValuesf(t,
-		expected.Value().Unwrap(),
-		actual.Value().Unwrap(),
+		expected.Value(),
+		actual.Value(),
 		"tuple value mismatch: %s",
 		expected.Key().String(),
 	)
