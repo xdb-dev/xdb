@@ -155,7 +155,11 @@ func sqliteTypeForField(attr types.Attribute) (string, error) {
 		return "REAL", nil
 	case types.TypeBytes:
 		return "BLOB", nil
+	case types.TypeArray:
+		return "TEXT", nil
+	case types.TypeMap:
+		return "TEXT", nil
 	default:
-		return "", fmt.Errorf("unsupported field type: %v", attr.Type)
+		return "", errors.Wrap(ErrUnsupportedValue, "type", attr.Type.Name())
 	}
 }
