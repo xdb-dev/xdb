@@ -65,6 +65,27 @@ type Type interface {
 	Name() string
 }
 
+func NewType(id TypeID) Type {
+	switch id {
+	case TypeBoolean:
+		return BooleanType{}
+	case TypeInteger:
+		return IntegerType{}
+	case TypeUnsigned:
+		return UnsignedType{}
+	case TypeFloat:
+		return FloatType{}
+	case TypeString:
+		return StringType{}
+	case TypeBytes:
+		return BytesType{}
+	case TypeTime:
+		return TimeType{}
+	default:
+		panic(errors.Wrap(ErrUnknownType, "type", id.String()))
+	}
+}
+
 // BooleanType represents a boolean type.
 type BooleanType struct{}
 

@@ -1,6 +1,7 @@
 package xdbkv
 
 import (
+	"bytes"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -116,6 +117,64 @@ func (t *timeExt) UnmarshalMsgpack(data []byte) error {
 	return nil
 }
 
+type arrayExt struct {
+	*types.Array
+}
+
+func (a *arrayExt) MarshalMsgpack() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	enc := msgpack.NewEncoder(buf)
+	values := a.Array.Values()
+
+	enc.EncodeInt(int64(a.ValueType().ID()))
+	enc.EncodeArrayLen(len(values))
+
+	for _, v := range values {
+		vv, err := EncodeValue(v)
+		if err != nil {
+			return nil, err
+		}
+
+		enc.EncodeBytes(vv)
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (a *arrayExt) UnmarshalMsgpack(data []byte) error {
+	dec := msgpack.NewDecoder(bytes.NewReader(data))
+
+	typeID, err := dec.DecodeInt()
+	if err != nil {
+		return err
+	}
+
+	arrLen, err := dec.DecodeArrayLen()
+	if err != nil {
+		return err
+	}
+
+	values := make([]types.Value, 0, arrLen)
+
+	for i := 0; i < arrLen; i++ {
+		bs, err := dec.DecodeBytes()
+		if err != nil {
+			return err
+		}
+
+		vv, err := DecodeValue(bs)
+		if err != nil {
+			return err
+		}
+
+		values = append(values, vv)
+	}
+
+	a.Array = types.NewArray(types.NewType(types.TypeID(typeID)), values...)
+
+	return nil
+}
+
 func init() {
 	msgpack.RegisterExt(1, &boolExt{})
 	msgpack.RegisterExt(2, &int64Ext{})
@@ -124,4 +183,5 @@ func init() {
 	msgpack.RegisterExt(5, &stringExt{})
 	msgpack.RegisterExt(6, &bytesExt{})
 	msgpack.RegisterExt(7, &timeExt{})
+	msgpack.RegisterExt(8, &arrayExt{})
 }

@@ -78,6 +78,8 @@ func EncodeValue(v types.Value) ([]byte, error) {
 		return msgpack.Marshal(&bytesExt{v})
 	case types.Time:
 		return msgpack.Marshal(&timeExt{v})
+	case *types.Array:
+		return msgpack.Marshal(&arrayExt{v})
 	default:
 		return msgpack.Marshal(v)
 	}
@@ -106,6 +108,8 @@ func DecodeValue(flatvalue []byte) (types.Value, error) {
 		return types.Bytes(vv.Bytes), nil
 	case *timeExt:
 		return types.Time(vv.Time), nil
+	case *arrayExt:
+		return vv.Array, nil
 	default:
 		return nil, fmt.Errorf("unsupported value type: %T", v)
 	}

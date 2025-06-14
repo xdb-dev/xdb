@@ -205,6 +205,10 @@ func (t *Array) String() string {
 	return fmt.Sprintf("[%s]", strings.Join(values, ", "))
 }
 
+func (t *Array) ValueType() Type {
+	return t.typ.ValueType()
+}
+
 func (t *Array) Values() []Value {
 	return t.values
 }
