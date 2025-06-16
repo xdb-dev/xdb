@@ -92,7 +92,7 @@ func newValue(iv reflect.Value) (Value, error) {
 			arr[i] = v
 		}
 
-		return NewArray(arr[0].Type(), arr...), nil
+		return NewArray(arr[0].Type().ID(), arr...), nil
 	case reflect.Map:
 		if iv.Len() == 0 {
 			return nil, nil
@@ -110,7 +110,7 @@ func newValue(iv reflect.Value) (Value, error) {
 			return nil, err
 		}
 
-		mp := NewMap(key1.Type(), value1.Type())
+		mp := NewMap(key1.Type().ID(), value1.Type().ID())
 
 		for _, key := range keys {
 			k, err := NewSafeValue(key.Interface())
@@ -134,7 +134,7 @@ func newValue(iv reflect.Value) (Value, error) {
 
 type Bool bool
 
-func (b Bool) Type() Type { return BooleanType{} }
+func (b Bool) Type() Type { return BooleanType }
 
 func (b Bool) String() string {
 	return strconv.FormatBool(bool(b))
@@ -142,7 +142,7 @@ func (b Bool) String() string {
 
 type Int64 int64
 
-func (t Int64) Type() Type { return IntegerType{} }
+func (t Int64) Type() Type { return IntegerType }
 
 func (t Int64) String() string {
 	return strconv.FormatInt(int64(t), 10)
@@ -150,7 +150,7 @@ func (t Int64) String() string {
 
 type Uint64 uint64
 
-func (t Uint64) Type() Type { return UnsignedType{} }
+func (t Uint64) Type() Type { return UnsignedType }
 
 func (t Uint64) String() string {
 	return strconv.FormatUint(uint64(t), 10)
@@ -158,7 +158,7 @@ func (t Uint64) String() string {
 
 type Float64 float64
 
-func (t Float64) Type() Type { return FloatType{} }
+func (t Float64) Type() Type { return FloatType }
 
 func (t Float64) String() string {
 	return strconv.FormatFloat(float64(t), 'f', -1, 64)
@@ -166,28 +166,28 @@ func (t Float64) String() string {
 
 type String string
 
-func (t String) Type() Type { return StringType{} }
+func (t String) Type() Type { return StringType }
 
 func (t String) String() string { return string(t) }
 
 type Bytes []byte
 
-func (t Bytes) Type() Type { return BytesType{} }
+func (t Bytes) Type() Type { return BytesType }
 
 func (t Bytes) String() string { return string(t) }
 
 type Time time.Time
 
-func (t Time) Type() Type { return TimeType{} }
+func (t Time) Type() Type { return TimeType }
 
 func (t Time) String() string { return time.Time(t).Format(time.RFC3339) }
 
 type Array struct {
-	typ    ArrayType
+	typ    Type
 	values []Value
 }
 
-func NewArray(t Type, values ...Value) *Array {
+func NewArray(t TypeID, values ...Value) *Array {
 	return &Array{
 		typ:    NewArrayType(t),
 		values: values,
@@ -205,7 +205,7 @@ func (t *Array) String() string {
 	return fmt.Sprintf("[%s]", strings.Join(values, ", "))
 }
 
-func (t *Array) ValueType() Type {
+func (t *Array) ValueType() TypeID {
 	return t.typ.ValueType()
 }
 
@@ -223,11 +223,11 @@ func (t *Array) Get(i int) Value {
 }
 
 type Map struct {
-	typ    MapType
+	typ    Type
 	values map[Value]Value
 }
 
-func NewMap(kt, vt Type) *Map {
+func NewMap(kt, vt TypeID) *Map {
 	return &Map{
 		typ:    NewMapType(kt, vt),
 		values: map[Value]Value{},

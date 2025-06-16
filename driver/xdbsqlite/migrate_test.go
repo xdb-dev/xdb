@@ -60,7 +60,10 @@ func TestGenerateMigrations(t *testing.T) {
 		buf := bytes.NewBuffer(nil)
 
 		schemas[0].Attributes = append(schemas[0].Attributes,
-			types.Attribute{Name: "created_at", Type: types.TimeType{}},
+			types.Attribute{
+				Name: "created_at",
+				Type: types.NewType(types.TypeIDTime),
+			},
 		)
 
 		err := migrator.GenerateMigrations(context.Background(), schemas, buf)

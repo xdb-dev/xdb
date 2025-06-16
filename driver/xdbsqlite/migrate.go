@@ -145,19 +145,19 @@ func (m *Migrator) getTableColumns(ctx context.Context, name string) (map[string
 // sqliteTypeForField maps types.Field to SQLite types.
 func sqliteTypeForField(attr types.Attribute) (string, error) {
 	switch attr.Type.ID() {
-	case types.TypeString:
+	case types.TypeIDString:
 		return "TEXT", nil
-	case types.TypeInteger,
-		types.TypeBoolean,
-		types.TypeTime:
+	case types.TypeIDInteger,
+		types.TypeIDBoolean,
+		types.TypeIDTime:
 		return "INTEGER", nil
-	case types.TypeFloat:
+	case types.TypeIDFloat:
 		return "REAL", nil
-	case types.TypeBytes:
+	case types.TypeIDBytes:
 		return "BLOB", nil
-	case types.TypeArray:
+	case types.TypeIDArray:
 		return "TEXT", nil
-	case types.TypeMap:
+	case types.TypeIDMap:
 		return "TEXT", nil
 	default:
 		return "", errors.Wrap(ErrUnsupportedValue, "type", attr.Type.Name())

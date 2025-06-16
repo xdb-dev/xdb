@@ -126,7 +126,7 @@ func (a *arrayExt) MarshalMsgpack() ([]byte, error) {
 	enc := msgpack.NewEncoder(buf)
 	values := a.Array.Values()
 
-	enc.EncodeInt(int64(a.ValueType().ID()))
+	enc.EncodeInt(int64(a.ValueType()))
 	enc.EncodeArrayLen(len(values))
 
 	for _, v := range values {
@@ -170,7 +170,7 @@ func (a *arrayExt) UnmarshalMsgpack(data []byte) error {
 		values = append(values, vv)
 	}
 
-	a.Array = types.NewArray(types.NewType(types.TypeID(typeID)), values...)
+	a.Array = types.NewArray(types.TypeID(typeID), values...)
 
 	return nil
 }

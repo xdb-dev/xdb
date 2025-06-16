@@ -283,7 +283,7 @@ func toTime(v Value) (time.Time, error) {
 }
 
 func castArray[T any](v Value, f func(Value) (T, error)) ([]T, error) {
-	if v.Type().ID() != TypeArray {
+	if v.Type().ID() != TypeIDArray {
 		return nil, ErrCastFailed
 	}
 

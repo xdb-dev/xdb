@@ -17,27 +17,23 @@ func TestSQLValue(t *testing.T) {
 
 	testcases := []struct {
 		name  string
-		typ   types.Type
 		value types.Value
 		want  any
 	}{
 		{
 			name:  "Bool true",
-			typ:   types.BooleanType{},
 			value: types.Bool(true),
 			want:  1,
 		},
 		{
 			name:  "Bool false",
-			typ:   types.BooleanType{},
 			value: types.Bool(false),
 			want:  0,
 		},
 		{
 			name: "Bool Array",
-			typ:  types.NewArrayType(types.BooleanType{}),
 			value: types.NewArray(
-				types.BooleanType{},
+				types.TypeIDBoolean,
 				types.Bool(true),
 				types.Bool(false),
 			),
@@ -45,15 +41,13 @@ func TestSQLValue(t *testing.T) {
 		},
 		{
 			name:  "Int64",
-			typ:   types.IntegerType{},
 			value: types.Int64(42),
 			want:  int64(42),
 		},
 		{
 			name: "Int64 Array",
-			typ:  types.NewArrayType(types.IntegerType{}),
 			value: types.NewArray(
-				types.IntegerType{},
+				types.TypeIDInteger,
 				types.Int64(1),
 				types.Int64(2),
 			),
@@ -61,15 +55,13 @@ func TestSQLValue(t *testing.T) {
 		},
 		{
 			name:  "Uint64",
-			typ:   types.UnsignedType{},
 			value: types.Uint64(42),
 			want:  uint64(42),
 		},
 		{
 			name: "Uint64 Array",
-			typ:  types.NewArrayType(types.UnsignedType{}),
 			value: types.NewArray(
-				types.UnsignedType{},
+				types.TypeIDUnsigned,
 				types.Uint64(1),
 				types.Uint64(2),
 			),
@@ -77,15 +69,13 @@ func TestSQLValue(t *testing.T) {
 		},
 		{
 			name:  "Float64",
-			typ:   types.FloatType{},
 			value: types.Float64(3.14),
 			want:  float64(3.14),
 		},
 		{
 			name: "Float64 Array",
-			typ:  types.NewArrayType(types.FloatType{}),
 			value: types.NewArray(
-				types.FloatType{},
+				types.TypeIDFloat,
 				types.Float64(1.1),
 				types.Float64(2.2),
 			),
@@ -93,15 +83,13 @@ func TestSQLValue(t *testing.T) {
 		},
 		{
 			name:  "String",
-			typ:   types.StringType{},
 			value: types.String("foo"),
 			want:  "foo",
 		},
 		{
 			name: "String Array",
-			typ:  types.NewArrayType(types.StringType{}),
 			value: types.NewArray(
-				types.StringType{},
+				types.TypeIDString,
 				types.String("a"),
 				types.String("b"),
 			),
@@ -109,15 +97,13 @@ func TestSQLValue(t *testing.T) {
 		},
 		{
 			name:  "Bytes",
-			typ:   types.BytesType{},
 			value: types.Bytes(b),
 			want:  b,
 		},
 		{
 			name: "Bytes Array",
-			typ:  types.NewArrayType(types.BytesType{}),
 			value: types.NewArray(
-				types.BytesType{},
+				types.TypeIDBytes,
 				types.Bytes([]byte("a")),
 				types.Bytes([]byte("b")),
 			),
@@ -145,7 +131,9 @@ func TestSQLValue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Run("Value", func(t *testing.T) {
 				sv := &sqlValue{
-					attr:  &types.Attribute{Type: tc.typ},
+					attr: &types.Attribute{
+						Type: types.NewType(tc.value.Type().ID()),
+					},
 					value: tc.value,
 				}
 
@@ -156,7 +144,9 @@ func TestSQLValue(t *testing.T) {
 
 			t.Run("Scan", func(t *testing.T) {
 				sv := &sqlValue{
-					attr: &types.Attribute{Type: tc.typ},
+					attr: &types.Attribute{
+						Type: types.NewType(tc.value.Type().ID()),
+					},
 				}
 
 				err := sv.Scan(tc.want)

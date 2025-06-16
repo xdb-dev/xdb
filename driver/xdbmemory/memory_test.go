@@ -31,7 +31,7 @@ func TestMemoryDriver_Tuples(t *testing.T) {
 			types.NewKey("User", "2", "name"),
 		})
 		assert.NoError(t, err)
-		assert.Empty(t, missed)
+		assert.Len(t, missed, 0)
 		assert.Equal(t, tuples[0].ToString(), "Alice")
 		assert.Equal(t, tuples[1].ToString(), "Bob")
 	})

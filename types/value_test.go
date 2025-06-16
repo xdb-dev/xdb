@@ -19,32 +19,32 @@ func TestNewValue_Primitives(t *testing.T) {
 		{
 			name:     "string",
 			value:    "hello",
-			expected: types.TypeString,
+			expected: types.TypeIDString,
 		},
 		{
 			name:     "int",
 			value:    1,
-			expected: types.TypeInteger,
+			expected: types.TypeIDInteger,
 		},
 		{
 			name:     "float",
 			value:    1.0,
-			expected: types.TypeFloat,
+			expected: types.TypeIDFloat,
 		},
 		{
 			name:     "bool",
 			value:    true,
-			expected: types.TypeBoolean,
+			expected: types.TypeIDBoolean,
 		},
 		{
 			name:     "bytes",
 			value:    []byte("hello"),
-			expected: types.TypeBytes,
+			expected: types.TypeIDBytes,
 		},
 		{
 			name:     "time",
 			value:    time.Now(),
-			expected: types.TypeTime,
+			expected: types.TypeIDTime,
 		},
 	}
 
@@ -68,32 +68,32 @@ func TestNewValue_Arrays(t *testing.T) {
 		{
 			name:     "string",
 			value:    []string{"hello", "world"},
-			expected: types.TypeString,
+			expected: types.TypeIDString,
 		},
 		{
 			name:     "int",
 			value:    []int64{1, 2, 3},
-			expected: types.TypeInteger,
+			expected: types.TypeIDInteger,
 		},
 		{
 			name:     "float",
 			value:    []float64{1.0, 2.0, 3.0},
-			expected: types.TypeFloat,
+			expected: types.TypeIDFloat,
 		},
 		{
 			name:     "bool",
 			value:    []bool{true, false, true},
-			expected: types.TypeBoolean,
+			expected: types.TypeIDBoolean,
 		},
 		{
 			name:     "bytes",
 			value:    [][]byte{[]byte("hello"), []byte("world")},
-			expected: types.TypeBytes,
+			expected: types.TypeIDBytes,
 		},
 		{
 			name:     "time",
 			value:    []time.Time{time.Now(), time.Now().Add(time.Hour)},
-			expected: types.TypeTime,
+			expected: types.TypeIDTime,
 		},
 	}
 
@@ -101,8 +101,8 @@ func TestNewValue_Arrays(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			value := types.NewValue(tc.value)
 
-			at := value.Type().(types.ArrayType)
-			assert.Equal(t, tc.expected, at.ValueType().ID())
+			at := value.Type()
+			assert.Equal(t, tc.expected, at.ValueType())
 			tests.AssertEqualValues(t, tc.value, value)
 		})
 	}
