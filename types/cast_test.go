@@ -298,81 +298,57 @@ func TestValue_ToTime(t *testing.T) {
 	}
 }
 
-// func TestValue_Slices(t *testing.T) {
-// 	t.Parallel()
+func TestValue_Slices(t *testing.T) {
+	t.Parallel()
 
-// 	t.Run("IntSlice", func(t *testing.T) {
-// 		value := []int64{1, 2, 3}
-// 		tuple := types.NewTuple("Test", "1", "attr", value)
-// 		assert.Equal(t, value, tuple.ToIntSlice())
-// 	})
+	t.Run("IntArray", func(t *testing.T) {
+		value := []int64{1, 2, 3}
+		tuple := types.NewTuple("Test", "1", "attr", value)
+		assert.EqualValues(t, value, tuple.ToIntArray())
+		assert.EqualValues(t, value, tuple.Value().ToIntArray())
+	})
 
-// 	t.Run("FloatSlice", func(t *testing.T) {
-// 		value := []float64{1.1, 2.2, 3.3}
-// 		tuple := types.NewTuple("Test", "1", "attr", value)
-// 		assert.Equal(t, value, tuple.ToFloatSlice())
-// 		assert.Equal(t, value, tuple.Value().ToFloatSlice())
-// 	})
+	t.Run("FloatArray", func(t *testing.T) {
+		value := []float64{1.1, 2.2, 3.3}
+		tuple := types.NewTuple("Test", "1", "attr", value)
+		assert.EqualValues(t, value, tuple.ToFloatArray())
+		assert.EqualValues(t, value, tuple.Value().ToFloatArray())
+	})
 
-// 	t.Run("StringSlice", func(t *testing.T) {
-// 		value := []string{"a", "b", "c"}
-// 		tuple := types.NewTuple("Test", "1", "attr", value)
-// 		assert.Equal(t, value, tuple.ToStringSlice())
-// 		assert.Equal(t, value, tuple.Value().ToStringSlice())
-// 	})
+	t.Run("StringArray", func(t *testing.T) {
+		value := []string{"a", "b", "c"}
+		tuple := types.NewTuple("Test", "1", "attr", value)
+		assert.EqualValues(t, value, tuple.ToStringArray())
+		assert.EqualValues(t, value, tuple.Value().ToStringArray())
+	})
 
-// 	t.Run("BoolSlice", func(t *testing.T) {
-// 		value := []bool{true, false, true}
-// 		tuple := types.NewTuple("Test", "1", "attr", value)
-// 		assert.Equal(t, value, tuple.ToBoolSlice())
-// 		assert.Equal(t, value, tuple.Value().ToBoolSlice())
-// 	})
+	t.Run("BoolArray", func(t *testing.T) {
+		value := []bool{true, false, true}
+		tuple := types.NewTuple("Test", "1", "attr", value)
+		assert.EqualValues(t, value, tuple.ToBoolArray())
+		assert.EqualValues(t, value, tuple.Value().ToBoolArray())
+	})
 
-// 	t.Run("BytesSlice", func(t *testing.T) {
-// 		value := [][]byte{[]byte("a"), []byte("b")}
-// 		tuple := types.NewTuple("Test", "1", "attr", value)
-// 		assert.Equal(t, value, tuple.ToBytesSlice())
-// 		assert.Equal(t, value, tuple.Value().ToBytesSlice())
-// 	})
-// }
+	t.Run("BytesArray", func(t *testing.T) {
+		value := [][]byte{[]byte("a"), []byte("b")}
+		tuple := types.NewTuple("Test", "1", "attr", value)
+		assert.EqualValues(t, value, tuple.ToBytesArray())
+		assert.EqualValues(t, value, tuple.Value().ToBytesArray())
+	})
 
-// func TestValue_Bytes(t *testing.T) {
-// 	t.Parallel()
+	t.Run("UintArray", func(t *testing.T) {
+		value := []uint64{1, 2, 3}
+		tuple := types.NewTuple("Test", "1", "attr", value)
+		assert.EqualValues(t, value, tuple.ToUintArray())
+		assert.EqualValues(t, value, tuple.Value().ToUintArray())
+	})
 
-// 	value := []byte("hello")
-// 	tuple := types.NewTuple("Test", "1", "attr", value)
-// 	assert.Equal(t, value, tuple.ToBytes())
-// 	assert.Equal(t, value, tuple.Value().ToBytes())
-// }
-
-// func TestValue_Time(t *testing.T) {
-// 	t.Parallel()
-
-// 	now := time.Now()
-// 	tuple := types.NewTuple("Test", "1", "attr", now)
-// 	assert.Equal(t, now, tuple.ToTime())
-// 	assert.Equal(t, now, tuple.Value().ToTime())
-
-// 	t.Run("TimeSlice", func(t *testing.T) {
-// 		times := []time.Time{now, now.Add(time.Hour)}
-// 		tuple := types.NewTuple("Test", "1", "attr", times)
-// 		assert.Equal(t, times, tuple.ToTimeSlice())
-// 		assert.Equal(t, times, tuple.Value().ToTimeSlice())
-// 	})
-// }
-
-// func TestValue_Point(t *testing.T) {
-// 	t.Parallel()
-
-// 	point := types.Point{Lat: 1.0, Long: 2.0}
-// 	tuple := types.NewTuple("Test", "1", "attr", point)
-// 	assert.Equal(t, point, tuple.ToPoint())
-// 	assert.Equal(t, point, tuple.Value().ToPoint())
-
-// 	t.Run("PointSlice", func(t *testing.T) {
-// 		points := []types.Point{{Lat: 1.0, Long: 2.0}, {Lat: 3.0, Long: 4.0}}
-// 		tuple := types.NewTuple("Test", "1", "attr", points)
-// 		assert.Equal(t, points, tuple.ToPointSlice())
-// 		assert.Equal(t, points, tuple.Value().ToPointSlice())
-// 	})
-// }
+	t.Run("TimeArray", func(t *testing.T) {
+		t1 := time.Date(2025, 6, 10, 1, 2, 3, 0, time.UTC)
+		t2 := time.Date(2026, 7, 11, 4, 5, 6, 0, time.UTC)
+		value := []time.Time{t1, t2}
+		tuple := types.NewTuple("Test", "1", "attr", value)
+		assert.EqualValues(t, value, tuple.ToTimeArray())
+		assert.EqualValues(t, value, tuple.Value().ToTimeArray())
+	})
+}

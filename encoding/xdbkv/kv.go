@@ -11,7 +11,8 @@ import (
 )
 
 var (
-	ErrTypeMismatch = errors.New("encoding/xdbkv: type mismatch")
+	// ErrDecodingValue is returned when the value cannot be decoded.
+	ErrDecodingValue = errors.New("encoding/xdbkv: decoding value")
 )
 
 // EncodeTuple encodes a tuple to a key-value pair.
@@ -62,10 +63,10 @@ func DecodeKey(key []byte) (*types.Key, error) {
 
 // EncodeValue encodes a types.Value to []byte.
 func EncodeValue(v *types.Value) ([]byte, error) {
-	return MarshalValue(v)
+	return marshalValue(v)
 }
 
 // DecodeValue decodes a []byte to a types.Value.
 func DecodeValue(flatvalue []byte) (*types.Value, error) {
-	return UnmarshalValue(flatvalue)
+	return unmarshalValue(flatvalue)
 }

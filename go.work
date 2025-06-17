@@ -5,6 +5,7 @@ use (
 	./driver/xdbredis
 	./driver/xdbsqlite
 	./encoding/xdbjson
+	./encoding/xdbkv
 	./encoding/xdbproto
 	./internal/tools
 )

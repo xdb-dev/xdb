@@ -1,7 +1,6 @@
 package xdbkv
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -14,8 +13,7 @@ type value struct {
 	Data   any          `msgpack:"d"`
 }
 
-// MarshalValue serializes a *types.Value to msgpack.
-func MarshalValue(v *types.Value) ([]byte, error) {
+func marshalValue(v *types.Value) ([]byte, error) {
 	if v == nil || v.IsNil() {
 		return msgpack.Marshal(value{TypeID: types.TypeIDUnknown, Data: nil})
 	}
@@ -24,61 +22,68 @@ func MarshalValue(v *types.Value) ([]byte, error) {
 	case types.TypeIDArray:
 		arr := v.Unwrap().([]*types.Value)
 		data := make([][]byte, len(arr))
+
 		for i, elem := range arr {
-			b, err := MarshalValue(elem)
+			b, err := marshalValue(elem)
 			if err != nil {
 				return nil, err
 			}
 			data[i] = b
 		}
+
 		return msgpack.Marshal(value{TypeID: types.TypeIDArray, Data: data})
 	case types.TypeIDMap:
 		mp := v.Unwrap().(map[*types.Value]*types.Value)
 		data := make(map[string][]byte, len(mp))
+
 		for k, val := range mp {
-			kb, err := MarshalValue(k)
+			kb, err := marshalValue(k)
 			if err != nil {
 				return nil, err
 			}
-			vb, err := MarshalValue(val)
+
+			vb, err := marshalValue(val)
 			if err != nil {
 				return nil, err
 			}
+
 			data[string(kb)] = vb
 		}
+
 		return msgpack.Marshal(value{TypeID: types.TypeIDMap, Data: data})
 	case types.TypeIDTime:
-		return msgpack.Marshal(value{TypeID: types.TypeIDTime, Data: v.Unwrap().(time.Time).Format(time.RFC3339)})
+		unixtime := v.Unwrap().(time.Time).UnixMilli()
+
+		return msgpack.Marshal(value{TypeID: types.TypeIDTime, Data: unixtime})
 	default:
 		return msgpack.Marshal(value{TypeID: v.Type().ID(), Data: v.Unwrap()})
 	}
 }
 
-// UnmarshalValue deserializes msgpack data into a *types.Value.
-func UnmarshalValue(b []byte) (*types.Value, error) {
-	var env value
-	if err := msgpack.Unmarshal(b, &env); err != nil {
+func unmarshalValue(b []byte) (*types.Value, error) {
+	var decoded value
+	if err := msgpack.Unmarshal(b, &decoded); err != nil {
 		return nil, err
 	}
 
-	if env.TypeID == types.TypeIDUnknown || env.Data == nil {
+	if decoded.TypeID == types.TypeIDUnknown || decoded.Data == nil {
 		return nil, nil
 	}
 
-	switch env.TypeID {
+	switch decoded.TypeID {
 	case types.TypeIDArray:
-		rawArr, ok := env.Data.([]any)
+		rawArr, ok := decoded.Data.([]any)
 		if !ok {
-			return nil, fmt.Errorf("invalid array encoding")
+			return nil, ErrDecodingValue
 		}
 
 		arr := make([]*types.Value, len(rawArr))
 		for i, elem := range rawArr {
 			elemBytes, ok := elem.([]byte)
 			if !ok {
-				return nil, fmt.Errorf("invalid array element encoding")
+				return nil, ErrDecodingValue
 			}
-			v, err := UnmarshalValue(elemBytes)
+			v, err := unmarshalValue(elemBytes)
 			if err != nil {
 				return nil, err
 			}
@@ -86,17 +91,17 @@ func UnmarshalValue(b []byte) (*types.Value, error) {
 		}
 		return types.NewSafeValue(arr)
 	case types.TypeIDMap:
-		rawMap, ok := env.Data.(map[string][]byte)
+		rawMap, ok := decoded.Data.(map[string][]byte)
 		if !ok {
-			return nil, fmt.Errorf("invalid map encoding")
+			return nil, ErrDecodingValue
 		}
 		mp := make(map[*types.Value]*types.Value, len(rawMap))
 		for kStr, vBytes := range rawMap {
-			kVal, err := UnmarshalValue([]byte(kStr))
+			kVal, err := unmarshalValue([]byte(kStr))
 			if err != nil {
 				return nil, err
 			}
-			vVal, err := UnmarshalValue(vBytes)
+			vVal, err := unmarshalValue(vBytes)
 			if err != nil {
 				return nil, err
 			}
@@ -104,16 +109,15 @@ func UnmarshalValue(b []byte) (*types.Value, error) {
 		}
 		return types.NewSafeValue(mp)
 	case types.TypeIDTime:
-		str, ok := env.Data.(string)
+		unixtime, ok := decoded.Data.(int64)
 		if !ok {
-			return nil, fmt.Errorf("invalid time encoding")
+			return nil, ErrDecodingValue
 		}
-		t, err := time.Parse(time.RFC3339, str)
-		if err != nil {
-			return nil, err
-		}
+
+		t := time.UnixMilli(unixtime)
+
 		return types.NewSafeValue(t)
 	default:
-		return types.NewSafeValue(env.Data)
+		return types.NewSafeValue(decoded.Data)
 	}
 }

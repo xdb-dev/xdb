@@ -91,11 +91,11 @@ func (t Type) KeyType() TypeID   { return t.keyTypeID }
 func (t Type) ValueType() TypeID { return t.valueTypeID }
 
 var (
-	BooleanType  = NewType(TypeIDBoolean)
-	IntegerType  = NewType(TypeIDInteger)
-	UnsignedType = NewType(TypeIDUnsigned)
-	FloatType    = NewType(TypeIDFloat)
-	StringType   = NewType(TypeIDString)
-	BytesType    = NewType(TypeIDBytes)
-	TimeType     = NewType(TypeIDTime)
+	booleanType  = NewType(TypeIDBoolean)
+	integerType  = NewType(TypeIDInteger)
+	unsignedType = NewType(TypeIDUnsigned)
+	floatType    = NewType(TypeIDFloat)
+	stringType   = NewType(TypeIDString)
+	bytesType    = NewType(TypeIDBytes)
+	timeType     = NewType(TypeIDTime)
 )
