@@ -2,6 +2,7 @@ package xdbkv_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,14 +20,9 @@ func TestTuple_X_KV(t *testing.T) {
 		flatkey string
 	}{
 		{
-			name:    "String",
-			tuple:   types.NewTuple("Test", "1", "string", "value"),
-			flatkey: "Test:1:string",
-		},
-		{
-			name:    "String Array",
-			tuple:   types.NewTuple("Test", "1", "string_array", []string{"value1", "value2"}),
-			flatkey: "Test:1:string_array",
+			name:    "Boolean",
+			tuple:   types.NewTuple("Test", "1", "boolean", true),
+			flatkey: "Test:1:boolean",
 		},
 		{
 			name:    "Integer",
@@ -34,29 +30,19 @@ func TestTuple_X_KV(t *testing.T) {
 			flatkey: "Test:1:integer",
 		},
 		{
-			name:    "Integer Array",
-			tuple:   types.NewTuple("Test", "1", "integer_array", []int64{1, 2}),
-			flatkey: "Test:1:integer_array",
+			name:    "String",
+			tuple:   types.NewTuple("Test", "1", "string", "value"),
+			flatkey: "Test:1:string",
 		},
 		{
 			name:    "Float",
-			tuple:   types.NewTuple("Test", "1", "float", 3.14),
+			tuple:   types.NewTuple("Test", "1", "float", float64(3.14)),
 			flatkey: "Test:1:float",
 		},
 		{
-			name:    "Float Array",
-			tuple:   types.NewTuple("Test", "1", "float_array", []float64{1.1, 2.2}),
-			flatkey: "Test:1:float_array",
-		},
-		{
-			name:    "Boolean",
-			tuple:   types.NewTuple("Test", "1", "boolean", true),
-			flatkey: "Test:1:boolean",
-		},
-		{
-			name:    "Boolean Array",
-			tuple:   types.NewTuple("Test", "1", "boolean_array", []bool{true, false, true}),
-			flatkey: "Test:1:boolean_array",
+			name:    "Uint64",
+			tuple:   types.NewTuple("Test", "1", "uint64", uint64(123)),
+			flatkey: "Test:1:uint64",
 		},
 		{
 			name:    "Bytes",
@@ -64,9 +50,44 @@ func TestTuple_X_KV(t *testing.T) {
 			flatkey: "Test:1:bytes",
 		},
 		{
+			name:    "Time",
+			tuple:   types.NewTuple("Test", "1", "time", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)),
+			flatkey: "Test:1:time",
+		},
+		{
+			name:    "Boolean Array",
+			tuple:   types.NewTuple("Test", "1", "boolean_array", []bool{true, false, true}),
+			flatkey: "Test:1:boolean_array",
+		},
+		{
+			name:    "Integer Array",
+			tuple:   types.NewTuple("Test", "1", "integer_array", []int64{1, 2, 3}),
+			flatkey: "Test:1:integer_array",
+		},
+		{
+			name:    "Unsigned Array",
+			tuple:   types.NewTuple("Test", "1", "unsigned_array", []uint64{1, 2, 3}),
+			flatkey: "Test:1:unsigned_array",
+		},
+		{
+			name:    "Float Array",
+			tuple:   types.NewTuple("Test", "1", "float_array", []float64{1.1, 2.2, 3.3}),
+			flatkey: "Test:1:float_array",
+		},
+		{
+			name:    "String Array",
+			tuple:   types.NewTuple("Test", "1", "string_array", []string{"value1", "value2", "value3"}),
+			flatkey: "Test:1:string_array",
+		},
+		{
 			name:    "Bytes Array",
 			tuple:   types.NewTuple("Test", "1", "bytes_array", [][]byte{[]byte("hello"), []byte("world")}),
 			flatkey: "Test:1:bytes_array",
+		},
+		{
+			name:    "Time Array",
+			tuple:   types.NewTuple("Test", "1", "time_array", []time.Time{time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)}),
+			flatkey: "Test:1:time_array",
 		},
 	}
 

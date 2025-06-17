@@ -39,5 +39,9 @@ func (k *Key) ID() string {
 
 // Attr returns the attribute name in the Key.
 func (k *Key) Attr() string {
+	if len(k.parts) < 3 {
+		return ""
+	}
+
 	return k.parts[2]
 }

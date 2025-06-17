@@ -3,15 +3,11 @@ package xdbsqlite
 import (
 	"context"
 	"database/sql"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/sqlite3"
 	"github.com/gojekfarm/xtools/errors"
-	"github.com/spf13/cast"
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/registry"
 	"github.com/xdb-dev/xdb/types"
@@ -26,8 +22,9 @@ var (
 )
 
 var (
-	ErrSchemaNotFound = errors.New("xdb/driver/xdbsqlite: schema not found")
-	ErrUnknownAttr    = errors.New("xdb/driver/xdbsqlite: unknown attribute")
+	ErrSchemaNotFound   = errors.New("xdb/driver/xdbsqlite: schema not found")
+	ErrUnknownAttr      = errors.New("xdb/driver/xdbsqlite: unknown attribute")
+	ErrUnsupportedValue = errors.New("xdb/driver/xdbsqlite: unsupported value type")
 )
 
 // SQLStore is a store that uses SQLite as the underlying database.
@@ -82,7 +79,7 @@ func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 						return nil
 					}
 
-					return &sqlValue{Attribute: *attrSchema}
+					return &sqlValue{attr: attrSchema}
 				})
 
 				err := rows.Scan(dest...)
@@ -91,7 +88,7 @@ func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 				}
 
 				for i, attr := range attrs {
-					val := dest[i].(*sqlValue).Value
+					val := dest[i].(*sqlValue).value
 					if val == nil {
 						continue
 					}
@@ -131,18 +128,28 @@ func (s *SQLStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 	defer tx.Rollback()
 
 	for kind, rows := range grouped {
+		schema := s.registry.Get(kind)
+		if schema == nil {
+			return errors.Wrap(ErrSchemaNotFound, "kind", kind)
+		}
+
 		for id, tuples := range rows {
 			insertRecord := goqu.Record{"id": id}
 			updateRecord := goqu.Record{}
 
 			for _, tuple := range tuples {
 				attr := tuple.Attr()
-				val, err := s.encodeValue(tuple.Value())
+				sqlVal := &sqlValue{
+					attr:  schema.GetAttribute(attr),
+					value: tuple.Value(),
+				}
+
+				encoded, err := sqlVal.Value()
 				if err != nil {
 					return err
 				}
 
-				insertRecord[attr] = val
+				insertRecord[attr] = encoded
 				updateRecord[attr] = goqu.I("EXCLUDED." + attr)
 			}
 
@@ -156,6 +163,7 @@ func (s *SQLStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 				return err
 			}
 
+			fmt.Println(query, args)
 			_, err = tx.ExecContext(ctx, query, args...)
 			if err != nil {
 				return err
@@ -255,7 +263,7 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 			values := x.Map(attrs, func(attr any) any {
 				attrSchema := schema.GetAttribute(attr.(string))
 
-				return &sqlValue{Attribute: *attrSchema}
+				return &sqlValue{attr: attrSchema}
 			})
 
 			err := rows.Scan(values...)
@@ -264,16 +272,16 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 			}
 
 			pk := x.Filter(values, func(v any) bool {
-				return v.(*sqlValue).Attribute.PrimaryKey
+				return v.(*sqlValue).attr.PrimaryKey
 			})
 
-			id := pk[0].(*sqlValue).Value.ToString()
+			id := pk[0].(*sqlValue).value.String()
 
 			record := types.NewRecord(kind, id)
 
 			for i := range attrs {
 				v := values[i].(*sqlValue)
-				record.Set(v.Name, v.Value)
+				record.Set(v.attr.Name, v.value)
 			}
 
 			recordsMap[record.Key().String()] = record
@@ -341,117 +349,4 @@ func (s *SQLStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
 	}
 
 	return tx.Commit()
-}
-
-// encodeValue encodes a value to SQLite compatible type.
-// mapping:
-// - string -> TEXT
-// - int -> INTEGER
-// - float -> REAL
-// - bool -> INTEGER
-// - bytes -> BLOB
-// - time -> INTEGER
-// - point -> TEXT(JSON)
-// - []string -> TEXT(JSON)
-// - []int -> TEXT(JSON)
-// - []float -> TEXT(JSON)
-// - []bool -> TEXT(JSON)
-// - []bytes -> TEXT(JSON)
-// - []time -> TEXT(JSON)
-// - []point -> TEXT(JSON)
-func (s *SQLStore) encodeValue(value *types.Value) (any, error) {
-	if value.Repeated() {
-		switch value.TypeID() {
-		case types.TypeInteger:
-			// convert to string array to maintain precision
-			// integer can be lossy when converted to float in JSON
-			return json.Marshal(value.ToStringSlice())
-		default:
-			return json.Marshal(value.Unwrap())
-		}
-	}
-
-	switch value.TypeID() {
-	case types.TypeString:
-		return value.ToString(), nil
-	case types.TypeInteger:
-		return value.ToInt(), nil
-	case types.TypeFloat:
-		return value.ToFloat(), nil
-	case types.TypeBoolean:
-		return value.ToBool(), nil
-	case types.TypeBytes:
-		return value.ToBytes(), nil
-	case types.TypeTime:
-		return value.ToTime().UnixMilli(), nil
-	case types.TypePoint:
-		return value.ToPoint(), nil
-	}
-
-	return nil, fmt.Errorf("unsupported value type: %s", value.TypeID())
-}
-
-type sqlValue struct {
-	types.Attribute
-	Value *types.Value
-}
-
-func (v *sqlValue) Scan(src any) error {
-	if src == nil {
-		return nil
-	}
-
-	var decoded any
-
-	if v.Attribute.Repeated {
-		var val []any
-		if err := json.Unmarshal(src.([]byte), &val); err != nil {
-			return err
-		}
-
-		switch v.Attribute.Type {
-		case types.TypeString:
-			decoded = x.CastArray(val, cast.ToString)
-		case types.TypeInteger:
-			decoded = x.CastArray(val, cast.ToInt64)
-		case types.TypeFloat:
-			decoded = x.CastArray(val, cast.ToFloat64)
-		case types.TypeBoolean:
-			decoded = x.CastArray(val, cast.ToBool)
-		case types.TypeBytes:
-			decoded = x.Map(val, func(v any) []byte {
-				decoded, err := base64.StdEncoding.DecodeString(v.(string))
-				if err != nil {
-					return nil
-				}
-
-				return decoded
-			})
-		case types.TypeTime:
-			decoded = x.CastArray(val, func(v any) time.Time {
-				return time.UnixMilli(cast.ToInt64(v))
-			})
-		}
-	} else {
-		switch v.Attribute.Type {
-		case types.TypeString:
-			decoded = cast.ToString(src)
-		case types.TypeInteger:
-			decoded = cast.ToInt64(src)
-		case types.TypeFloat:
-			decoded = cast.ToFloat64(src)
-		case types.TypeBoolean:
-			decoded = cast.ToBool(src)
-		case types.TypeBytes:
-			decoded = x.ToBytes(src)
-		case types.TypeTime:
-			decoded = time.UnixMilli(cast.ToInt64(src))
-		}
-	}
-
-	if decoded != nil {
-		v.Value = types.NewValue(decoded)
-	}
-
-	return nil
 }

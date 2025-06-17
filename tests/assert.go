@@ -70,8 +70,8 @@ func AssertEqualTuple(t *testing.T, expected, actual *types.Tuple) {
 		expected.Key().String(),
 	)
 	assert.EqualValuesf(t,
-		expected.Value().Unwrap(),
-		actual.Value().Unwrap(),
+		expected.Value(),
+		actual.Value(),
 		"tuple value mismatch: %s",
 		expected.Key().String(),
 	)
@@ -94,4 +94,15 @@ func AssertEqualKey(t *testing.T, expected, actual *types.Key) {
 	t.Helper()
 
 	assert.Equal(t, expected.String(), actual.String(), "key mismatch")
+}
+
+// AssertEqualValues asserts that two values are equal.
+func AssertEqualValues(t *testing.T, expected, actual any) {
+	t.Helper()
+
+	ev := types.NewValue(expected)
+	av := types.NewValue(actual)
+
+	assert.Equal(t, ev.Type(), av.Type(), "value type mismatch")
+	assert.EqualValues(t, ev, av, "value mismatch")
 }

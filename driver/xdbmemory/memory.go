@@ -2,6 +2,7 @@ package xdbmemory
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -48,7 +49,7 @@ func (d *MemoryDriver) PutTuples(ctx context.Context, tuples []*types.Tuple) err
 	defer d.mu.Unlock()
 
 	for _, tuple := range tuples {
-		d.tuples[tuple.Key().String()] = tuple
+		d.tuples[encodeKey(tuple.Key())] = tuple
 	}
 
 	return nil
@@ -78,7 +79,7 @@ func (d *MemoryDriver) GetRecords(ctx context.Context, keys []*types.Key) ([]*ty
 		record := types.NewRecord(key.Kind(), key.ID())
 
 		for k, t := range d.tuples {
-			if !strings.HasPrefix(k, key.String()) {
+			if !strings.HasPrefix(k, encodeKey(key)) {
 				continue
 			}
 
@@ -103,7 +104,7 @@ func (d *MemoryDriver) PutRecords(ctx context.Context, records []*types.Record) 
 
 	for _, record := range records {
 		for _, tuple := range record.Tuples() {
-			d.tuples[tuple.Key().String()] = tuple
+			d.tuples[encodeKey(tuple.Key())] = tuple
 		}
 	}
 
@@ -117,7 +118,7 @@ func (d *MemoryDriver) DeleteRecords(ctx context.Context, keys []*types.Key) err
 
 	for _, key := range keys {
 		for k := range d.tuples {
-			if !strings.HasPrefix(k, key.String()) {
+			if !strings.HasPrefix(k, encodeKey(key)) {
 				continue
 			}
 
@@ -126,4 +127,12 @@ func (d *MemoryDriver) DeleteRecords(ctx context.Context, keys []*types.Key) err
 	}
 
 	return nil
+}
+
+func encodeKey(key *types.Key) string {
+	if key.Attr() != "" {
+		return fmt.Sprintf("%s/%s/%s", key.Kind(), key.ID(), key.Attr())
+	}
+
+	return fmt.Sprintf("%s/%s", key.Kind(), key.ID())
 }

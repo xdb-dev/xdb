@@ -255,9 +255,6 @@ type CompositeTypesStruct struct {
 	ID             string       `xdb:"id,primary_key"`
 	Timestamp      time.Time    `xdb:"timestamp"`
 	TimestampArray [3]time.Time `xdb:"timestamp_array"`
-
-	Point      types.Point    `xdb:"point"`
-	PointArray [3]types.Point `xdb:"point_array"`
 }
 
 func TestCompositeTypesStruct(t *testing.T) {
@@ -271,18 +268,10 @@ func TestCompositeTypesStruct(t *testing.T) {
 			time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC),
 			time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC),
 		},
-		Point: types.Point{Lat: 123.456, Long: 78.910},
-		PointArray: [3]types.Point{
-			{Lat: 123.456, Long: 78.910},
-			{Lat: 123.456, Long: 78.910},
-			{Lat: 123.456, Long: 78.910},
-		},
 	}
 	record := types.NewRecord("CompositeTypesStruct", input.ID).
 		Set("timestamp", input.Timestamp).
-		Set("timestamp_array", input.TimestampArray).
-		Set("point", input.Point).
-		Set("point_array", input.PointArray)
+		Set("timestamp_array", input.TimestampArray)
 
 	t.Run("ToRecord", func(t *testing.T) {
 		encoded, err := xdbstruct.ToRecord(input)

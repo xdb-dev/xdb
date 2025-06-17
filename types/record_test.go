@@ -39,8 +39,8 @@ func TestRecord(t *testing.T) {
 		authorID := record.Get("author_id").ToString()
 		assert.Equal(t, "123", authorID)
 
-		tags := record.Get("tags").ToString()
-		assert.Equal(t, "xdb,golang", tags)
+		tags := record.Get("tags").ToStringArray()
+		assert.Equal(t, []string{"xdb", "golang"}, tags)
 	})
 
 	t.Run("Tuples", func(t *testing.T) {

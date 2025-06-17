@@ -7,14 +7,12 @@ import (
 	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
-	"github.com/spf13/cast"
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/xdb-dev/xdb/types"
-	"github.com/xdb-dev/xdb/x"
 )
 
 var (
-	ErrTypeMismatch = errors.New("encoding/xdbkv: type mismatch")
+	// ErrDecodingValue is returned when the value cannot be decoded.
+	ErrDecodingValue = errors.New("encoding/xdbkv: decoding value")
 )
 
 // EncodeTuple encodes a tuple to a key-value pair.
@@ -63,68 +61,12 @@ func DecodeKey(key []byte) (*types.Key, error) {
 	return types.NewKey(parts...), nil
 }
 
-type value struct {
-	TypeID   types.TypeID `msgpack:"t"`
-	Repeated bool         `msgpack:"r"`
-	Value    any          `msgpack:"v"`
-}
-
 // EncodeValue encodes a types.Value to []byte.
 func EncodeValue(v *types.Value) ([]byte, error) {
-	vv := value{
-		TypeID:   v.TypeID(),
-		Value:    v.Unwrap(),
-		Repeated: v.Repeated(),
-	}
-
-	return msgpack.Marshal(vv)
+	return marshalValue(v)
 }
 
 // DecodeValue decodes a []byte to a types.Value.
 func DecodeValue(flatvalue []byte) (*types.Value, error) {
-	var vv value
-	err := msgpack.Unmarshal(flatvalue, &vv)
-	if err != nil {
-		return nil, err
-	}
-
-	switch vv.TypeID {
-	case types.TypeString:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, cast.ToString)
-		} else {
-			vv.Value = cast.ToString(vv.Value)
-		}
-	case types.TypeInteger:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, cast.ToInt64)
-		} else {
-			vv.Value = cast.ToInt64(vv.Value)
-		}
-	case types.TypeFloat:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, cast.ToFloat64)
-		} else {
-			vv.Value = cast.ToFloat64(vv.Value)
-		}
-	case types.TypeBoolean:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, cast.ToBool)
-		} else {
-			vv.Value = cast.ToBool(vv.Value)
-		}
-	case types.TypeBytes:
-		arr, ok := vv.Value.([]any)
-		if ok {
-			vv.Value = x.CastArray(arr, x.ToBytes)
-		} else {
-			vv.Value = x.ToBytes(vv.Value)
-		}
-	}
-
-	return types.NewValue(vv.Value), nil
+	return unmarshalValue(flatvalue)
 }

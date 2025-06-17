@@ -3,79 +3,190 @@ package types
 import (
 	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gojekfarm/xtools/errors"
 )
 
-// Value represents an attribute value.
+var (
+	// ErrUnsupportedValue is returned when a value is not supported.
+	ErrUnsupportedValue = errors.New("xdb/types: unsupported value")
+	// ErrTypeMismatch is returned when a value is not of the expected type.
+	ErrTypeMismatch = errors.New("xdb/types: type mismatch")
+)
+
+// Value represents an attribute value using a tagged union.
+// A zero Value is considered a nil value.
 type Value struct {
-	tid      TypeID
-	repeated bool
-	val      any
+	typ  Type
+	data any
 }
 
-// NewValue creates a new value of the given type.
-func NewValue(value any) *Value {
-	if value == nil {
-		return nil
+// NewValue creates a new value.
+// Panics if the value is not supported.
+func NewValue(input any) *Value {
+	v, err := NewSafeValue(input)
+	if err != nil {
+		panic(err)
 	}
 
-	if vv, ok := value.(*Value); ok {
-		return vv
+	return v
+}
+
+// NewSafeValue creates a new value.
+// Returns an error if the value is not supported.
+func NewSafeValue(input any) (*Value, error) {
+	if input == nil {
+		return nil, nil // A zero Value represents nil
 	}
 
-	tid, repeated := TypeIDOf(value)
-	return &Value{tid: tid, val: value, repeated: repeated}
-}
+	// If it's already a Value, just return it.
+	if v, ok := input.(*Value); ok {
+		return v, nil
+	}
 
-// Unwrap returns the value as is.
-func (v *Value) Unwrap() any {
-	return v.val
-}
+	iv := reflect.ValueOf(input)
 
-// TypeID returns the type ID of the value.
-func (v *Value) TypeID() TypeID {
-	return v.tid
-}
-
-// Repeated returns whether the value is an array.
-func (v *Value) Repeated() bool {
-	return v.repeated
-}
-
-// String returns a string representation.
-func (v *Value) String() string {
-	return fmt.Sprintf("Value(%s, %v)", v.tid.String(), v.val)
-}
-
-// TypeIDOf returns the TypeID and whether the value is an array.
-func TypeIDOf(value any) (TypeID, bool) {
-	kind := reflect.TypeOf(value).Kind()
-	switch kind {
-	case reflect.Array, reflect.Slice:
-		first := reflect.ValueOf(value).Index(0)
-		if first.Kind() == reflect.Uint8 {
-			return TypeBytes, false
+	for iv.Kind() == reflect.Ptr {
+		if iv.IsNil() {
+			return nil, nil
 		}
+		iv = iv.Elem()
+	}
 
-		t, _ := TypeIDOf(first.Interface())
-		return t, true
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return TypeInteger, false
-	case reflect.Float32, reflect.Float64:
-		return TypeFloat, false
-	case reflect.String:
-		return TypeString, false
+	return newValue(iv)
+}
+
+func newValue(iv reflect.Value) (*Value, error) {
+	switch iv.Kind() {
 	case reflect.Bool:
-		return TypeBoolean, false
+		return &Value{typ: booleanType, data: iv.Bool()}, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return &Value{typ: integerType, data: iv.Int()}, nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return &Value{typ: unsignedType, data: iv.Uint()}, nil
+	case reflect.Float32, reflect.Float64:
+		return &Value{typ: floatType, data: iv.Float()}, nil
+	case reflect.String:
+		return &Value{typ: stringType, data: iv.String()}, nil
 	case reflect.Struct:
-		switch reflect.TypeOf(value).String() {
-		case "time.Time":
-			return TypeTime, false
-		case "types.Point":
-			return TypePoint, false
-		default:
-			return TypeUnknown, false
+		// Well-known types
+		if iv.Type() == reflect.TypeOf(time.Time{}) {
+			return &Value{typ: timeType, data: iv.Interface().(time.Time)}, nil
 		}
+
+		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
+	case reflect.Slice, reflect.Array:
+		// Special case for []byte
+		if iv.Type().Elem().Kind() == reflect.Uint8 {
+			return &Value{typ: bytesType, data: iv.Interface().([]byte)}, nil
+		}
+
+		if iv.Len() == 0 {
+			return nil, nil
+		}
+
+		arr := make([]*Value, iv.Len())
+		for i := 0; i < iv.Len(); i++ {
+			v, err := NewSafeValue(iv.Index(i).Interface())
+			if err != nil {
+				return nil, err
+			}
+			arr[i] = v
+		}
+
+		arrayType := NewArrayType(arr[0].Type().ID())
+
+		return &Value{typ: arrayType, data: arr}, nil
+	case reflect.Map:
+		if iv.Len() == 0 {
+			return nil, nil
+		}
+
+		mp := make(map[*Value]*Value)
+		keys := iv.MapKeys()
+
+		var firstKey, firstValue *Value
+
+		for i, key := range keys {
+			k, err := NewSafeValue(key.Interface())
+			if err != nil {
+				return nil, err
+			}
+
+			v, err := NewSafeValue(iv.MapIndex(key).Interface())
+			if err != nil {
+				return nil, err
+			}
+
+			if i == 0 {
+				firstKey = k
+				firstValue = v
+			}
+
+			mp[k] = v
+		}
+
+		mapType := NewMapType(firstKey.Type().ID(), firstValue.Type().ID())
+		return &Value{typ: mapType, data: mp}, nil
 	default:
-		return TypeUnknown, false
+		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
+	}
+}
+
+// Type returns the type of the value.
+func (v *Value) Type() Type {
+	return v.typ
+}
+
+// Unwrap returns the raw data of the value.
+func (v *Value) Unwrap() any {
+	return v.data
+}
+
+// IsNil returns true if the value is nil (a zero Value).
+func (v *Value) IsNil() bool {
+	return v.data == nil
+}
+
+// String returns a string representation of the value.
+func (v *Value) String() string {
+	if v.IsNil() {
+		return "nil"
+	}
+
+	switch v.typ.ID() {
+	case TypeIDBoolean:
+		return strconv.FormatBool(v.data.(bool))
+	case TypeIDInteger:
+		return strconv.FormatInt(v.data.(int64), 10)
+	case TypeIDUnsigned:
+		return strconv.FormatUint(v.data.(uint64), 10)
+	case TypeIDFloat:
+		return strconv.FormatFloat(v.data.(float64), 'f', -1, 64)
+	case TypeIDString:
+		return v.data.(string)
+	case TypeIDBytes:
+		return string(v.data.([]byte))
+	case TypeIDTime:
+		return v.data.(time.Time).Format(time.RFC3339)
+	case TypeIDArray:
+		values := v.data.([]Value)
+		s := make([]string, len(values))
+		for i, val := range values {
+			s[i] = val.String()
+		}
+		return fmt.Sprintf("[%s]", strings.Join(s, ", "))
+	case TypeIDMap:
+		values := v.data.(map[Value]Value)
+		s := make([]string, 0, len(values))
+		for k, val := range values {
+			s = append(s, fmt.Sprintf("%s: %s", k.String(), val.String()))
+		}
+		return fmt.Sprintf("{%s}", strings.Join(s, ", "))
+	default:
+		return ""
 	}
 }

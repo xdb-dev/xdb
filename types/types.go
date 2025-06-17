@@ -1,39 +1,49 @@
 package types
 
 import (
-	"errors"
+	"fmt"
 	"strings"
-	"time"
+
+	"github.com/gojekfarm/xtools/errors"
+)
+
+var (
+	// ErrUnknownType is returned when an unknown type is encountered.
+	ErrUnknownType = errors.New("xdb/types: unknown type")
 )
 
 // TypeID represents the type of a value.
 type TypeID int
 
 const (
-	TypeUnknown TypeID = iota
-	TypeString
-	TypeInteger
-	TypeFloat
-	TypeBoolean
-	TypeBytes
-	TypeTime
-	TypePoint
+	TypeIDUnknown TypeID = iota
+	TypeIDBoolean
+	TypeIDInteger
+	TypeIDUnsigned
+	TypeIDFloat
+	TypeIDString
+	TypeIDBytes
+	TypeIDTime
+	TypeIDArray
+	TypeIDMap
 )
 
 var typeNames = map[TypeID]string{
-	TypeUnknown: "UNKNOWN",
-	TypeString:  "STRING",
-	TypeInteger: "INTEGER",
-	TypeFloat:   "FLOAT",
-	TypeBoolean: "BOOLEAN",
-	TypeBytes:   "BYTES",
-	TypeTime:    "TIME",
-	TypePoint:   "POINT",
+	TypeIDUnknown:  "UNKNOWN",
+	TypeIDBoolean:  "BOOLEAN",
+	TypeIDInteger:  "INTEGER",
+	TypeIDUnsigned: "UNSIGNED",
+	TypeIDFloat:    "FLOAT",
+	TypeIDString:   "STRING",
+	TypeIDBytes:    "BYTES",
+	TypeIDTime:     "TIME",
+	TypeIDArray:    "ARRAY",
+	TypeIDMap:      "MAP",
 }
 
 // String returns the name of the type.
 func (t TypeID) String() string {
-	return typeNames[t]
+	return fmt.Sprintf("TypeID(%s)", typeNames[t])
 }
 
 // ParseType parses a type name into a TypeID.
@@ -46,48 +56,46 @@ func ParseType(name string) (TypeID, error) {
 		}
 	}
 
-	return TypeUnknown, errors.New("unknown type: " + name)
+	return TypeIDUnknown, errors.Wrap(ErrUnknownType, "type", name)
 }
 
-type Type interface {
-	Integer | Float | String | Boolean | Bytes | Hybrid
+// A single struct to represent all types
+type Type struct {
+	id          TypeID
+	keyTypeID   TypeID
+	valueTypeID TypeID
 }
 
-// Integer is an union of all possible integer types.
-type Integer interface {
-	int | int8 | int16 | int32 | int64 |
-		[]int | []int8 | []int16 | []int32 | []int64
+func NewType(id TypeID) Type {
+	return Type{id: id}
 }
 
-// Float is an union of all possible floating point types.
-type Float interface {
-	float32 | float64 |
-		[]float32 | []float64
+func NewArrayType(valueTypeID TypeID) Type {
+	return Type{
+		id:          TypeIDArray,
+		valueTypeID: valueTypeID,
+	}
 }
 
-// String is an union of all possible string types.
-type String interface {
-	string | []string
+func NewMapType(keyTypeID, valueTypeID TypeID) Type {
+	return Type{
+		id:          TypeIDMap,
+		keyTypeID:   keyTypeID,
+		valueTypeID: valueTypeID,
+	}
 }
 
-// Boolean is an union of all possible boolean types.
-type Boolean interface {
-	bool | []bool
-}
+func (t Type) ID() TypeID        { return t.id }
+func (t Type) Name() string      { return typeNames[t.id] }
+func (t Type) KeyType() TypeID   { return t.keyTypeID }
+func (t Type) ValueType() TypeID { return t.valueTypeID }
 
-// Bytes is an union of all possible byte types.
-type Bytes interface {
-	[]byte | [][]byte
-}
-
-// Point is a point on the Earth's surface.
-type Point struct {
-	Lat  float64 `json:"lat"`
-	Long float64 `json:"long"`
-}
-
-// Hybrid is all supported composite types.
-type Hybrid interface {
-	time.Time | []time.Time |
-		Point | []Point
-}
+var (
+	booleanType  = NewType(TypeIDBoolean)
+	integerType  = NewType(TypeIDInteger)
+	unsignedType = NewType(TypeIDUnsigned)
+	floatType    = NewType(TypeIDFloat)
+	stringType   = NewType(TypeIDString)
+	bytesType    = NewType(TypeIDBytes)
+	timeType     = NewType(TypeIDTime)
+)

@@ -22,7 +22,6 @@ type SQLiteTestSuite struct {
 }
 
 func TestSQLiteTestSuite(t *testing.T) {
-	t.Parallel()
 	suite.Run(t, new(SQLiteTestSuite))
 }
 
