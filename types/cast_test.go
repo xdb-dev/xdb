@@ -48,6 +48,7 @@ func TestValue_ToBool(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tuple := types.NewTuple("Test", "1", "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToBool())
+			assert.Equal(t, tc.expected, tuple.Value().ToBool())
 		})
 	}
 }
@@ -86,6 +87,7 @@ func TestValue_ToInt(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tuple := types.NewTuple("Test", "1", "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToInt())
+			assert.Equal(t, tc.expected, tuple.Value().ToInt())
 		})
 	}
 }
@@ -125,6 +127,7 @@ func TestValue_ToUint(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tuple := types.NewTuple("Test", "1", "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToUint())
+			assert.Equal(t, tc.expected, tuple.Value().ToUint())
 		})
 	}
 }
@@ -158,6 +161,7 @@ func TestValue_ToFloat(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tuple := types.NewTuple("Test", "1", "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToFloat())
+			assert.Equal(t, tc.expected, tuple.Value().ToFloat())
 		})
 	}
 }
@@ -196,6 +200,7 @@ func TestValue_ToString(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tuple := types.NewTuple("Test", "1", "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToString())
+			assert.Equal(t, tc.expected, tuple.Value().ToString())
 		})
 	}
 }
@@ -239,6 +244,7 @@ func TestValue_ToBytes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tuple := types.NewTuple("Test", "1", "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToBytes())
+			assert.Equal(t, tc.expected, tuple.Value().ToBytes())
 		})
 	}
 }
@@ -287,6 +293,7 @@ func TestValue_ToTime(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tuple := types.NewTuple("Test", "1", "attr", tc.value)
 			assert.Equal(t, tc.expected.Compare(tuple.ToTime()), 0)
+			assert.Equal(t, tc.expected.Compare(tuple.Value().ToTime()), 0)
 		})
 	}
 }

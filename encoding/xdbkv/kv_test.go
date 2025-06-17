@@ -51,7 +51,7 @@ func TestTuple_X_KV(t *testing.T) {
 		},
 		{
 			name:    "Time",
-			tuple:   types.NewTuple("Test", "1", "time", types.Time(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC))),
+			tuple:   types.NewTuple("Test", "1", "time", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)),
 			flatkey: "Test:1:time",
 		},
 		{
@@ -86,7 +86,7 @@ func TestTuple_X_KV(t *testing.T) {
 		},
 		{
 			name:    "Time Array",
-			tuple:   types.NewTuple("Test", "1", "time_array", []types.Time{types.Time(time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)), types.Time(time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC))}),
+			tuple:   types.NewTuple("Test", "1", "time_array", []time.Time{time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)}),
 			flatkey: "Test:1:time_array",
 		},
 	}

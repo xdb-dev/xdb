@@ -14,286 +14,368 @@ var (
 	ErrCastFailed = errors.New("xdb/types: cast failed")
 )
 
-// ToBool returns the tuple's value as a bool.
-func (t *Tuple) ToBool() bool {
-	b, err := toBool(t.value)
+func (v *Value) ToBool() bool {
+	b, err := toBool(v)
 	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
+		panic(errors.Wrap(err, "value", v.String()))
 	}
 	return b
 }
 
-// ToBoolArray returns the tuple's value as a []bool.
-func (t *Tuple) ToBoolArray() []bool {
-	arr, err := castArray(t.value, toBool)
+func (v *Value) ToInt() int64 {
+	i, err := toInt64(v)
 	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
-	}
-	return arr
-}
-
-// ToInt returns the tuple's value as an int64.
-func (t *Tuple) ToInt() int64 {
-	i, err := toInt64(t.value)
-	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
+		panic(errors.Wrap(err, "value", v.String()))
 	}
 	return i
 }
 
-// ToIntArray returns the tuple's value as a []int64.
-func (t *Tuple) ToIntArray() []int64 {
-	arr, err := castArray(t.value, toInt64)
+func (v *Value) ToUint() uint64 {
+	u, err := toUint64(v)
 	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
+		panic(errors.Wrap(err, "value", v.String()))
 	}
-	return arr
+	return u
 }
 
-// ToUint returns the tuple's value as a uint64.
-func (t *Tuple) ToUint() uint64 {
-	i, err := toUint64(t.value)
+func (v *Value) ToFloat() float64 {
+	f, err := toFloat64(v)
 	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
-	}
-	return i
-}
-
-// ToUintArray returns the tuple's value as a []uint64.
-func (t *Tuple) ToUintArray() []uint64 {
-	arr, err := castArray(t.value, toUint64)
-	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
-	}
-	return arr
-}
-
-// ToFloat returns the tuple's value as a float64.
-func (t *Tuple) ToFloat() float64 {
-	f, err := toFloat64(t.value)
-	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
+		panic(errors.Wrap(err, "value", v.String()))
 	}
 	return f
 }
 
-// ToFloatArray returns the tuple's value as a []float64.
-func (t *Tuple) ToFloatArray() []float64 {
-	arr, err := castArray(t.value, toFloat64)
+func (v *Value) ToString() string {
+	s, err := toString(v)
 	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
-	}
-	return arr
-}
-
-// ToString returns the tuple's value as a string.
-func (t *Tuple) ToString() string {
-	s, err := toString(t.value)
-	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
+		panic(errors.Wrap(err, "value", v.String()))
 	}
 	return s
 }
 
-// ToStringArray returns the tuple's value as a []string.
-func (t *Tuple) ToStringArray() []string {
-	arr, err := castArray(t.value, toString)
+func (v *Value) ToBytes() []byte {
+	b, err := toBytes(v)
 	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
-	}
-	return arr
-}
-
-// ToBytes returns the tuple's value as a []byte.
-func (t *Tuple) ToBytes() []byte {
-	b, err := toBytes(t.value)
-	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
+		panic(errors.Wrap(err, "value", v.String()))
 	}
 	return b
 }
 
-// ToBytesArray returns the tuple's value as a [][]byte.
-func (t *Tuple) ToBytesArray() [][]byte {
-	arr, err := castArray(t.value, toBytes)
+func (v *Value) ToTime() time.Time {
+	t, err := toTime(v)
 	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
+		panic(errors.Wrap(err, "value", v.String()))
+	}
+	return t
+}
+
+func (v *Value) ToBoolArray() []bool {
+	arr, err := castArray(v, toBool)
+	if err != nil {
+		panic(errors.Wrap(err, "value", v.String()))
 	}
 	return arr
+}
+
+func (v *Value) ToIntArray() []int64 {
+	arr, err := castArray(v, toInt64)
+	if err != nil {
+		panic(errors.Wrap(err, "value", v.String()))
+	}
+	return arr
+}
+
+func (v *Value) ToUintArray() []uint64 {
+	arr, err := castArray(v, toUint64)
+	if err != nil {
+		panic(errors.Wrap(err, "value", v.String()))
+	}
+	return arr
+}
+
+func (v *Value) ToFloatArray() []float64 {
+	arr, err := castArray(v, toFloat64)
+	if err != nil {
+		panic(errors.Wrap(err, "value", v.String()))
+	}
+	return arr
+}
+
+func (v *Value) ToStringArray() []string {
+	arr, err := castArray(v, toString)
+	if err != nil {
+		panic(errors.Wrap(err, "value", v.String()))
+	}
+	return arr
+}
+
+func (v *Value) ToBytesArray() [][]byte {
+	arr, err := castArray(v, toBytes)
+	if err != nil {
+		panic(errors.Wrap(err, "value", v.String()))
+	}
+	return arr
+}
+
+func (v *Value) ToTimeArray() []time.Time {
+	arr, err := castArray(v, toTime)
+	if err != nil {
+		panic(errors.Wrap(err, "value", v.String()))
+	}
+	return arr
+}
+
+// ToBool returns the tuple's value as a bool.
+func (t *Tuple) ToBool() bool {
+	return t.value.ToBool()
+}
+
+// ToBoolArray returns the tuple's value as a []bool.
+func (t *Tuple) ToBoolArray() []bool {
+	return t.value.ToBoolArray()
+}
+
+// ToInt returns the tuple's value as an int64.
+func (t *Tuple) ToInt() int64 {
+	return t.value.ToInt()
+}
+
+// ToIntArray returns the tuple's value as a []int64.
+func (t *Tuple) ToIntArray() []int64 {
+	return t.value.ToIntArray()
+}
+
+// ToUint returns the tuple's value as a uint64.
+func (t *Tuple) ToUint() uint64 {
+	return t.value.ToUint()
+}
+
+// ToUintArray returns the tuple's value as a []uint64.
+func (t *Tuple) ToUintArray() []uint64 {
+	return t.value.ToUintArray()
+}
+
+// ToFloat returns the tuple's value as a float64.
+func (t *Tuple) ToFloat() float64 {
+	return t.value.ToFloat()
+}
+
+// ToFloatArray returns the tuple's value as a []float64.
+func (t *Tuple) ToFloatArray() []float64 {
+	return t.value.ToFloatArray()
+}
+
+// ToString returns the tuple's value as a string.
+func (t *Tuple) ToString() string {
+	return t.value.ToString()
+}
+
+// ToStringArray returns the tuple's value as a []string.
+func (t *Tuple) ToStringArray() []string {
+	return t.value.ToStringArray()
+}
+
+// ToBytes returns the tuple's value as a []byte.
+func (t *Tuple) ToBytes() []byte {
+	return t.value.ToBytes()
+}
+
+// ToBytesArray returns the tuple's value as a [][]byte.
+func (t *Tuple) ToBytesArray() [][]byte {
+	return t.value.ToBytesArray()
 }
 
 // ToTime returns the tuple's value as a time.Time.
 func (t *Tuple) ToTime() time.Time {
-	tm, err := toTime(t.value)
-	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
-	}
-	return tm
+	return t.value.ToTime()
 }
 
 // ToTimeArray returns the tuple's value as a []time.Time.
 func (t *Tuple) ToTimeArray() []time.Time {
-	arr, err := castArray(t.value, toTime)
-	if err != nil {
-		panic(errors.Wrap(err, "tuple", t.String()))
-	}
-	return arr
+	return t.value.ToTimeArray()
 }
 
-func toBool(v Value) (bool, error) {
-	switch v := v.(type) {
-	case Bool:
-		return bool(v), nil
-	case Int64:
-		return v != 0, nil
-	case Uint64:
-		return v != 0, nil
-	case Float64:
-		return v != 0, nil
-	case String:
-		return cast.ToBool(string(v)), nil
-	case Bytes:
-		return cast.ToBool(string(v)), nil
+func toBool(v *Value) (bool, error) {
+	if v == nil {
+		return false, nil
+	}
+	switch v.Type().ID() {
+	case TypeIDBoolean:
+		return v.data.(bool), nil
+	case TypeIDInteger:
+		return v.data.(int64) != 0, nil
+	case TypeIDUnsigned:
+		return v.data.(uint64) != 0, nil
+	case TypeIDFloat:
+		return v.data.(float64) != 0, nil
+	case TypeIDString:
+		return cast.ToBool(v.data.(string)), nil
+	case TypeIDBytes:
+		return cast.ToBool(string(v.data.([]byte))), nil
 	default:
 		return false, ErrCastFailed
 	}
 }
 
-func toInt64(v Value) (int64, error) {
-	switch v := v.(type) {
-	case Bool:
-		if bool(v) {
+func toInt64(v *Value) (int64, error) {
+	if v == nil {
+		return 0, nil
+	}
+	switch v.Type().ID() {
+	case TypeIDBoolean:
+		if v.data.(bool) {
 			return 1, nil
 		}
 		return 0, nil
-	case Int64:
-		return int64(v), nil
-	case Uint64:
-		return int64(v), nil
-	case Float64:
-		return int64(v), nil
-	case String:
-		return cast.ToInt64(string(v)), nil
-	case Bytes:
-		return cast.ToInt64(string(v)), nil
+	case TypeIDInteger:
+		return v.data.(int64), nil
+	case TypeIDUnsigned:
+		return int64(v.data.(uint64)), nil
+	case TypeIDFloat:
+		return int64(v.data.(float64)), nil
+	case TypeIDString:
+		return cast.ToInt64(v.data.(string)), nil
+	case TypeIDBytes:
+		return cast.ToInt64(string(v.data.([]byte))), nil
 	default:
 		return 0, ErrCastFailed
 	}
 }
 
-func toUint64(v Value) (uint64, error) {
-	switch v := v.(type) {
-	case Bool:
-		if bool(v) {
+func toUint64(v *Value) (uint64, error) {
+	if v == nil {
+		return 0, nil
+	}
+	switch v.Type().ID() {
+	case TypeIDBoolean:
+		if v.data.(bool) {
 			return 1, nil
 		}
 		return 0, nil
-	case Int64:
-		return uint64(v), nil
-	case Uint64:
-		return uint64(v), nil
-	case Float64:
-		return uint64(v), nil
-	case String:
-		return cast.ToUint64(string(v)), nil
-	case Bytes:
-		return cast.ToUint64(string(v)), nil
+	case TypeIDInteger:
+		return uint64(v.data.(int64)), nil
+	case TypeIDUnsigned:
+		return v.data.(uint64), nil
+	case TypeIDFloat:
+		return uint64(v.data.(float64)), nil
+	case TypeIDString:
+		return cast.ToUint64(v.data.(string)), nil
+	case TypeIDBytes:
+		return cast.ToUint64(string(v.data.([]byte))), nil
 	default:
 		return 0, ErrCastFailed
 	}
 }
 
-func toFloat64(v Value) (float64, error) {
-	switch v := v.(type) {
-	case Bool:
-		if bool(v) {
+func toFloat64(v *Value) (float64, error) {
+	if v == nil {
+		return 0, nil
+	}
+	switch v.Type().ID() {
+	case TypeIDBoolean:
+		if v.data.(bool) {
 			return 1, nil
 		}
 		return 0, nil
-	case Int64:
-		return float64(v), nil
-	case Uint64:
-		return float64(v), nil
-	case Float64:
-		return float64(v), nil
-	case String:
-		return cast.ToFloat64(string(v)), nil
-	case Bytes:
-		return cast.ToFloat64(string(v)), nil
+	case TypeIDInteger:
+		return float64(v.data.(int64)), nil
+	case TypeIDUnsigned:
+		return float64(v.data.(uint64)), nil
+	case TypeIDFloat:
+		return v.data.(float64), nil
+	case TypeIDString:
+		return cast.ToFloat64(v.data.(string)), nil
+	case TypeIDBytes:
+		return cast.ToFloat64(string(v.data.([]byte))), nil
 	default:
 		return 0, ErrCastFailed
 	}
 }
 
-func toString(v Value) (string, error) {
-	switch v := v.(type) {
-	case Bool:
-		return strconv.FormatBool(bool(v)), nil
-	case Int64:
-		return strconv.FormatInt(int64(v), 10), nil
-	case Uint64:
-		return strconv.FormatUint(uint64(v), 10), nil
-	case Float64:
-		return strconv.FormatFloat(float64(v), 'f', -1, 64), nil
-	case String:
-		return string(v), nil
-	case Bytes:
-		return string(v), nil
+func toString(v *Value) (string, error) {
+	if v == nil {
+		return "", nil
+	}
+	switch v.Type().ID() {
+	case TypeIDBoolean:
+		return strconv.FormatBool(v.data.(bool)), nil
+	case TypeIDInteger:
+		return strconv.FormatInt(v.data.(int64), 10), nil
+	case TypeIDUnsigned:
+		return strconv.FormatUint(v.data.(uint64), 10), nil
+	case TypeIDFloat:
+		return strconv.FormatFloat(v.data.(float64), 'f', -1, 64), nil
+	case TypeIDString:
+		return v.data.(string), nil
+	case TypeIDBytes:
+		return string(v.data.([]byte)), nil
 	default:
 		return "", ErrCastFailed
 	}
 }
 
-func toBytes(v Value) ([]byte, error) {
-	switch v := v.(type) {
-	case Bool:
-		return []byte(strconv.FormatBool(bool(v))), nil
-	case Int64:
-		return []byte(strconv.FormatInt(int64(v), 10)), nil
-	case Uint64:
-		return []byte(strconv.FormatUint(uint64(v), 10)), nil
-	case Float64:
-		return []byte(strconv.FormatFloat(float64(v), 'f', -1, 64)), nil
-	case String:
-		return []byte(v), nil
-	case Bytes:
-		return []byte(v), nil
+func toBytes(v *Value) ([]byte, error) {
+	if v == nil {
+		return nil, nil
+	}
+	switch v.Type().ID() {
+	case TypeIDBoolean:
+		return []byte(strconv.FormatBool(v.data.(bool))), nil
+	case TypeIDInteger:
+		return []byte(strconv.FormatInt(v.data.(int64), 10)), nil
+	case TypeIDUnsigned:
+		return []byte(strconv.FormatUint(v.data.(uint64), 10)), nil
+	case TypeIDFloat:
+		return []byte(strconv.FormatFloat(v.data.(float64), 'f', -1, 64)), nil
+	case TypeIDString:
+		return []byte(v.data.(string)), nil
+	case TypeIDBytes:
+		return v.data.([]byte), nil
 	default:
 		return nil, ErrCastFailed
 	}
 }
 
-func toTime(v Value) (time.Time, error) {
-	switch v := v.(type) {
-	case Int64:
-		return time.UnixMilli(int64(v)), nil
-	case Uint64:
-		return time.UnixMilli(int64(v)), nil
-	case Float64:
-		return time.UnixMilli(int64(v)), nil
-	case String:
-		return time.Parse(time.RFC3339, string(v))
-	case Bytes:
-		return time.Parse(time.RFC3339, string(v))
-	case Time:
-		return time.Time(v), nil
+func toTime(v *Value) (time.Time, error) {
+	if v == nil {
+		return time.Time{}, nil
+	}
+	switch v.Type().ID() {
+	case TypeIDInteger:
+		return time.UnixMilli(v.data.(int64)), nil
+	case TypeIDUnsigned:
+		return time.UnixMilli(int64(v.data.(uint64))), nil
+	case TypeIDFloat:
+		return time.UnixMilli(int64(v.data.(float64))), nil
+	case TypeIDString:
+		return time.Parse(time.RFC3339, v.data.(string))
+	case TypeIDBytes:
+		return time.Parse(time.RFC3339, string(v.data.([]byte)))
+	case TypeIDTime:
+		return v.data.(time.Time), nil
 	default:
 		return time.Time{}, ErrCastFailed
 	}
 }
 
-func castArray[T any](v Value, f func(Value) (T, error)) ([]T, error) {
+func castArray[T any](v *Value, f func(*Value) (T, error)) ([]T, error) {
+	if v == nil {
+		return nil, nil
+	}
+
 	if v.Type().ID() != TypeIDArray {
 		return nil, ErrCastFailed
 	}
 
-	arr := make([]T, len(v.(*Array).values))
-	for i, v := range v.(*Array).values {
-		var err error
-		arr[i], err = f(v)
+	arr := v.data.([]*Value)
+	result := make([]T, len(arr))
+	for i, elem := range arr {
+		val, err := f(elem)
 		if err != nil {
 			return nil, err
 		}
+		result[i] = val
 	}
-	return arr, nil
+	return result, nil
 }

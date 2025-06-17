@@ -17,97 +17,73 @@ func TestSQLValue(t *testing.T) {
 
 	testcases := []struct {
 		name  string
-		value types.Value
+		value *types.Value
 		want  any
 	}{
 		{
 			name:  "Bool true",
-			value: types.Bool(true),
+			value: types.NewValue(true),
 			want:  1,
 		},
 		{
 			name:  "Bool false",
-			value: types.Bool(false),
+			value: types.NewValue(false),
 			want:  0,
 		},
 		{
-			name: "Bool Array",
-			value: types.NewArray(
-				types.TypeIDBoolean,
-				types.Bool(true),
-				types.Bool(false),
-			),
-			want: `[true,false]`,
+			name:  "Bool Array",
+			value: types.NewValue([]bool{true, false}),
+			want:  `[true,false]`,
 		},
 		{
 			name:  "Int64",
-			value: types.Int64(42),
+			value: types.NewValue(int64(42)),
 			want:  int64(42),
 		},
 		{
-			name: "Int64 Array",
-			value: types.NewArray(
-				types.TypeIDInteger,
-				types.Int64(1),
-				types.Int64(2),
-			),
-			want: `["1","2"]`,
+			name:  "Int64 Array",
+			value: types.NewValue([]int64{1, 2}),
+			want:  `["1","2"]`,
 		},
 		{
 			name:  "Uint64",
-			value: types.Uint64(42),
+			value: types.NewValue(uint64(42)),
 			want:  uint64(42),
 		},
 		{
-			name: "Uint64 Array",
-			value: types.NewArray(
-				types.TypeIDUnsigned,
-				types.Uint64(1),
-				types.Uint64(2),
-			),
-			want: `["1","2"]`,
+			name:  "Uint64 Array",
+			value: types.NewValue([]uint64{1, 2}),
+			want:  `["1","2"]`,
 		},
 		{
 			name:  "Float64",
-			value: types.Float64(3.14),
+			value: types.NewValue(float64(3.14)),
 			want:  float64(3.14),
 		},
 		{
-			name: "Float64 Array",
-			value: types.NewArray(
-				types.TypeIDFloat,
-				types.Float64(1.1),
-				types.Float64(2.2),
-			),
-			want: `[1.1,2.2]`,
+			name:  "Float64 Array",
+			value: types.NewValue([]float64{1.1, 2.2}),
+			want:  `[1.1,2.2]`,
 		},
 		{
 			name:  "String",
-			value: types.String("foo"),
+			value: types.NewValue("foo"),
 			want:  "foo",
 		},
 		{
-			name: "String Array",
-			value: types.NewArray(
-				types.TypeIDString,
-				types.String("a"),
-				types.String("b"),
-			),
-			want: `["a","b"]`,
+			name:  "String Array",
+			value: types.NewValue([]string{"a", "b"}),
+			want:  `["a","b"]`,
 		},
 		{
 			name:  "Bytes",
-			value: types.Bytes(b),
+			value: types.NewValue(b),
 			want:  b,
 		},
 		{
-			name: "Bytes Array",
-			value: types.NewArray(
-				types.TypeIDBytes,
-				types.Bytes([]byte("a")),
-				types.Bytes([]byte("b")),
-			),
-			want: `["YQ==","Yg=="]`,
+			name:  "Bytes Array",
+			value: types.NewValue([][]byte{[]byte("a"), []byte("b")}),
+			want:  `["YQ==","Yg=="]`,
 		},
 		// {
 		// 	name:  "Time",

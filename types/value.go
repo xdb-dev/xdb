@@ -13,17 +13,20 @@ import (
 var (
 	// ErrUnsupportedValue is returned when a value is not supported.
 	ErrUnsupportedValue = errors.New("xdb/types: unsupported value")
+	// ErrTypeMismatch is returned when a value is not of the expected type.
+	ErrTypeMismatch = errors.New("xdb/types: type mismatch")
 )
 
-// Value represents an attribute value.
-type Value interface {
-	Type() Type
-	String() string
+// Value represents an attribute value using a tagged union.
+// A zero Value is considered a nil value.
+type Value struct {
+	typ  Type
+	data any
 }
 
 // NewValue creates a new value.
 // Panics if the value is not supported.
-func NewValue(input any) Value {
+func NewValue(input any) *Value {
 	v, err := NewSafeValue(input)
 	if err != nil {
 		panic(err)
@@ -34,85 +37,81 @@ func NewValue(input any) Value {
 
 // NewSafeValue creates a new value.
 // Returns an error if the value is not supported.
-func NewSafeValue(input any) (Value, error) {
+func NewSafeValue(input any) (*Value, error) {
 	if input == nil {
-		return nil, nil
+		return nil, nil // A zero Value represents nil
 	}
 
-	if v, ok := input.(Value); ok {
+	// If it's already a Value, just return it.
+	if v, ok := input.(*Value); ok {
 		return v, nil
 	}
 
 	iv := reflect.ValueOf(input)
 
 	for iv.Kind() == reflect.Ptr {
+		if iv.IsNil() {
+			return nil, nil
+		}
 		iv = iv.Elem()
 	}
 
 	return newValue(iv)
 }
 
-func newValue(iv reflect.Value) (Value, error) {
+func newValue(iv reflect.Value) (*Value, error) {
 	switch iv.Kind() {
 	case reflect.Bool:
-		return Bool(iv.Bool()), nil
+		return &Value{typ: BooleanType, data: iv.Bool()}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return Int64(iv.Int()), nil
+		return &Value{typ: IntegerType, data: iv.Int()}, nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return Uint64(iv.Uint()), nil
+		return &Value{typ: UnsignedType, data: iv.Uint()}, nil
 	case reflect.Float32, reflect.Float64:
-		return Float64(iv.Float()), nil
+		return &Value{typ: FloatType, data: iv.Float()}, nil
 	case reflect.String:
-		return String(iv.String()), nil
+		return &Value{typ: StringType, data: iv.String()}, nil
 	case reflect.Struct:
 		// Well-known types
 		if iv.Type() == reflect.TypeOf(time.Time{}) {
-			return Time(iv.Interface().(time.Time)), nil
+			return &Value{typ: TimeType, data: iv.Interface().(time.Time)}, nil
 		}
 
 		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
 	case reflect.Slice, reflect.Array:
+		// Special case for []byte
+		if iv.Type().Elem().Kind() == reflect.Uint8 {
+			return &Value{typ: BytesType, data: iv.Interface().([]byte)}, nil
+		}
+
 		if iv.Len() == 0 {
+			// Cannot determine array type if empty, treat as nil.
 			return nil, nil
 		}
 
-		first := iv.Index(0)
-
-		if first.Kind() == reflect.Uint8 {
-			return Bytes(iv.Interface().([]byte)), nil
-		}
-
-		arr := make([]Value, iv.Len())
+		arr := make([]*Value, iv.Len())
 		for i := 0; i < iv.Len(); i++ {
 			v, err := NewSafeValue(iv.Index(i).Interface())
 			if err != nil {
 				return nil, err
 			}
-
 			arr[i] = v
 		}
 
-		return NewArray(arr[0].Type().ID(), arr...), nil
+		// The type of the array is determined by the type of the first element.
+		arrayType := NewArrayType(arr[0].Type().ID())
+		return &Value{typ: arrayType, data: arr}, nil
 	case reflect.Map:
 		if iv.Len() == 0 {
 			return nil, nil
 		}
 
+		mp := make(map[*Value]*Value)
 		keys := iv.MapKeys()
 
-		key1, err := NewSafeValue(keys[0].Interface())
-		if err != nil {
-			return nil, err
-		}
+		var firstKey, firstValue *Value
 
-		value1, err := NewSafeValue(iv.MapIndex(keys[0]).Interface())
-		if err != nil {
-			return nil, err
-		}
-
-		mp := NewMap(key1.Type().ID(), value1.Type().ID())
-
-		for _, key := range keys {
+		for i, key := range keys {
 			k, err := NewSafeValue(key.Interface())
 			if err != nil {
 				return nil, err
@@ -123,141 +122,72 @@ func newValue(iv reflect.Value) (Value, error) {
 				return nil, err
 			}
 
-			mp.Set(k, v)
+			if i == 0 {
+				firstKey = k
+				firstValue = v
+			}
+
+			mp[k] = v
 		}
 
-		return mp, nil
+		mapType := NewMapType(firstKey.Type().ID(), firstValue.Type().ID())
+		return &Value{typ: mapType, data: mp}, nil
 	default:
 		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
 	}
 }
 
-type Bool bool
-
-func (b Bool) Type() Type { return BooleanType }
-
-func (b Bool) String() string {
-	return strconv.FormatBool(bool(b))
+// Type returns the type of the value.
+func (v *Value) Type() Type {
+	return v.typ
 }
 
-type Int64 int64
-
-func (t Int64) Type() Type { return IntegerType }
-
-func (t Int64) String() string {
-	return strconv.FormatInt(int64(t), 10)
+// Unwrap returns the raw data of the value.
+func (v *Value) Unwrap() any {
+	return v.data
 }
 
-type Uint64 uint64
-
-func (t Uint64) Type() Type { return UnsignedType }
-
-func (t Uint64) String() string {
-	return strconv.FormatUint(uint64(t), 10)
+// IsNil returns true if the value is nil (a zero Value).
+func (v *Value) IsNil() bool {
+	return v.data == nil
 }
 
-type Float64 float64
-
-func (t Float64) Type() Type { return FloatType }
-
-func (t Float64) String() string {
-	return strconv.FormatFloat(float64(t), 'f', -1, 64)
-}
-
-type String string
-
-func (t String) Type() Type { return StringType }
-
-func (t String) String() string { return string(t) }
-
-type Bytes []byte
-
-func (t Bytes) Type() Type { return BytesType }
-
-func (t Bytes) String() string { return string(t) }
-
-type Time time.Time
-
-func (t Time) Type() Type { return TimeType }
-
-func (t Time) String() string { return time.Time(t).Format(time.RFC3339) }
-
-type Array struct {
-	typ    Type
-	values []Value
-}
-
-func NewArray(t TypeID, values ...Value) *Array {
-	return &Array{
-		typ:    NewArrayType(t),
-		values: values,
-	}
-}
-
-func (t *Array) Type() Type { return t.typ }
-
-func (t *Array) String() string {
-	values := make([]string, len(t.values))
-	for i, v := range t.values {
-		values[i] = v.String()
+// String returns a string representation of the value.
+func (v *Value) String() string {
+	if v.IsNil() {
+		return "nil"
 	}
 
-	return fmt.Sprintf("[%s]", strings.Join(values, ", "))
-}
-
-func (t *Array) ValueType() TypeID {
-	return t.typ.ValueType()
-}
-
-func (t *Array) Values() []Value {
-	return t.values
-}
-
-func (t *Array) Append(v ...Value) *Array {
-	t.values = append(t.values, v...)
-	return t
-}
-
-func (t *Array) Get(i int) Value {
-	return t.values[i]
-}
-
-type Map struct {
-	typ    Type
-	values map[Value]Value
-}
-
-func NewMap(kt, vt TypeID) *Map {
-	return &Map{
-		typ:    NewMapType(kt, vt),
-		values: map[Value]Value{},
+	switch v.typ.ID() {
+	case TypeIDBoolean:
+		return strconv.FormatBool(v.data.(bool))
+	case TypeIDInteger:
+		return strconv.FormatInt(v.data.(int64), 10)
+	case TypeIDUnsigned:
+		return strconv.FormatUint(v.data.(uint64), 10)
+	case TypeIDFloat:
+		return strconv.FormatFloat(v.data.(float64), 'f', -1, 64)
+	case TypeIDString:
+		return v.data.(string)
+	case TypeIDBytes:
+		return string(v.data.([]byte))
+	case TypeIDTime:
+		return v.data.(time.Time).Format(time.RFC3339)
+	case TypeIDArray:
+		values := v.data.([]Value)
+		s := make([]string, len(values))
+		for i, val := range values {
+			s[i] = val.String()
+		}
+		return fmt.Sprintf("[%s]", strings.Join(s, ", "))
+	case TypeIDMap:
+		values := v.data.(map[Value]Value)
+		s := make([]string, 0, len(values))
+		for k, val := range values {
+			s = append(s, fmt.Sprintf("%s: %s", k.String(), val.String()))
+		}
+		return fmt.Sprintf("{%s}", strings.Join(s, ", "))
+	default:
+		return ""
 	}
-}
-
-func (t *Map) Type() Type {
-	return t.typ
-}
-
-func (t *Map) String() string {
-	values := make([]string, 0, len(t.values))
-	for k, v := range t.values {
-		values = append(values,
-			fmt.Sprintf("%s: %s", k.String(), v.String()),
-		)
-	}
-
-	return fmt.Sprintf("{%s}", strings.Join(values, ", "))
-}
-
-func (t *Map) Values() map[Value]Value {
-	return t.values
-}
-
-func (t *Map) Set(k, v Value) *Map {
-	t.values[k] = v
-	return t
-}
-
-func (t *Map) Get(k Value) Value {
-	return t.values[k]
 }

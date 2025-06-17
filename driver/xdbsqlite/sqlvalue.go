@@ -14,7 +14,7 @@ import (
 
 type sqlValue struct {
 	attr  *types.Attribute
-	value types.Value
+	value *types.Value
 }
 
 // Value returns a SQLite compatible type for a xdb/types.Value.
@@ -32,29 +32,29 @@ type sqlValue struct {
 // - []bytes -> TEXT(JSON)
 // - []time -> TEXT(JSON)
 func (s *sqlValue) Value() (any, error) {
-	switch v := s.value.(type) {
-	case types.Bool:
-		if v {
+	switch s.value.Type().ID() {
+	case types.TypeIDBoolean:
+		if s.value.ToBool() {
 			return 1, nil
 		}
 		return 0, nil
-	case types.Int64:
-		return int64(v), nil
-	case types.Uint64:
-		return uint64(v), nil
-	case types.Float64:
-		return float64(v), nil
-	case types.String:
-		return string(v), nil
-	case types.Bytes:
-		return v, nil
-	case types.Time:
-		return time.Time(v).UnixMilli(), nil
-	case *types.Array:
-		switch v.ValueType() {
+	case types.TypeIDInteger:
+		return s.value.ToInt(), nil
+	case types.TypeIDUnsigned:
+		return s.value.ToUint(), nil
+	case types.TypeIDFloat:
+		return s.value.ToFloat(), nil
+	case types.TypeIDString:
+		return s.value.ToString(), nil
+	case types.TypeIDBytes:
+		return s.value.ToBytes(), nil
+	case types.TypeIDTime:
+		return s.value.ToTime().UnixMilli(), nil
+	case types.TypeIDArray:
+		switch s.value.Type().ValueType() {
 		case types.TypeIDInteger, types.TypeIDUnsigned:
 			// Convert integers to strings to maintain precision
-			values := x.Map(v.Values(), func(v types.Value) string {
+			values := x.Map(s.value.ToIntArray(), func(v int64) string {
 				return fmt.Sprintf("%d", v)
 			})
 			b, err := json.Marshal(values)
@@ -63,8 +63,8 @@ func (s *sqlValue) Value() (any, error) {
 			}
 			return string(b), nil
 		case types.TypeIDTime:
-			values := x.Map(v.Values(), func(v types.Value) string {
-				return fmt.Sprintf("%d", time.Time(v.(types.Time)).UnixMilli())
+			values := x.Map(s.value.ToTimeArray(), func(v time.Time) string {
+				return fmt.Sprintf("%d", v.UnixMilli())
 			})
 			b, err := json.Marshal(values)
 			if err != nil {
@@ -72,7 +72,7 @@ func (s *sqlValue) Value() (any, error) {
 			}
 			return string(b), nil
 		default:
-			b, err := json.Marshal(v.Values())
+			b, err := json.Marshal(s.value.Unwrap())
 			if err != nil {
 				return nil, err
 			}
@@ -94,41 +94,53 @@ func (s *sqlValue) Scan(src any) error {
 		if err := json.Unmarshal([]byte(src.(string)), &decoded); err != nil {
 			return err
 		}
-		s.value = castValue(decoded, s.attr.Type.ValueType())
+		val, err := castValue(decoded, s.attr.Type.ValueType())
+		if err != nil {
+			return err
+		}
+		s.value = val
 	default:
-		s.value = castValue(src, s.attr.Type.ID())
+		val, err := castValue(src, s.attr.Type.ID())
+		if err != nil {
+			return err
+		}
+		s.value = val
 	}
 	return nil
 }
 
-func castValue(src any, typ types.TypeID) types.Value {
+func castValue(src any, typ types.TypeID) (*types.Value, error) {
 	switch typ {
 	case types.TypeIDBoolean:
-		return types.Bool(cast.ToBool(src))
+		return types.NewSafeValue(cast.ToBool(src))
 	case types.TypeIDInteger:
-		return types.Int64(cast.ToInt64(src))
+		return types.NewSafeValue(cast.ToInt64(src))
 	case types.TypeIDUnsigned:
-		return types.Uint64(cast.ToUint64(src))
+		return types.NewSafeValue(cast.ToUint64(src))
 	case types.TypeIDFloat:
-		return types.Float64(cast.ToFloat64(src))
+		return types.NewSafeValue(cast.ToFloat64(src))
 	case types.TypeIDString:
-		return types.String(cast.ToString(src))
+		return types.NewSafeValue(cast.ToString(src))
 	case types.TypeIDBytes:
 		if str, ok := src.(string); ok {
 			b64, err := base64.StdEncoding.DecodeString(str)
 			if err != nil {
+				return nil, err
+			}
+			return types.NewSafeValue(b64)
+		}
+		return types.NewSafeValue(src.([]byte))
+	case types.TypeIDTime:
+		return types.NewSafeValue(time.UnixMilli(cast.ToInt64(src)))
+	case types.TypeIDArray:
+		values := x.Map(src.([]any), func(v any) *types.Value {
+			val, err := castValue(v, typ)
+			if err != nil {
 				return nil
 			}
-			return types.Bytes(b64)
-		}
-		return types.Bytes(src.([]byte))
-	case types.TypeIDTime:
-		return types.Time(time.UnixMilli(cast.ToInt64(src)))
-	case types.TypeIDArray:
-		values := x.Map(src.([]any), func(v any) types.Value {
-			return castValue(v, typ)
+			return val
 		})
-		return types.NewArray(typ, values...)
+		return types.NewSafeValue(values)
 	}
-	return nil
+	return nil, nil
 }

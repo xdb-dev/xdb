@@ -16,7 +16,7 @@ type Tuple struct {
 	kind  string
 	id    string
 	attr  string
-	value Value
+	value *Value
 }
 
 // NewTuple creates a new Tuple.
@@ -45,7 +45,7 @@ func (t *Tuple) Attr() string {
 }
 
 // Value returns the value of the attribute.
-func (t *Tuple) Value() Value {
+func (t *Tuple) Value() *Value {
 	return t.value
 }
 

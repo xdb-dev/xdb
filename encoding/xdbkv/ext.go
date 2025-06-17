@@ -1,187 +1,119 @@
 package xdbkv
 
 import (
-	"bytes"
+	"fmt"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/xdb-dev/xdb/types"
 )
 
-type boolExt struct {
-	types.Bool
+// value is the wire format for a types.Value
+type value struct {
+	TypeID types.TypeID `msgpack:"t"`
+	Data   any          `msgpack:"d"`
 }
 
-func (b *boolExt) MarshalMsgpack() ([]byte, error) {
-	if b.Bool {
-		return []byte{1}, nil
+// MarshalValue serializes a *types.Value to msgpack.
+func MarshalValue(v *types.Value) ([]byte, error) {
+	if v == nil || v.IsNil() {
+		return msgpack.Marshal(value{TypeID: types.TypeIDUnknown, Data: nil})
 	}
-	return []byte{0}, nil
-}
 
-func (b *boolExt) UnmarshalMsgpack(data []byte) error {
-	if len(data) == 0 {
-		return nil
+	switch v.Type().ID() {
+	case types.TypeIDArray:
+		arr := v.Unwrap().([]*types.Value)
+		data := make([][]byte, len(arr))
+		for i, elem := range arr {
+			b, err := MarshalValue(elem)
+			if err != nil {
+				return nil, err
+			}
+			data[i] = b
+		}
+		return msgpack.Marshal(value{TypeID: types.TypeIDArray, Data: data})
+	case types.TypeIDMap:
+		mp := v.Unwrap().(map[*types.Value]*types.Value)
+		data := make(map[string][]byte, len(mp))
+		for k, val := range mp {
+			kb, err := MarshalValue(k)
+			if err != nil {
+				return nil, err
+			}
+			vb, err := MarshalValue(val)
+			if err != nil {
+				return nil, err
+			}
+			data[string(kb)] = vb
+		}
+		return msgpack.Marshal(value{TypeID: types.TypeIDMap, Data: data})
+	case types.TypeIDTime:
+		return msgpack.Marshal(value{TypeID: types.TypeIDTime, Data: v.Unwrap().(time.Time).Format(time.RFC3339)})
+	default:
+		return msgpack.Marshal(value{TypeID: v.Type().ID(), Data: v.Unwrap()})
 	}
-	b.Bool = data[0] == 1
-	return nil
 }
 
-type int64Ext struct {
-	types.Int64
-}
-
-func (i *int64Ext) MarshalMsgpack() ([]byte, error) {
-	return msgpack.Marshal(i.Int64)
-}
-
-func (i *int64Ext) UnmarshalMsgpack(data []byte) error {
-	return msgpack.Unmarshal(data, &i.Int64)
-}
-
-type uint64Ext struct {
-	types.Uint64
-}
-
-func (u *uint64Ext) MarshalMsgpack() ([]byte, error) {
-	return msgpack.Marshal(u.Uint64)
-}
-
-func (u *uint64Ext) UnmarshalMsgpack(data []byte) error {
-	return msgpack.Unmarshal(data, &u.Uint64)
-}
-
-type float64Ext struct {
-	types.Float64
-}
-
-func (f *float64Ext) MarshalMsgpack() ([]byte, error) {
-	return msgpack.Marshal(f.Float64)
-}
-
-func (f *float64Ext) UnmarshalMsgpack(data []byte) error {
-	return msgpack.Unmarshal(data, &f.Float64)
-}
-
-type stringExt struct {
-	types.String
-}
-
-func (s *stringExt) MarshalMsgpack() ([]byte, error) {
-	return msgpack.Marshal(string(s.String))
-}
-
-func (s *stringExt) UnmarshalMsgpack(data []byte) error {
-	var str string
-	err := msgpack.Unmarshal(data, &str)
-	if err != nil {
-		return err
+// UnmarshalValue deserializes msgpack data into a *types.Value.
+func UnmarshalValue(b []byte) (*types.Value, error) {
+	var env value
+	if err := msgpack.Unmarshal(b, &env); err != nil {
+		return nil, err
 	}
-	s.String = types.String(str)
-	return nil
-}
 
-type bytesExt struct {
-	types.Bytes
-}
-
-func (b *bytesExt) MarshalMsgpack() ([]byte, error) {
-	return msgpack.Marshal([]byte(b.Bytes))
-}
-
-func (b *bytesExt) UnmarshalMsgpack(data []byte) error {
-	var bs []byte
-	err := msgpack.Unmarshal(data, &bs)
-	if err != nil {
-		return err
+	if env.TypeID == types.TypeIDUnknown || env.Data == nil {
+		return nil, nil
 	}
-	b.Bytes = types.Bytes(bs)
-	return nil
-}
 
-type timeExt struct {
-	types.Time
-}
+	switch env.TypeID {
+	case types.TypeIDArray:
+		rawArr, ok := env.Data.([]any)
+		if !ok {
+			return nil, fmt.Errorf("invalid array encoding")
+		}
 
-func (t *timeExt) MarshalMsgpack() ([]byte, error) {
-	return msgpack.Marshal(time.Time(t.Time).UnixMilli())
-}
-
-func (t *timeExt) UnmarshalMsgpack(data []byte) error {
-	var ms int64
-	err := msgpack.Unmarshal(data, &ms)
-	if err != nil {
-		return err
-	}
-	t.Time = types.Time(time.UnixMilli(ms).UTC())
-	return nil
-}
-
-type arrayExt struct {
-	*types.Array
-}
-
-func (a *arrayExt) MarshalMsgpack() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	enc := msgpack.NewEncoder(buf)
-	values := a.Array.Values()
-
-	enc.EncodeInt(int64(a.ValueType()))
-	enc.EncodeArrayLen(len(values))
-
-	for _, v := range values {
-		vv, err := EncodeValue(v)
+		arr := make([]*types.Value, len(rawArr))
+		for i, elem := range rawArr {
+			elemBytes, ok := elem.([]byte)
+			if !ok {
+				return nil, fmt.Errorf("invalid array element encoding")
+			}
+			v, err := UnmarshalValue(elemBytes)
+			if err != nil {
+				return nil, err
+			}
+			arr[i] = v
+		}
+		return types.NewSafeValue(arr)
+	case types.TypeIDMap:
+		rawMap, ok := env.Data.(map[string][]byte)
+		if !ok {
+			return nil, fmt.Errorf("invalid map encoding")
+		}
+		mp := make(map[*types.Value]*types.Value, len(rawMap))
+		for kStr, vBytes := range rawMap {
+			kVal, err := UnmarshalValue([]byte(kStr))
+			if err != nil {
+				return nil, err
+			}
+			vVal, err := UnmarshalValue(vBytes)
+			if err != nil {
+				return nil, err
+			}
+			mp[kVal] = vVal
+		}
+		return types.NewSafeValue(mp)
+	case types.TypeIDTime:
+		str, ok := env.Data.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid time encoding")
+		}
+		t, err := time.Parse(time.RFC3339, str)
 		if err != nil {
 			return nil, err
 		}
-
-		enc.EncodeBytes(vv)
+		return types.NewSafeValue(t)
+	default:
+		return types.NewSafeValue(env.Data)
 	}
-
-	return buf.Bytes(), nil
-}
-
-func (a *arrayExt) UnmarshalMsgpack(data []byte) error {
-	dec := msgpack.NewDecoder(bytes.NewReader(data))
-
-	typeID, err := dec.DecodeInt()
-	if err != nil {
-		return err
-	}
-
-	arrLen, err := dec.DecodeArrayLen()
-	if err != nil {
-		return err
-	}
-
-	values := make([]types.Value, 0, arrLen)
-
-	for i := 0; i < arrLen; i++ {
-		bs, err := dec.DecodeBytes()
-		if err != nil {
-			return err
-		}
-
-		vv, err := DecodeValue(bs)
-		if err != nil {
-			return err
-		}
-
-		values = append(values, vv)
-	}
-
-	a.Array = types.NewArray(types.TypeID(typeID), values...)
-
-	return nil
-}
-
-func init() {
-	msgpack.RegisterExt(1, &boolExt{})
-	msgpack.RegisterExt(2, &int64Ext{})
-	msgpack.RegisterExt(3, &uint64Ext{})
-	msgpack.RegisterExt(4, &float64Ext{})
-	msgpack.RegisterExt(5, &stringExt{})
-	msgpack.RegisterExt(6, &bytesExt{})
-	msgpack.RegisterExt(7, &timeExt{})
-	msgpack.RegisterExt(8, &arrayExt{})
 }
