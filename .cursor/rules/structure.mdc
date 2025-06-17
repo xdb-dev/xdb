@@ -1,0 +1,44 @@
+---
+description: While creating new files or packages 
+globs: 
+alwaysApply: false
+---
+---
+description: How to add files and packages in our project
+globs: *.go
+alwaysApply: false
+---
+# Project Structure
+
+This document explains the structure of the XDB repository and the purpose of each major directory.
+
+## Top-Level Directories
+
+- **driver/**: Contains database driver implementations. Each subdirectory (e.g., `xdbsqlite`, `xdbredis`, `xdbmemory`) provides a driver that bridges XDB's tuple-based model to a specific backend. The root `driver.go` defines core driver interfaces.
+- **encoding/**: Houses encoding/decoding utilities for converting between XDB records/tuples and various formats:
+  - `xdbjson/`: JSON encoding/decoding
+  - `xdbkv/`: Key-value encoding/decoding
+  - `xdbproto/`: Protobuf encoding/decoding
+  - `xdbstruct/`: Struct-to-record conversion utilities
+- **examples/**: Example applications demonstrating how to use XDB APIs in real scenarios. Each subdirectory is a self-contained example.
+- **internal/**: Internal tools and dependencies, not intended for public use. For example, `internal/tools` contains Go tool dependencies for linting, formatting, and code quality.
+- **registry/**: Schema registry logic for managing and retrieving domain schemas.
+- **tests/**: Shared test helpers, fixtures, and test schemas for use across the codebase.
+- **types/**: Core type definitions for tuples, records, keys, values, and schemas. This is the foundation of XDB's data model.
+- **x/**: Utility and helper functions used throughout the codebase.
+- **docs/**: Documentation assets, such as diagrams and images.
+
+## Root Files
+
+- `README.md`: Project overview, core concepts, and getting started information.
+- `Makefile`: Common development, formatting, linting, and testing tasks.
+- `go.mod`, `go.sum`, `go.work`, `go.work.sum`: Go module and workspace configuration files.
+- `docker-compose.yml`: (If present) Used for local development/testing with containers.
+- `revive.toml`: Linting configuration.
+
+## Notes
+- Each driver and encoding format is isolated in its own subpackage for modularity.
+- Test files are co-located with the code they test, following Go conventions.
+- The `internal/` directory is reserved for private code and tooling.
+
+---

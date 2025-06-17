@@ -1,0 +1,66 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Go Formatting Rules (@formatting.mdc)
+
+## 1. General Formatting
+- Use `gofmt` (or `go fmt`) to format all Go source files.
+- Use tabs for indentation (not spaces).
+- No trailing whitespace at the end of lines.
+- One blank line between top-level declarations (types, functions, etc.).
+- No more than one consecutive blank line.
+
+## 2. Imports
+- Group imports in a single block.
+  - Standard library imports first.
+  - Third-party imports next.
+  - Local package imports last.
+- Separate each group with a blank line.
+- Do not use blank or dot imports unless necessary (`blank-imports`, `dot-imports`).
+
+## 3. Package and File Structure
+- Each type or closely related set of types should have its own file.
+- Test files must be named with the `_test.go` suffix and placed alongside the code they test.
+- All files must have a package comment (`package-comments`).
+
+## 4. Naming Conventions
+- Use CamelCase for exported names and mixedCaps for unexported names.
+- Acronyms should be capitalized (e.g., `ID`, `URL`).
+- Avoid underscores in variable or function names (`var-naming`).
+- Use short, meaningful receiver names (`receiver-naming`).
+- Use explicit type declarations over `var` when the type is not obvious (`var-declaration`).
+
+## 5. Type and Constant Declarations
+- Use `type` for struct, interface, and alias declarations.
+- Group related constants using `const (...)` blocks.
+- Use `iota` for enumerated constants where appropriate.
+- Exported constants and variables should be capitalized and have a comment.
+
+## 6. Functions and Methods
+- Exported functions and methods must have a comment starting with the function name (`exported`).
+- Place methods directly after the type they belong to, when possible.
+- Return errors as the last return value (`error-return`).
+- Use `fmt.Errorf` or `errors.New` for error creation (`error-strings`, `errorf`).
+- Prefer wrapping errors with context when rethrowing.
+- Use `if` statements to return errors early (`if-return`, `indent-error-flow`).
+
+## 7. Error Handling
+- Do not use generic error names; be descriptive (`error-naming`).
+- Do not return unexported error types from exported functions (`unexported-return`).
+
+## 8. Comments and Documentation
+- Use full sentences in comments, starting with a capital letter and ending with a period.
+- All exported identifiers (types, functions, variables, constants) must have GoDoc comments.
+- Inline comments should be used sparingly and only when the code is not self-explanatory.
+
+## 9. Context Usage
+- Always pass `context.Context` as the first argument to functions that require it (`context-as-argument`).
+- Use custom types for context keys (`context-keys-type`).
+
+## 10. Miscellaneous
+- Use increment and decrement statements (`i++`, `i--`) instead of `i = i + 1` or `i = i - 1` (`increment-decrement`).
+- Use `range` for iterating over slices, arrays, maps, and channels (`range`).
+- Use table-driven tests for functions with multiple input/output cases.
+- Place example functions in `examples_test.go` and name them `ExampleXxx`.
