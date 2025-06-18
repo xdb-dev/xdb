@@ -13,7 +13,9 @@ import (
 
 var (
 	// ErrDecodingValue is returned when the value cannot be decoded.
-	ErrDecodingValue = errors.New("encoding/xdbkv: decoding value")
+	ErrDecodingValue = errors.New("encoding/xdbkv: decoding value failed")
+	// ErrDecodingKey is returned when the key cannot be decoded.
+	ErrDecodingKey = errors.New("encoding/xdbkv: decoding key failed")
 )
 
 // EncodeTuple encodes a tuple to a key-value pair.
@@ -56,7 +58,7 @@ func EncodeKey(key interface {
 func DecodeKey(key []byte) (*types.Key, error) {
 	parts := strings.Split(string(key), ":")
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("invalid key: %s", string(key))
+		return nil, errors.Wrap(ErrDecodingKey, "key", string(key))
 	}
 
 	return types.NewKey(parts...), nil

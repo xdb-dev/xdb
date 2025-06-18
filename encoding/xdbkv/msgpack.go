@@ -115,7 +115,7 @@ func unmarshalValue(b []byte) (*types.Value, error) {
 			return nil, ErrDecodingValue
 		}
 
-		t := time.UnixMilli(unixtime)
+		t := time.UnixMilli(unixtime).UTC()
 
 		return types.NewSafeValue(t)
 	default:

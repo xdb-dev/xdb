@@ -12,82 +12,85 @@ import (
 	"github.com/xdb-dev/xdb/types"
 )
 
-func TestTuple_X_KV(t *testing.T) {
+func TestEncodeDecodeTuple(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
 		name    string
-		tuple   *types.Tuple
+		value   any
 		flatkey string
 	}{
 		{
-			name:    "Boolean",
-			tuple:   types.NewTuple("Test", "1", "boolean", true),
+			name:    "boolean",
+			value:   true,
 			flatkey: "Test:1:boolean",
 		},
 		{
-			name:    "Integer",
-			tuple:   types.NewTuple("Test", "1", "integer", int64(42)),
+			name:    "integer",
+			value:   int64(42),
 			flatkey: "Test:1:integer",
 		},
 		{
-			name:    "String",
-			tuple:   types.NewTuple("Test", "1", "string", "value"),
+			name:    "string",
+			value:   "hello world",
 			flatkey: "Test:1:string",
 		},
 		{
-			name:    "Float",
-			tuple:   types.NewTuple("Test", "1", "float", float64(3.14)),
+			name:    "float",
+			value:   float64(3.14),
 			flatkey: "Test:1:float",
 		},
 		{
-			name:    "Uint64",
-			tuple:   types.NewTuple("Test", "1", "uint64", uint64(123)),
+			name:    "uint64",
+			value:   uint64(123),
 			flatkey: "Test:1:uint64",
 		},
 		{
-			name:    "Bytes",
-			tuple:   types.NewTuple("Test", "1", "bytes", []byte("hello world")),
+			name:    "bytes",
+			value:   []byte("hello world"),
 			flatkey: "Test:1:bytes",
 		},
 		{
-			name:    "Time",
-			tuple:   types.NewTuple("Test", "1", "time", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)),
+			name:    "time",
+			value:   time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
 			flatkey: "Test:1:time",
 		},
 		{
-			name:    "Boolean Array",
-			tuple:   types.NewTuple("Test", "1", "boolean_array", []bool{true, false, true}),
+			name:    "boolean_array",
+			value:   []bool{true, false, true},
 			flatkey: "Test:1:boolean_array",
 		},
 		{
-			name:    "Integer Array",
-			tuple:   types.NewTuple("Test", "1", "integer_array", []int64{1, 2, 3}),
+			name:    "integer_array",
+			value:   []int64{1, 2, 3},
 			flatkey: "Test:1:integer_array",
 		},
 		{
-			name:    "Unsigned Array",
-			tuple:   types.NewTuple("Test", "1", "unsigned_array", []uint64{1, 2, 3}),
+			name:    "unsigned_array",
+			value:   []uint64{1, 2, 3},
 			flatkey: "Test:1:unsigned_array",
 		},
 		{
-			name:    "Float Array",
-			tuple:   types.NewTuple("Test", "1", "float_array", []float64{1.1, 2.2, 3.3}),
+			name:    "float_array",
+			value:   []float64{1.1, 2.2, 3.3},
 			flatkey: "Test:1:float_array",
 		},
 		{
-			name:    "String Array",
-			tuple:   types.NewTuple("Test", "1", "string_array", []string{"value1", "value2", "value3"}),
+			name:    "string_array",
+			value:   []string{"value1", "value2", "value3"},
 			flatkey: "Test:1:string_array",
 		},
 		{
-			name:    "Bytes Array",
-			tuple:   types.NewTuple("Test", "1", "bytes_array", [][]byte{[]byte("hello"), []byte("world")}),
+			name:    "bytes_array",
+			value:   [][]byte{[]byte("hello"), []byte("world")},
 			flatkey: "Test:1:bytes_array",
 		},
 		{
-			name:    "Time Array",
-			tuple:   types.NewTuple("Test", "1", "time_array", []time.Time{time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)}),
+			name: "time_array",
+			value: []time.Time{
+				time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
+			},
 			flatkey: "Test:1:time_array",
 		},
 	}
@@ -96,13 +99,15 @@ func TestTuple_X_KV(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			encodedKey, encodedValue, err := xdbkv.EncodeTuple(tc.tuple)
+			tuple := types.NewTuple("Test", "1", tc.name, tc.value)
+
+			encodedKey, encodedValue, err := xdbkv.EncodeTuple(tuple)
 			require.NoError(t, err)
 			assert.Equal(t, tc.flatkey, string(encodedKey))
 
 			decodedTuple, err := xdbkv.DecodeTuple(encodedKey, encodedValue)
 			require.NoError(t, err)
-			tests.AssertEqualTuple(t, tc.tuple, decodedTuple)
+			tests.AssertEqualTuple(t, tuple, decodedTuple)
 		})
 	}
 }
