@@ -4,16 +4,18 @@ package xdbstruct
 import (
 	"encoding"
 	"encoding/json"
-	"errors"
 	"reflect"
 	"strings"
+	"time"
+
+	"github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/types"
 )
 
 var (
 	// ErrNotStruct is returned when ToRecord is called with a non-struct argument.
-	ErrNotStruct = errors.New("xdbstruct: ToRecord expects a pointer to a struct")
+	ErrNotStruct = errors.New("encoding/xdbstruct: ToRecord expects a pointer to a struct")
 )
 
 // ToRecord converts a struct to a types.Record.
@@ -86,34 +88,43 @@ func marshalStruct(v reflect.Value, parent *field) (map[string]*field, error) {
 			tuple.PrimaryKey = false
 		}
 
-		switch fieldValue.Kind() {
-		case reflect.Struct:
-			switch fieldValue.Interface().(type) {
-			case json.Marshaler:
-				tuple.Value, err = fieldValue.Interface().(json.Marshaler).MarshalJSON()
-				if err != nil {
-					return nil, err
-				}
-			case encoding.BinaryMarshaler:
-				tuple.Value, err = fieldValue.Interface().(encoding.BinaryMarshaler).MarshalBinary()
-				if err != nil {
-					return nil, err
-				}
-			default:
-				nested, err := marshalStruct(fieldValue, tuple)
-				if err != nil {
-					return nil, err
-				}
+		// keep time.Time as is
+		if fieldValue.Type() == reflect.TypeOf(time.Time{}) {
+			tuple.Value = fieldValue.Interface()
+			tuples[tuple.Name] = tuple
+			continue
+		}
 
-				for k, v := range nested {
-					tuples[k] = v
-				}
+		// if value implements json.Marshaler or encoding.BinaryMarshaler,
+		// marshal it otherwise, marshal the value as is
+		if jm, ok := fieldValue.Interface().(json.Marshaler); ok {
+			tuple.Value, err = jm.MarshalJSON()
+			if err != nil {
+				return nil, errors.Wrap(err, "field", field.Name)
 			}
 
-		default:
+			tuples[tuple.Name] = tuple
+		} else if bm, ok := fieldValue.Interface().(encoding.BinaryMarshaler); ok {
+			tuple.Value, err = bm.MarshalBinary()
+			if err != nil {
+				return nil, errors.Wrap(err, "field", field.Name)
+			}
+
+			tuples[tuple.Name] = tuple
+		} else if fieldValue.Kind() == reflect.Struct {
+			nested, err := marshalStruct(fieldValue, tuple)
+			if err != nil {
+				return nil, errors.Wrap(err, "field", field.Name)
+			}
+
+			for k, v := range nested {
+				tuples[k] = v
+			}
+		} else {
 			tuple.Value = fieldValue.Interface()
 			tuples[tuple.Name] = tuple
 		}
+
 	}
 
 	return tuples, nil

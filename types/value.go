@@ -81,7 +81,7 @@ func newValue(iv reflect.Value) (*Value, error) {
 	case reflect.Slice, reflect.Array:
 		// Special case for []byte
 		if iv.Type().Elem().Kind() == reflect.Uint8 {
-			return &Value{typ: bytesType, data: iv.Interface().([]byte)}, nil
+			return &Value{typ: bytesType, data: iv.Bytes()}, nil
 		}
 
 		if iv.Len() == 0 {
