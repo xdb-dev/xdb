@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/doug-martin/goqu/v9"
+
+	// Register SQLite3 dialect for goqu
 	_ "github.com/doug-martin/goqu/v9/dialect/sqlite3"
 	"github.com/gojekfarm/xtools/errors"
 
@@ -23,8 +25,11 @@ var (
 )
 
 var (
-	ErrSchemaNotFound   = errors.New("xdb/driver/xdbsqlite: schema not found")
-	ErrUnknownAttr      = errors.New("xdb/driver/xdbsqlite: unknown attribute")
+	// ErrSchemaNotFound is returned when a schema is not found in the registry.
+	ErrSchemaNotFound = errors.New("xdb/driver/xdbsqlite: schema not found")
+	// ErrUnknownAttr is returned when an unknown attribute is encountered in the schema.
+	ErrUnknownAttr = errors.New("xdb/driver/xdbsqlite: unknown attribute")
+	// ErrUnsupportedValue is returned when an unsupported value type is encountered.
 	ErrUnsupportedValue = errors.New("xdb/driver/xdbsqlite: unsupported value type")
 )
 
@@ -34,7 +39,7 @@ type SQLStore struct {
 	registry *registry.Registry
 }
 
-// New creates a new SQLite driver
+// NewSQLStore creates a new SQLStore using the provided database and registry.
 func NewSQLStore(db *sql.DB, registry *registry.Registry) *SQLStore {
 	return &SQLStore{db: db, registry: registry}
 }
@@ -172,11 +177,7 @@ func (s *SQLStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 		}
 	}
 
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return tx.Commit()
 }
 
 // DeleteTuples deletes tuples from the SQLite database.

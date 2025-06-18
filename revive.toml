@@ -3,6 +3,7 @@ severity = "warning"
 confidence = 0.8
 errorCode = 0
 warningCode = 0
+ignore = ["types/schema.go:1:9"]
 
 [rule.blank-imports]
 [rule.context-as-argument]

@@ -1,3 +1,4 @@
+// Package xdbsqlite provides a SQLite-backed driver for XDB.
 package xdbsqlite
 
 import (

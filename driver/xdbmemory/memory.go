@@ -1,3 +1,4 @@
+// Package xdbmemory provides an in-memory driver implementation for XDB.
 package xdbmemory
 
 import (

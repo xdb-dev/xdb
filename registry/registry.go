@@ -1,3 +1,4 @@
+// Package registry provides APIs to parse and manage schemas.
 package registry
 
 import "github.com/xdb-dev/xdb/types"

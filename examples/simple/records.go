@@ -9,6 +9,7 @@ import (
 	"github.com/xdb-dev/xdb/types"
 )
 
+// RecordAPIExample demonstrates how to use the Record API in XDB.
 func RecordAPIExample() {
 	// create a record
 	record := types.NewRecord("Post", "123").

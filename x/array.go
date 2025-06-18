@@ -1,3 +1,4 @@
+// Package x provides utility and helper functions used throughout XDB.
 package x
 
 import "github.com/xdb-dev/xdb/types"

@@ -8,6 +8,7 @@ import (
 	"github.com/xdb-dev/xdb/types"
 )
 
+// TupleAPIExample demonstrates how to use the Tuple API in XDB.
 func TupleAPIExample() {
 	// create tuples
 	tuples := []*types.Tuple{

@@ -1,3 +1,4 @@
+// Package tests provides shared test helpers and assertions for XDB.
 package tests
 
 import (

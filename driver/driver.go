@@ -1,3 +1,4 @@
+// Package driver defines core driver interfaces for XDB database backends.
 package driver
 
 import (

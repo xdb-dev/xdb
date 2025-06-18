@@ -60,17 +60,19 @@ func ParseType(name string) (TypeID, error) {
 	return TypeIDUnknown, errors.Wrap(ErrUnknownType, "type", name)
 }
 
-// A single struct to represent all types
+// Type represents a value type in XDB, including scalar, array, and map types.
 type Type struct {
 	id          TypeID
 	keyTypeID   TypeID
 	valueTypeID TypeID
 }
 
+// NewType returns a new Type with the given TypeID.
 func NewType(id TypeID) Type {
 	return Type{id: id}
 }
 
+// NewArrayType returns a new array Type with the given value TypeID.
 func NewArrayType(valueTypeID TypeID) Type {
 	return Type{
 		id:          TypeIDArray,
@@ -78,6 +80,7 @@ func NewArrayType(valueTypeID TypeID) Type {
 	}
 }
 
+// NewMapType returns a new map Type with the given key and value TypeIDs.
 func NewMapType(keyTypeID, valueTypeID TypeID) Type {
 	return Type{
 		id:          TypeIDMap,
@@ -86,9 +89,16 @@ func NewMapType(keyTypeID, valueTypeID TypeID) Type {
 	}
 }
 
-func (t Type) ID() TypeID        { return t.id }
-func (t Type) Name() string      { return typeNames[t.id] }
-func (t Type) KeyType() TypeID   { return t.keyTypeID }
+// ID returns the TypeID of the Type.
+func (t Type) ID() TypeID { return t.id }
+
+// Name returns the name of the Type.
+func (t Type) Name() string { return typeNames[t.id] }
+
+// KeyType returns the key TypeID for map types.
+func (t Type) KeyType() TypeID { return t.keyTypeID }
+
+// ValueType returns the value TypeID for array and map types.
 func (t Type) ValueType() TypeID { return t.valueTypeID }
 
 var (

@@ -22,7 +22,7 @@ func NewMigrator(db *sql.DB) *Migrator {
 	return &Migrator{db: db}
 }
 
-// Generate generates the migration files for SQLite.
+// GenerateMigrations generates SQL migration statements for the given schema.
 func (m *Migrator) GenerateMigrations(ctx context.Context, schemas []*types.Schema, w io.Writer) error {
 	for _, schema := range schemas {
 		tableName := schema.Kind

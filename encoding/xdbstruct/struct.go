@@ -1,3 +1,4 @@
+// Package xdbstruct provides utilities for converting Go structs to XDB records and vice versa.
 package xdbstruct
 
 import (
@@ -11,6 +12,7 @@ import (
 )
 
 var (
+	// ErrNotStruct is returned when ToRecord is called with a non-struct argument.
 	ErrNotStruct = errors.New("xdbstruct: ToRecord expects a pointer to a struct")
 )
 

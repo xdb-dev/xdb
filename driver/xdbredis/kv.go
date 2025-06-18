@@ -1,3 +1,4 @@
+// Package xdbredis provides a Redis-backed driver for XDB.
 package xdbredis
 
 import (
