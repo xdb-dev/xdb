@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/redis/go-redis/v9"
+
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/encoding/xdbkv"
 	"github.com/xdb-dev/xdb/types"

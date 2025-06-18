@@ -1,32 +1,31 @@
-TOOLS_DIR := internal/tools
-GO_BUILD_DIRS := $(shell find . -type f -name 'go.mod' -not -path "./internal/tools/*" -not -path "*/example*" -exec dirname {} \; | sort)
+GO_BUILD_DIRS := $(shell find . -type f -name 'go.mod' -not -path "*/example*" -exec dirname {} \; | sort)
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+TOOLS_MODULE := $(PROJECT_DIR)/tools.mod
 
 # DEVELOPMENT
 .PHONY: setup fmt vet lint check imports tidy
 
-setup: ##@development Setup the project
+setup: ##@development Setup the project and update dependencies
 	go mod tidy
-	cd $(TOOLS_DIR) && go mod tidy
 
 check: ##@development Runs formatting, vetting and linting
 check: tidy
 check: imports
 check: fmt vet lint
 
-fmt:
+fmt: ##@development Runs go fmt to format the code
 	@$(call run-go-mod-dir,go fmt ./...,"go fmt")
 
-vet:
+vet: ##@development Runs go vet to check for errors
 	@$(call run-go-mod-dir,go vet ./...,"go vet")
 
-lint:
+lint: revive ##@development Runs revive to lint the code
 	@$(call run-go-mod-dir,$(REVIVE) -config $(PROJECT_DIR)/revive.toml ./...,"revive")
 
-imports:
+imports: gci ##@development Runs gci to format imports
 	@$(call run-go-mod-dir,$(GCI) -w -local github.com/xdb-dev/xdb ./ | { grep -v -e 'skip file .*' || true; },"gci")
 
-tidy:
+tidy: ##@development Runs go mod tidy to update dependencies
 	@$(call run-go-mod-dir,go mod tidy,"go mod tidy")
 
 # TESTING
@@ -51,19 +50,19 @@ report: coverage ##@tests Generates html coverage report
 
 # TOOLS
 
-GCI = go tool -modfile=$(TOOLS_DIR)/go.mod gci
+GCI = go tool -modfile=$(TOOLS_MODULE) gci
 gci:
 	$(call go-get-tool,github.com/daixiang0/gci@v0.2.9)
 
-REVIVE = go tool -modfile=$(TOOLS_DIR)/go.mod revive
+REVIVE = go tool -modfile=$(TOOLS_MODULE) revive
 revive:
 	$(call go-get-tool,github.com/mgechev/revive@latest)
 
-GOCOV = go tool -modfile=$(TOOLS_DIR)/go.mod gocov
+GOCOV = go tool -modfile=$(TOOLS_MODULE) gocov
 gocov:
 	$(call go-get-tool,github.com/axw/gocov/gocov@v1.1.0)
 
-GOCOVHTML = go tool -modfile=$(TOOLS_DIR)/go.mod gocov-html
+GOCOVHTML = go tool -modfile=$(TOOLS_MODULE) gocov-html
 gocov-html:
 	$(call go-get-tool,github.com/matm/gocov-html/cmd/gocov-html@v1.4.0)
 	
@@ -71,8 +70,7 @@ gocov-html:
 define go-get-tool
 { \
 set -e ;\
-cd $(TOOLS_DIR);\
-go get -tool $(1) ;\
+go get -modfile=$(TOOLS_MODULE) -tool $(1) ;\
 }
 endef
 

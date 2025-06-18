@@ -14,6 +14,7 @@ var (
 	ErrCastFailed = errors.New("xdb/types: cast failed")
 )
 
+// ToBool returns the value as a bool.
 func (v *Value) ToBool() bool {
 	b, err := toBool(v)
 	if err != nil {
@@ -22,6 +23,7 @@ func (v *Value) ToBool() bool {
 	return b
 }
 
+// ToInt returns the value as an int64.
 func (v *Value) ToInt() int64 {
 	i, err := toInt64(v)
 	if err != nil {
@@ -30,6 +32,7 @@ func (v *Value) ToInt() int64 {
 	return i
 }
 
+// ToUint returns the value as a uint64.
 func (v *Value) ToUint() uint64 {
 	u, err := toUint64(v)
 	if err != nil {
@@ -38,6 +41,7 @@ func (v *Value) ToUint() uint64 {
 	return u
 }
 
+// ToFloat returns the value as a float64.
 func (v *Value) ToFloat() float64 {
 	f, err := toFloat64(v)
 	if err != nil {
@@ -46,6 +50,7 @@ func (v *Value) ToFloat() float64 {
 	return f
 }
 
+// ToString returns the value as a string.
 func (v *Value) ToString() string {
 	s, err := toString(v)
 	if err != nil {
@@ -54,6 +59,7 @@ func (v *Value) ToString() string {
 	return s
 }
 
+// ToBytes returns the value as a []byte.
 func (v *Value) ToBytes() []byte {
 	b, err := toBytes(v)
 	if err != nil {
@@ -62,6 +68,7 @@ func (v *Value) ToBytes() []byte {
 	return b
 }
 
+// ToTime returns the value as a time.Time.
 func (v *Value) ToTime() time.Time {
 	t, err := toTime(v)
 	if err != nil {
@@ -70,6 +77,7 @@ func (v *Value) ToTime() time.Time {
 	return t
 }
 
+// ToBoolArray returns the value as a []bool.
 func (v *Value) ToBoolArray() []bool {
 	arr, err := castArray(v, toBool)
 	if err != nil {
@@ -78,6 +86,7 @@ func (v *Value) ToBoolArray() []bool {
 	return arr
 }
 
+// ToIntArray returns the value as a []int64.
 func (v *Value) ToIntArray() []int64 {
 	arr, err := castArray(v, toInt64)
 	if err != nil {
@@ -86,6 +95,7 @@ func (v *Value) ToIntArray() []int64 {
 	return arr
 }
 
+// ToUintArray returns the value as a []uint64.
 func (v *Value) ToUintArray() []uint64 {
 	arr, err := castArray(v, toUint64)
 	if err != nil {
@@ -94,6 +104,7 @@ func (v *Value) ToUintArray() []uint64 {
 	return arr
 }
 
+// ToFloatArray returns the value as a []float64.
 func (v *Value) ToFloatArray() []float64 {
 	arr, err := castArray(v, toFloat64)
 	if err != nil {
@@ -102,6 +113,7 @@ func (v *Value) ToFloatArray() []float64 {
 	return arr
 }
 
+// ToStringArray returns the value as a []string.
 func (v *Value) ToStringArray() []string {
 	arr, err := castArray(v, toString)
 	if err != nil {
@@ -110,6 +122,7 @@ func (v *Value) ToStringArray() []string {
 	return arr
 }
 
+// ToBytesArray returns the value as a [][]byte.
 func (v *Value) ToBytesArray() [][]byte {
 	arr, err := castArray(v, toBytes)
 	if err != nil {
@@ -118,6 +131,7 @@ func (v *Value) ToBytesArray() [][]byte {
 	return arr
 }
 
+// ToTimeArray returns the value as a []time.Time.
 func (v *Value) ToTimeArray() []time.Time {
 	arr, err := castArray(v, toTime)
 	if err != nil {

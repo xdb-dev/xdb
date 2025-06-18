@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
+
 	"github.com/xdb-dev/xdb/types"
 )
 

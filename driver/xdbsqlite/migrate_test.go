@@ -10,6 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/types"

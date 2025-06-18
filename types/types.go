@@ -15,6 +15,7 @@ var (
 // TypeID represents the type of a value.
 type TypeID int
 
+// All supported types.
 const (
 	TypeIDUnknown TypeID = iota
 	TypeIDBoolean

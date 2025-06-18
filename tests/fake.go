@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
+
 	"github.com/xdb-dev/xdb/types"
 	"github.com/xdb-dev/xdb/x"
 )

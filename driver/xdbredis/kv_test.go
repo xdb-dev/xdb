@@ -6,6 +6,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/suite"
+
 	"github.com/xdb-dev/xdb/driver/xdbredis"
 	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/types"

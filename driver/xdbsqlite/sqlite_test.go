@@ -8,6 +8,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/suite"
+
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 	"github.com/xdb-dev/xdb/registry"
 	"github.com/xdb-dev/xdb/tests"

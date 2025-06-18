@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/suite"
+
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/types"

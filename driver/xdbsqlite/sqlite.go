@@ -8,6 +8,7 @@ import (
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/sqlite3"
 	"github.com/gojekfarm/xtools/errors"
+
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/registry"
 	"github.com/xdb-dev/xdb/types"
