@@ -188,33 +188,33 @@ func TestByteTypesStruct(t *testing.T) {
 		Bytes:      []byte("Hello, World!"),
 		BytesArray: [3][]byte{[]byte("Hello"), []byte("World"), []byte("!")},
 		JSON:       json.RawMessage(`{"hello": "world"}`),
-		// JSONArray: [3]json.RawMessage{
-		// 	json.RawMessage(`{"hello": "world"}`),
-		// 	json.RawMessage(`{"hello": "world"}`),
-		// 	json.RawMessage(`{"hello": "world"}`),
-		// },
+		JSONArray: [3]json.RawMessage{
+			json.RawMessage(`{"hello": "world"}`),
+			json.RawMessage(`{"hello": "world"}`),
+			json.RawMessage(`{"hello": "world"}`),
+		},
 		Binary: &Binary{Data: []byte("Hello, World!")},
-		// BinaryArray: [3]*Binary{
-		// 	{Data: []byte("Hello")},
-		// 	{Data: []byte("World")},
-		// 	{Data: []byte("!")},
-		// },
+		BinaryArray: [3]*Binary{
+			{Data: []byte("Hello")},
+			{Data: []byte("World")},
+			{Data: []byte("!")},
+		},
 	}
 	record := types.NewRecord("ByteTypesStruct", input.ID).
 		Set("bytes", input.Bytes).
 		Set("bytes_array", input.BytesArray).
 		Set("json", []byte(input.JSON)).
-		// Set("json_array", [][]byte{
-		// 	[]byte(input.JSONArray[0]),
-		// 	[]byte(input.JSONArray[1]),
-		// 	[]byte(input.JSONArray[2]),
-		// }).
-		Set("binary", []byte("Hello, World!"))
-	// Set("binary_array", [][]byte{
-	// 	[]byte("Hello"),
-	// 	[]byte("World"),
-	// 	[]byte("!"),
-	// })
+		Set("json_array", [][]byte{
+			[]byte(input.JSONArray[0]),
+			[]byte(input.JSONArray[1]),
+			[]byte(input.JSONArray[2]),
+		}).
+		Set("binary", []byte("Hello, World!")).
+		Set("binary_array", [][]byte{
+			[]byte("Hello"),
+			[]byte("World"),
+			[]byte("!"),
+		})
 
 	t.Run("ToRecord", func(t *testing.T) {
 		encoded, err := xdbstruct.ToRecord(input)

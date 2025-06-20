@@ -59,89 +59,163 @@ func FromRecord(record *types.Record, obj any) error {
 	return nil
 }
 
-func marshalStruct(v reflect.Value, parent *field) (map[string]*field, error) {
+func marshalStruct(v reflect.Value, parent *meta) (map[string]*meta, error) {
 	typ := v.Type()
-	tuples := make(map[string]*field)
+	allTuples := make(map[string]*meta)
 
 	for i := 0; i < typ.NumField(); i++ {
-		field := typ.Field(i)
+		fieldType := typ.Field(i)
 		fieldValue := v.Field(i)
 
-		tag := field.Tag.Get("xdb")
-		if tag == "" || tag == "-" {
-			continue
-		}
-
-		// skip unexported fields
-		if field.PkgPath != "" {
-			continue
-		}
-
-		tuple, err := parseTag(tag)
+		meta, err := parseTag(fieldType)
 		if err != nil {
 			return nil, err
 		}
 
-		if parent != nil {
-			tuple.Name = parent.Name + "." + tuple.Name
-			// nested primary keys are not supported
-			tuple.PrimaryKey = false
-		}
-
-		// keep time.Time as is
-		if fieldValue.Type() == reflect.TypeOf(time.Time{}) {
-			tuple.Value = fieldValue.Interface()
-			tuples[tuple.Name] = tuple
+		if meta == nil {
 			continue
 		}
 
-		// if value implements json.Marshaler or encoding.BinaryMarshaler,
-		// marshal it otherwise, marshal the value as is
-		if jm, ok := fieldValue.Interface().(json.Marshaler); ok {
-			tuple.Value, err = jm.MarshalJSON()
-			if err != nil {
-				return nil, errors.Wrap(err, "field", field.Name)
-			}
-
-			tuples[tuple.Name] = tuple
-		} else if bm, ok := fieldValue.Interface().(encoding.BinaryMarshaler); ok {
-			tuple.Value, err = bm.MarshalBinary()
-			if err != nil {
-				return nil, errors.Wrap(err, "field", field.Name)
-			}
-
-			tuples[tuple.Name] = tuple
-		} else if fieldValue.Kind() == reflect.Struct {
-			nested, err := marshalStruct(fieldValue, tuple)
-			if err != nil {
-				return nil, errors.Wrap(err, "field", field.Name)
-			}
-
-			for k, v := range nested {
-				tuples[k] = v
-			}
-		} else {
-			tuple.Value = fieldValue.Interface()
-			tuples[tuple.Name] = tuple
+		if parent != nil {
+			meta.Name = parent.Name + "." + meta.Name
+			// nested primary keys are not supported
+			meta.PrimaryKey = false
 		}
 
+		parsed, err := processField(fieldValue, meta)
+		if err != nil {
+			return nil, errors.Wrap(err, "field", meta.Name)
+		}
+
+		for k, v := range parsed {
+			allTuples[k] = v
+		}
 	}
 
-	return tuples, nil
+	return allTuples, nil
 }
 
-type field struct {
+func processField(fieldValue reflect.Value, m *meta) (map[string]*meta, error) {
+	parsed := make(map[string]*meta)
+
+	// keep time.Time as is
+	if fieldValue.Type() == reflect.TypeOf(time.Time{}) {
+		m.Value = fieldValue.Interface()
+		parsed[m.Name] = m
+
+		return parsed, nil
+	}
+
+	// try handling custom marshalers
+	binary, err := tryCustomMarshal(fieldValue)
+	if err != nil {
+		return nil, errors.Wrap(err, "field", m.Name)
+	}
+
+	if binary != nil {
+		m.Value = binary
+		parsed[m.Name] = m
+
+		return parsed, nil
+	}
+
+	// recursively marshal slices and arrays of structs
+	if isBinaryArray(fieldValue) {
+		array := make([][]byte, fieldValue.Len())
+		for i := 0; i < fieldValue.Len(); i++ {
+			binary, err := tryCustomMarshal(fieldValue.Index(i))
+			if err != nil {
+				return nil, errors.Wrap(err, "field", m.Name)
+			}
+
+			array[i] = binary
+		}
+
+		m.Value = array
+		parsed[m.Name] = m
+
+		return parsed, nil
+	}
+
+	// flatten nested structs
+	if fieldValue.Kind() == reflect.Struct {
+		nested, err := marshalStruct(fieldValue, m)
+		if err != nil {
+			return nil, errors.Wrap(err, "field", m.Name)
+		}
+
+		for k, v := range nested {
+			parsed[k] = v
+		}
+
+		return parsed, nil
+	}
+
+	m.Value = fieldValue.Interface()
+	parsed[m.Name] = m
+
+	return parsed, nil
+}
+
+func tryCustomMarshal(v reflect.Value) ([]byte, error) {
+	if jm, ok := v.Interface().(json.Marshaler); ok {
+		return jm.MarshalJSON()
+	}
+
+	if bm, ok := v.Interface().(encoding.BinaryMarshaler); ok {
+		return bm.MarshalBinary()
+	}
+
+	return nil, nil
+}
+
+func isBinaryArray(v reflect.Value) bool {
+	isArray := v.Kind() == reflect.Slice || v.Kind() == reflect.Array
+
+	if !isArray {
+		return false
+	}
+
+	elem := v.Type().Elem()
+
+	// if it's a slice of time.Time, it's not a binary array
+	if elem.PkgPath() == "time" && elem.Name() == "Time" {
+		return false
+	}
+
+	if _, ok := elem.MethodByName("MarshalJSON"); ok {
+		return true
+	}
+
+	if _, ok := elem.MethodByName("MarshalBinary"); ok {
+		return true
+	}
+
+	return false
+}
+
+type meta struct {
 	Name       string
 	PrimaryKey bool
 	Value      any
 	Options    map[string]string
 }
 
-func parseTag(tag string) (*field, error) {
+func parseTag(field reflect.StructField) (*meta, error) {
+	tag := field.Tag.Get("xdb")
+	if tag == "" || tag == "-" {
+		return nil, nil
+	}
+
+	// skip unexported fields
+	if field.PkgPath != "" {
+		return nil, nil
+	}
+
 	parts := strings.Split(tag, ",")
 	key, tagOpts := strings.TrimSpace(parts[0]), parts[1:]
 
-	meta := &field{
+	meta := &meta{
 		Name:       key,
 		PrimaryKey: strings.Contains(key, "primary_key"),
 		Options:    make(map[string]string),
