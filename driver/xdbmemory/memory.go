@@ -32,7 +32,7 @@ func (d *MemoryDriver) GetTuples(ctx context.Context, keys []*types.Key) ([]*typ
 	missed := make([]*types.Key, 0, len(keys))
 
 	for _, key := range keys {
-		tuple, ok := d.tuples[key.String()]
+		tuple, ok := d.tuples[encodeKey(key)]
 		if !ok {
 			missed = append(missed, key)
 			continue
@@ -62,7 +62,7 @@ func (d *MemoryDriver) DeleteTuples(ctx context.Context, keys []*types.Key) erro
 	defer d.mu.Unlock()
 
 	for _, key := range keys {
-		delete(d.tuples, key.String())
+		delete(d.tuples, encodeKey(key))
 	}
 
 	return nil
