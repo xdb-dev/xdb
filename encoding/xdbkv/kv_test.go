@@ -99,7 +99,7 @@ func TestEncodeDecodeTuple(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			tuple := types.NewTuple("Test", "1", tc.name, tc.value)
+			tuple := types.NewTuple(types.NewKey("Test", "1", tc.name), tc.value)
 
 			encodedKey, encodedValue, err := xdbkv.EncodeTuple(tuple)
 			require.NoError(t, err)

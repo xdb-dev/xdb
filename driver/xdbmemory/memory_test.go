@@ -16,8 +16,8 @@ func TestMemoryDriver_Tuples(t *testing.T) {
 	ctx := context.Background()
 
 	tuples := []*types.Tuple{
-		types.NewTuple("User", "1", "name", "Alice"),
-		types.NewTuple("User", "2", "name", "Bob"),
+		types.NewKey("User", "1", "name").Value("Alice"),
+		types.NewKey("User", "2", "name").Value("Bob"),
 	}
 
 	t.Run("PutTuples", func(t *testing.T) {
@@ -52,7 +52,7 @@ func TestMemoryDriver_Tuples(t *testing.T) {
 		assert.Equal(t, len(tuples), 1)
 		assert.Equal(t, len(missed), 1)
 		assert.Equal(t, tuples[0].ToString(), "Bob")
-		assert.Equal(t, missed[0].String(), "Key(User/1/name)")
+		assert.Equal(t, missed[0].String(), "User/1/name")
 	})
 }
 

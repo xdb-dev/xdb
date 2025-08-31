@@ -12,9 +12,9 @@ import (
 func TupleAPIExample() {
 	// create tuples
 	tuples := []*types.Tuple{
-		types.NewTuple("User", "123", "name", "John Doe"),
-		types.NewTuple("User", "123", "age", 25),
-		types.NewTuple("User", "123", "email", "john.doe@example.com"),
+		types.NewKey("User", "123", "name").Value("John Doe"),
+		types.NewKey("User", "123", "age").Value(25),
+		types.NewKey("User", "123", "email").Value("john.doe@example.com"),
 	}
 
 	// create a store
@@ -39,9 +39,7 @@ func TupleAPIExample() {
 	}
 
 	for _, tuple := range tuples {
-		fmt.Println("Kind:", tuple.Kind())
-		fmt.Println("ID:", tuple.ID())
-		fmt.Println("Attr:", tuple.Attr())
+		fmt.Println("Key:", tuple.Key())
 		fmt.Println("Value:", tuple.Value())
 	}
 

@@ -13,30 +13,30 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
-type KVStoreTestSuite struct {
+type TupleKVStoreTestSuite struct {
 	suite.Suite
 	db *redis.Client
-	kv *xdbredis.KVStore
+	kv *xdbredis.TupleKVStore
 }
 
 func TestKVStoreTestSuite(t *testing.T) {
 	t.Parallel()
-	suite.Run(t, new(KVStoreTestSuite))
+	suite.Run(t, new(TupleKVStoreTestSuite))
 }
 
-func (s *KVStoreTestSuite) SetupSuite() {
+func (s *TupleKVStoreTestSuite) SetupSuite() {
 	db := redis.NewClient(&redis.Options{
 		Addr: "localhost:6379",
 	})
 	s.db = db
-	s.kv = xdbredis.New(db)
+	s.kv = xdbredis.NewTupleKVStore(db)
 }
 
-func (s *KVStoreTestSuite) TearDownSuite() {
+func (s *TupleKVStoreTestSuite) TearDownSuite() {
 	s.db.Close()
 }
 
-func (s *KVStoreTestSuite) TestTuples() {
+func (s *TupleKVStoreTestSuite) TestTuples() {
 	ctx := context.Background()
 	tuples := tests.FakeTuples()
 	keys := x.Keys(tuples...)
@@ -73,49 +73,6 @@ func (s *KVStoreTestSuite) TestTuples() {
 
 	s.Run("GetTuplesAllMissing", func() {
 		got, missing, err := s.kv.GetTuples(ctx, keys)
-		s.Require().NoError(err)
-		s.NotEmpty(missing)
-		s.Len(got, 0)
-		tests.AssertEqualKeys(s.T(), missing, keys)
-	})
-}
-
-func (s *KVStoreTestSuite) TestRecords() {
-	ctx := context.Background()
-	records := tests.FakePosts(10)
-	keys := x.Keys(records...)
-
-	s.Run("PutRecords", func() {
-		err := s.kv.PutRecords(ctx, records)
-		s.Require().NoError(err)
-	})
-
-	s.Run("GetRecords", func() {
-		got, missing, err := s.kv.GetRecords(ctx, keys)
-		s.Require().NoError(err)
-		s.Len(missing, 0)
-		tests.AssertEqualRecords(s.T(), records, got)
-	})
-
-	s.Run("GetRecordsSomeMissing", func() {
-		notFound := []*types.Key{
-			types.NewKey("Post", "1", "not_found"),
-			types.NewKey("Post", "2", "not_found"),
-		}
-
-		got, missing, err := s.kv.GetRecords(ctx, append(keys, notFound...))
-		s.Require().NoError(err)
-		tests.AssertEqualKeys(s.T(), notFound, missing)
-		tests.AssertEqualRecords(s.T(), records, got)
-	})
-
-	s.Run("DeleteRecords", func() {
-		err := s.kv.DeleteRecords(ctx, keys)
-		s.Require().NoError(err)
-	})
-
-	s.Run("GetRecordsAllMissing", func() {
-		got, missing, err := s.kv.GetRecords(ctx, keys)
 		s.Require().NoError(err)
 		s.NotEmpty(missing)
 		s.Len(got, 0)

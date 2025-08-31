@@ -101,8 +101,8 @@ func FakeTuples() []*types.Tuple {
 // FakeStringTuples creates fake tuples for string values.
 func FakeStringTuples() []*types.Tuple {
 	return []*types.Tuple{
-		types.NewTuple("Test", "1", "string", gofakeit.Sentence(10)),
-		types.NewTuple("Test", "1", "string_array", []string{
+		types.NewKey("Test", "1", "string").Value(gofakeit.Sentence(10)),
+		types.NewKey("Test", "1", "string_array").Value([]string{
 			gofakeit.Sentence(10),
 			gofakeit.Sentence(10),
 		}),
@@ -112,8 +112,8 @@ func FakeStringTuples() []*types.Tuple {
 // FakeIntTuples creates fake tuples for int values.
 func FakeIntTuples() []*types.Tuple {
 	return []*types.Tuple{
-		types.NewTuple("Test", "1", "int64", gofakeit.Int64()),
-		types.NewTuple("Test", "1", "int64_array", []int64{
+		types.NewKey("Test", "1", "int64").Value(gofakeit.Int64()),
+		types.NewKey("Test", "1", "int64_array").Value([]int64{
 			gofakeit.Int64(),
 			gofakeit.Int64(),
 		}),
@@ -123,8 +123,8 @@ func FakeIntTuples() []*types.Tuple {
 // FakeFloatTuples creates fake tuples for float values.
 func FakeFloatTuples() []*types.Tuple {
 	return []*types.Tuple{
-		types.NewTuple("Test", "1", "float", gofakeit.Float64()),
-		types.NewTuple("Test", "1", "float_array", []float64{
+		types.NewKey("Test", "1", "float").Value(gofakeit.Float64()),
+		types.NewKey("Test", "1", "float_array").Value([]float64{
 			gofakeit.Float64(),
 			gofakeit.Float64(),
 		}),
@@ -134,8 +134,8 @@ func FakeFloatTuples() []*types.Tuple {
 // FakeBoolTuples creates fake tuples for bool values.
 func FakeBoolTuples() []*types.Tuple {
 	return []*types.Tuple{
-		types.NewTuple("Test", "1", "bool", gofakeit.Bool()),
-		types.NewTuple("Test", "1", "bool_array", []bool{
+		types.NewKey("Test", "1", "bool").Value(gofakeit.Bool()),
+		types.NewKey("Test", "1", "bool_array").Value([]bool{
 			gofakeit.Bool(),
 			gofakeit.Bool(),
 		}),
@@ -145,8 +145,8 @@ func FakeBoolTuples() []*types.Tuple {
 // FakeBytesTuples creates fake tuples for bytes values.
 func FakeBytesTuples() []*types.Tuple {
 	return []*types.Tuple{
-		types.NewTuple("Test", "1", "bytes", []byte(gofakeit.Sentence(10))),
-		types.NewTuple("Test", "1", "bytes_array", [][]byte{
+		types.NewKey("Test", "1", "bytes").Value([]byte(gofakeit.Sentence(10))),
+		types.NewKey("Test", "1", "bytes_array").Value([][]byte{
 			[]byte(gofakeit.Sentence(10)),
 			[]byte(gofakeit.Sentence(10)),
 		}),
@@ -156,8 +156,8 @@ func FakeBytesTuples() []*types.Tuple {
 // FakeTimeTuples creates fake tuples for time.Time.
 func FakeTimeTuples() []*types.Tuple {
 	return []*types.Tuple{
-		types.NewTuple("Test", "1", "time", gofakeit.Date()),
-		types.NewTuple("Test", "1", "time_array", []time.Time{
+		types.NewKey("Test", "1", "time").Value(gofakeit.Date()),
+		types.NewKey("Test", "1", "time_array").Value([]time.Time{
 			gofakeit.Date(),
 			gofakeit.Date(),
 		}),

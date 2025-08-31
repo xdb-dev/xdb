@@ -3,7 +3,6 @@ package xdbmemory
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -32,7 +31,7 @@ func (d *MemoryDriver) GetTuples(ctx context.Context, keys []*types.Key) ([]*typ
 	missed := make([]*types.Key, 0, len(keys))
 
 	for _, key := range keys {
-		tuple, ok := d.tuples[encodeKey(key)]
+		tuple, ok := d.tuples[key.String()]
 		if !ok {
 			missed = append(missed, key)
 			continue
@@ -50,7 +49,7 @@ func (d *MemoryDriver) PutTuples(ctx context.Context, tuples []*types.Tuple) err
 	defer d.mu.Unlock()
 
 	for _, tuple := range tuples {
-		d.tuples[encodeKey(tuple.Key())] = tuple
+		d.tuples[tuple.Key().String()] = tuple
 	}
 
 	return nil
@@ -62,7 +61,7 @@ func (d *MemoryDriver) DeleteTuples(ctx context.Context, keys []*types.Key) erro
 	defer d.mu.Unlock()
 
 	for _, key := range keys {
-		delete(d.tuples, encodeKey(key))
+		delete(d.tuples, key.String())
 	}
 
 	return nil
@@ -77,14 +76,14 @@ func (d *MemoryDriver) GetRecords(ctx context.Context, keys []*types.Key) ([]*ty
 	missed := make([]*types.Key, 0, len(keys))
 
 	for _, key := range keys {
-		record := types.NewRecord(key.Kind(), key.ID())
+		record := types.NewRecord(key.Unwrap()[0], key.Unwrap()[1])
 
 		for k, t := range d.tuples {
-			if !strings.HasPrefix(k, encodeKey(key)) {
+			if !strings.HasPrefix(k, key.String()) {
 				continue
 			}
 
-			record.Set(t.Attr(), t.Value())
+			record.Set(t.Key().Unwrap()[2], t.Value())
 		}
 
 		if record.IsEmpty() {
@@ -105,7 +104,7 @@ func (d *MemoryDriver) PutRecords(ctx context.Context, records []*types.Record) 
 
 	for _, record := range records {
 		for _, tuple := range record.Tuples() {
-			d.tuples[encodeKey(tuple.Key())] = tuple
+			d.tuples[tuple.Key().String()] = tuple
 		}
 	}
 
@@ -119,7 +118,7 @@ func (d *MemoryDriver) DeleteRecords(ctx context.Context, keys []*types.Key) err
 
 	for _, key := range keys {
 		for k := range d.tuples {
-			if !strings.HasPrefix(k, encodeKey(key)) {
+			if !strings.HasPrefix(k, key.String()) {
 				continue
 			}
 
@@ -128,12 +127,4 @@ func (d *MemoryDriver) DeleteRecords(ctx context.Context, keys []*types.Key) err
 	}
 
 	return nil
-}
-
-func encodeKey(key *types.Key) string {
-	if key.Attr() != "" {
-		return fmt.Sprintf("%s/%s/%s", key.Kind(), key.ID(), key.Attr())
-	}
-
-	return fmt.Sprintf("%s/%s", key.Kind(), key.ID())
 }
