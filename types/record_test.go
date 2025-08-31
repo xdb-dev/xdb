@@ -42,15 +42,4 @@ func TestRecord(t *testing.T) {
 		tags := record.Get("tags").ToStringArray()
 		assert.Equal(t, []string{"xdb", "golang"}, tags)
 	})
-
-	t.Run("Tuples", func(t *testing.T) {
-		tuples := record.Tuples()
-		assert.Equal(t, 5, len(tuples))
-
-		for _, tuple := range tuples {
-			assert.NotNil(t, tuple)
-			assert.Equal(t, "Post", tuple.Kind())
-			assert.Equal(t, "123", tuple.ID())
-		}
-	})
 }

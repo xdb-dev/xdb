@@ -11,7 +11,7 @@ func ExampleKey() {
 	key := types.NewKey("User", "123")
 	fmt.Println(key)
 
-	// This is an example of a key that references a tuple.
+	// This is an example of a key that references an attribute.
 	key = types.NewKey("User", "123", "name")
 	fmt.Println(key)
 
@@ -25,25 +25,25 @@ func ExampleKey() {
 	// Key(User/123/follows/Post/123)
 }
 
-func ExampleTuple() {
-	// This is an example of a tuple.
-	// Read this as:
-	// - "User" is the kind
-	// - "123" is the ID
-	// - "name" is the attribute
-	// - "John Doe" is the value
-	tuple := types.NewTuple("User", "123", "name", "John Doe")
-
-	fmt.Println(tuple.Kind())
-	fmt.Println(tuple.ID())
-	fmt.Println(tuple.Attr())
-	fmt.Println(tuple.Value())
+func ExampleTuple_key_value() {
+	// Arbitrary key and value.
+	kv := types.NewTuple("name", "John Doe")
+	fmt.Println(kv.Key())
+	fmt.Println(kv.Value())
 
 	// Output:
-	// User
-	// 123
 	// name
 	// John Doe
+}
+
+func ExampleTuple_object_attributes() {
+	tuples := []*types.Tuple{
+		types.NewTuple(types.NewKey("User", "123", "name"), "John Doe"),
+		types.NewTuple(types.NewKey("User", "123", "age"), 25),
+		types.NewTuple(types.NewKey("User", "123", "interests"), []string{"reading", "traveling", "coding"}),
+	}
+
+	_ = tuples
 }
 
 func ExampleRecord() {

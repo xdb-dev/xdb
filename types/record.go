@@ -49,15 +49,21 @@ func (r *Record) Set(attr string, value any) *Record {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.tuples[attr] = NewTuple(r.kind, r.id, attr, value)
+	r.tuples[attr] = NewTuple(r.Key().New(attr), value)
 	return r
 }
 
-// Get returns the tuple for the given attribute.
-func (r *Record) Get(attr string) *Tuple {
+// Get returns the value for the given attribute.
+func (r *Record) Get(attr string) *Value {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.tuples[attr]
+
+	t, ok := r.tuples[attr]
+	if !ok {
+		return nil
+	}
+
+	return t.Value()
 }
 
 // IsEmpty returns true if the Record has no tuples or edges.

@@ -5,43 +5,42 @@ import (
 	"strings"
 )
 
-// Key is an unique reference to one of:
-// - tuple
-// - edge
-// - record
+// Key is a unique reference to a tuple, edge or record.
 type Key struct {
 	parts []string
 }
 
 // NewKey creates a new Key.
-//
-// NewKey("User", "123") is a reference to a record.
-// NewKey("User", "123", "name") is a reference to a tuple.
-// NewKey("User", "123", "follows", "Post", "123") is a reference to an edge.
 func NewKey(parts ...string) *Key {
 	return &Key{parts: parts}
 }
 
-// String returns the string representation of the Key.
+// New creates a new [Key] by appending the given parts to the current key.
+func (k *Key) New(parts ...string) *Key {
+	return &Key{parts: append(k.parts, parts...)}
+}
+
+// Value creates a new [Tuple] with the current key.
+func (k *Key) Value(value any) *Tuple {
+	return NewTuple(k, value)
+}
+
+// String returns key encoded as a string.
 func (k *Key) String() string {
-	return fmt.Sprintf("Key(%s)", strings.Join(k.parts, "/"))
+	return strings.Join(k.parts, "/")
 }
 
-// Kind returns the kind of the Key.
-func (k *Key) Kind() string {
-	return k.parts[0]
+// GoString returns Go syntax for the key.
+func (k *Key) GoString() string {
+	return fmt.Sprintf("Key(%s)", k.String())
 }
 
-// ID returns the ID of the Key.
-func (k *Key) ID() string {
-	return k.parts[1]
+// Unwrap returns the parts of the Key.
+func (k *Key) Unwrap() []string {
+	return k.parts
 }
 
-// Attr returns the attribute name in the Key.
-func (k *Key) Attr() string {
-	if len(k.parts) < 3 {
-		return ""
-	}
-
-	return k.parts[2]
+// ParseKey parses a string into a [Key].
+func ParseKey(s string) *Key {
+	return NewKey(strings.Split(s, "/")...)
 }

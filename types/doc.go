@@ -1,2 +1,2 @@
-// Package types provides core data structures and utilities for XDB.
+// Package types provides core data structures and types for XDB.
 package types
