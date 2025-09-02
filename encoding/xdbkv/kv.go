@@ -3,7 +3,6 @@
 package xdbkv
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
@@ -46,20 +45,13 @@ func DecodeTuple(flatkey, flatvalue []byte) (*types.Tuple, error) {
 }
 
 // EncodeKey encodes a types.Key to []byte.
-func EncodeKey(key interface {
-	Kind() string
-	ID() string
-	Attr() string
-}) []byte {
-	return []byte(fmt.Sprintf("%s:%s:%s", key.Kind(), key.ID(), key.Attr()))
+func EncodeKey(key *types.Key) []byte {
+	return []byte(strings.Join(key.Unwrap(), ":"))
 }
 
 // DecodeKey decodes a []byte to a types.Key.
 func DecodeKey(key []byte) (*types.Key, error) {
 	parts := strings.Split(string(key), ":")
-	if len(parts) != 3 {
-		return nil, errors.Wrap(ErrDecodingKey, "key", string(key))
-	}
 
 	return types.NewKey(parts...), nil
 }
