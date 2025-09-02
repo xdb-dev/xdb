@@ -13,35 +13,41 @@ import (
 // - Value: Value of the attribute.
 // - Options: Options are key-value pairs
 type Tuple struct {
-	kind  string
-	id    string
-	attr  string
+	key   *Key
 	value *Value
 }
 
 // NewTuple creates a new Tuple.
 func NewTuple(kind string, id string, attr string, value any) *Tuple {
-	return &Tuple{kind: kind, id: id, attr: attr, value: NewValue(value)}
+	return newTuple(NewKey(kind, id, attr), value)
+}
+
+func newTuple(key *Key, value any) *Tuple {
+	return &Tuple{key: key, value: NewValue(value)}
 }
 
 // Key returns a reference to the tuple.
 func (t *Tuple) Key() *Key {
-	return NewKey(t.kind, t.id, t.attr)
+	return t.key
 }
 
 // Kind returns the kind of the tuple.
+// deprecated: use [Tuple.Key] instead.
 func (t *Tuple) Kind() string {
-	return t.kind
+	return t.key.Kind()
 }
 
 // ID returns the ID of the tuple.
+// deprecated: use [Tuple.Key] instead.
 func (t *Tuple) ID() string {
-	return t.id
+	return t.key.ID()
 }
 
 // Attr returns the attribute name.
 func (t *Tuple) Attr() string {
-	return t.attr
+	parts := t.key.Unwrap()
+
+	return parts[len(parts)-1]
 }
 
 // Value returns the value of the attribute.
@@ -49,7 +55,7 @@ func (t *Tuple) Value() *Value {
 	return t.value
 }
 
-// String returns the string representation of the tuple.
-func (t *Tuple) String() string {
-	return fmt.Sprintf("Tuple(%s, %s, %s, %v)", t.kind, t.id, t.attr, t.value)
+// GoString returns Go syntax of the tuple.
+func (t *Tuple) GoString() string {
+	return fmt.Sprintf("Tuple(%s, %#v)", t.key.String(), t.value)
 }

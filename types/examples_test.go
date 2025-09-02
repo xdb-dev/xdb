@@ -19,10 +19,15 @@ func ExampleKey() {
 	key = types.NewKey("User", "123", "follows", "Post", "123")
 	fmt.Println(key)
 
+	// This is an example of a multi-tenant key.
+	key = types.NewKey("example.com", "User", "123")
+	fmt.Println(key)
+
 	// Output:
 	// Key(User/123)
 	// Key(User/123/name)
 	// Key(User/123/follows/Post/123)
+	// Key(example.com/User/123)
 }
 
 func ExampleTuple() {

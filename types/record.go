@@ -8,40 +8,38 @@ import (
 // Record is a collection of tuples and edges that share
 // the same kind and id.
 type Record struct {
-	kind string
-	id   string
+	key *Key
 
 	mu     sync.RWMutex
 	tuples map[string]*Tuple
 }
 
 // NewRecord creates a new Record.
-func NewRecord(kind string, id string) *Record {
+func NewRecord(parts ...string) *Record {
 	return &Record{
-		kind:   kind,
-		id:     id,
+		key:    NewKey(parts...),
 		tuples: make(map[string]*Tuple),
 	}
 }
 
 // Key returns a reference to the Record.
 func (r *Record) Key() *Key {
-	return NewKey(r.kind, r.id)
+	return r.key
 }
 
 // Kind returns the kind of the Record.
 func (r *Record) Kind() string {
-	return r.kind
+	return r.key.Kind()
 }
 
 // ID returns the id of the Record.
 func (r *Record) ID() string {
-	return r.id
+	return r.key.ID()
 }
 
-// String returns the string representation of the Record.
-func (r *Record) String() string {
-	return fmt.Sprintf("Record(%s, %s)", r.kind, r.id)
+// GoString returns Go syntax of the Record.
+func (r *Record) GoString() string {
+	return fmt.Sprintf("Record(%s)", r.key.String())
 }
 
 // Set adds a tuple to the Record.
@@ -49,7 +47,8 @@ func (r *Record) Set(attr string, value any) *Record {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.tuples[attr] = NewTuple(r.kind, r.id, attr, value)
+	r.tuples[attr] = newTuple(r.key.With(attr), value)
+
 	return r
 }
 

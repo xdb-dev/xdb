@@ -190,3 +190,8 @@ func (v *Value) String() string {
 		return ""
 	}
 }
+
+// GoString returns Go syntax of the value.
+func (v *Value) GoString() string {
+	return fmt.Sprintf("Value(%s, %s)", v.typ.Name(), v.String())
+}

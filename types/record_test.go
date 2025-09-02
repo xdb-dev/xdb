@@ -19,10 +19,10 @@ func TestRecord(t *testing.T) {
 	record.Set("tags", []string{"xdb", "golang"})
 
 	t.Run("Getters", func(t *testing.T) {
+		assert.Equal(t, "Post/123", record.Key().String())
 		assert.Equal(t, "Post", record.Kind())
 		assert.Equal(t, "123", record.ID())
-		assert.Equal(t, "Record(Post, 123)", record.String())
-		assert.Equal(t, "Key(Post/123)", record.Key().String())
+		assert.Equal(t, "Record(Post/123)", record.GoString())
 		assert.False(t, record.IsEmpty())
 	})
 
