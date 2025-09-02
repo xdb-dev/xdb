@@ -48,7 +48,7 @@ func ExampleTuple_object_attributes() {
 
 func ExampleRecord() {
 	// This is an example of creating a record.
-	record := types.NewRecord("User", "123").
+	record := types.NewRecord(types.NewKey("User", "123")).
 		Set("name", "John Doe").
 		Set("age", 25).
 		Set("interests", []string{"reading", "traveling", "coding"})

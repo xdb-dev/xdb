@@ -10,7 +10,7 @@ import (
 )
 
 func TestRecord(t *testing.T) {
-	record := types.NewRecord("Post", "123")
+	record := types.NewRecord(types.NewKey("Post", "123"))
 
 	record.Set("title", "Hello, World!")
 	record.Set("content", "This is my first post")
@@ -19,10 +19,8 @@ func TestRecord(t *testing.T) {
 	record.Set("tags", []string{"xdb", "golang"})
 
 	t.Run("Getters", func(t *testing.T) {
-		assert.Equal(t, "Post", record.Kind())
-		assert.Equal(t, "123", record.ID())
-		assert.Equal(t, "Record(Post, 123)", record.String())
-		assert.Equal(t, "Key(Post/123)", record.Key().String())
+		assert.EqualValues(t, types.NewKey("Post", "123"), record.Key())
+		assert.Equal(t, "Record(Post/123)", record.GoString())
 		assert.False(t, record.IsEmpty())
 	})
 

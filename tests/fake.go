@@ -35,7 +35,7 @@ func FakePost() *types.Record {
 	kind := "Post"
 	id := gofakeit.UUID()
 
-	return types.NewRecord(kind, id).
+	return types.NewRecord(types.NewKey(kind, id)).
 		Set("title", gofakeit.Sentence(10)).
 		Set("content", gofakeit.Paragraph(10, 10, 10, " ")).
 		Set("tags", []string{

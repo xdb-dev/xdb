@@ -12,7 +12,7 @@ import (
 // RecordAPIExample demonstrates how to use the Record API in XDB.
 func RecordAPIExample() {
 	// create a record
-	record := types.NewRecord("Post", "123").
+	record := types.NewRecord(types.NewKey("Post", "123")).
 		Set("title", "Hello, World!").
 		Set("content", "This is my first post").
 		Set("created_at", time.Now()).
