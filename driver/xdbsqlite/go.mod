@@ -4,7 +4,7 @@ go 1.24.1
 
 replace (
 	github.com/xdb-dev/xdb => ../..
-	github.com/xdb-dev/xdb/encoding/xdbkv => ../../encoding/xdbkv
+	github.com/xdb-dev/xdb/codec/msgpack => ../../codec/msgpack
 )
 
 require (
@@ -13,8 +13,8 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
-	github.com/xdb-dev/xdb v0.0.0-00010101000000-000000000000
-	github.com/xdb-dev/xdb/encoding/xdbkv v0.0.0-00010101000000-000000000000
+	github.com/xdb-dev/xdb v0.0.0
+	github.com/xdb-dev/xdb/codec/msgpack v0.0.0-00010101000000-000000000000
 )
 
 require (

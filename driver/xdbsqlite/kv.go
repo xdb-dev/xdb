@@ -8,8 +8,9 @@ import (
 
 	"github.com/doug-martin/goqu/v9"
 
+	"github.com/xdb-dev/xdb/codec"
+	"github.com/xdb-dev/xdb/codec/msgpack"
 	"github.com/xdb-dev/xdb/driver"
-	"github.com/xdb-dev/xdb/encoding/xdbkv"
 	"github.com/xdb-dev/xdb/types"
 	"github.com/xdb-dev/xdb/x"
 )
@@ -24,12 +25,13 @@ var (
 // KVStore is a key-value store for SQLite.
 // It stores tuples in SQLite tables as key-value pairs.
 type KVStore struct {
-	db *sql.DB
+	db    *sql.DB
+	codec codec.KeyValueCodec
 }
 
 // NewKVStore creates a new SQLite KVStore.
 func NewKVStore(db *sql.DB) *KVStore {
-	return &KVStore{db: db}
+	return &KVStore{db: db, codec: msgpack.New()}
 }
 
 // GetTuples gets tuples from the SQLite key-value table.
@@ -52,7 +54,11 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 
 	for kind, keys := range grouped {
 		encodedKeys := x.Map(keys, func(key *types.Key) string {
-			return string(xdbkv.EncodeKey(key))
+			encodedKey, err := kv.codec.MarshalKey(key)
+			if err != nil {
+				return ""
+			}
+			return string(encodedKey)
 		})
 
 		getQuery := goqu.Select("key", "value").
@@ -79,12 +85,12 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 				return nil, nil, err
 			}
 
-			xk, err := xdbkv.DecodeKey([]byte(key))
+			xk, err := kv.codec.UnmarshalKey([]byte(key))
 			if err != nil {
 				return nil, nil, err
 			}
 
-			xv, err := xdbkv.DecodeValue(value)
+			xv, err := kv.codec.UnmarshalValue(value)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -136,7 +142,12 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 
 		for _, tuples := range rows {
 			for _, tuple := range tuples {
-				k, v, err := xdbkv.EncodeTuple(tuple)
+				k, err := kv.codec.MarshalKey(tuple.Key())
+				if err != nil {
+					return err
+				}
+
+				v, err := kv.codec.MarshalValue(tuple.Value())
 				if err != nil {
 					return err
 				}
@@ -165,6 +176,9 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 		}
 
 		_, err = tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()
@@ -188,7 +202,11 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
 
 	for kind, keys := range grouped {
 		encodedKeys := x.Map(keys, func(key *types.Key) string {
-			return string(xdbkv.EncodeKey(key))
+			encodedKey, err := kv.codec.MarshalKey(key)
+			if err != nil {
+				return ""
+			}
+			return string(encodedKey)
 		})
 
 		deleteQuery := goqu.Delete(kind).
@@ -257,12 +275,12 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 				return nil, nil, err
 			}
 
-			xk, err := xdbkv.DecodeKey([]byte(key))
+			xk, err := kv.codec.UnmarshalKey([]byte(key))
 			if err != nil {
 				return nil, nil, err
 			}
 
-			xv, err := xdbkv.DecodeValue(value)
+			xv, err := kv.codec.UnmarshalValue(value)
 			if err != nil {
 				return nil, nil, err
 			}

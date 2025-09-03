@@ -1,12 +1,60 @@
-package xdbkv
+package msgpack
 
 import (
+	"strings"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
 
+	"github.com/xdb-dev/xdb/codec"
 	"github.com/xdb-dev/xdb/types"
 )
+
+// Codec implements the KeyValueCodec interface using MessagePack encoding.
+type Codec struct{}
+
+// New creates a new MessagePack codec.
+func New() *Codec {
+	return &Codec{}
+}
+
+// MarshalKey encodes a types.Key to []byte using MessagePack.
+func (c *Codec) MarshalKey(key *types.Key) ([]byte, error) {
+	if key == nil {
+		return nil, nil
+	}
+
+	return []byte(strings.Join(key.Unwrap(), ":")), nil
+}
+
+// UnmarshalKey decodes a []byte to a types.Key using MessagePack.
+func (c *Codec) UnmarshalKey(data []byte) (*types.Key, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	parts := strings.Split(string(data), ":")
+
+	return types.NewKey(parts...), nil
+}
+
+// MarshalValue encodes a types.Value to []byte using MessagePack.
+func (c *Codec) MarshalValue(value *types.Value) ([]byte, error) {
+	if value == nil || value.IsNil() {
+		return nil, nil
+	}
+
+	return marshalValue(value)
+}
+
+// UnmarshalValue decodes a []byte to a types.Value using MessagePack.
+func (c *Codec) UnmarshalValue(data []byte) (*types.Value, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	return unmarshalValue(data)
+}
 
 // value is the wire format for a types.Value
 type value struct {
@@ -75,14 +123,14 @@ func unmarshalValue(b []byte) (*types.Value, error) {
 	case types.TypeIDArray:
 		rawArr, ok := decoded.Data.([]any)
 		if !ok {
-			return nil, ErrDecodingValue
+			return nil, codec.ErrDecodingValue
 		}
 
 		arr := make([]*types.Value, len(rawArr))
 		for i, elem := range rawArr {
 			elemBytes, ok := elem.([]byte)
 			if !ok {
-				return nil, ErrDecodingValue
+				return nil, codec.ErrDecodingValue
 			}
 			v, err := unmarshalValue(elemBytes)
 			if err != nil {
@@ -94,7 +142,7 @@ func unmarshalValue(b []byte) (*types.Value, error) {
 	case types.TypeIDMap:
 		rawMap, ok := decoded.Data.(map[string][]byte)
 		if !ok {
-			return nil, ErrDecodingValue
+			return nil, codec.ErrDecodingValue
 		}
 		mp := make(map[*types.Value]*types.Value, len(rawMap))
 		for kStr, vBytes := range rawMap {
@@ -112,7 +160,7 @@ func unmarshalValue(b []byte) (*types.Value, error) {
 	case types.TypeIDTime:
 		unixtime, ok := decoded.Data.(int64)
 		if !ok {
-			return nil, ErrDecodingValue
+			return nil, codec.ErrDecodingValue
 		}
 
 		t := time.UnixMilli(unixtime).UTC()

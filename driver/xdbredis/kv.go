@@ -8,8 +8,9 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/xdb-dev/xdb/codec"
+	"github.com/xdb-dev/xdb/codec/msgpack"
 	"github.com/xdb-dev/xdb/driver"
-	"github.com/xdb-dev/xdb/encoding/xdbkv"
 	"github.com/xdb-dev/xdb/types"
 )
 
@@ -23,12 +24,13 @@ var (
 // KVStore is a key-value store for Redis.
 // It stores tuples in Redis hash maps.
 type KVStore struct {
-	db *redis.Client
+	db    *redis.Client
+	codec codec.KeyValueCodec
 }
 
 // New creates a new Redis driver
 func New(c *redis.Client) *KVStore {
-	return &KVStore{db: c}
+	return &KVStore{db: c, codec: msgpack.New()}
 }
 
 // GetTuples gets tuples from the key-value store.
@@ -60,7 +62,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 			return nil, nil, err
 		}
 
-		val, err := xdbkv.DecodeValue([]byte(cmd.Val()))
+		val, err := kv.codec.UnmarshalValue([]byte(cmd.Val()))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -83,7 +85,7 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 
 	for _, tuple := range tuples {
 		hmkey := makeHashKey(tuple)
-		hmval, err := xdbkv.EncodeValue(tuple.Value())
+		hmval, err := kv.codec.MarshalValue(tuple.Value())
 		if err != nil {
 			return err
 		}
@@ -146,7 +148,7 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 		)
 
 		for attr, val := range attrs {
-			vv, err := xdbkv.DecodeValue([]byte(val))
+			vv, err := kv.codec.UnmarshalValue([]byte(val))
 			if err != nil {
 				return nil, nil, err
 			}

@@ -7,6 +7,19 @@ import (
 	"github.com/xdb-dev/xdb/types"
 )
 
+// SchemaReader is an interface for reading schemas.
+type SchemaReader interface {
+	GetAllSchemas(ctx context.Context) ([]*types.Schema, error)
+	GetSchema(ctx context.Context, key *types.Key) (*types.Schema, error)
+}
+
+// SchemaWriter is an interface for writing & deleting schemas.
+
+type SchemaWriter interface {
+	CreateSchema(ctx context.Context, schema *types.Schema) error
+	UpdateSchema(ctx context.Context, schema *types.Schema) error
+}
+
 // TupleReader is an interface for reading tuples.
 type TupleReader interface {
 	GetTuples(ctx context.Context, keys []*types.Key) ([]*types.Tuple, []*types.Key, error)

@@ -1,4 +1,4 @@
-package xdbkv_test
+package msgpack_test
 
 import (
 	"testing"
@@ -7,12 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/xdb-dev/xdb/encoding/xdbkv"
+	"github.com/xdb-dev/xdb/codec/msgpack"
 	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/types"
 )
 
-func TestEncodeDecodeTuple(t *testing.T) {
+func TestMsgpackCodec(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -95,19 +95,29 @@ func TestEncodeDecodeTuple(t *testing.T) {
 		},
 	}
 
+	codec := msgpack.New()
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			tuple := types.NewTuple("Test", "1", tc.name, tc.value)
 
-			encodedKey, encodedValue, err := xdbkv.EncodeTuple(tuple)
+			encodedKey, err := codec.MarshalKey(tuple.Key())
+			require.NoError(t, err)
+
+			encodedValue, err := codec.MarshalValue(tuple.Value())
 			require.NoError(t, err)
 			assert.Equal(t, tc.flatkey, string(encodedKey))
 
-			decodedTuple, err := xdbkv.DecodeTuple(encodedKey, encodedValue)
+			decodedKey, err := codec.UnmarshalKey(encodedKey)
 			require.NoError(t, err)
-			tests.AssertEqualTuple(t, tuple, decodedTuple)
+
+			decodedValue, err := codec.UnmarshalValue(encodedValue)
+			require.NoError(t, err)
+
+			tests.AssertEqualKey(t, tuple.Key(), decodedKey)
+			tests.AssertEqualValues(t, tuple.Value(), decodedValue)
 		})
 	}
 }
