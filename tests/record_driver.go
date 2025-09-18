@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/xdb-dev/xdb/driver"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/x"
 )
 
@@ -35,9 +35,9 @@ func TestRecordReaderWriter(t *testing.T, rw recordReaderWriter) {
 	})
 
 	t.Run("GetRecordsSomeMissing", func(t *testing.T) {
-		notFound := []*types.Key{
-			types.NewKey("Post", "1", "not_found"),
-			types.NewKey("Post", "2", "not_found"),
+		notFound := []*core.Key{
+			core.NewKey("Post", "1", "not_found"),
+			core.NewKey("Post", "2", "not_found"),
 		}
 
 		got, missing, err := rw.GetRecords(ctx, append(keys, notFound...))

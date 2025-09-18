@@ -1,4 +1,4 @@
-package types_test
+package core_test
 
 import (
 	"testing"
@@ -7,50 +7,50 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/xdb-dev/xdb/tests"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 func TestNewValue_Primitives(t *testing.T) {
 	testcases := []struct {
 		name     string
 		value    any
-		expected types.TypeID
+		expected core.TypeID
 	}{
 		{
 			name:     "string",
 			value:    "hello",
-			expected: types.TypeIDString,
+			expected: core.TypeIDString,
 		},
 		{
 			name:     "int",
 			value:    1,
-			expected: types.TypeIDInteger,
+			expected: core.TypeIDInteger,
 		},
 		{
 			name:     "float",
 			value:    1.0,
-			expected: types.TypeIDFloat,
+			expected: core.TypeIDFloat,
 		},
 		{
 			name:     "bool",
 			value:    true,
-			expected: types.TypeIDBoolean,
+			expected: core.TypeIDBoolean,
 		},
 		{
 			name:     "bytes",
 			value:    []byte("hello"),
-			expected: types.TypeIDBytes,
+			expected: core.TypeIDBytes,
 		},
 		{
 			name:     "time",
 			value:    time.Now(),
-			expected: types.TypeIDTime,
+			expected: core.TypeIDTime,
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			value := types.NewValue(tc.value)
+			value := core.NewValue(tc.value)
 
 			got := value.Type().ID()
 			assert.Equal(t, tc.expected, got)
@@ -63,43 +63,43 @@ func TestNewValue_Arrays(t *testing.T) {
 	testcases := []struct {
 		name     string
 		value    any
-		expected types.TypeID
+		expected core.TypeID
 	}{
 		{
 			name:     "string",
 			value:    []string{"hello", "world"},
-			expected: types.TypeIDString,
+			expected: core.TypeIDString,
 		},
 		{
 			name:     "int",
 			value:    []int64{1, 2, 3},
-			expected: types.TypeIDInteger,
+			expected: core.TypeIDInteger,
 		},
 		{
 			name:     "float",
 			value:    []float64{1.0, 2.0, 3.0},
-			expected: types.TypeIDFloat,
+			expected: core.TypeIDFloat,
 		},
 		{
 			name:     "bool",
 			value:    []bool{true, false, true},
-			expected: types.TypeIDBoolean,
+			expected: core.TypeIDBoolean,
 		},
 		{
 			name:     "bytes",
 			value:    [][]byte{[]byte("hello"), []byte("world")},
-			expected: types.TypeIDBytes,
+			expected: core.TypeIDBytes,
 		},
 		{
 			name:     "time",
 			value:    []time.Time{time.Now(), time.Now().Add(time.Hour)},
-			expected: types.TypeIDTime,
+			expected: core.TypeIDTime,
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			value := types.NewValue(tc.value)
+			value := core.NewValue(tc.value)
 
 			at := value.Type()
 			assert.Equal(t, tc.expected, at.ValueType())

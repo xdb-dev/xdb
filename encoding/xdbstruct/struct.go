@@ -10,7 +10,7 @@ import (
 
 	"github.com/gojekfarm/xtools/errors"
 
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 var (
@@ -18,8 +18,8 @@ var (
 	ErrNotStruct = errors.New("encoding/xdbstruct: ToRecord expects a pointer to a struct")
 )
 
-// ToRecord converts a struct to a types.Record.
-func ToRecord(obj any) (*types.Record, error) {
+// ToRecord converts a struct to a core.Record.
+func ToRecord(obj any) (*core.Record, error) {
 	v := reflect.ValueOf(obj)
 
 	if v.Kind() == reflect.Ptr {
@@ -45,7 +45,7 @@ func ToRecord(obj any) (*types.Record, error) {
 		}
 	}
 
-	record := types.NewRecord(kind, id)
+	record := core.NewRecord(kind, id)
 
 	for _, v := range tuples {
 		record.Set(v.Name, v.Value)
@@ -54,8 +54,8 @@ func ToRecord(obj any) (*types.Record, error) {
 	return record, nil
 }
 
-// FromRecord converts a types.Record to a struct.
-func FromRecord(record *types.Record, obj any) error {
+// FromRecord converts a core.Record to a struct.
+func FromRecord(record *core.Record, obj any) error {
 	return nil
 }
 

@@ -11,7 +11,7 @@ import (
 	"github.com/xdb-dev/xdb/codec"
 	"github.com/xdb-dev/xdb/codec/msgpack"
 	"github.com/xdb-dev/xdb/driver"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 var (
@@ -34,7 +34,7 @@ func New(c *redis.Client) *KVStore {
 }
 
 // GetTuples gets tuples from the key-value store.
-func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.Tuple, []*types.Key, error) {
+func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tuple, []*core.Key, error) {
 	tx := kv.getTx(ctx)
 
 	cmds := make([]*redis.StringCmd, 0, len(keys))
@@ -48,8 +48,8 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 		return nil, nil, err
 	}
 
-	tuples := make([]*types.Tuple, 0, len(keys))
-	missing := make([]*types.Key, 0, len(keys))
+	tuples := make([]*core.Tuple, 0, len(keys))
+	missing := make([]*core.Key, 0, len(keys))
 
 	for i, key := range keys {
 		cmd := cmds[i]
@@ -67,7 +67,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 			return nil, nil, err
 		}
 
-		tuple := types.NewTuple(
+		tuple := core.NewTuple(
 			key.Kind(),
 			key.ID(),
 			key.Attr(),
@@ -80,7 +80,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 }
 
 // PutTuples puts tuples into the key-value store.
-func (kv *KVStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
+func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	tx := kv.getTx(ctx)
 
 	for _, tuple := range tuples {
@@ -99,7 +99,7 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 }
 
 // DeleteTuples deletes tuples from the key-value store.
-func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
+func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
 	tx := kv.getTx(ctx)
 
 	for _, key := range keys {
@@ -111,7 +111,7 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
 }
 
 // GetRecords gets records from the key-value store.
-func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.Record, []*types.Key, error) {
+func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Record, []*core.Key, error) {
 	tx := kv.getTx(ctx)
 
 	cmds := make([]*redis.MapStringStringCmd, 0, len(keys))
@@ -125,8 +125,8 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 		return nil, nil, err
 	}
 
-	records := make([]*types.Record, 0, len(keys))
-	missing := make([]*types.Key, 0, len(keys))
+	records := make([]*core.Record, 0, len(keys))
+	missing := make([]*core.Key, 0, len(keys))
 
 	for i, key := range keys {
 		cmd := cmds[i]
@@ -142,7 +142,7 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 			continue
 		}
 
-		record := types.NewRecord(
+		record := core.NewRecord(
 			key.Kind(),
 			key.ID(),
 		)
@@ -163,8 +163,8 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 }
 
 // PutRecords puts records into the key-value store.
-func (kv *KVStore) PutRecords(ctx context.Context, records []*types.Record) error {
-	tuples := make([]*types.Tuple, 0, len(records))
+func (kv *KVStore) PutRecords(ctx context.Context, records []*core.Record) error {
+	tuples := make([]*core.Tuple, 0, len(records))
 
 	for _, record := range records {
 		tuples = append(tuples, record.Tuples()...)
@@ -174,7 +174,7 @@ func (kv *KVStore) PutRecords(ctx context.Context, records []*types.Record) erro
 }
 
 // DeleteRecords deletes records from the key-value store.
-func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
+func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
 	tx := kv.getTx(ctx)
 
 	for _, key := range keys {

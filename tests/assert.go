@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 // AssertEqualRecords asserts that two lists of records are equal.
-func AssertEqualRecords(t *testing.T, expected, actual []*types.Record) {
+func AssertEqualRecords(t *testing.T, expected, actual []*core.Record) {
 	t.Helper()
 
 	require.Equal(t, len(expected), len(actual), "record lists have different lengths")
@@ -26,7 +26,7 @@ func AssertEqualRecords(t *testing.T, expected, actual []*types.Record) {
 // It checks for the following:
 // - The record keys are equal.
 // - The record tuples are equal.
-func AssertEqualRecord(t *testing.T, expected, actual *types.Record) {
+func AssertEqualRecord(t *testing.T, expected, actual *core.Record) {
 	t.Helper()
 
 	require.EqualValues(t,
@@ -35,7 +35,7 @@ func AssertEqualRecord(t *testing.T, expected, actual *types.Record) {
 		"record key mismatch",
 	)
 
-	gotTuples := make(map[string]*types.Tuple)
+	gotTuples := make(map[string]*core.Tuple)
 	for _, tuple := range actual.Tuples() {
 		gotTuples[tuple.Key().String()] = tuple
 	}
@@ -49,7 +49,7 @@ func AssertEqualRecord(t *testing.T, expected, actual *types.Record) {
 }
 
 // AssertEqualTuples asserts that two lists of tuples are equal.
-func AssertEqualTuples(t *testing.T, expected, actual []*types.Tuple) {
+func AssertEqualTuples(t *testing.T, expected, actual []*core.Tuple) {
 	t.Helper()
 
 	require.Equal(t, len(expected), len(actual), "tuple lists have different lengths")
@@ -61,7 +61,7 @@ func AssertEqualTuples(t *testing.T, expected, actual []*types.Tuple) {
 }
 
 // AssertEqualTuple asserts that two tuples are equal.
-func AssertEqualTuple(t *testing.T, expected, actual *types.Tuple) {
+func AssertEqualTuple(t *testing.T, expected, actual *core.Tuple) {
 	t.Helper()
 
 	assert.Equalf(t,
@@ -79,7 +79,7 @@ func AssertEqualTuple(t *testing.T, expected, actual *types.Tuple) {
 }
 
 // AssertEqualKeys asserts that two lists of keys are equal.
-func AssertEqualKeys(t *testing.T, expected, actual []*types.Key) {
+func AssertEqualKeys(t *testing.T, expected, actual []*core.Key) {
 	t.Helper()
 
 	require.Equal(t, len(expected), len(actual), "key lists have different lengths")
@@ -91,7 +91,7 @@ func AssertEqualKeys(t *testing.T, expected, actual []*types.Key) {
 }
 
 // AssertEqualKey asserts that two keys are equal.
-func AssertEqualKey(t *testing.T, expected, actual *types.Key) {
+func AssertEqualKey(t *testing.T, expected, actual *core.Key) {
 	t.Helper()
 
 	assert.Equal(t, expected.String(), actual.String(), "key mismatch")
@@ -101,8 +101,8 @@ func AssertEqualKey(t *testing.T, expected, actual *types.Key) {
 func AssertEqualValues(t *testing.T, expected, actual any) {
 	t.Helper()
 
-	ev := types.NewValue(expected)
-	av := types.NewValue(actual)
+	ev := core.NewValue(expected)
+	av := core.NewValue(actual)
 
 	assert.Equal(t, ev.Type(), av.Type(), "value type mismatch")
 	assert.EqualValues(t, ev, av, "value mismatch")

@@ -1,33 +1,33 @@
-package types_test
+package core_test
 
 import (
 	"fmt"
 
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 func ExampleKey() {
 	// This is an example of a key that references a record.
-	key := types.NewKey("User", "123")
+	key := core.NewKey("User", "123")
 	fmt.Println(key)
 
 	// This is an example of a key that references a tuple.
-	key = types.NewKey("User", "123", "name")
+	key = core.NewKey("User", "123", "name")
 	fmt.Println(key)
 
 	// This is an example of a key that references an edge.
-	key = types.NewKey("User", "123", "follows", "Post", "123")
+	key = core.NewKey("User", "123", "follows", "Post", "123")
 	fmt.Println(key)
 
 	// This is an example of a multi-tenant key.
-	key = types.NewKey("example.com", "User", "123")
+	key = core.NewKey("example.com", "User", "123")
 	fmt.Println(key)
 
 	// Output:
-	// Key(User/123)
-	// Key(User/123/name)
-	// Key(User/123/follows/Post/123)
-	// Key(example.com/User/123)
+	// User/123
+	// User/123/name
+	// User/123/follows/Post/123
+	// example.com/User/123
 }
 
 func ExampleTuple() {
@@ -37,7 +37,7 @@ func ExampleTuple() {
 	// - "123" is the ID
 	// - "name" is the attribute
 	// - "John Doe" is the value
-	tuple := types.NewTuple("User", "123", "name", "John Doe")
+	tuple := core.NewTuple("User", "123", "name", "John Doe")
 
 	fmt.Println(tuple.Kind())
 	fmt.Println(tuple.ID())
@@ -53,7 +53,7 @@ func ExampleTuple() {
 
 func ExampleRecord() {
 	// This is an example of creating a record.
-	record := types.NewRecord("User", "123").
+	record := core.NewRecord("User", "123").
 		Set("name", "John Doe").
 		Set("age", 25).
 		Set("interests", []string{"reading", "traveling", "coding"})

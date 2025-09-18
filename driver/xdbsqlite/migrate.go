@@ -9,7 +9,7 @@ import (
 
 	"github.com/gojekfarm/xtools/errors"
 
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 // Migrator is a migration manager for the SQLite driver.
@@ -23,7 +23,7 @@ func NewMigrator(db *sql.DB) *Migrator {
 }
 
 // GenerateMigrations generates SQL migration statements for the given schema.
-func (m *Migrator) GenerateMigrations(ctx context.Context, schemas []*types.Schema, w io.Writer) error {
+func (m *Migrator) GenerateMigrations(ctx context.Context, schemas []*core.Schema, w io.Writer) error {
 	for _, schema := range schemas {
 		tableName := schema.Kind
 		exists, err := m.tableExists(ctx, tableName)
@@ -60,7 +60,7 @@ func (m *Migrator) tableExists(ctx context.Context, name string) (bool, error) {
 	return count > 0, nil
 }
 
-func (m *Migrator) generateCreateTable(schema *types.Schema, w io.Writer) error {
+func (m *Migrator) generateCreateTable(schema *core.Schema, w io.Writer) error {
 	tableName := schema.Kind
 
 	up := []string{fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (`, tableName)}
@@ -93,7 +93,7 @@ func (m *Migrator) generateCreateTable(schema *types.Schema, w io.Writer) error 
 	return nil
 }
 
-func (m *Migrator) generateAlterTable(ctx context.Context, schema *types.Schema, w io.Writer) error {
+func (m *Migrator) generateAlterTable(ctx context.Context, schema *core.Schema, w io.Writer) error {
 	tableName := schema.Kind
 	up := []string{}
 
@@ -143,22 +143,22 @@ func (m *Migrator) getTableColumns(ctx context.Context, name string) (map[string
 	return existingCols, nil
 }
 
-// sqliteTypeForField maps types.Field to SQLite types.
-func sqliteTypeForField(attr types.Attribute) (string, error) {
+// sqliteTypeForField maps core.Field to SQLite core.
+func sqliteTypeForField(attr core.Attribute) (string, error) {
 	switch attr.Type.ID() {
-	case types.TypeIDString:
+	case core.TypeIDString:
 		return "TEXT", nil
-	case types.TypeIDInteger,
-		types.TypeIDBoolean,
-		types.TypeIDTime:
+	case core.TypeIDInteger,
+		core.TypeIDBoolean,
+		core.TypeIDTime:
 		return "INTEGER", nil
-	case types.TypeIDFloat:
+	case core.TypeIDFloat:
 		return "REAL", nil
-	case types.TypeIDBytes:
+	case core.TypeIDBytes:
 		return "BLOB", nil
-	case types.TypeIDArray:
+	case core.TypeIDArray:
 		return "TEXT", nil
-	case types.TypeIDMap:
+	case core.TypeIDMap:
 		return "TEXT", nil
 	default:
 		return "", errors.Wrap(ErrUnsupportedValue, "type", attr.Type.Name())

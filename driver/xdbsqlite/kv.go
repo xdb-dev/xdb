@@ -11,7 +11,7 @@ import (
 	"github.com/xdb-dev/xdb/codec"
 	"github.com/xdb-dev/xdb/codec/msgpack"
 	"github.com/xdb-dev/xdb/driver"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/x"
 )
 
@@ -35,7 +35,7 @@ func NewKVStore(db *sql.DB) *KVStore {
 }
 
 // GetTuples gets tuples from the SQLite key-value table.
-func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.Tuple, []*types.Key, error) {
+func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tuple, []*core.Key, error) {
 	if len(keys) == 0 {
 		return nil, nil, nil
 	}
@@ -46,14 +46,14 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 	}
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *types.Key) string {
+	grouped := x.GroupBy(keys, func(key *core.Key) string {
 		return key.Kind()
 	})
 
-	tuplesMap := make(map[string]*types.Tuple)
+	tuplesMap := make(map[string]*core.Tuple)
 
 	for kind, keys := range grouped {
-		encodedKeys := x.Map(keys, func(key *types.Key) string {
+		encodedKeys := x.Map(keys, func(key *core.Key) string {
 			encodedKey, err := kv.codec.MarshalKey(key)
 			if err != nil {
 				return ""
@@ -95,7 +95,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 				return nil, nil, err
 			}
 
-			tuple := types.NewTuple(
+			tuple := core.NewTuple(
 				xk.Kind(),
 				xk.ID(),
 				xk.Attr(),
@@ -106,8 +106,8 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 		}
 	}
 
-	tuples := make([]*types.Tuple, 0, len(keys))
-	missing := make([]*types.Key, 0, len(keys))
+	tuples := make([]*core.Tuple, 0, len(keys))
+	missing := make([]*core.Key, 0, len(keys))
 
 	for _, key := range keys {
 		tuple, ok := tuplesMap[key.String()]
@@ -124,7 +124,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 }
 
 // PutTuples puts tuples into the key-value store.
-func (kv *KVStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
+func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	if len(tuples) == 0 {
 		return nil
 	}
@@ -185,7 +185,7 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 }
 
 // DeleteTuples deletes tuples from the key-value store.
-func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
+func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -196,12 +196,12 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
 	}
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *types.Key) string {
+	grouped := x.GroupBy(keys, func(key *core.Key) string {
 		return key.Kind()
 	})
 
 	for kind, keys := range grouped {
-		encodedKeys := x.Map(keys, func(key *types.Key) string {
+		encodedKeys := x.Map(keys, func(key *core.Key) string {
 			encodedKey, err := kv.codec.MarshalKey(key)
 			if err != nil {
 				return ""
@@ -229,7 +229,7 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
 }
 
 // GetRecords gets records from the key-value store.
-func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.Record, []*types.Key, error) {
+func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Record, []*core.Key, error) {
 	if len(keys) == 0 {
 		return nil, nil, nil
 	}
@@ -240,14 +240,14 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 	}
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *types.Key) string {
+	grouped := x.GroupBy(keys, func(key *core.Key) string {
 		return key.Kind()
 	})
 
-	recordsMap := make(map[string]*types.Record)
+	recordsMap := make(map[string]*core.Record)
 
 	for kind, keys := range grouped {
-		ids := x.Map(keys, func(key *types.Key) string {
+		ids := x.Map(keys, func(key *core.Key) string {
 			return key.ID()
 		})
 
@@ -287,15 +287,15 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 
 			_, ok := recordsMap[recordKey(xk)]
 			if !ok {
-				recordsMap[recordKey(xk)] = types.NewRecord(xk.Kind(), xk.ID())
+				recordsMap[recordKey(xk)] = core.NewRecord(xk.Kind(), xk.ID())
 			}
 
 			recordsMap[recordKey(xk)].Set(xk.Attr(), xv)
 		}
 	}
 
-	records := make([]*types.Record, 0, len(recordsMap))
-	missing := make([]*types.Key, 0, len(keys))
+	records := make([]*core.Record, 0, len(recordsMap))
+	missing := make([]*core.Key, 0, len(keys))
 
 	for _, key := range keys {
 		record, ok := recordsMap[recordKey(key)]
@@ -311,8 +311,8 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 }
 
 // PutRecords puts records into the key-value store.
-func (kv *KVStore) PutRecords(ctx context.Context, records []*types.Record) error {
-	tuples := make([]*types.Tuple, 0, len(records))
+func (kv *KVStore) PutRecords(ctx context.Context, records []*core.Record) error {
+	tuples := make([]*core.Tuple, 0, len(records))
 
 	for _, record := range records {
 		tuples = append(tuples, record.Tuples()...)
@@ -322,7 +322,7 @@ func (kv *KVStore) PutRecords(ctx context.Context, records []*types.Record) erro
 }
 
 // DeleteRecords deletes records from the key-value store.
-func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
+func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -333,12 +333,12 @@ func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
 	}
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *types.Key) string {
+	grouped := x.GroupBy(keys, func(key *core.Key) string {
 		return key.Kind()
 	})
 
 	for kind, keys := range grouped {
-		ids := x.Map(keys, func(key *types.Key) string {
+		ids := x.Map(keys, func(key *core.Key) string {
 			return key.ID()
 		})
 

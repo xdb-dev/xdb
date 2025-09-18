@@ -12,7 +12,7 @@ import (
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 	"github.com/xdb-dev/xdb/registry"
 	"github.com/xdb-dev/xdb/tests"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/x"
 )
 
@@ -66,9 +66,9 @@ func (s *SQLiteTestSuite) TestTuples() {
 	})
 
 	s.Run("GetTuplesSomeMissing", func() {
-		notFound := []*types.Key{
-			types.NewKey("Test", "1", "not_found"),
-			types.NewKey("Test", "2", "not_found"),
+		notFound := []*core.Key{
+			core.NewKey("Test", "1", "not_found"),
+			core.NewKey("Test", "2", "not_found"),
 		}
 
 		got, missing, err := s.sqlite.GetTuples(ctx, append(keys, notFound...))
@@ -111,9 +111,9 @@ func (s *SQLiteTestSuite) TestRecords() {
 	})
 
 	s.Run("GetRecordsSomeMissing", func() {
-		notFound := []*types.Key{
-			types.NewKey("Post", "1", "not_found"),
-			types.NewKey("Post", "2", "not_found"),
+		notFound := []*core.Key{
+			core.NewKey("Post", "1", "not_found"),
+			core.NewKey("Post", "2", "not_found"),
 		}
 
 		got, missing, err := s.sqlite.GetRecords(ctx, append(keys, notFound...))

@@ -1,4 +1,4 @@
-package types
+package core
 
 // Schema defines the structure of a record.
 type Schema struct {

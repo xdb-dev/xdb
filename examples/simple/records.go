@@ -6,13 +6,13 @@ import (
 	"time"
 
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 // RecordAPIExample demonstrates how to use the Record API in XDB.
 func RecordAPIExample() {
 	// create a record
-	record := types.NewRecord("Post", "123").
+	record := core.NewRecord("Post", "123").
 		Set("title", "Hello, World!").
 		Set("content", "This is my first post").
 		Set("created_at", time.Now()).
@@ -24,13 +24,13 @@ func RecordAPIExample() {
 	ctx := context.Background()
 
 	// put the record
-	err := store.PutRecords(ctx, []*types.Record{record})
+	err := store.PutRecords(ctx, []*core.Record{record})
 	if err != nil {
 		panic(err)
 	}
 
 	// get the record
-	records, _, err := store.GetRecords(ctx, []*types.Key{record.Key()})
+	records, _, err := store.GetRecords(ctx, []*core.Key{record.Key()})
 	if err != nil {
 		panic(err)
 	}
@@ -51,7 +51,7 @@ func RecordAPIExample() {
 	}
 
 	// delete the record
-	err = store.DeleteRecords(ctx, []*types.Key{record.Key()})
+	err = store.DeleteRecords(ctx, []*core.Key{record.Key()})
 	if err != nil {
 		panic(err)
 	}

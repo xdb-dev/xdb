@@ -13,7 +13,7 @@ import (
 
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 	"github.com/xdb-dev/xdb/tests"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 func TestGenerateMigrations(t *testing.T) {
@@ -26,7 +26,7 @@ func TestGenerateMigrations(t *testing.T) {
 
 	migrator := xdbsqlite.NewMigrator(db)
 
-	schemas := []*types.Schema{
+	schemas := []*core.Schema{
 		tests.FakePostSchema(),
 	}
 
@@ -61,9 +61,9 @@ func TestGenerateMigrations(t *testing.T) {
 		buf := bytes.NewBuffer(nil)
 
 		schemas[0].Attributes = append(schemas[0].Attributes,
-			types.Attribute{
+			core.Attribute{
 				Name: "created_at",
-				Type: types.NewType(types.TypeIDTime),
+				Type: core.NewType(core.TypeIDTime),
 			},
 		)
 

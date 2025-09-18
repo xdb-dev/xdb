@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/tests"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 func TestSQLValue(t *testing.T) {
@@ -18,87 +18,87 @@ func TestSQLValue(t *testing.T) {
 
 	testcases := []struct {
 		name  string
-		value *types.Value
+		value *core.Value
 		want  any
 	}{
 		{
 			name:  "Bool true",
-			value: types.NewValue(true),
+			value: core.NewValue(true),
 			want:  1,
 		},
 		{
 			name:  "Bool false",
-			value: types.NewValue(false),
+			value: core.NewValue(false),
 			want:  0,
 		},
 		{
 			name:  "Bool Array",
-			value: types.NewValue([]bool{true, false}),
+			value: core.NewValue([]bool{true, false}),
 			want:  `[true,false]`,
 		},
 		{
 			name:  "Int64",
-			value: types.NewValue(int64(42)),
+			value: core.NewValue(int64(42)),
 			want:  int64(42),
 		},
 		{
 			name:  "Int64 Array",
-			value: types.NewValue([]int64{1, 2}),
+			value: core.NewValue([]int64{1, 2}),
 			want:  `["1","2"]`,
 		},
 		{
 			name:  "Uint64",
-			value: types.NewValue(uint64(42)),
+			value: core.NewValue(uint64(42)),
 			want:  uint64(42),
 		},
 		{
 			name:  "Uint64 Array",
-			value: types.NewValue([]uint64{1, 2}),
+			value: core.NewValue([]uint64{1, 2}),
 			want:  `["1","2"]`,
 		},
 		{
 			name:  "Float64",
-			value: types.NewValue(float64(3.14)),
+			value: core.NewValue(float64(3.14)),
 			want:  float64(3.14),
 		},
 		{
 			name:  "Float64 Array",
-			value: types.NewValue([]float64{1.1, 2.2}),
+			value: core.NewValue([]float64{1.1, 2.2}),
 			want:  `[1.1,2.2]`,
 		},
 		{
 			name:  "String",
-			value: types.NewValue("foo"),
+			value: core.NewValue("foo"),
 			want:  "foo",
 		},
 		{
 			name:  "String Array",
-			value: types.NewValue([]string{"a", "b"}),
+			value: core.NewValue([]string{"a", "b"}),
 			want:  `["a","b"]`,
 		},
 		{
 			name:  "Bytes",
-			value: types.NewValue(b),
+			value: core.NewValue(b),
 			want:  b,
 		},
 		{
 			name:  "Bytes Array",
-			value: types.NewValue([][]byte{[]byte("a"), []byte("b")}),
+			value: core.NewValue([][]byte{[]byte("a"), []byte("b")}),
 			want:  `["YQ==","Yg=="]`,
 		},
 		// {
 		// 	name:  "Time",
-		// 	typ:   types.TimeType{},
-		// 	value: types.Time(tm),
+		// 	typ:   core.TimeType{},
+		// 	value: core.Time(tm),
 		// 	want:  tm.UnixMilli(),
 		// },
 		// {
 		// 	name: "Time Array",
-		// 	typ:  types.NewArrayType(types.TimeType{}),
-		// 	value: types.NewArray(
-		// 		types.TimeType{},
-		// 		types.Time(tm),
-		// 		types.Time(tm.Add(time.Second)),
+		// 	typ:  core.NewArrayType(core.TimeType{}),
+		// 	value: core.NewArray(
+		// 		core.TimeType{},
+		// 		core.Time(tm),
+		// 		core.Time(tm.Add(time.Second)),
 		// 	),
 		// 	want: `["1718352000000","1718352001000"]`,
 		// },
@@ -108,8 +108,8 @@ func TestSQLValue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Run("Value", func(t *testing.T) {
 				sv := &sqlValue{
-					attr: &types.Attribute{
-						Type: types.NewType(tc.value.Type().ID()),
+					attr: &core.Attribute{
+						Type: core.NewType(tc.value.Type().ID()),
 					},
 					value: tc.value,
 				}
@@ -121,8 +121,8 @@ func TestSQLValue(t *testing.T) {
 
 			t.Run("Scan", func(t *testing.T) {
 				sv := &sqlValue{
-					attr: &types.Attribute{
-						Type: types.NewType(tc.value.Type().ID()),
+					attr: &core.Attribute{
+						Type: core.NewType(tc.value.Type().ID()),
 					},
 				}
 

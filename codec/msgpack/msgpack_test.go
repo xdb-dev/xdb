@@ -9,7 +9,7 @@ import (
 
 	"github.com/xdb-dev/xdb/codec/msgpack"
 	"github.com/xdb-dev/xdb/tests"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 func TestMsgpackCodec(t *testing.T) {
@@ -101,7 +101,7 @@ func TestMsgpackCodec(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			tuple := types.NewTuple("Test", "1", tc.name, tc.value)
+			tuple := core.NewTuple("Test", "1", tc.name, tc.value)
 
 			encodedKey, err := codec.MarshalKey(tuple.Key())
 			require.NoError(t, err)

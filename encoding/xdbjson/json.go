@@ -2,15 +2,15 @@
 package xdbjson
 
 import (
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 // FromRecord converts a record to JSON.
-func FromRecord(record *types.Record) ([]byte, error) {
+func FromRecord(record *core.Record) ([]byte, error) {
 	return nil, nil
 }
 
 // ToRecord decodes JSON data into a record.
-func ToRecord(data []byte, record *types.Record) error {
+func ToRecord(data []byte, record *core.Record) error {
 	return nil
 }

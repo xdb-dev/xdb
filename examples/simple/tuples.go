@@ -5,16 +5,16 @@ import (
 	"fmt"
 
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 // TupleAPIExample demonstrates how to use the Tuple API in XDB.
 func TupleAPIExample() {
 	// create tuples
-	tuples := []*types.Tuple{
-		types.NewTuple("User", "123", "name", "John Doe"),
-		types.NewTuple("User", "123", "age", 25),
-		types.NewTuple("User", "123", "email", "john.doe@example.com"),
+	tuples := []*core.Tuple{
+		core.NewTuple("User", "123", "name", "John Doe"),
+		core.NewTuple("User", "123", "age", 25),
+		core.NewTuple("User", "123", "email", "john.doe@example.com"),
 	}
 
 	// create a store
@@ -27,10 +27,10 @@ func TupleAPIExample() {
 	}
 
 	// get tuples
-	keys := []*types.Key{
-		types.NewKey("User", "123", "name"),
-		types.NewKey("User", "123", "age"),
-		types.NewKey("User", "123", "email"),
+	keys := []*core.Key{
+		core.NewKey("User", "123", "name"),
+		core.NewKey("User", "123", "age"),
+		core.NewKey("User", "123", "email"),
 	}
 
 	tuples, _, err = store.GetTuples(context.Background(), keys)
@@ -46,8 +46,8 @@ func TupleAPIExample() {
 	}
 
 	// delete tuples
-	err = store.DeleteTuples(context.Background(), []*types.Key{
-		types.NewKey("User", "123", "age"),
+	err = store.DeleteTuples(context.Background(), []*core.Key{
+		core.NewKey("User", "123", "age"),
 	})
 	if err != nil {
 		panic(err)

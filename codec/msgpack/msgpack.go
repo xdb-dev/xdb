@@ -7,7 +7,7 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 
 	"github.com/xdb-dev/xdb/codec"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 // Codec implements the KeyValueCodec interface using MessagePack encoding.
@@ -18,8 +18,8 @@ func New() *Codec {
 	return &Codec{}
 }
 
-// MarshalKey encodes a types.Key to []byte using MessagePack.
-func (c *Codec) MarshalKey(key *types.Key) ([]byte, error) {
+// MarshalKey encodes a core.Key to []byte using MessagePack.
+func (c *Codec) MarshalKey(key *core.Key) ([]byte, error) {
 	if key == nil {
 		return nil, nil
 	}
@@ -27,19 +27,19 @@ func (c *Codec) MarshalKey(key *types.Key) ([]byte, error) {
 	return []byte(strings.Join(key.Unwrap(), ":")), nil
 }
 
-// UnmarshalKey decodes a []byte to a types.Key using MessagePack.
-func (c *Codec) UnmarshalKey(data []byte) (*types.Key, error) {
+// UnmarshalKey decodes a []byte to a core.Key using MessagePack.
+func (c *Codec) UnmarshalKey(data []byte) (*core.Key, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
 
 	parts := strings.Split(string(data), ":")
 
-	return types.NewKey(parts...), nil
+	return core.NewKey(parts...), nil
 }
 
-// MarshalValue encodes a types.Value to []byte using MessagePack.
-func (c *Codec) MarshalValue(value *types.Value) ([]byte, error) {
+// MarshalValue encodes a core.Value to []byte using MessagePack.
+func (c *Codec) MarshalValue(value *core.Value) ([]byte, error) {
 	if value == nil || value.IsNil() {
 		return nil, nil
 	}
@@ -47,8 +47,8 @@ func (c *Codec) MarshalValue(value *types.Value) ([]byte, error) {
 	return marshalValue(value)
 }
 
-// UnmarshalValue decodes a []byte to a types.Value using MessagePack.
-func (c *Codec) UnmarshalValue(data []byte) (*types.Value, error) {
+// UnmarshalValue decodes a []byte to a core.Value using MessagePack.
+func (c *Codec) UnmarshalValue(data []byte) (*core.Value, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
@@ -56,20 +56,20 @@ func (c *Codec) UnmarshalValue(data []byte) (*types.Value, error) {
 	return unmarshalValue(data)
 }
 
-// value is the wire format for a types.Value
+// value is the wire format for a core.Value
 type value struct {
-	TypeID types.TypeID `msgpack:"t"`
+	TypeID core.TypeID `msgpack:"t"`
 	Data   any          `msgpack:"d"`
 }
 
-func marshalValue(v *types.Value) ([]byte, error) {
+func marshalValue(v *core.Value) ([]byte, error) {
 	if v == nil || v.IsNil() {
-		return msgpack.Marshal(value{TypeID: types.TypeIDUnknown, Data: nil})
+		return msgpack.Marshal(value{TypeID: core.TypeIDUnknown, Data: nil})
 	}
 
 	switch v.Type().ID() {
-	case types.TypeIDArray:
-		arr := v.Unwrap().([]*types.Value)
+	case core.TypeIDArray:
+		arr := v.Unwrap().([]*core.Value)
 		data := make([][]byte, len(arr))
 
 		for i, elem := range arr {
@@ -80,9 +80,9 @@ func marshalValue(v *types.Value) ([]byte, error) {
 			data[i] = b
 		}
 
-		return msgpack.Marshal(value{TypeID: types.TypeIDArray, Data: data})
-	case types.TypeIDMap:
-		mp := v.Unwrap().(map[*types.Value]*types.Value)
+		return msgpack.Marshal(value{TypeID: core.TypeIDArray, Data: data})
+	case core.TypeIDMap:
+		mp := v.Unwrap().(map[*core.Value]*core.Value)
 		data := make(map[string][]byte, len(mp))
 
 		for k, val := range mp {
@@ -99,34 +99,34 @@ func marshalValue(v *types.Value) ([]byte, error) {
 			data[string(kb)] = vb
 		}
 
-		return msgpack.Marshal(value{TypeID: types.TypeIDMap, Data: data})
-	case types.TypeIDTime:
+		return msgpack.Marshal(value{TypeID: core.TypeIDMap, Data: data})
+	case core.TypeIDTime:
 		unixtime := v.Unwrap().(time.Time).UnixMilli()
 
-		return msgpack.Marshal(value{TypeID: types.TypeIDTime, Data: unixtime})
+		return msgpack.Marshal(value{TypeID: core.TypeIDTime, Data: unixtime})
 	default:
 		return msgpack.Marshal(value{TypeID: v.Type().ID(), Data: v.Unwrap()})
 	}
 }
 
-func unmarshalValue(b []byte) (*types.Value, error) {
+func unmarshalValue(b []byte) (*core.Value, error) {
 	var decoded value
 	if err := msgpack.Unmarshal(b, &decoded); err != nil {
 		return nil, err
 	}
 
-	if decoded.TypeID == types.TypeIDUnknown || decoded.Data == nil {
+	if decoded.TypeID == core.TypeIDUnknown || decoded.Data == nil {
 		return nil, nil
 	}
 
 	switch decoded.TypeID {
-	case types.TypeIDArray:
+	case core.TypeIDArray:
 		rawArr, ok := decoded.Data.([]any)
 		if !ok {
 			return nil, codec.ErrDecodingValue
 		}
 
-		arr := make([]*types.Value, len(rawArr))
+		arr := make([]*core.Value, len(rawArr))
 		for i, elem := range rawArr {
 			elemBytes, ok := elem.([]byte)
 			if !ok {
@@ -138,13 +138,13 @@ func unmarshalValue(b []byte) (*types.Value, error) {
 			}
 			arr[i] = v
 		}
-		return types.NewSafeValue(arr)
-	case types.TypeIDMap:
+		return core.NewSafeValue(arr)
+	case core.TypeIDMap:
 		rawMap, ok := decoded.Data.(map[string][]byte)
 		if !ok {
 			return nil, codec.ErrDecodingValue
 		}
-		mp := make(map[*types.Value]*types.Value, len(rawMap))
+		mp := make(map[*core.Value]*core.Value, len(rawMap))
 		for kStr, vBytes := range rawMap {
 			kVal, err := unmarshalValue([]byte(kStr))
 			if err != nil {
@@ -156,8 +156,8 @@ func unmarshalValue(b []byte) (*types.Value, error) {
 			}
 			mp[kVal] = vVal
 		}
-		return types.NewSafeValue(mp)
-	case types.TypeIDTime:
+		return core.NewSafeValue(mp)
+	case core.TypeIDTime:
 		unixtime, ok := decoded.Data.(int64)
 		if !ok {
 			return nil, codec.ErrDecodingValue
@@ -165,8 +165,8 @@ func unmarshalValue(b []byte) (*types.Value, error) {
 
 		t := time.UnixMilli(unixtime).UTC()
 
-		return types.NewSafeValue(t)
+		return core.NewSafeValue(t)
 	default:
-		return types.NewSafeValue(decoded.Data)
+		return core.NewSafeValue(decoded.Data)
 	}
 }

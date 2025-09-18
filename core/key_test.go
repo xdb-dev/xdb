@@ -1,16 +1,16 @@
-package types_test
+package core_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 func TestKey(t *testing.T) {
 	t.Run("NewKey", func(t *testing.T) {
-		key := types.NewKey("User", "123", "name")
+		key := core.NewKey("User", "123", "name")
 
 		assert.NotNil(t, key)
 		assert.Equal(t, "User/123/name", key.String())
@@ -18,7 +18,7 @@ func TestKey(t *testing.T) {
 	})
 
 	t.Run("With Method", func(t *testing.T) {
-		baseKey := types.NewKey("User", "789")
+		baseKey := core.NewKey("User", "789")
 		extendedKey := baseKey.With("email")
 
 		assert.NotNil(t, extendedKey)
@@ -27,7 +27,7 @@ func TestKey(t *testing.T) {
 	})
 
 	t.Run("With Multiple Parts", func(t *testing.T) {
-		baseKey := types.NewKey("Post", "101")
+		baseKey := core.NewKey("Post", "101")
 		extendedKey := baseKey.With("authored_by", "User", "123")
 
 		assert.NotNil(t, extendedKey)
@@ -35,7 +35,7 @@ func TestKey(t *testing.T) {
 	})
 
 	t.Run("Value Method", func(t *testing.T) {
-		key := types.NewKey("Product", "202", "price")
+		key := core.NewKey("Product", "202", "price")
 		tuple := key.Value(29.99)
 
 		assert.NotNil(t, tuple)
@@ -45,7 +45,7 @@ func TestKey(t *testing.T) {
 	})
 
 	t.Run("Unwrap Method", func(t *testing.T) {
-		key := types.NewKey("Product", "202", "price")
+		key := core.NewKey("Product", "202", "price")
 		parts := key.Unwrap()
 
 		assert.Equal(t, []string{"Product", "202", "price"}, parts)
@@ -53,7 +53,7 @@ func TestKey(t *testing.T) {
 
 	t.Run("Edge Cases", func(t *testing.T) {
 		t.Run("Empty Parts", func(t *testing.T) {
-			key := types.NewKey("", "", "")
+			key := core.NewKey("", "", "")
 
 			assert.Equal(t, "", key.Kind())
 			assert.Equal(t, "", key.ID())
@@ -62,13 +62,13 @@ func TestKey(t *testing.T) {
 		})
 
 		t.Run("Nil Parts", func(t *testing.T) {
-			key := types.NewKey()
+			key := core.NewKey()
 
 			assert.Nil(t, key)
 		})
 
 		t.Run("With Empty Parts", func(t *testing.T) {
-			baseKey := types.NewKey("User", "123")
+			baseKey := core.NewKey("User", "123")
 			extendedKey := baseKey.With("", "empty")
 
 			assert.Equal(t, "User/123//empty", extendedKey.String())
@@ -76,7 +76,7 @@ func TestKey(t *testing.T) {
 	})
 
 	t.Run("Immutability", func(t *testing.T) {
-		originalKey := types.NewKey("User", "123", "name")
+		originalKey := core.NewKey("User", "123", "name")
 		modifiedKey := originalKey.With("email")
 
 		assert.Equal(t, "User/123/name", originalKey.String())

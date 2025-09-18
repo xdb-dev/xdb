@@ -1,4 +1,4 @@
-package types_test
+package core_test
 
 import (
 	"testing"
@@ -6,11 +6,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 func TestRecord(t *testing.T) {
-	record := types.NewRecord("Post", "123")
+	record := core.NewRecord("Post", "123")
 
 	record.Set("title", "Hello, World!")
 	record.Set("content", "This is my first post")

@@ -1,16 +1,16 @@
-package types_test
+package core_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 func TestTuple(t *testing.T) {
 	t.Run("NewTuple", func(t *testing.T) {
-		tuple := types.NewTuple("Post", "123", "title", "Hello, World!")
+		tuple := core.NewTuple("Post", "123", "title", "Hello, World!")
 
 		assert.NotNil(t, tuple)
 		assert.Equal(t, "title", tuple.Attr())

@@ -9,7 +9,7 @@ import (
 
 	"github.com/xdb-dev/xdb/encoding/xdbstruct"
 	"github.com/xdb-dev/xdb/tests"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 type IntTypesStruct struct {
@@ -46,7 +46,7 @@ func TestIntTypesStruct(t *testing.T) {
 		Uint:     1, Uint8: 1, Uint16: 1, Uint32: 1, Uint64: 1,
 		UintArray: [3]uint{1, 2, 3},
 	}
-	record := types.NewRecord("IntTypesStruct", input.ID).
+	record := core.NewRecord("IntTypesStruct", input.ID).
 		Set("int", input.Int).
 		Set("int8", input.Int8).
 		Set("int16", input.Int16).
@@ -85,7 +85,7 @@ func TestFloatTypesStruct(t *testing.T) {
 		Float64:    123.456,
 		FloatArray: [3]float64{123.456, 123.456, 123.456},
 	}
-	record := types.NewRecord("FloatTypesStruct", input.ID).
+	record := core.NewRecord("FloatTypesStruct", input.ID).
 		Set("float32", input.Float32).
 		Set("float64", input.Float64).
 		Set("float_array", input.FloatArray)
@@ -113,7 +113,7 @@ func TestStringTypesStruct(t *testing.T) {
 		String:      "Hello, World!",
 		StringArray: [3]string{"Hello", "World", "!"},
 	}
-	record := types.NewRecord("StringTypesStruct", input.ID).
+	record := core.NewRecord("StringTypesStruct", input.ID).
 		Set("string", input.String).
 		Set("string_array", input.StringArray)
 
@@ -140,7 +140,7 @@ func TestBoolTypesStruct(t *testing.T) {
 		Bool:      true,
 		BoolArray: [3]bool{true, false, true},
 	}
-	record := types.NewRecord("BoolTypesStruct", input.ID).
+	record := core.NewRecord("BoolTypesStruct", input.ID).
 		Set("bool", input.Bool).
 		Set("bool_array", input.BoolArray)
 
@@ -200,7 +200,7 @@ func TestByteTypesStruct(t *testing.T) {
 			{Data: []byte("!")},
 		},
 	}
-	record := types.NewRecord("ByteTypesStruct", input.ID).
+	record := core.NewRecord("ByteTypesStruct", input.ID).
 		Set("bytes", input.Bytes).
 		Set("bytes_array", input.BytesArray).
 		Set("json", []byte(input.JSON)).
@@ -243,7 +243,7 @@ func TestCompositeTypesStruct(t *testing.T) {
 			time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC),
 		},
 	}
-	record := types.NewRecord("CompositeTypesStruct", input.ID).
+	record := core.NewRecord("CompositeTypesStruct", input.ID).
 		Set("timestamp", input.Timestamp).
 		Set("timestamp_array", input.TimestampArray)
 
@@ -306,7 +306,7 @@ func TestNestedStruct(t *testing.T) {
 		private:         "private",
 		skipped:         "skipped",
 	}
-	record := types.NewRecord("Post", input.ID).
+	record := core.NewRecord("Post", input.ID).
 		Set("title", input.Title).
 		Set("content", input.Content).
 		Set("author.id", input.Author.ID).

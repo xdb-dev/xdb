@@ -3,15 +3,15 @@ package codec
 import (
 	"errors"
 
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 )
 
 // KeyValueCodec is an interface for encoding and decoding key-value pairs.
 type KeyValueCodec interface {
-	MarshalKey(key *types.Key) ([]byte, error)
-	UnmarshalKey(data []byte) (*types.Key, error)
-	MarshalValue(value *types.Value) ([]byte, error)
-	UnmarshalValue(data []byte) (*types.Value, error)
+	MarshalKey(key *core.Key) ([]byte, error)
+	UnmarshalKey(data []byte) (*core.Key, error)
+	MarshalValue(value *core.Value) ([]byte, error)
+	UnmarshalValue(data []byte) (*core.Value, error)
 }
 
 var (

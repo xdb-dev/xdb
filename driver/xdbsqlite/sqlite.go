@@ -13,7 +13,7 @@ import (
 
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/registry"
-	"github.com/xdb-dev/xdb/types"
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/x"
 )
 
@@ -45,7 +45,7 @@ func NewSQLStore(db *sql.DB, registry *registry.Registry) *SQLStore {
 }
 
 // GetTuples gets tuples from the SQLite database.
-func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.Tuple, []*types.Key, error) {
+func (s *SQLStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tuple, []*core.Key, error) {
 	grouped := x.GroupAttrs(keys...)
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -55,7 +55,7 @@ func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 
 	defer tx.Rollback()
 
-	tupleMap := map[string]*types.Tuple{}
+	tupleMap := map[string]*core.Tuple{}
 
 	for kind, rows := range grouped {
 		schema := s.registry.Get(kind)
@@ -99,15 +99,15 @@ func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 						continue
 					}
 
-					tuple := types.NewTuple(kind, id, attr, val)
+					tuple := core.NewTuple(kind, id, attr, val)
 					tupleMap[tuple.Key().String()] = tuple
 				}
 			}
 		}
 	}
 
-	tuples := make([]*types.Tuple, 0)
-	missing := make([]*types.Key, 0)
+	tuples := make([]*core.Tuple, 0)
+	missing := make([]*core.Key, 0)
 
 	for _, key := range keys {
 		tuple, ok := tupleMap[key.String()]
@@ -123,7 +123,7 @@ func (s *SQLStore) GetTuples(ctx context.Context, keys []*types.Key) ([]*types.T
 }
 
 // PutTuples puts tuples into the SQLite database.
-func (s *SQLStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
+func (s *SQLStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	grouped := x.GroupTuples(tuples...)
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -181,7 +181,7 @@ func (s *SQLStore) PutTuples(ctx context.Context, tuples []*types.Tuple) error {
 }
 
 // DeleteTuples deletes tuples from the SQLite database.
-func (s *SQLStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
+func (s *SQLStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -215,7 +215,7 @@ func (s *SQLStore) DeleteTuples(ctx context.Context, keys []*types.Key) error {
 }
 
 // GetRecords gets records from the SQLite database.
-func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.Record, []*types.Key, error) {
+func (s *SQLStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Record, []*core.Key, error) {
 	if len(keys) == 0 {
 		return nil, nil, nil
 	}
@@ -227,14 +227,14 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *types.Key) string {
+	grouped := x.GroupBy(keys, func(key *core.Key) string {
 		return key.Kind()
 	})
 
-	recordsMap := make(map[string]*types.Record)
+	recordsMap := make(map[string]*core.Record)
 
 	for kind, keys := range grouped {
-		ids := x.Map(keys, func(key *types.Key) string {
+		ids := x.Map(keys, func(key *core.Key) string {
 			return key.ID()
 		})
 
@@ -243,7 +243,7 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 			return nil, nil, errors.Wrap(ErrSchemaNotFound, "kind", kind)
 		}
 
-		attrs := x.Map(schema.Attributes, func(attr types.Attribute) any {
+		attrs := x.Map(schema.Attributes, func(attr core.Attribute) any {
 			return attr.Name
 		})
 
@@ -279,7 +279,7 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 
 			id := pk[0].(*sqlValue).value.String()
 
-			record := types.NewRecord(kind, id)
+			record := core.NewRecord(kind, id)
 
 			for i := range attrs {
 				v := values[i].(*sqlValue)
@@ -290,8 +290,8 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 		}
 	}
 
-	records := make([]*types.Record, 0)
-	missing := make([]*types.Key, 0)
+	records := make([]*core.Record, 0)
+	missing := make([]*core.Key, 0)
 
 	for _, key := range keys {
 		record, ok := recordsMap[key.String()]
@@ -306,8 +306,8 @@ func (s *SQLStore) GetRecords(ctx context.Context, keys []*types.Key) ([]*types.
 }
 
 // PutRecords puts records into the SQLite database.
-func (s *SQLStore) PutRecords(ctx context.Context, records []*types.Record) error {
-	tuples := make([]*types.Tuple, 0, len(records))
+func (s *SQLStore) PutRecords(ctx context.Context, records []*core.Record) error {
+	tuples := make([]*core.Tuple, 0, len(records))
 
 	for _, record := range records {
 		tuples = append(tuples, record.Tuples()...)
@@ -317,7 +317,7 @@ func (s *SQLStore) PutRecords(ctx context.Context, records []*types.Record) erro
 }
 
 // DeleteRecords deletes records from the SQLite database.
-func (s *SQLStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
+func (s *SQLStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
 	if len(keys) == 0 {
 		return nil
 	}
@@ -329,12 +329,12 @@ func (s *SQLStore) DeleteRecords(ctx context.Context, keys []*types.Key) error {
 
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *types.Key) string {
+	grouped := x.GroupBy(keys, func(key *core.Key) string {
 		return key.Kind()
 	})
 
 	for kind, keys := range grouped {
-		ids := x.Map(keys, func(key *types.Key) string {
+		ids := x.Map(keys, func(key *core.Key) string {
 			return key.ID()
 		})
 
