@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/codec/msgpack"
-	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/tests"
 )
 
 func TestMsgpackCodec(t *testing.T) {

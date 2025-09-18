@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xdb-dev/xdb/driver/xdbmemory"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/driver/xdbmemory"
 )
 
 // RecordAPIExample demonstrates how to use the Record API in XDB.

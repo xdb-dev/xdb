@@ -14,7 +14,7 @@ require (
 	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
 	github.com/xdb-dev/xdb v0.0.0
-	github.com/xdb-dev/xdb/codec/msgpack v0.0.0-00010101000000-000000000000
+	github.com/xdb-dev/xdb/codec/msgpack v0.0.0-20250918115628-3b35b981f3d0
 )
 
 require (

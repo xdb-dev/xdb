@@ -7,9 +7,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbstruct"
 	"github.com/xdb-dev/xdb/tests"
-	"github.com/xdb-dev/xdb/core"
 )
 
 type IntTypesStruct struct {

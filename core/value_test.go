@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/tests"
 )
 
 func TestNewValue_Primitives(t *testing.T) {

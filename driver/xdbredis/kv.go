@@ -10,8 +10,8 @@ import (
 
 	"github.com/xdb-dev/xdb/codec"
 	"github.com/xdb-dev/xdb/codec/msgpack"
-	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/driver"
 )
 
 var (

@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 	"github.com/xdb-dev/xdb/tests"
-	"github.com/xdb-dev/xdb/core"
 )
 
 func TestGenerateMigrations(t *testing.T) {

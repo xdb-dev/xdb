@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/xdb-dev/xdb/driver/xdbmemory"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/driver/xdbmemory"
 )
 
 // TupleAPIExample demonstrates how to use the Tuple API in XDB.

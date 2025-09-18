@@ -4,7 +4,16 @@
       "Bash(mv:*)",
       "Bash(find:*)",
       "Bash(go build:*)",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "Bash(go list:*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(go get:*)",
+      "Bash(make fmt:*)",
+      "Bash(go mod:*)",
+      "Bash(make test:*)",
+      "Bash(make:*)",
+      "Bash(go run:*)"
     ],
     "deny": [],
     "ask": []

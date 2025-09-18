@@ -59,7 +59,7 @@ func (c *Codec) UnmarshalValue(data []byte) (*core.Value, error) {
 // value is the wire format for a core.Value
 type value struct {
 	TypeID core.TypeID `msgpack:"t"`
-	Data   any          `msgpack:"d"`
+	Data   any         `msgpack:"d"`
 }
 
 func marshalValue(v *core.Value) ([]byte, error) {

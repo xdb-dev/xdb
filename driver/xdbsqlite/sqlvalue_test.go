@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/tests"
 )
 
 func TestSQLValue(t *testing.T) {
