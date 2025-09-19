@@ -3,7 +3,6 @@ package xdbbadger
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/dgraph-io/badger/v4"
@@ -44,7 +43,10 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 
 	err := kv.db.View(func(txn *badger.Txn) error {
 		for _, key := range keys {
-			compositeKey := kv.makeCompositeKey(key)
+			compositeKey, err := kv.codec.MarshalKey(key)
+			if err != nil {
+				return err
+			}
 
 			item, err := txn.Get(compositeKey)
 			if err != nil {
@@ -70,12 +72,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 				return err
 			}
 
-			tuple := core.NewTuple(
-				key.Kind(),
-				key.ID(),
-				key.Attr(),
-				value,
-			)
+			tuple := key.Value(value)
 			tuples = append(tuples, tuple)
 		}
 		return nil
@@ -96,7 +93,10 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 
 	return kv.db.Update(func(txn *badger.Txn) error {
 		for _, tuple := range tuples {
-			compositeKey := kv.makeCompositeKey(tuple.Key())
+			compositeKey, err := kv.codec.MarshalKey(tuple.Key())
+			if err != nil {
+				return err
+			}
 
 			valueBytes, err := kv.codec.MarshalValue(tuple.Value())
 			if err != nil {
@@ -120,8 +120,11 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
 
 	return kv.db.Update(func(txn *badger.Txn) error {
 		for _, key := range keys {
-			compositeKey := kv.makeCompositeKey(key)
-			err := txn.Delete(compositeKey)
+			compositeKey, err := kv.codec.MarshalKey(key)
+			if err != nil {
+				return err
+			}
+			err = txn.Delete(compositeKey)
 			if err != nil && err != badger.ErrKeyNotFound {
 				return err
 			}
@@ -141,8 +144,12 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 
 	err := kv.db.View(func(txn *badger.Txn) error {
 		for _, key := range keys {
-			recordKey := kv.makeRecordKey(key)
-			prefix := []byte(recordKey + ":")
+			recordKey, err := kv.codec.MarshalKey(key)
+			if err != nil {
+				return err
+			}
+
+			prefix := []byte(string(recordKey) + ":")
 
 			opts := badger.DefaultIteratorOptions
 			opts.Prefix = prefix
@@ -186,7 +193,7 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 			if !found {
 				missing = append(missing, key)
 			} else {
-				recordsMap[recordKey] = record
+				recordsMap[string(recordKey)] = record
 			}
 		}
 		return nil
@@ -198,8 +205,12 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 
 	records := make([]*core.Record, 0, len(keys)-len(missing))
 	for _, key := range keys {
-		recordKey := kv.makeRecordKey(key)
-		if record, ok := recordsMap[recordKey]; ok {
+		recordKey, err := kv.codec.MarshalKey(key)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if record, ok := recordsMap[string(recordKey)]; ok {
 			records = append(records, record)
 		}
 	}
@@ -224,8 +235,11 @@ func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
 
 	return kv.db.Update(func(txn *badger.Txn) error {
 		for _, key := range keys {
-			recordKey := kv.makeRecordKey(key)
-			prefix := []byte(recordKey + ":")
+			recordKey, err := kv.codec.MarshalKey(key)
+			if err != nil {
+				return err
+			}
+			prefix := []byte(string(recordKey) + ":")
 
 			opts := badger.DefaultIteratorOptions
 			opts.Prefix = prefix
@@ -250,16 +264,4 @@ func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
 		}
 		return nil
 	})
-}
-
-// makeCompositeKey creates a composite key for storing a tuple.
-// Format: kind:id:attr
-func (kv *KVStore) makeCompositeKey(key *core.Key) []byte {
-	return []byte(fmt.Sprintf("%s:%s:%s", key.Kind(), key.ID(), key.Attr()))
-}
-
-// makeRecordKey creates a record key for prefix operations.
-// Format: kind:id
-func (kv *KVStore) makeRecordKey(key *core.Key) string {
-	return fmt.Sprintf("%s:%s", key.Kind(), key.ID())
 }
