@@ -3,7 +3,6 @@ package xdbmemory
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -32,7 +31,7 @@ func (d *MemoryDriver) GetTuples(ctx context.Context, keys []*core.Key) ([]*core
 	missed := make([]*core.Key, 0, len(keys))
 
 	for _, key := range keys {
-		tuple, ok := d.tuples[encodeKey(key)]
+		tuple, ok := d.tuples[key.String()]
 		if !ok {
 			missed = append(missed, key)
 			continue
@@ -50,7 +49,7 @@ func (d *MemoryDriver) PutTuples(ctx context.Context, tuples []*core.Tuple) erro
 	defer d.mu.Unlock()
 
 	for _, tuple := range tuples {
-		d.tuples[encodeKey(tuple.Key())] = tuple
+		d.tuples[tuple.Key().String()] = tuple
 	}
 
 	return nil
@@ -62,7 +61,7 @@ func (d *MemoryDriver) DeleteTuples(ctx context.Context, keys []*core.Key) error
 	defer d.mu.Unlock()
 
 	for _, key := range keys {
-		delete(d.tuples, encodeKey(key))
+		delete(d.tuples, key.String())
 	}
 
 	return nil
@@ -77,10 +76,10 @@ func (d *MemoryDriver) GetRecords(ctx context.Context, keys []*core.Key) ([]*cor
 	missed := make([]*core.Key, 0, len(keys))
 
 	for _, key := range keys {
-		record := core.NewRecord(key.Kind(), key.ID())
+		record := core.NewRecord(key.ID()...)
 
 		for k, t := range d.tuples {
-			if !strings.HasPrefix(k, encodeKey(key)) {
+			if !strings.HasPrefix(k, key.String()) {
 				continue
 			}
 
@@ -105,7 +104,7 @@ func (d *MemoryDriver) PutRecords(ctx context.Context, records []*core.Record) e
 
 	for _, record := range records {
 		for _, tuple := range record.Tuples() {
-			d.tuples[encodeKey(tuple.Key())] = tuple
+			d.tuples[tuple.Key().String()] = tuple
 		}
 	}
 
@@ -119,7 +118,7 @@ func (d *MemoryDriver) DeleteRecords(ctx context.Context, keys []*core.Key) erro
 
 	for _, key := range keys {
 		for k := range d.tuples {
-			if !strings.HasPrefix(k, encodeKey(key)) {
+			if !strings.HasPrefix(k, key.String()) {
 				continue
 			}
 
@@ -128,12 +127,4 @@ func (d *MemoryDriver) DeleteRecords(ctx context.Context, keys []*core.Key) erro
 	}
 
 	return nil
-}
-
-func encodeKey(key *core.Key) string {
-	if key.Attr() != "" {
-		return fmt.Sprintf("%s/%s/%s", key.Kind(), key.ID(), key.Attr())
-	}
-
-	return fmt.Sprintf("%s/%s", key.Kind(), key.ID())
 }

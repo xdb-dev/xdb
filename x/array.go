@@ -3,45 +3,35 @@ package x
 
 import "github.com/xdb-dev/xdb/core"
 
-// GroupTuples groups a list of tuples by their kind and id.
-func GroupTuples(tuples ...*core.Tuple) map[string]map[string][]*core.Tuple {
-	grouped := make(map[string]map[string][]*core.Tuple)
+// GroupTuples groups a list of tuples by their ID.
+func GroupTuples(tuples ...*core.Tuple) map[string][]*core.Tuple {
+	grouped := make(map[string][]*core.Tuple)
 
 	for _, tuple := range tuples {
-		kind := tuple.Kind()
-		id := tuple.ID()
+		id := tuple.ID().String()
 
-		if _, ok := grouped[kind]; !ok {
-			grouped[kind] = make(map[string][]*core.Tuple)
+		if _, ok := grouped[id]; !ok {
+			grouped[id] = make([]*core.Tuple, 0)
 		}
 
-		if _, ok := grouped[kind][id]; !ok {
-			grouped[kind][id] = make([]*core.Tuple, 0)
-		}
-
-		grouped[kind][id] = append(grouped[kind][id], tuple)
+		grouped[id] = append(grouped[id], tuple)
 	}
 
 	return grouped
 }
 
-// GroupAttrs groups a list of attributes by their kind and id.
-func GroupAttrs(keys ...*core.Key) map[string]map[string][]string {
-	grouped := make(map[string]map[string][]string)
+// GroupAttrs groups a list of attributes by their ID.
+func GroupAttrs(keys ...*core.Key) map[string][]string {
+	grouped := make(map[string][]string)
 
 	for _, key := range keys {
-		kind := key.Kind()
-		id := key.ID()
+		id := key.ID().String()
 
-		if _, ok := grouped[kind]; !ok {
-			grouped[kind] = make(map[string][]string)
+		if _, ok := grouped[id]; !ok {
+			grouped[id] = make([]string, 0)
 		}
 
-		if _, ok := grouped[kind][id]; !ok {
-			grouped[kind][id] = make([]string, 0)
-		}
-
-		grouped[kind][id] = append(grouped[kind][id], key.Attr())
+		grouped[id] = append(grouped[id], key.Attr().String())
 	}
 
 	return grouped

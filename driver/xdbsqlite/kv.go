@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/doug-martin/goqu/v9"
+	_ "github.com/doug-martin/goqu/v9/dialect/sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/xdb-dev/xdb/codec"
 	"github.com/xdb-dev/xdb/codec/msgpack"
@@ -26,7 +28,7 @@ var (
 // It stores tuples in SQLite tables as key-value pairs.
 type KVStore struct {
 	db    *sql.DB
-	codec codec.KeyValueCodec
+	codec codec.KVCodec
 }
 
 // NewKVStore creates a new SQLite KVStore.
@@ -46,64 +48,53 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 	}
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *core.Key) string {
-		return key.Kind()
-	})
-
 	tuplesMap := make(map[string]*core.Tuple)
 
-	for kind, keys := range grouped {
-		encodedKeys := x.Map(keys, func(key *core.Key) string {
-			encodedKey, err := kv.codec.MarshalKey(key)
-			if err != nil {
-				return ""
-			}
-			return string(encodedKey)
+	encodedKeys := x.Map(keys, func(key *core.Key) string {
+		id, attr, err := kv.codec.EncodeKey(key)
+		if err != nil {
+			return ""
+		}
+		return string(id) + ":" + string(attr)
+	})
+
+	getQuery := goqu.Select("id", "attr", "value").
+		From("xdbkvstore").
+		Where(goqu.Ex{
+			"key": encodedKeys,
 		})
 
-		getQuery := goqu.Select("key", "value").
-			From(kind).
-			Where(goqu.Ex{
-				"key": encodedKeys,
-			})
+	query, args, err := getQuery.ToSQL()
+	if err != nil {
+		return nil, nil, err
+	}
 
-		query, args, err := getQuery.ToSQL()
+	rows, err := tx.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for rows.Next() {
+		var id string
+		var attr string
+		var value []byte
+		err := rows.Scan(&id, &attr, &value)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		rows, err := tx.QueryContext(ctx, query, args...)
+		xk, err := kv.codec.DecodeKey([]byte(id), []byte(attr))
 		if err != nil {
 			return nil, nil, err
 		}
 
-		for rows.Next() {
-			var key string
-			var value []byte
-			err := rows.Scan(&key, &value)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			xk, err := kv.codec.UnmarshalKey([]byte(key))
-			if err != nil {
-				return nil, nil, err
-			}
-
-			xv, err := kv.codec.UnmarshalValue(value)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			tuple := core.NewTuple(
-				xk.Kind(),
-				xk.ID(),
-				xk.Attr(),
-				xv,
-			)
-
-			tuplesMap[tuple.Key().String()] = tuple
+		xv, err := kv.codec.DecodeValue(value)
+		if err != nil {
+			return nil, nil, err
 		}
+
+		tuple := xk.Value(xv)
+		tuplesMap[xk.String()] = tuple
 	}
 
 	tuples := make([]*core.Tuple, 0, len(keys))
@@ -135,50 +126,43 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	}
 	defer tx.Rollback()
 
-	grouped := x.GroupTuples(tuples...)
+	putRecords := make([]goqu.Record, 0, len(tuples))
 
-	for kind, rows := range grouped {
-		putRecords := make([]goqu.Record, 0, len(rows))
-
-		for _, tuples := range rows {
-			for _, tuple := range tuples {
-				k, err := kv.codec.MarshalKey(tuple.Key())
-				if err != nil {
-					return err
-				}
-
-				v, err := kv.codec.MarshalValue(tuple.Value())
-				if err != nil {
-					return err
-				}
-
-				insertRecord := goqu.Record{
-					"key":   string(k),
-					"id":    tuple.ID(),
-					"attr":  tuple.Attr(),
-					"value": v,
-				}
-
-				putRecords = append(putRecords, insertRecord)
-			}
-		}
-
-		insertQuery := goqu.Insert(kind).
-			Prepared(true).
-			Rows(putRecords).
-			OnConflict(goqu.DoUpdate("key", goqu.Record{
-				"value": goqu.I("EXCLUDED.value"),
-			}))
-
-		query, args, err := insertQuery.ToSQL()
+	for _, tuple := range tuples {
+		id, attr, err := kv.codec.EncodeKey(tuple.Key())
 		if err != nil {
 			return err
 		}
 
-		_, err = tx.ExecContext(ctx, query, args...)
+		v, err := kv.codec.EncodeValue(tuple.Value())
 		if err != nil {
 			return err
 		}
+
+		insertRecord := goqu.Record{
+			"key":   string(id) + ":" + string(attr),
+			"id":    string(id),
+			"attr":  string(attr),
+			"value": v,
+		}
+		putRecords = append(putRecords, insertRecord)
+	}
+
+	insertQuery := goqu.Insert("xdbkvstore").
+		Prepared(true).
+		Rows(putRecords).
+		OnConflict(goqu.DoUpdate("key", goqu.Record{
+			"value": goqu.I("EXCLUDED.value"),
+		}))
+
+	query, args, err := insertQuery.ToSQL()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
 	}
 
 	return tx.Commit()
@@ -196,33 +180,27 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
 	}
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *core.Key) string {
-		return key.Kind()
+	encodedKeys := x.Map(keys, func(key *core.Key) string {
+		id, attr, err := kv.codec.EncodeKey(key)
+		if err != nil {
+			return ""
+		}
+		return string(id) + ":" + string(attr)
 	})
 
-	for kind, keys := range grouped {
-		encodedKeys := x.Map(keys, func(key *core.Key) string {
-			encodedKey, err := kv.codec.MarshalKey(key)
-			if err != nil {
-				return ""
-			}
-			return string(encodedKey)
+	deleteQuery := goqu.Delete("xdbkvstore").
+		Where(goqu.Ex{
+			"key": encodedKeys,
 		})
 
-		deleteQuery := goqu.Delete(kind).
-			Where(goqu.Ex{
-				"key": encodedKeys,
-			})
+	query, args, err := deleteQuery.ToSQL()
+	if err != nil {
+		return err
+	}
 
-		query, args, err := deleteQuery.ToSQL()
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, query, args...)
-		if err != nil {
-			return err
-		}
+	_, err = tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
 	}
 
 	return tx.Commit()
@@ -240,65 +218,64 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 	}
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *core.Key) string {
-		return key.Kind()
+	encodedIDs := x.Map(keys, func(key *core.Key) string {
+		id, err := kv.codec.EncodeID(key.ID())
+		if err != nil {
+			return ""
+		}
+		return string(id)
 	})
+
+	selectQuery := goqu.Select("id", "attr", "value").
+		From("xdbkvstore").
+		Where(goqu.Ex{
+			"id": encodedIDs,
+		})
+
+	query, args, err := selectQuery.ToSQL()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rows, err := tx.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	recordsMap := make(map[string]*core.Record)
 
-	for kind, keys := range grouped {
-		ids := x.Map(keys, func(key *core.Key) string {
-			return key.ID()
-		})
-
-		selectQuery := goqu.Select("key", "value").
-			From(kind).
-			Where(goqu.Ex{
-				"id": ids,
-			})
-
-		query, args, err := selectQuery.ToSQL()
+	for rows.Next() {
+		var id string
+		var attr string
+		var value []byte
+		err := rows.Scan(&id, &attr, &value)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		rows, err := tx.QueryContext(ctx, query, args...)
+		xk, err := kv.codec.DecodeKey([]byte(id), []byte(attr))
 		if err != nil {
 			return nil, nil, err
 		}
 
-		for rows.Next() {
-			var key string
-			var value []byte
-			err := rows.Scan(&key, &value)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			xk, err := kv.codec.UnmarshalKey([]byte(key))
-			if err != nil {
-				return nil, nil, err
-			}
-
-			xv, err := kv.codec.UnmarshalValue(value)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			_, ok := recordsMap[recordKey(xk)]
-			if !ok {
-				recordsMap[recordKey(xk)] = core.NewRecord(xk.Kind(), xk.ID())
-			}
-
-			recordsMap[recordKey(xk)].Set(xk.Attr(), xv)
+		xv, err := kv.codec.DecodeValue(value)
+		if err != nil {
+			return nil, nil, err
 		}
+
+		_, ok := recordsMap[xk.ID().String()]
+		if !ok {
+			recordsMap[xk.ID().String()] = core.NewRecord(xk.ID()...)
+		}
+
+		recordsMap[xk.ID().String()].Set(xk.Attr(), xv)
 	}
 
 	records := make([]*core.Record, 0, len(recordsMap))
 	missing := make([]*core.Key, 0, len(keys))
 
 	for _, key := range keys {
-		record, ok := recordsMap[recordKey(key)]
+		record, ok := recordsMap[key.ID().String()]
 		if !ok {
 			missing = append(missing, key)
 			continue
@@ -333,68 +310,59 @@ func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
 	}
 	defer tx.Rollback()
 
-	grouped := x.GroupBy(keys, func(key *core.Key) string {
-		return key.Kind()
+	encodedIDs := x.Map(keys, func(key *core.Key) string {
+		id, err := kv.codec.EncodeID(key.ID())
+		if err != nil {
+			return ""
+		}
+		return string(id)
 	})
 
-	for kind, keys := range grouped {
-		ids := x.Map(keys, func(key *core.Key) string {
-			return key.ID()
+	deleteQuery := goqu.Delete("xdbkvstore").
+		Where(goqu.Ex{
+			"id": encodedIDs,
 		})
 
-		deleteQuery := goqu.Delete(kind).
-			Where(goqu.Ex{
-				"id": ids,
-			})
+	query, args, err := deleteQuery.ToSQL()
+	if err != nil {
+		return err
+	}
 
-		query, args, err := deleteQuery.ToSQL()
-		if err != nil {
-			return err
-		}
-
-		_, err = tx.ExecContext(ctx, query, args...)
-		if err != nil {
-			return err
-		}
+	_, err = tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
 	}
 
 	return tx.Commit()
 }
 
 // Migrate creates tables for all provided kinds with the required schema and indexes.
-func (kv *KVStore) Migrate(ctx context.Context, kinds []string) error {
-	for _, kind := range kinds {
-		tableStmt := fmt.Sprintf(`
+func (kv *KVStore) Migrate(ctx context.Context) error {
+	name := "xdbkvstore"
+	tableStmt := fmt.Sprintf(`
 			CREATE TABLE IF NOT EXISTS %s (
 				key TEXT PRIMARY KEY,
 				id TEXT,
 				attr TEXT,
 				value BLOB
 			);
-		`, kind)
-		_, err := kv.db.ExecContext(ctx, tableStmt)
-		if err != nil {
-			return err
-		}
-
-		idxID := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_id ON %s (id);", kind, kind)
-		_, err = kv.db.ExecContext(ctx, idxID)
-		if err != nil {
-			return err
-		}
-
-		idxAttr := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_attr ON %s (attr);", kind, kind)
-		_, err = kv.db.ExecContext(ctx, idxAttr)
-		if err != nil {
-			return err
-		}
+		`, name)
+	_, err := kv.db.ExecContext(ctx, tableStmt)
+	if err != nil {
+		return err
 	}
-	return nil
-}
 
-func recordKey[T interface {
-	Kind() string
-	ID() string
-}](r T) string {
-	return fmt.Sprintf("%s:%s", r.Kind(), r.ID())
+	idxID := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_id ON %s (id);", name, name)
+	_, err = kv.db.ExecContext(ctx, idxID)
+	if err != nil {
+		return err
+	}
+
+	idxAttr := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_attr ON %s (attr);", name, name)
+	_, err = kv.db.ExecContext(ctx, idxAttr)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

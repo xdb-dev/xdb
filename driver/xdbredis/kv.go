@@ -4,7 +4,6 @@ package xdbredis
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/redis/go-redis/v9"
 
@@ -25,7 +24,7 @@ var (
 // It stores tuples in Redis hash maps.
 type KVStore struct {
 	db    *redis.Client
-	codec codec.KeyValueCodec
+	codec codec.KVCodec
 }
 
 // New creates a new Redis driver
@@ -39,7 +38,12 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 
 	cmds := make([]*redis.StringCmd, 0, len(keys))
 	for _, key := range keys {
-		cmd := tx.HGet(ctx, makeHashKey(key), key.Attr())
+		hmid, hmattr, err := kv.codec.EncodeKey(key)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		cmd := tx.HGet(ctx, string(hmid), string(hmattr))
 		cmds = append(cmds, cmd)
 	}
 
@@ -62,17 +66,12 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 			return nil, nil, err
 		}
 
-		val, err := kv.codec.UnmarshalValue([]byte(cmd.Val()))
+		val, err := kv.codec.DecodeValue([]byte(cmd.Val()))
 		if err != nil {
 			return nil, nil, err
 		}
 
-		tuple := core.NewTuple(
-			key.Kind(),
-			key.ID(),
-			key.Attr(),
-			val,
-		)
+		tuple := core.NewTuple(key.ID(), key.Attr(), val)
 		tuples = append(tuples, tuple)
 	}
 
@@ -84,13 +83,17 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	tx := kv.getTx(ctx)
 
 	for _, tuple := range tuples {
-		hmkey := makeHashKey(tuple)
-		hmval, err := kv.codec.MarshalValue(tuple.Value())
+		hmid, hmattr, err := kv.codec.EncodeKey(tuple.Key())
 		if err != nil {
 			return err
 		}
 
-		tx.HSet(ctx, hmkey, tuple.Attr(), hmval)
+		hmval, err := kv.codec.EncodeValue(tuple.Value())
+		if err != nil {
+			return err
+		}
+
+		tx.HSet(ctx, string(hmid), string(hmattr), hmval)
 	}
 
 	_, err := tx.Exec(ctx)
@@ -103,7 +106,11 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
 	tx := kv.getTx(ctx)
 
 	for _, key := range keys {
-		tx.HDel(ctx, makeHashKey(key), key.Attr())
+		hmid, hmattr, err := kv.codec.EncodeKey(key)
+		if err != nil {
+			return err
+		}
+		tx.HDel(ctx, string(hmid), string(hmattr))
 	}
 
 	_, err := tx.Exec(ctx)
@@ -116,7 +123,11 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 
 	cmds := make([]*redis.MapStringStringCmd, 0, len(keys))
 	for _, key := range keys {
-		cmd := tx.HGetAll(ctx, makeHashKey(key))
+		hmid, _, err := kv.codec.EncodeKey(key)
+		if err != nil {
+			return nil, nil, err
+		}
+		cmd := tx.HGetAll(ctx, string(hmid))
 		cmds = append(cmds, cmd)
 	}
 
@@ -142,18 +153,20 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 			continue
 		}
 
-		record := core.NewRecord(
-			key.Kind(),
-			key.ID(),
-		)
+		record := core.NewRecord(key.ID()...)
 
 		for attr, val := range attrs {
-			vv, err := kv.codec.UnmarshalValue([]byte(val))
+			decodedAttr, err := kv.codec.DecodeAttr([]byte(attr))
 			if err != nil {
 				return nil, nil, err
 			}
 
-			record.Set(attr, vv)
+			decodedVal, err := kv.codec.DecodeValue([]byte(val))
+			if err != nil {
+				return nil, nil, err
+			}
+
+			record.Set(decodedAttr, decodedVal)
 		}
 
 		records = append(records, record)
@@ -178,7 +191,11 @@ func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
 	tx := kv.getTx(ctx)
 
 	for _, key := range keys {
-		tx.Del(ctx, makeHashKey(key))
+		hmid, _, err := kv.codec.EncodeKey(key)
+		if err != nil {
+			return err
+		}
+		tx.Del(ctx, string(hmid))
 	}
 
 	_, err := tx.Exec(ctx)
@@ -188,11 +205,4 @@ func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
 
 func (kv *KVStore) getTx(_ context.Context) redis.Pipeliner {
 	return kv.db.Pipeline()
-}
-
-func makeHashKey(key interface {
-	Kind() string
-	ID() string
-}) string {
-	return fmt.Sprintf("%s:%s", key.Kind(), key.ID())
 }

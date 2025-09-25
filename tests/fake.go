@@ -9,26 +9,26 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
-// FakePostSchema creates a fake schema of a Post.
-func FakePostSchema() *core.Schema {
-	return &core.Schema{
-		Kind: "Post",
-		Attributes: []core.Attribute{
-			{Name: "title", Type: core.NewType(core.TypeIDString)},
-			{Name: "content", Type: core.NewType(core.TypeIDString)},
-			{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
-			{Name: "rating", Type: core.NewType(core.TypeIDFloat)},
-			{Name: "published", Type: core.NewType(core.TypeIDBoolean)},
-			{Name: "comments.count", Type: core.NewType(core.TypeIDInteger)},
-			{Name: "views.count", Type: core.NewType(core.TypeIDInteger)},
-			{Name: "likes.count", Type: core.NewType(core.TypeIDInteger)},
-			{Name: "shares.count", Type: core.NewType(core.TypeIDInteger)},
-			{Name: "favorites.count", Type: core.NewType(core.TypeIDInteger)},
-			{Name: "author.id", Type: core.NewType(core.TypeIDString)},
-			{Name: "author.name", Type: core.NewType(core.TypeIDString)},
-		},
-	}
-}
+// // FakePostSchema creates a fake schema of a Post.
+// func FakePostSchema() *core.Schema {
+// 	return &core.Schema{
+// 		Kind: "Post",
+// 		Attributes: []core.Attribute{
+// 			{Name: "title", Type: core.NewType(core.TypeIDString)},
+// 			{Name: "content", Type: core.NewType(core.TypeIDString)},
+// 			{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
+// 			{Name: "rating", Type: core.NewType(core.TypeIDFloat)},
+// 			{Name: "published", Type: core.NewType(core.TypeIDBoolean)},
+// 			{Name: "comments.count", Type: core.NewType(core.TypeIDInteger)},
+// 			{Name: "views.count", Type: core.NewType(core.TypeIDInteger)},
+// 			{Name: "likes.count", Type: core.NewType(core.TypeIDInteger)},
+// 			{Name: "shares.count", Type: core.NewType(core.TypeIDInteger)},
+// 			{Name: "favorites.count", Type: core.NewType(core.TypeIDInteger)},
+// 			{Name: "author.id", Type: core.NewType(core.TypeIDString)},
+// 			{Name: "author.name", Type: core.NewType(core.TypeIDString)},
+// 		},
+// 	}
+// }
 
 // FakePost creates a fakerecord with fake Post data.
 func FakePost() *core.Record {
@@ -64,28 +64,28 @@ func FakePosts(n int) []*core.Record {
 	return records
 }
 
-// FakeTupleSchema creates a fake schema for all types of tuples.
-func FakeTupleSchema() *core.Schema {
-	return &core.Schema{
-		Kind: "Test",
-		Attributes: []core.Attribute{
-			{Name: "id", Type: core.NewType(core.TypeIDString), PrimaryKey: true},
-			{Name: "string", Type: core.NewType(core.TypeIDString)},
-			{Name: "int64", Type: core.NewType(core.TypeIDInteger)},
-			{Name: "float", Type: core.NewType(core.TypeIDFloat)},
-			{Name: "bool", Type: core.NewType(core.TypeIDBoolean)},
-			{Name: "bytes", Type: core.NewType(core.TypeIDBytes)},
-			{Name: "time", Type: core.NewType(core.TypeIDTime)},
-			{Name: "string_array", Type: core.NewArrayType(core.TypeIDString)},
-			{Name: "int64_array", Type: core.NewArrayType(core.TypeIDInteger)},
-			{Name: "float_array", Type: core.NewArrayType(core.TypeIDFloat)},
-			{Name: "bool_array", Type: core.NewArrayType(core.TypeIDBoolean)},
-			{Name: "bytes_array", Type: core.NewArrayType(core.TypeIDBytes)},
-			{Name: "time_array", Type: core.NewArrayType(core.TypeIDTime)},
-			{Name: "not_found", Type: core.NewType(core.TypeIDString)},
-		},
-	}
-}
+// // FakeTupleSchema creates a fake schema for all types of tuples.
+// func FakeTupleSchema() *core.Schema {
+// 	return &core.Schema{
+// 		Kind: "Test",
+// 		Attributes: []core.Attribute{
+// 			{Name: "id", Type: core.NewType(core.TypeIDString), PrimaryKey: true},
+// 			{Name: "string", Type: core.NewType(core.TypeIDString)},
+// 			{Name: "int64", Type: core.NewType(core.TypeIDInteger)},
+// 			{Name: "float", Type: core.NewType(core.TypeIDFloat)},
+// 			{Name: "bool", Type: core.NewType(core.TypeIDBoolean)},
+// 			{Name: "bytes", Type: core.NewType(core.TypeIDBytes)},
+// 			{Name: "time", Type: core.NewType(core.TypeIDTime)},
+// 			{Name: "string_array", Type: core.NewArrayType(core.TypeIDString)},
+// 			{Name: "int64_array", Type: core.NewArrayType(core.TypeIDInteger)},
+// 			{Name: "float_array", Type: core.NewArrayType(core.TypeIDFloat)},
+// 			{Name: "bool_array", Type: core.NewArrayType(core.TypeIDBoolean)},
+// 			{Name: "bytes_array", Type: core.NewArrayType(core.TypeIDBytes)},
+// 			{Name: "time_array", Type: core.NewArrayType(core.TypeIDTime)},
+// 			{Name: "not_found", Type: core.NewType(core.TypeIDString)},
+// 		},
+// 	}
+// }
 
 // FakeTuples creates a list of fake tuples covering all core.
 func FakeTuples() []*core.Tuple {
@@ -100,9 +100,10 @@ func FakeTuples() []*core.Tuple {
 
 // FakeStringTuples creates fake tuples for string values.
 func FakeStringTuples() []*core.Tuple {
+	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple("Test", "1", "string", gofakeit.Sentence(10)),
-		core.NewTuple("Test", "1", "string_array", []string{
+		core.NewTuple(id, "string", gofakeit.Sentence(10)),
+		core.NewTuple(id, "string_array", []string{
 			gofakeit.Sentence(10),
 			gofakeit.Sentence(10),
 		}),
@@ -111,9 +112,10 @@ func FakeStringTuples() []*core.Tuple {
 
 // FakeIntTuples creates fake tuples for int values.
 func FakeIntTuples() []*core.Tuple {
+	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple("Test", "1", "int64", gofakeit.Int64()),
-		core.NewTuple("Test", "1", "int64_array", []int64{
+		core.NewTuple(id, "int64", gofakeit.Int64()),
+		core.NewTuple(id, "int64_array", []int64{
 			gofakeit.Int64(),
 			gofakeit.Int64(),
 		}),
@@ -122,9 +124,10 @@ func FakeIntTuples() []*core.Tuple {
 
 // FakeFloatTuples creates fake tuples for float values.
 func FakeFloatTuples() []*core.Tuple {
+	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple("Test", "1", "float", gofakeit.Float64()),
-		core.NewTuple("Test", "1", "float_array", []float64{
+		core.NewTuple(id, "float", gofakeit.Float64()),
+		core.NewTuple(id, "float_array", []float64{
 			gofakeit.Float64(),
 			gofakeit.Float64(),
 		}),
@@ -133,9 +136,10 @@ func FakeFloatTuples() []*core.Tuple {
 
 // FakeBoolTuples creates fake tuples for bool values.
 func FakeBoolTuples() []*core.Tuple {
+	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple("Test", "1", "bool", gofakeit.Bool()),
-		core.NewTuple("Test", "1", "bool_array", []bool{
+		core.NewTuple(id, "bool", gofakeit.Bool()),
+		core.NewTuple(id, "bool_array", []bool{
 			gofakeit.Bool(),
 			gofakeit.Bool(),
 		}),
@@ -144,9 +148,10 @@ func FakeBoolTuples() []*core.Tuple {
 
 // FakeBytesTuples creates fake tuples for bytes values.
 func FakeBytesTuples() []*core.Tuple {
+	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple("Test", "1", "bytes", []byte(gofakeit.Sentence(10))),
-		core.NewTuple("Test", "1", "bytes_array", [][]byte{
+		core.NewTuple(id, "bytes", []byte(gofakeit.Sentence(10))),
+		core.NewTuple(id, "bytes_array", [][]byte{
 			[]byte(gofakeit.Sentence(10)),
 			[]byte(gofakeit.Sentence(10)),
 		}),
@@ -155,9 +160,10 @@ func FakeBytesTuples() []*core.Tuple {
 
 // FakeTimeTuples creates fake tuples for time.Time.
 func FakeTimeTuples() []*core.Tuple {
+	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple("Test", "1", "time", gofakeit.Date()),
-		core.NewTuple("Test", "1", "time_array", []time.Time{
+		core.NewTuple(id, "time", gofakeit.Date()),
+		core.NewTuple(id, "time_array", []time.Time{
 			gofakeit.Date(),
 			gofakeit.Date(),
 		}),

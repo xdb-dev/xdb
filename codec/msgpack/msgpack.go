@@ -1,6 +1,7 @@
 package msgpack
 
 import (
+	"errors"
 	"strings"
 	"time"
 
@@ -10,36 +11,85 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-// Codec implements the KeyValueCodec interface using MessagePack encoding.
-type Codec struct{}
+// Codec implements the KVCodec interface using MessagePack encoding.
+type Codec struct {
+	idSep   string
+	attrSep string
+}
 
 // New creates a new MessagePack codec.
 func New() *Codec {
-	return &Codec{}
+	return &Codec{
+		idSep:   "/",
+		attrSep: ".",
+	}
 }
 
-// MarshalKey encodes a core.Key to []byte using MessagePack.
-func (c *Codec) MarshalKey(key *core.Key) ([]byte, error) {
-	if key == nil {
+// NewWithSep creates a new MessagePack codec with the given
+// id and attr separators.
+func NewWithSep(idSep, attrSep string) *Codec {
+	return &Codec{
+		idSep:   idSep,
+		attrSep: attrSep,
+	}
+}
+
+// EncodeID encodes a [core.ID] to []byte.
+func (c *Codec) EncodeID(id core.ID) ([]byte, error) {
+	if len(id) == 0 {
 		return nil, nil
 	}
 
-	return []byte(strings.Join(key.Unwrap(), ":")), nil
+	return []byte(strings.Join(id, c.idSep)), nil
 }
 
-// UnmarshalKey decodes a []byte to a core.Key using MessagePack.
-func (c *Codec) UnmarshalKey(data []byte) (*core.Key, error) {
+// DecodeID decodes a []byte to a [core.ID].
+func (c *Codec) DecodeID(data []byte) (core.ID, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
 
-	parts := strings.Split(string(data), ":")
-
-	return core.NewKey(parts...), nil
+	parts := strings.Split(string(data), c.idSep)
+	return core.NewID(parts...), nil
 }
 
-// MarshalValue encodes a core.Value to []byte using MessagePack.
-func (c *Codec) MarshalValue(value *core.Value) ([]byte, error) {
+// EncodeAttr encodes a [core.Attr] to []byte.
+func (c *Codec) EncodeAttr(attr core.Attr) ([]byte, error) {
+	if len(attr) == 0 {
+		return nil, nil
+	}
+
+	return []byte(strings.Join(attr, c.attrSep)), nil
+}
+
+// DecodeAttr decodes a []byte to a [core.Attr].
+func (c *Codec) DecodeAttr(data []byte) (core.Attr, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+
+	parts := strings.Split(string(data), c.attrSep)
+	return core.NewAttr(parts...), nil
+}
+
+// EncodeKey encodes a [core.Key] to key-attr pair.
+func (c *Codec) EncodeKey(key *core.Key) ([]byte, []byte, error) {
+	encodedID, idErr := c.EncodeID(key.ID())
+	encodedAttr, attrErr := c.EncodeAttr(key.Attr())
+
+	return encodedID, encodedAttr, errors.Join(idErr, attrErr)
+}
+
+// DecodeKey decodes a key-attr pair to a [core.Key].
+func (c *Codec) DecodeKey(id []byte, attr []byte) (*core.Key, error) {
+	decodedID, idErr := c.DecodeID(id)
+	decodedAttr, attrErr := c.DecodeAttr(attr)
+
+	return core.NewKey(decodedID, decodedAttr), errors.Join(idErr, attrErr)
+}
+
+// EncodeValue encodes a [core.Value] to []byte.
+func (c *Codec) EncodeValue(value *core.Value) ([]byte, error) {
 	if value == nil || value.IsNil() {
 		return nil, nil
 	}
@@ -47,8 +97,8 @@ func (c *Codec) MarshalValue(value *core.Value) ([]byte, error) {
 	return marshalValue(value)
 }
 
-// UnmarshalValue decodes a []byte to a core.Value using MessagePack.
-func (c *Codec) UnmarshalValue(data []byte) (*core.Value, error) {
+// DecodeValue decodes a []byte to a [core.Value].
+func (c *Codec) DecodeValue(data []byte) (*core.Value, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
@@ -56,7 +106,7 @@ func (c *Codec) UnmarshalValue(data []byte) (*core.Value, error) {
 	return unmarshalValue(data)
 }
 
-// value is the wire format for a core.Value
+// value is the msgpack wire format for a core.Value
 type value struct {
 	TypeID core.TypeID `msgpack:"t"`
 	Data   any         `msgpack:"d"`

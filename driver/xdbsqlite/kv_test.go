@@ -29,10 +29,7 @@ func (s *KVStoreTestSuite) SetupSuite() {
 	s.db = db
 	s.kv = xdbsqlite.NewKVStore(db)
 
-	err = s.kv.Migrate(context.Background(), []string{
-		"Test",
-		"Post",
-	})
+	err = s.kv.Migrate(context.Background())
 	s.Require().NoError(err)
 }
 
