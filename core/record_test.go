@@ -20,8 +20,7 @@ func TestRecord(t *testing.T) {
 
 	t.Run("Getters", func(t *testing.T) {
 		assert.Equal(t, "Post/123", record.Key().String())
-		assert.Equal(t, "Post", record.Kind())
-		assert.Equal(t, "123", record.ID())
+		assert.Equal(t, "Post/123", record.ID().String())
 		assert.Equal(t, "Record(Post/123)", record.GoString())
 		assert.False(t, record.IsEmpty())
 	})
@@ -49,8 +48,7 @@ func TestRecord(t *testing.T) {
 
 		for _, tuple := range tuples {
 			assert.NotNil(t, tuple)
-			assert.Equal(t, "Post", tuple.Kind())
-			assert.Equal(t, "123", tuple.ID())
+			assert.Equal(t, "Post/123", tuple.ID().String())
 		}
 	})
 }

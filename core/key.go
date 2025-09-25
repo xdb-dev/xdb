@@ -2,41 +2,50 @@ package core
 
 import (
 	"fmt"
-	"strings"
 )
 
 // Key is an unique reference to an attribute or a record.
 type Key struct {
-	parts []string
+	id   ID
+	attr Attr
 }
 
 // NewKey creates a new Key.
-func NewKey(parts ...string) *Key {
+//
+// Only the following patterns are supported:
+// - NewKey("{id}")
+// - NewKey("{id}", "{attr}")
+// - NewKey(NewID("{id}"), "{attr}")
+// - NewKey(NewID("{id}"), NewAttr("{attr}")
+//
+// Panics if the key is invalid.
+func NewKey(parts ...any) *Key {
 	if len(parts) == 0 {
 		return nil
 	}
 
-	return &Key{parts: parts}
-}
-
-// With returns a new Key with the appended parts.
-func (k *Key) With(parts ...string) *Key {
-	return NewKey(append(k.parts, parts...)...)
+	switch len(parts) {
+	case 1:
+		return &Key{id: newID(parts[0])}
+	case 2:
+		return &Key{id: newID(parts[0]), attr: newAttr(parts[1])}
+	default:
+		panic(fmt.Sprintf("invalid key: %v", parts))
+	}
 }
 
 // Value creates a new [Tuple] with the Key.
 func (k *Key) Value(value any) *Tuple {
-	return newTuple(k, value)
-}
-
-// Unwrap returns the key parts.
-func (k *Key) Unwrap() []string {
-	return k.parts
+	return NewTuple(k.id, k.attr, value)
 }
 
 // String returns the key encoded as a string.
 func (k *Key) String() string {
-	return strings.Join(k.parts, "/")
+	if len(k.attr) > 0 {
+		return fmt.Sprintf("%s/%s", k.id.String(), k.attr.String())
+	}
+
+	return k.id.String()
 }
 
 // GoString returns Go syntax of the Key.
@@ -44,24 +53,12 @@ func (k *Key) GoString() string {
 	return fmt.Sprintf("Key(%s)", k.String())
 }
 
-// Kind returns the kind of the Key.
-// deprecated: use [Key.Unwrap] instead.
-func (k *Key) Kind() string {
-	return k.parts[0]
-}
-
 // ID returns the ID of the Key.
-// deprecated: use [Key.Unwrap] instead.
-func (k *Key) ID() string {
-	return k.parts[1]
+func (k *Key) ID() ID {
+	return k.id
 }
 
 // Attr returns the attribute name in the Key.
-// deprecated: use [Key.Unwrap] instead.
-func (k *Key) Attr() string {
-	if len(k.parts) < 3 {
-		return ""
-	}
-
-	return k.parts[2]
+func (k *Key) Attr() Attr {
+	return k.attr
 }

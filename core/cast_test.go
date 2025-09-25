@@ -9,6 +9,8 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
+var id = core.NewID("Test", "1")
+
 func TestValue_ToBool(t *testing.T) {
 	t.Parallel()
 
@@ -46,7 +48,7 @@ func TestValue_ToBool(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple("Test", "1", "attr", tc.value)
+			tuple := core.NewTuple(id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToBool())
 			assert.Equal(t, tc.expected, tuple.Value().ToBool())
 		})
@@ -85,7 +87,7 @@ func TestValue_ToInt(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple("Test", "1", "attr", tc.value)
+			tuple := core.NewTuple(id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToInt())
 			assert.Equal(t, tc.expected, tuple.Value().ToInt())
 		})
@@ -125,7 +127,7 @@ func TestValue_ToUint(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple("Test", "1", "attr", tc.value)
+			tuple := core.NewTuple(id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToUint())
 			assert.Equal(t, tc.expected, tuple.Value().ToUint())
 		})
@@ -159,7 +161,7 @@ func TestValue_ToFloat(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple("Test", "1", "attr", tc.value)
+			tuple := core.NewTuple(id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToFloat())
 			assert.Equal(t, tc.expected, tuple.Value().ToFloat())
 		})
@@ -198,7 +200,7 @@ func TestValue_ToString(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple("Test", "1", "attr", tc.value)
+			tuple := core.NewTuple(id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToString())
 			assert.Equal(t, tc.expected, tuple.Value().ToString())
 		})
@@ -242,7 +244,7 @@ func TestValue_ToBytes(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple("Test", "1", "attr", tc.value)
+			tuple := core.NewTuple(id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToBytes())
 			assert.Equal(t, tc.expected, tuple.Value().ToBytes())
 		})
@@ -291,7 +293,7 @@ func TestValue_ToTime(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple("Test", "1", "attr", tc.value)
+			tuple := core.NewTuple(id, "attr", tc.value)
 			assert.Equal(t, tc.expected.Compare(tuple.ToTime()), 0)
 			assert.Equal(t, tc.expected.Compare(tuple.Value().ToTime()), 0)
 		})
@@ -303,42 +305,42 @@ func TestValue_Slices(t *testing.T) {
 
 	t.Run("IntArray", func(t *testing.T) {
 		value := []int64{1, 2, 3}
-		tuple := core.NewTuple("Test", "1", "attr", value)
+		tuple := core.NewTuple(id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToIntArray())
 		assert.EqualValues(t, value, tuple.Value().ToIntArray())
 	})
 
 	t.Run("FloatArray", func(t *testing.T) {
 		value := []float64{1.1, 2.2, 3.3}
-		tuple := core.NewTuple("Test", "1", "attr", value)
+		tuple := core.NewTuple(id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToFloatArray())
 		assert.EqualValues(t, value, tuple.Value().ToFloatArray())
 	})
 
 	t.Run("StringArray", func(t *testing.T) {
 		value := []string{"a", "b", "c"}
-		tuple := core.NewTuple("Test", "1", "attr", value)
+		tuple := core.NewTuple(id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToStringArray())
 		assert.EqualValues(t, value, tuple.Value().ToStringArray())
 	})
 
 	t.Run("BoolArray", func(t *testing.T) {
 		value := []bool{true, false, true}
-		tuple := core.NewTuple("Test", "1", "attr", value)
+		tuple := core.NewTuple(id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToBoolArray())
 		assert.EqualValues(t, value, tuple.Value().ToBoolArray())
 	})
 
 	t.Run("BytesArray", func(t *testing.T) {
 		value := [][]byte{[]byte("a"), []byte("b")}
-		tuple := core.NewTuple("Test", "1", "attr", value)
+		tuple := core.NewTuple(id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToBytesArray())
 		assert.EqualValues(t, value, tuple.Value().ToBytesArray())
 	})
 
 	t.Run("UintArray", func(t *testing.T) {
 		value := []uint64{1, 2, 3}
-		tuple := core.NewTuple("Test", "1", "attr", value)
+		tuple := core.NewTuple(id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToUintArray())
 		assert.EqualValues(t, value, tuple.Value().ToUintArray())
 	})
@@ -347,7 +349,7 @@ func TestValue_Slices(t *testing.T) {
 		t1 := time.Date(2025, 6, 10, 1, 2, 3, 0, time.UTC)
 		t2 := time.Date(2026, 7, 11, 4, 5, 6, 0, time.UTC)
 		value := []time.Time{t1, t2}
-		tuple := core.NewTuple("Test", "1", "attr", value)
+		tuple := core.NewTuple(id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToTimeArray())
 		assert.EqualValues(t, value, tuple.Value().ToTimeArray())
 	})
