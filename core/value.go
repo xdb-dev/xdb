@@ -173,14 +173,14 @@ func (v *Value) String() string {
 	case TypeIDTime:
 		return v.data.(time.Time).Format(time.RFC3339)
 	case TypeIDArray:
-		values := v.data.([]Value)
+		values := v.data.([]*Value)
 		s := make([]string, len(values))
 		for i, val := range values {
 			s[i] = val.String()
 		}
 		return fmt.Sprintf("[%s]", strings.Join(s, ", "))
 	case TypeIDMap:
-		values := v.data.(map[Value]Value)
+		values := v.data.(map[*Value]*Value)
 		s := make([]string, 0, len(values))
 		for k, val := range values {
 			s = append(s, fmt.Sprintf("%s: %s", k.String(), val.String()))

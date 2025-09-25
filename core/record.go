@@ -5,8 +5,8 @@ import (
 	"sync"
 )
 
-// Record is a collection of tuples and edges that share
-// the same kind and id.
+// Record is a collection of tuples that share the same ID.
+// Records are mutable and thread-safe, similar to database rows.
 type Record struct {
 	id ID
 
@@ -14,7 +14,8 @@ type Record struct {
 	tuples map[string]*Tuple
 }
 
-// NewRecord creates a new Record.
+// NewRecord creates a new Record with the specified ID components.
+// The ID is constructed by joining all provided string arguments.
 func NewRecord(id ...string) *Record {
 	return &Record{
 		id:     NewID(id...),
@@ -22,7 +23,7 @@ func NewRecord(id ...string) *Record {
 	}
 }
 
-// Key returns a reference to the Record.
+// Key returns a Key that references this Record (ID only, no attribute).
 func (r *Record) Key() *Key {
 	return NewKey(r.id)
 }
@@ -37,7 +38,9 @@ func (r *Record) GoString() string {
 	return fmt.Sprintf("Record(%s)", r.id.String())
 }
 
-// Set adds a tuple to the Record.
+// Set adds or updates a tuple in the Record with the given attribute and value.
+// If a tuple with the same attribute already exists, it will be replaced.
+// Returns the Record to allow method chaining.
 func (r *Record) Set(attr any, value any) *Record {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -48,7 +51,8 @@ func (r *Record) Set(attr any, value any) *Record {
 	return r
 }
 
-// Get returns the tuple for the given attribute.
+// Get retrieves the tuple for the given attribute path.
+// Returns nil if no tuple exists for the specified attribute.
 func (r *Record) Get(attr ...string) *Tuple {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -65,7 +69,8 @@ func (r *Record) IsEmpty() bool {
 	return len(r.tuples) == 0
 }
 
-// Tuples returns the tuples of the Record.
+// Tuples returns all tuples contained in this Record.
+// The returned slice is a copy and safe to modify.
 func (r *Record) Tuples() []*Tuple {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

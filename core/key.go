@@ -4,7 +4,8 @@ import (
 	"fmt"
 )
 
-// Key is an unique reference to an attribute or a record.
+// Key is a unique reference to either a record (ID only) or a specific tuple (ID + Attr).
+// Keys provide a consistent way to reference data within the XDB system.
 type Key struct {
 	id   ID
 	attr Attr
@@ -34,7 +35,7 @@ func NewKey(parts ...any) *Key {
 	}
 }
 
-// Value creates a new [Tuple] with the Key.
+// Value creates a new Tuple using this Key's ID and Attr with the provided value.
 func (k *Key) Value(value any) *Tuple {
 	return NewTuple(k.id, k.attr, value)
 }

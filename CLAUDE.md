@@ -1,53 +1,29 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance for working with code in this repository.
 
-## Common Development Commands
+## Development Commands
 
-### Building and Testing
+### Build and Test
 
-```bash
-# Build all packages
-go build ./...
-
-# Run all tests with race detection and coverage
-make test
-# Equivalent: go test -race -timeout=5m -covermode=atomic -coverprofile=coverage.out ./...
-
-# Run tests for specific package
-go test ./core
-go test ./driver/xdbsqlite
-
-# Run tests for a single function
-go test -run TestSpecificFunction ./core
-```
-
-### Code Quality and Formatting
-
-```bash
-# Run all quality checks (format, vet, lint, tidy imports)
-make check
-
-# Individual quality commands
-make fmt        # go fmt
-make vet        # go vet
-make lint       # revive linting
-make imports    # gci import formatting
-make tidy       # go mod tidy
-
-# Setup project and dependencies
-make setup
-```
+- `make test` - Run all tests with race detection and coverage
+- `make check` - Run all code quality checks (formatting, vetting, linting)
+- `make fmt` - Format code with `go fmt`
+- `make lint` - Run revive linter
+- `make vet` - Run `go vet`
+- `make imports` - Format imports with gci
+- `make tidy` - Run `go mod tidy`
+- `make setup` - Initial project setup
 
 ### Coverage Reports
 
-```bash
-# Generate coverage report
-make coverage
+- `make coverage` - Generate coverage report
+- `make report` - Generate HTML coverage report and open in browser
 
-# Generate HTML coverage report and open in browser
-make report
-```
+### Single Test Execution
+
+- `go test ./core` - Run tests for core package
+- `go test -run TestSpecificTest ./package` - Run specific test
 
 ## Core Architecture
 
@@ -55,18 +31,17 @@ XDB is a tuple-based database abstraction library with a layered architecture:
 
 ### 1. Core Data Model (`core/` package)
 
-- **Tuple**: Fundamental building block combining Kind, ID, Attribute Name, and Value
-- **Record**: Collection of tuples sharing the same kind and ID (similar to database rows)
-- **Key**: Unique reference to a record or tuple attribute
+- **Tuple**: Fundamental building block combining ID, Attribute, and Value
+- **Record**: Collection of tuples sharing the same ID (similar to database rows)
+- **Key**: Unique reference to a record or tuple
 - **Value**: Typed value container with casting methods
-- **Schema**: Domain model definitions and constraints
 
 ### 2. Driver Layer (`driver/` package)
 
 Bridges XDB's tuple model to specific database backends:
 
 - **Interfaces**: `TupleReader/Writer`, `RecordReader/Writer`, `SchemaReader/Writer`
-- **Implementations**:
+- **Current Implementations**:
   - `xdbmemory/`: In-memory driver for testing
   - `xdbsqlite/`: SQLite driver with migrations
   - `xdbredis/`: Redis driver for key-value storage
@@ -88,9 +63,13 @@ Low-level serialization interfaces for key-value storage:
 
 ### 5. Supporting Packages
 
-- `registry/`: Schema management and retrieval
 - `x/`: Utility functions for grouping, mapping, filtering
 - `tests/`: Shared test helpers and fixtures
+- `examples/`: Self-contained example applications
+
+## Project Structure
+
+XDB uses a multi-module structure where some packages have their own `go.mod` files. The Makefile automatically runs commands across all modules in the repository.
 
 ## Package Structure Guidelines
 
@@ -100,6 +79,7 @@ Low-level serialization interfaces for key-value storage:
 - Test files use `_test.go` suffix and are co-located with source
 - Example functions go in `examples_test.go` and are named `ExampleXxx`
 - Package documentation goes in `doc.go`
+- Use package `doc.go` for understaning the package
 
 ### Driver Implementation
 
@@ -143,34 +123,9 @@ Group imports with blank lines between groups:
 - Use `testify/assert` for assertions
 - Example tests must have exact `// Output:` comments
 
-## Key Interfaces to Understand
-
-### Driver Interfaces (`driver/driver.go`)
-
-```go
-type TupleReader interface {
-    GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tuple, []*core.Key, error)
-}
-
-type TupleWriter interface {
-    PutTuples(ctx context.Context, tuples []*core.Tuple) error
-    DeleteTuples(ctx context.Context, keys []*core.Key) error
-}
-```
-
-### Codec Interface (`codec/codec.go`)
-
-```go
-type KeyValueCodec interface {
-    MarshalKey(key *core.Key) ([]byte, error)
-    UnmarshalKey(data []byte) (*core.Key, error)
-    MarshalValue(value *core.Value) ([]byte, error)
-    UnmarshalValue(data []byte) (*core.Value, error)
-}
-```
-
 ## Important Notes
 
 - All exported functions and types must have GoDoc comments
 - Use context.Context as the first parameter for functions that need it
 - Linting is enforced via `revive` with configuration in `revive.toml`
+- Make sure to keep GoDoc comments and respective package's`doc.go` up to date

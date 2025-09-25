@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
+
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
 )

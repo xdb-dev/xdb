@@ -2,30 +2,46 @@ package core
 
 import (
 	"fmt"
-	"slices"
 	"strings"
+
+	"slices"
 )
 
+// ID represents a hierarchical identifier as a slice of strings.
+// IDs are used to uniquely identify entities across the database.
+// For example: ["user", "123"] or ["organization", "abc", "department", "engineering"].
 type ID []string
 
+// NewID creates a new ID from the provided string components.
+// Each component becomes a level in the hierarchical identifier.
 func NewID(raw ...string) ID {
 	return ID(raw)
 }
 
+// String returns the ID as a forward-slash separated string.
+// For example: ["user", "123"] becomes "user/123".
 func (i ID) String() string {
 	return strings.Join(i, "/")
 }
 
+// Equals returns true if this ID is equal to the other ID.
+// Comparison is done component-wise.
 func (i ID) Equals(other ID) bool {
 	return slices.Equal(i, other)
 }
 
+// Attr represents an attribute name as a slice of strings, supporting nested attributes.
+// For example: ["name"] for simple attributes or ["profile", "email"] for nested ones.
 type Attr []string
 
+// NewAttr creates a new Attr from the provided string components.
+// Each component represents a level in the attribute hierarchy.
 func NewAttr(raw ...string) Attr {
 	return Attr(raw)
 }
 
+// String returns the Attr as a dot-separated string.
+// For example: ["profile", "email"] becomes "profile.email".
 func (a Attr) String() string {
 	return strings.Join(a, ".")
 }
