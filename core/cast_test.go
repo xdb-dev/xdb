@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -352,5 +353,206 @@ func TestValue_Slices(t *testing.T) {
 		tuple := core.NewTuple(id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToTimeArray())
 		assert.EqualValues(t, value, tuple.Value().ToTimeArray())
+	})
+}
+
+func TestCast_InvalidConversions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("String to Int - Invalid", func(t *testing.T) {
+		value := core.NewValue("not-a-number")
+		// The cast library is lenient and returns 0 for invalid strings
+		assert.Equal(t, int64(0), value.ToInt())
+	})
+
+	t.Run("String to Float - Invalid", func(t *testing.T) {
+		value := core.NewValue("not-a-float")
+		// The cast library is lenient and returns 0 for invalid strings
+		assert.Equal(t, float64(0), value.ToFloat())
+	})
+
+	t.Run("String to Uint - Invalid", func(t *testing.T) {
+		value := core.NewValue("not-a-uint")
+		// The cast library is lenient and returns 0 for invalid strings
+		assert.Equal(t, uint64(0), value.ToUint())
+	})
+
+	t.Run("String to Bool - Invalid", func(t *testing.T) {
+		value := core.NewValue("not-a-bool")
+		// The cast library is lenient and returns false for invalid strings
+		assert.Equal(t, false, value.ToBool())
+	})
+
+	t.Run("String to Time - Invalid", func(t *testing.T) {
+		value := core.NewValue("not-a-time")
+		// This should panic as time.Parse returns an error
+		assert.Panics(t, func() {
+			value.ToTime()
+		})
+	})
+}
+
+func TestCast_BoundaryValues(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Max Int64", func(t *testing.T) {
+		value := core.NewValue(int64(9223372036854775807))
+		assert.Equal(t, int64(9223372036854775807), value.ToInt())
+	})
+
+	t.Run("Min Int64", func(t *testing.T) {
+		value := core.NewValue(int64(-9223372036854775808))
+		assert.Equal(t, int64(-9223372036854775808), value.ToInt())
+	})
+
+	t.Run("Max Uint64", func(t *testing.T) {
+		value := core.NewValue(uint64(18446744073709551615))
+		assert.Equal(t, uint64(18446744073709551615), value.ToUint())
+	})
+
+	t.Run("Float Precision", func(t *testing.T) {
+		value := core.NewValue(3.141592653589793)
+		assert.Equal(t, 3.141592653589793, value.ToFloat())
+	})
+}
+
+func TestCast_ArrayCastingFailures(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Array with Invalid Elements", func(t *testing.T) {
+		// Create an array with mixed types that can't be converted to int
+		value := core.NewValue([]interface{}{"valid", "invalid-number"})
+		// The cast library is lenient and converts invalid strings to 0
+		result := value.ToIntArray()
+		assert.Equal(t, []int64{0, 0}, result)
+	})
+
+	t.Run("Array with Nil Elements", func(t *testing.T) {
+		// This should work as nil values are handled
+		value := core.NewValue([]interface{}{"1", nil, "3"})
+		// The cast library is lenient and converts nil to 0
+		result := value.ToIntArray()
+		assert.Equal(t, []int64{1, 0, 3}, result)
+	})
+}
+
+func TestCast_NilValueCasting(t *testing.T) {
+	t.Parallel()
+
+	var value *core.Value
+
+	t.Run("Nil to Bool", func(t *testing.T) {
+		assert.Equal(t, false, value.ToBool())
+	})
+
+	t.Run("Nil to Int", func(t *testing.T) {
+		assert.Equal(t, int64(0), value.ToInt())
+	})
+
+	t.Run("Nil to Uint", func(t *testing.T) {
+		assert.Equal(t, uint64(0), value.ToUint())
+	})
+
+	t.Run("Nil to Float", func(t *testing.T) {
+		assert.Equal(t, float64(0), value.ToFloat())
+	})
+
+	t.Run("Nil to String", func(t *testing.T) {
+		assert.Equal(t, "", value.ToString())
+	})
+
+	t.Run("Nil to Bytes", func(t *testing.T) {
+		assert.Nil(t, value.ToBytes())
+	})
+
+	t.Run("Nil to Time", func(t *testing.T) {
+		assert.Equal(t, time.Time{}, value.ToTime())
+	})
+
+	t.Run("Nil to Arrays", func(t *testing.T) {
+		assert.Nil(t, value.ToBoolArray())
+		assert.Nil(t, value.ToIntArray())
+		assert.Nil(t, value.ToUintArray())
+		assert.Nil(t, value.ToFloatArray())
+		assert.Nil(t, value.ToStringArray())
+		assert.Nil(t, value.ToBytesArray())
+		assert.Nil(t, value.ToTimeArray())
+	})
+}
+
+func TestCast_TypeMismatchCasting(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Array to Scalar", func(t *testing.T) {
+		value := core.NewValue([]string{"a", "b"})
+		assert.Panics(t, func() {
+			value.ToInt()
+		})
+	})
+
+	t.Run("Map to Scalar", func(t *testing.T) {
+		value := core.NewValue(map[string]int{"a": 1})
+		assert.Panics(t, func() {
+			value.ToString()
+		})
+	})
+
+	t.Run("Scalar to Array", func(t *testing.T) {
+		value := core.NewValue("not-an-array")
+		assert.Panics(t, func() {
+			value.ToIntArray()
+		})
+	})
+}
+
+func TestCast_EdgeCaseConversions(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Zero Values", func(t *testing.T) {
+		t.Run("Zero Int", func(t *testing.T) {
+			value := core.NewValue(0)
+			assert.Equal(t, false, value.ToBool())
+			assert.Equal(t, int64(0), value.ToInt())
+			assert.Equal(t, uint64(0), value.ToUint())
+			assert.Equal(t, float64(0), value.ToFloat())
+		})
+
+		t.Run("Zero Float", func(t *testing.T) {
+			value := core.NewValue(0.0)
+			assert.Equal(t, false, value.ToBool())
+			assert.Equal(t, int64(0), value.ToInt())
+			assert.Equal(t, uint64(0), value.ToUint())
+			assert.Equal(t, float64(0), value.ToFloat())
+		})
+
+		t.Run("Empty String", func(t *testing.T) {
+			value := core.NewValue("")
+			assert.Equal(t, false, value.ToBool())
+			assert.Equal(t, int64(0), value.ToInt())
+			assert.Equal(t, uint64(0), value.ToUint())
+			assert.Equal(t, float64(0), value.ToFloat())
+		})
+	})
+
+	t.Run("Negative Numbers", func(t *testing.T) {
+		value := core.NewValue(-123)
+		assert.Equal(t, true, value.ToBool()) // Non-zero is true
+		assert.Equal(t, int64(-123), value.ToInt())
+		assert.Equal(t, uint64(18446744073709551493), value.ToUint()) // Wraps around
+		assert.Equal(t, float64(-123), value.ToFloat())
+	})
+}
+
+func TestCast_StringConversionEdgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Special Float Values", func(t *testing.T) {
+		value := core.NewValue(math.Inf(1))
+		assert.Equal(t, "+Inf", value.ToString())
+	})
+
+	t.Run("NaN Values", func(t *testing.T) {
+		value := core.NewValue(math.NaN())
+		assert.Equal(t, "NaN", value.ToString())
 	})
 }

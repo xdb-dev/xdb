@@ -1,6 +1,7 @@
 package core_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -50,5 +51,112 @@ func TestRecord(t *testing.T) {
 			assert.NotNil(t, tuple)
 			assert.Equal(t, "Post/123", tuple.ID().String())
 		}
+	})
+
+	t.Run("Edge Cases", func(t *testing.T) {
+		t.Run("Empty Record", func(t *testing.T) {
+			emptyRecord := core.NewRecord("Empty", "123")
+			assert.True(t, emptyRecord.IsEmpty())
+			assert.Equal(t, 0, len(emptyRecord.Tuples()))
+			assert.Nil(t, emptyRecord.Get("nonexistent"))
+		})
+
+		t.Run("Attribute Overwrite", func(t *testing.T) {
+			record := core.NewRecord("User", "123")
+			record.Set("name", "John")
+			record.Set("name", "Jane") // Overwrite
+
+			assert.Equal(t, "Jane", record.Get("name").ToString())
+			assert.Equal(t, 1, len(record.Tuples())) // Still only one tuple
+		})
+
+		t.Run("Nil Values", func(t *testing.T) {
+			record := core.NewRecord("User", "123")
+			record.Set("name", nil)
+
+			tuple := record.Get("name")
+			assert.NotNil(t, tuple)
+			// Check if the value is nil by checking the tuple's value
+			if tuple.Value() != nil {
+				assert.True(t, tuple.Value().IsNil())
+			}
+		})
+
+		t.Run("Different Attribute Types", func(t *testing.T) {
+			record := core.NewRecord("User", "123")
+
+			// Test with Attr type
+			attr := core.NewAttr("profile", "name")
+			record.Set(attr, "John")
+			assert.Equal(t, "John", record.Get("profile", "name").ToString())
+
+			// Test with []string
+			record.Set([]string{"settings", "theme"}, "dark")
+			assert.Equal(t, "dark", record.Get("settings", "theme").ToString())
+		})
+
+		t.Run("Nested Attributes", func(t *testing.T) {
+			record := core.NewRecord("User", "123")
+			record.Set(core.NewAttr("profile", "name"), "John")
+			record.Set(core.NewAttr("profile", "age"), 25)
+
+			assert.Equal(t, "John", record.Get("profile", "name").ToString())
+			assert.Equal(t, int64(25), record.Get("profile", "age").ToInt())
+			assert.Equal(t, 2, len(record.Tuples()))
+		})
+
+		t.Run("Concurrent Access", func(t *testing.T) {
+			record := core.NewRecord("User", "123")
+
+			// Test concurrent writes
+			done := make(chan bool, 10)
+			for i := 0; i < 10; i++ {
+				go func(i int) {
+					record.Set(fmt.Sprintf("attr%d", i), i)
+					done <- true
+				}(i)
+			}
+
+			// Wait for all goroutines to complete
+			for i := 0; i < 10; i++ {
+				<-done
+			}
+
+			assert.Equal(t, 10, len(record.Tuples()))
+
+			// Test concurrent reads
+			for i := 0; i < 10; i++ {
+				go func(i int) {
+					val := record.Get(fmt.Sprintf("attr%d", i))
+					assert.Equal(t, int64(i), val.ToInt())
+					done <- true
+				}(i)
+			}
+
+			// Wait for all reads to complete
+			for i := 0; i < 10; i++ {
+				<-done
+			}
+		})
+
+		t.Run("Get Non-existent Attribute", func(t *testing.T) {
+			record := core.NewRecord("User", "123")
+			record.Set("name", "John")
+
+			assert.Nil(t, record.Get("nonexistent"))
+			assert.Nil(t, record.Get("profile", "name"))
+		})
+
+		t.Run("Method Chaining", func(t *testing.T) {
+			record := core.NewRecord("User", "123").
+				Set("name", "John").
+				Set("age", 25).
+				Set("email", "john@example.com")
+
+			assert.Equal(t, 3, len(record.Tuples()))
+			assert.Equal(t, "John", record.Get("name").ToString())
+			assert.Equal(t, int64(25), record.Get("age").ToInt())
+			assert.Equal(t, "john@example.com", record.Get("email").ToString())
+		})
 	})
 }

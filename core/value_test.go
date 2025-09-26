@@ -107,3 +107,170 @@ func TestNewValue_Arrays(t *testing.T) {
 		})
 	}
 }
+
+func TestValue_NilValues(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Direct Nil", func(t *testing.T) {
+		value, err := core.NewSafeValue(nil)
+		assert.NoError(t, err)
+		assert.Nil(t, value)
+	})
+
+	t.Run("Nil Pointer", func(t *testing.T) {
+		var ptr *string
+		value, err := core.NewSafeValue(ptr)
+		assert.NoError(t, err)
+		assert.Nil(t, value)
+	})
+
+	t.Run("Nil Interface", func(t *testing.T) {
+		var iface interface{}
+		value, err := core.NewSafeValue(iface)
+		assert.NoError(t, err)
+		assert.Nil(t, value)
+	})
+}
+
+func TestValue_EmptyArrays(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Empty String Array", func(t *testing.T) {
+		value, err := core.NewSafeValue([]string{})
+		assert.NoError(t, err)
+		assert.Nil(t, value)
+	})
+
+	t.Run("Empty Int Array", func(t *testing.T) {
+		value, err := core.NewSafeValue([]int{})
+		assert.NoError(t, err)
+		assert.Nil(t, value)
+	})
+}
+
+func TestValue_EmptyMaps(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Empty String Map", func(t *testing.T) {
+		value, err := core.NewSafeValue(map[string]string{})
+		assert.NoError(t, err)
+		assert.Nil(t, value)
+	})
+}
+
+func TestValue_UnsupportedTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Struct Type", func(t *testing.T) {
+		type unsupported struct {
+			Field string
+		}
+		_, err := core.NewSafeValue(unsupported{Field: "test"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported value")
+	})
+
+	t.Run("Channel Type", func(t *testing.T) {
+		ch := make(chan int)
+		_, err := core.NewSafeValue(ch)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported value")
+	})
+
+	t.Run("Function Type", func(t *testing.T) {
+		fn := func() {}
+		_, err := core.NewSafeValue(fn)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unsupported value")
+	})
+}
+
+func TestValue_PanicUnsupportedTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Struct Type Panic", func(t *testing.T) {
+		type unsupported struct {
+			Field string
+		}
+		assert.Panics(t, func() {
+			core.NewValue(unsupported{Field: "test"})
+		})
+	})
+}
+
+func TestValue_MethodsOnNil(t *testing.T) {
+	t.Parallel()
+
+	value := core.NewValue(nil)
+	assert.Nil(t, value)
+}
+
+func TestValue_MixedTypes(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Array with Mixed Types", func(t *testing.T) {
+		// This should work as each element is converted individually
+		value := []any{"string", 123, true, 45.67}
+		tuple := core.NewTuple(id, "attr", value)
+
+		assert.NotNil(t, tuple)
+		assert.Equal(t, core.TypeIDArray, tuple.Value().Type().ID())
+	})
+
+	t.Run("Map with Mixed Types", func(t *testing.T) {
+		// This should work as keys and values are converted individually
+		value := map[string]any{
+			"string": "value",
+			"number": 123,
+			"bool":   true,
+		}
+		tuple := core.NewTuple(id, "attr", value)
+
+		assert.NotNil(t, tuple)
+		assert.Equal(t, core.TypeIDMap, tuple.Value().Type().ID())
+	})
+}
+
+func TestValue_PointerDereferencing(t *testing.T) {
+	t.Parallel()
+
+	str := "hello"
+	ptr := &str
+	ptrPtr := &ptr
+
+	value, err := core.NewSafeValue(ptrPtr)
+	assert.NoError(t, err)
+	assert.Equal(t, "hello", value.ToString())
+}
+
+func TestValue_AlreadyValueType(t *testing.T) {
+	t.Parallel()
+
+	original := core.NewValue("test")
+	value, err := core.NewSafeValue(original)
+	assert.NoError(t, err)
+	assert.Equal(t, original, value)
+}
+
+func TestValue_TypeInformation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Boolean Type", func(t *testing.T) {
+		value := core.NewValue(true)
+		assert.Equal(t, core.TypeIDBoolean, value.Type().ID())
+		assert.Equal(t, "BOOLEAN", value.Type().Name())
+	})
+
+	t.Run("Array Type", func(t *testing.T) {
+		value := core.NewValue([]string{"a", "b"})
+		assert.Equal(t, core.TypeIDArray, value.Type().ID())
+		assert.Equal(t, core.TypeIDString, value.Type().ValueType())
+	})
+
+	t.Run("Map Type", func(t *testing.T) {
+		value := core.NewValue(map[string]int{"a": 1})
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+		assert.Equal(t, core.TypeIDString, value.Type().KeyType())
+		assert.Equal(t, core.TypeIDInteger, value.Type().ValueType())
+	})
+}
