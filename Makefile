@@ -2,6 +2,9 @@ GO_BUILD_DIRS := $(shell find . -type f -name 'go.mod' -not -path "*/example*" -
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 TOOLS_MODULE := $(PROJECT_DIR)/tools.mod
 
+# Export GOEXPERIMENT=jsonv2 for all make commands
+export GOEXPERIMENT=jsonv2
+
 # DEVELOPMENT
 .PHONY: setup fmt vet lint check imports tidy
 

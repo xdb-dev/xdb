@@ -1,6 +1,6 @@
 module github.com/xdb-dev/xdb
 
-go 1.24.1
+go 1.25.0
 
 require (
 	github.com/brianvoe/gofakeit/v7 v7.2.1

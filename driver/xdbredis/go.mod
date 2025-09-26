@@ -1,6 +1,6 @@
 module github.com/xdb-dev/xdb/driver/xdbredis
 
-go 1.24.1
+go 1.25.0
 
 replace (
 	github.com/xdb-dev/xdb => ../..

@@ -12,21 +12,16 @@ Read about the motivation behind XDB in [Introducing XDB](https://raviatluri.in/
 
 A **Tuple** is the fundamental building block in XDB. It combines:
 
-- Kind: Type of the record (similar to a table name)
-- ID: Unique identifier within the kind
-- Name: Attribute name (similar to a column)
+- ID: a string array that uniquely identifies the entity
+- Attr: a string array that identifies the attribute
 - Value: The attribute's value
 - Options: Key-value pairs for metadata
 
 ![tuple.png](./docs/tuple.png)
 
-### Edge
-
-An **Edge** is a special kind of tuple that defines a unidirectional relationship between two records. Edges are used to model relationships in your domain model.
-
 ### Record
 
-A **Record** is a collection of tuples that share the same kind and id. Records are similar to objects, structs, or rows in a database.
+A **Record** is a collection of tuples that share the same ID. Records are similar to objects, structs, or rows in a database.
 
 ## Supported Types
 
@@ -40,14 +35,6 @@ A **Record** is a collection of tuples that share the same kind and id. Records 
 | JSON      | JSONB            | JSON data type               |
 | Bytes     | BYTEA            | Binary data                  |
 
-### Hybrid Types
-
-| Type  | PostgreSQL | Description                                                      |
-| ----- | ---------- | ---------------------------------------------------------------- |
-| Point | POINT      | Latitude and Longitude                                           |
-| Money | JSONB      | Currency and Amount                                              |
-| File  | JSONB      | File/Image metadata. Actual file is stored in a separate storage |
-
 ## Building Blocks
 
 ### Drivers
@@ -57,11 +44,3 @@ Drivers serve as the bridge between XDB's tuple-based model and specific databas
 ### Stores
 
 Stores provide higher-level APIs that combine multiple drivers to support common use-cases. Store implementations satisfy capability interfaces, allowing them to be used as drivers or layered together for complex scenarios.
-
-### Schema
-
-The Schema APIs provide a database-agnostic way to define and manage your application's domain models. These APIs enable:
-
-- Runtime type checking and constraint enforcement
-- Generation of database-specific schemas
-- Migration management

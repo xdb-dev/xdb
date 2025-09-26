@@ -1,6 +1,6 @@
 module github.com/xdb-dev/xdb/encoding/xdbproto
 
-go 1.24.1
+go 1.25.0
 
 require (
 	github.com/xdb-dev/xdb v0.0.0-00010101000000-000000000000

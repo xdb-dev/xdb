@@ -11,7 +11,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 
 	"github.com/xdb-dev/xdb/codec"
-	"github.com/xdb-dev/xdb/codec/msgpack"
+	"github.com/xdb-dev/xdb/codec/json"
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/x"
@@ -33,7 +33,7 @@ type KVStore struct {
 
 // NewKVStore creates a new SQLite KVStore.
 func NewKVStore(db *sql.DB) *KVStore {
-	return &KVStore{db: db, codec: msgpack.New()}
+	return &KVStore{db: db, codec: json.New()}
 }
 
 // GetTuples gets tuples from the SQLite key-value table.
