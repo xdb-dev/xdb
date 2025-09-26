@@ -3,7 +3,6 @@ package xdbmemory
 
 import (
 	"context"
-	"strings"
 	"sync"
 
 	"github.com/xdb-dev/xdb/core"
@@ -12,13 +11,13 @@ import (
 // MemoryDriver is an in-memory driver for XDB.
 type MemoryDriver struct {
 	mu     sync.RWMutex
-	tuples map[string]*core.Tuple
+	tuples map[string]map[string]*core.Tuple
 }
 
 // New creates a new in-memory driver.
 func New() *MemoryDriver {
 	return &MemoryDriver{
-		tuples: make(map[string]*core.Tuple),
+		tuples: make(map[string]map[string]*core.Tuple),
 	}
 }
 
@@ -31,7 +30,15 @@ func (d *MemoryDriver) GetTuples(ctx context.Context, keys []*core.Key) ([]*core
 	missed := make([]*core.Key, 0, len(keys))
 
 	for _, key := range keys {
-		tuple, ok := d.tuples[key.String()]
+		id := key.ID().String()
+		attr := key.Attr().String()
+
+		if _, ok := d.tuples[id]; !ok {
+			missed = append(missed, key)
+			continue
+		}
+
+		tuple, ok := d.tuples[id][attr]
 		if !ok {
 			missed = append(missed, key)
 			continue
@@ -49,7 +56,14 @@ func (d *MemoryDriver) PutTuples(ctx context.Context, tuples []*core.Tuple) erro
 	defer d.mu.Unlock()
 
 	for _, tuple := range tuples {
-		d.tuples[tuple.Key().String()] = tuple
+		id := tuple.ID().String()
+		attr := tuple.Attr().String()
+
+		if _, ok := d.tuples[id]; !ok {
+			d.tuples[id] = make(map[string]*core.Tuple)
+		}
+
+		d.tuples[id][attr] = tuple
 	}
 
 	return nil
@@ -61,7 +75,18 @@ func (d *MemoryDriver) DeleteTuples(ctx context.Context, keys []*core.Key) error
 	defer d.mu.Unlock()
 
 	for _, key := range keys {
-		delete(d.tuples, key.String())
+		id := key.ID().String()
+		attr := key.Attr().String()
+
+		if _, ok := d.tuples[id]; !ok {
+			continue
+		}
+
+		if _, ok := d.tuples[id][attr]; !ok {
+			continue
+		}
+
+		delete(d.tuples[id], attr)
 	}
 
 	return nil
@@ -78,11 +103,14 @@ func (d *MemoryDriver) GetRecords(ctx context.Context, keys []*core.Key) ([]*cor
 	for _, key := range keys {
 		record := core.NewRecord(key.ID()...)
 
-		for k, t := range d.tuples {
-			if !strings.HasPrefix(k, key.String()) {
-				continue
-			}
+		id := key.ID().String()
 
+		if _, ok := d.tuples[id]; !ok {
+			missed = append(missed, key)
+			continue
+		}
+
+		for _, t := range d.tuples[id] {
 			record.Set(t.Attr(), t.Value())
 		}
 
@@ -103,8 +131,16 @@ func (d *MemoryDriver) PutRecords(ctx context.Context, records []*core.Record) e
 	defer d.mu.Unlock()
 
 	for _, record := range records {
+		id := record.ID().String()
+
+		if _, ok := d.tuples[id]; !ok {
+			d.tuples[id] = make(map[string]*core.Tuple)
+		}
+
 		for _, tuple := range record.Tuples() {
-			d.tuples[tuple.Key().String()] = tuple
+			attr := tuple.Attr().String()
+
+			d.tuples[id][attr] = tuple
 		}
 	}
 
@@ -117,13 +153,13 @@ func (d *MemoryDriver) DeleteRecords(ctx context.Context, keys []*core.Key) erro
 	defer d.mu.Unlock()
 
 	for _, key := range keys {
-		for k := range d.tuples {
-			if !strings.HasPrefix(k, key.String()) {
-				continue
-			}
+		id := key.ID().String()
 
-			delete(d.tuples, k)
+		if _, ok := d.tuples[id]; !ok {
+			continue
 		}
+
+		delete(d.tuples, id)
 	}
 
 	return nil

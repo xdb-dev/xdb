@@ -37,8 +37,8 @@ func TestRecordReaderWriter(t *testing.T, rw recordReaderWriter) {
 
 	t.Run("GetRecordsSomeMissing", func(t *testing.T) {
 		notFound := []*core.Key{
-			core.NewKey("Post", "1", "not_found"),
-			core.NewKey("Post", "2", "not_found"),
+			core.NewKey(core.NewID("Post", "not_found_1")),
+			core.NewKey(core.NewID("Post", "not_found_2")),
 		}
 
 		got, missing, err := rw.GetRecords(ctx, append(keys, notFound...))

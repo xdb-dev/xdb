@@ -37,8 +37,8 @@ func TestTupleReaderWriter(t *testing.T, rw tupleReaderWriter) {
 
 	t.Run("GetTuplesSomeMissing", func(t *testing.T) {
 		notFound := []*core.Key{
-			core.NewKey("Test", "1", "not_found"),
-			core.NewKey("Test", "2", "not_found"),
+			core.NewKey(core.NewID("Test", "1"), "not_found"),
+			core.NewKey(core.NewID("Test", "2"), "not_found"),
 		}
 
 		got, missing, err := rw.GetTuples(ctx, append(keys, notFound...))
