@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/sqlite3"
@@ -140,10 +141,11 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 		}
 
 		insertRecord := goqu.Record{
-			"key":   string(id) + ":" + string(attr),
-			"id":    string(id),
-			"attr":  string(attr),
-			"value": v,
+			"key":        string(id) + ":" + string(attr),
+			"id":         string(id),
+			"attr":       string(attr),
+			"value":      v,
+			"updated_at": time.Now().UnixMilli(),
 		}
 		putRecords = append(putRecords, insertRecord)
 	}
@@ -152,7 +154,8 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 		Prepared(true).
 		Rows(putRecords).
 		OnConflict(goqu.DoUpdate("key", goqu.Record{
-			"value": goqu.I("EXCLUDED.value"),
+			"value":      goqu.I("EXCLUDED.value"),
+			"updated_at": goqu.I("EXCLUDED.updated_at"),
 		}))
 
 	query, args, err := insertQuery.ToSQL()
@@ -344,7 +347,8 @@ func (kv *KVStore) Migrate(ctx context.Context) error {
 				key TEXT PRIMARY KEY,
 				id TEXT,
 				attr TEXT,
-				value BLOB
+				value BLOB,
+				updated_at INTEGER
 			);
 		`, name)
 	_, err := kv.db.ExecContext(ctx, tableStmt)
