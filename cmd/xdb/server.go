@@ -60,17 +60,24 @@ func createRoutes(store *xdbsqlite.KVStore) *http.ServeMux {
 		xapi.MiddlewareFunc(LoggingMiddleware),
 	}
 
+	tupleAPI := api.NewTupleAPI(store)
+
 	getTuples := xapi.NewEndpoint(
-		xapi.EndpointFunc[api.GetTuplesRequest, api.GetTuplesResponse](api.GetTuples(store)),
+		xapi.EndpointFunc[api.GetTuplesRequest, api.GetTuplesResponse](tupleAPI.GetTuples()),
 		xapi.WithMiddleware(middlewares...),
 	)
 	putTuples := xapi.NewEndpoint(
-		xapi.EndpointFunc[api.PutTuplesRequest, api.PutTuplesResponse](api.PutTuples(store)),
+		xapi.EndpointFunc[api.PutTuplesRequest, api.PutTuplesResponse](tupleAPI.PutTuples()),
+		xapi.WithMiddleware(middlewares...),
+	)
+	deleteTuples := xapi.NewEndpoint(
+		xapi.EndpointFunc[api.DeleteTuplesRequest, api.DeleteTuplesResponse](tupleAPI.DeleteTuples()),
 		xapi.WithMiddleware(middlewares...),
 	)
 
 	mux.Handle("POST /v1/tuples:get", getTuples.Handler())
 	mux.Handle("PUT /v1/tuples", putTuples.Handler())
+	mux.Handle("DELETE /v1/tuples", deleteTuples.Handler())
 
 	return mux
 }
