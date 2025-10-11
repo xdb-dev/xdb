@@ -5,7 +5,6 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver"
-	"github.com/xdb-dev/xdb/http"
 	"github.com/xdb-dev/xdb/x"
 )
 
@@ -16,7 +15,7 @@ type GetTuplesResponse struct {
 	Missing []*Key   `json:"missing"`
 }
 
-func GetTuples(store driver.TupleReader) http.EndpointFunc[GetTuplesRequest, GetTuplesResponse] {
+func GetTuples(store driver.TupleReader) EndpointFunc[GetTuplesRequest, GetTuplesResponse] {
 	return func(ctx context.Context, req *GetTuplesRequest) (*GetTuplesResponse, error) {
 		keys := x.Map(*req, func(key *Key) *core.Key {
 			return core.NewKey(key.ID, key.Attr)

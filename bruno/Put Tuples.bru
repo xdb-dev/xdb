@@ -1,0 +1,61 @@
+meta {
+  name: Put Tuples
+  type: http
+  seq: 2
+}
+
+put {
+  url: http://localhost:8080/v1/tuples
+  body: json
+  auth: none
+}
+
+body:json {
+  [
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["title"],
+      "value": "Introduction to XDB Tuples"
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["content"],
+      "value": "XDB is a tuple-based database abstraction that provides a flexible data model..."
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["tags"],
+      "value": ["database", "tuples", "xdb"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["rating"],
+      "value": 4.5
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["published"],
+      "value": true
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["comments", "count"],
+      "value": 42
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["views", "count"],
+      "value": 1500
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["author", "id"],
+      "value": "user-456"
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["author", "name"],
+      "value": "Jane Doe"
+    }
+  ]
+}

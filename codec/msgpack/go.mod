@@ -3,7 +3,7 @@ module github.com/xdb-dev/xdb/codec/msgpack
 go 1.25.0
 
 require (
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/xdb-dev/xdb v0.0.0
 )
