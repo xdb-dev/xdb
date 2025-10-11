@@ -1,0 +1,52 @@
+meta {
+  name: Delete Tuples
+  type: http
+  seq: 4
+}
+
+delete {
+  url: http://localhost:8080/v1/tuples
+  body: json
+  auth: none
+}
+
+body:json {
+  [
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["title"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["content"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["tags"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["rating"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["published"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["comments", "count"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["views", "count"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["author", "id"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["author", "name"]
+    }
+  ]
+}
