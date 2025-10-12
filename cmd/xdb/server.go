@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -21,12 +20,10 @@ type Server struct {
 }
 
 func NewServer(cfg *Config) *Server {
-	db, err := sql.Open("sqlite3", "file:xdb.db")
+	store, err := initDatabase(cfg.SQLite)
 	if err != nil {
 		panic(err)
 	}
-
-	store := xdbsqlite.NewKVStore(db)
 
 	err = store.Migrate(context.Background())
 	if err != nil {

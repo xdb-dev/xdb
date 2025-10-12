@@ -18,8 +18,15 @@ func main() {
 			Name:        "server",
 			Description: "starts XDB server",
 			Usage:       "server [command]",
+			Flags: []cli.Flag{
+				&cli.StringFlag{
+					Name:    "config",
+					Aliases: []string{"c"},
+					Usage:   "path to config file (defaults to xdb.yaml or xdb.yml in current directory)",
+				},
+			},
 			Action: func(ctx *cli.Context) error {
-				cfg, err := LoadConfig(ctx.Context)
+				cfg, err := LoadConfig(ctx.Context, ctx.String("config"))
 				if err != nil {
 					return err
 				}

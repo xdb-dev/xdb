@@ -10,6 +10,7 @@ replace (
 require (
 	github.com/gojekfarm/xtools/xapi v0.0.0-20251010114542-6ce2a14093c8
 	github.com/gojekfarm/xtools/xload v0.10.0
+	github.com/gojekfarm/xtools/xload/providers/yaml v0.10.0
 	github.com/rs/zerolog v1.34.0
 	github.com/urfave/cli/v2 v2.27.7
 	github.com/xdb-dev/xdb v0.0.0
@@ -30,4 +31,5 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/sys v0.12.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
