@@ -1,0 +1,56 @@
+meta {
+  name: Get Tuples
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:8080/v1/tuples:get
+  body: json
+  auth: none
+}
+
+body:json {
+  [
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["title"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["content"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["tags"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["rating"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["published"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["comments", "count"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["views", "count"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["author", "id"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["author", "name"]
+    },
+    {
+      "id": ["Post", "post-123"],
+      "attr": ["non_existent"]
+    }
+  ]
+}

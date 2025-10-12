@@ -9,7 +9,7 @@ replace (
 
 require (
 	github.com/redis/go-redis/v9 v9.8.0
-	github.com/stretchr/testify v1.10.0
+	github.com/stretchr/testify v1.11.1
 	github.com/xdb-dev/xdb v0.0.0
 	github.com/xdb-dev/xdb/codec/msgpack v0.0.0-20250918115628-3b35b981f3d0
 )

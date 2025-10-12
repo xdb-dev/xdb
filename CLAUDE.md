@@ -25,6 +25,12 @@ This file provides guidance for working with code in this repository.
 - `go test ./core` - Run tests for core package
 - `go test -run TestSpecificTest ./package` - Run specific test
 
+### Running the Server
+
+- `cd ./cmd/xdb && go run *.go server` - Start the XDB HTTP server
+- The server runs on port 8080 by default
+- Use Bruno collections in `bruno/` directory for testing API endpoints
+
 ## Core Architecture
 
 XDB is a tuple-based database abstraction library with a layered architecture:
@@ -35,18 +41,28 @@ XDB is a tuple-based database abstraction library with a layered architecture:
 - **Record**: Collection of tuples sharing the same ID (similar to database rows)
 - **Key**: Unique reference to a record or tuple
 - **Value**: Typed value container with casting methods
+- **ID**: Hierarchical identifier represented as string slices
+- **Attr**: Attribute names supporting nested structures
 
 ### 2. Driver Layer (`driver/` package)
 
 Bridges XDB's tuple model to specific database backends:
 
-- **Interfaces**: `TupleReader/Writer`, `RecordReader/Writer`, `SchemaReader/Writer`
+- **Interfaces**: `TupleReader/Writer`, `RecordReader/Writer`
 - **Current Implementations**:
   - `xdbmemory/`: In-memory driver for testing
   - `xdbsqlite/`: SQLite driver with migrations
   - `xdbredis/`: Redis driver for key-value storage
 
-### 3. Encoding Layer (`encoding/` package)
+### 3. API Layer (`api/` package)
+
+HTTP API layer providing RESTful endpoints for tuple operations:
+
+- **TupleAPI**: Handles tuple CRUD operations (Get, Put, Delete)
+- **Types**: API-specific types for requests and responses
+- **Generic EndpointFunc**: Type-safe endpoint handlers with request/response types
+
+### 4. Encoding Layer (`encoding/` package)
 
 Converts between XDB types and various formats:
 
@@ -54,22 +70,42 @@ Converts between XDB types and various formats:
 - `xdbstruct/`: Go struct ↔ XDB record conversion
 - `xdbproto/`: Protocol Buffer support
 
-### 4. Codec Layer (`codec/` package)
+### 5. Codec Layer (`codec/` package)
 
 Low-level serialization interfaces for key-value storage:
 
-- `KeyValueCodec`: Interface for marshaling/unmarshaling keys and values
+- `codec.go`: Core `KeyValueCodec` interface for marshaling/unmarshaling
+- `json/`: JSON codec implementation
 - `msgpack/`: MessagePack implementation
 
-### 5. Supporting Packages
+### 6. Command Line Application (`cmd/xdb/` package)
+
+CLI application for running XDB server:
+
+- **server**: Starts HTTP server with tuple API endpoints
+- **config**: Configuration management for server settings
+- Uses SQLite as the default storage backend
+
+### 7. Supporting Packages
 
 - `x/`: Utility functions for grouping, mapping, filtering
 - `tests/`: Shared test helpers and fixtures
 - `examples/`: Self-contained example applications
+- `bruno/`: Bruno API client collections for testing endpoints
 
 ## Project Structure
 
-XDB uses a multi-module structure where some packages have their own `go.mod` files. The Makefile automatically runs commands across all modules in the repository.
+XDB uses a multi-module structure where some packages have their own `go.mod` files:
+
+- Root module: Core packages (`core/`, `driver/`, `x/`, `tests/`)
+- `cmd/xdb/`: CLI application module
+- `driver/xdbsqlite/`: SQLite driver module
+- `driver/xdbredis/`: Redis driver module
+- `codec/msgpack/`: MessagePack codec module
+- `encoding/xdbjson/`: JSON encoding module
+- `encoding/xdbproto/`: Protocol Buffer encoding module
+
+The Makefile automatically runs commands across all modules in the repository, ensuring consistent formatting, testing, and linting across the entire codebase.
 
 ## Package Structure Guidelines
 
@@ -91,6 +127,14 @@ XDB uses a multi-module structure where some packages have their own `go.mod` fi
 
 - Each format lives in its own subdirectory under `encoding/`
 - Follow the pattern of existing encoders for consistency
+
+### API Implementation
+
+- API endpoints are defined in `api/` package
+- Each API type (Tuple, Record, etc.) has its own file with handler implementations
+- Request and response types are defined in `types.go`
+- Use generic `EndpointFunc[Req, Res]` type for type-safe endpoint handlers
+- API types should be separate from core types to allow independent evolution
 
 ## Code Style Requirements
 
