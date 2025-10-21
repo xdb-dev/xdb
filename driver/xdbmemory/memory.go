@@ -11,6 +11,7 @@ import (
 // MemoryDriver is an in-memory driver for XDB.
 type MemoryDriver struct {
 	mu     sync.RWMutex
+	repos  map[string]*core.Repo
 	tuples map[string]map[string]*core.Tuple
 }
 
@@ -19,6 +20,16 @@ func New() *MemoryDriver {
 	return &MemoryDriver{
 		tuples: make(map[string]map[string]*core.Tuple),
 	}
+}
+
+// CreateRepo creates a new repository.
+func (d *MemoryDriver) CreateRepo(ctx context.Context, repo *core.Repo) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.repos[repo.String()] = repo
+
+	return nil
 }
 
 // GetTuples returns the tuples for the given keys.

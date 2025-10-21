@@ -3,11 +3,10 @@ package json
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
-
-	"encoding/json/v2"
 
 	"github.com/xdb-dev/xdb/codec"
 	"github.com/xdb-dev/xdb/core"
