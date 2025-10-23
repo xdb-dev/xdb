@@ -1,5 +1,12 @@
 package xdbsqlite
 
+import (
+	"github.com/doug-martin/goqu/v9"
+	_ "github.com/doug-martin/goqu/v9/dialect/sqlite3"
+)
+
+var dialect = goqu.Dialect("sqlite3")
+
 // import (
 // 	"context"
 // 	"database/sql"

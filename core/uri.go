@@ -84,6 +84,26 @@ func NewURI(parts ...any) *URI {
 	return &URI{repo: repo, coll: coll, id: id, attr: attr}
 }
 
+// Repo returns the repository of the URI.
+func (u *URI) Repo() string {
+	return u.repo
+}
+
+// Collection returns the collection of the URI.
+func (u *URI) Collection() string {
+	return u.coll
+}
+
+// ID returns the ID of the URI.
+func (u *URI) ID() ID {
+	return u.id
+}
+
+// Attr returns the attribute of the URI.
+func (u *URI) Attr() Attr {
+	return u.attr
+}
+
 // String returns the URI as a string.
 func (u *URI) String() string {
 	if len(u.attr) > 0 && len(u.id) > 0 && len(u.coll) > 0 && len(u.repo) > 0 {
