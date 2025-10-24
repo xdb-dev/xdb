@@ -11,7 +11,8 @@ var ErrInvalidRepo = errors.New("[xdb/core] invalid repo name")
 
 // Repo is a data repository.
 type Repo struct {
-	name string
+	name   string
+	schema *Schema
 }
 
 // NewRepo creates a new repo.
@@ -33,9 +34,20 @@ func MustNewRepo(name string) *Repo {
 	return repo
 }
 
+// WithSchema sets the schema of the repo.
+func (r *Repo) WithSchema(schema *Schema) *Repo {
+	r.schema = schema
+	return r
+}
+
 // Name returns the name of the repo.
 func (r *Repo) Name() string {
 	return r.name
+}
+
+// Schema returns the schema of the repo.
+func (r *Repo) Schema() *Schema {
+	return r.schema
 }
 
 // String returns the repo as a string.

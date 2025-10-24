@@ -15,27 +15,24 @@ var ErrInvalidURI = errors.New("[xdb/core] invalid URI")
 //
 // The general format is:
 //
-//	xdb:// REPOSITORY [ / COLLECTION ] [ / RECORD ] [ #ATTRIBUTE ]
+//	xdb:// REPOSITORY [ / RECORD ] [ #ATTRIBUTE ]
 //
 // REPOSITORY is a data repository.
-// COLLECTION is a group of records with the same schema.
 // RECORD is a group of tuples with the same ID.
 // ATTRIBUTE is a specific attribute of a tuple.
 type URI struct {
 	repo string
-	coll string
 	id   ID
 	attr Attr
 }
 
 // NewURI creates a new URI.
 func NewURI(parts ...any) *URI {
-	if len(parts) == 0 || len(parts) > 4 {
+	if len(parts) == 0 || len(parts) > 3 {
 		panic(ErrInvalidURI)
 	}
 
 	var repo string
-	var coll string
 	var id ID
 	var attr Attr
 
@@ -48,15 +45,7 @@ func NewURI(parts ...any) *URI {
 	}
 
 	if len(parts) >= 2 && parts[1] != nil {
-		c, ok := parts[1].(string)
-		if !ok {
-			panic(ErrInvalidURI)
-		}
-		coll = c
-	}
-
-	if len(parts) >= 3 && parts[2] != nil {
-		switch v := parts[2].(type) {
+		switch v := parts[1].(type) {
 		case string:
 			id = NewID(v)
 		case []string:
@@ -68,8 +57,8 @@ func NewURI(parts ...any) *URI {
 		}
 	}
 
-	if len(parts) >= 4 && parts[3] != nil {
-		switch v := parts[3].(type) {
+	if len(parts) >= 3 && parts[2] != nil {
+		switch v := parts[2].(type) {
 		case string:
 			attr = NewAttr(v)
 		case []string:
@@ -81,17 +70,12 @@ func NewURI(parts ...any) *URI {
 		}
 	}
 
-	return &URI{repo: repo, coll: coll, id: id, attr: attr}
+	return &URI{repo: repo, id: id, attr: attr}
 }
 
 // Repo returns the repository of the URI.
 func (u *URI) Repo() string {
 	return u.repo
-}
-
-// Collection returns the collection of the URI.
-func (u *URI) Collection() string {
-	return u.coll
 }
 
 // ID returns the ID of the URI.
@@ -106,12 +90,10 @@ func (u *URI) Attr() Attr {
 
 // String returns the URI as a string.
 func (u *URI) String() string {
-	if len(u.attr) > 0 && len(u.id) > 0 && len(u.coll) > 0 && len(u.repo) > 0 {
-		return fmt.Sprintf("xdb://%s/%s/%s#%s", u.repo, u.coll, u.id.String(), u.attr.String())
-	} else if len(u.id) > 0 && len(u.coll) > 0 && len(u.repo) > 0 {
-		return fmt.Sprintf("xdb://%s/%s/%s", u.repo, u.coll, u.id.String())
-	} else if u.coll != "" && u.repo != "" {
-		return fmt.Sprintf("xdb://%s/%s", u.repo, u.coll)
+	if len(u.attr) > 0 && len(u.id) > 0 && len(u.repo) > 0 {
+		return fmt.Sprintf("xdb://%s/%s#%s", u.repo, u.id.String(), u.attr.String())
+	} else if len(u.id) > 0 && len(u.repo) > 0 {
+		return fmt.Sprintf("xdb://%s/%s", u.repo, u.id.String())
 	} else if len(u.repo) > 0 {
 		return fmt.Sprintf("xdb://%s", u.repo)
 	}
@@ -141,11 +123,11 @@ func (u *URI) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// uriRegex matches XDB URIs in the format: xdb://REPOSITORY[/COLLECTION][/RECORD][#ATTRIBUTE]
-var uriRegex = regexp.MustCompile(`^xdb://([^/]+)(?:/([^/#]+))?(?:/([^#]+))?(?:#(.+))?$`)
+// uriRegex matches XDB URIs in the format: xdb://REPOSITORY[/RECORD][#ATTRIBUTE]
+var uriRegex = regexp.MustCompile(`^xdb://([^/]+)(?:/([^#]+))?(?:#(.+))?$`)
 
 // ParseURI parses a URI string into a URI struct.
-// The URI format is: xdb://REPOSITORY[/COLLECTION][/RECORD][#ATTRIBUTE]
+// The URI format is: xdb://REPOSITORY[/RECORD][#ATTRIBUTE]
 // where RECORD can be a hierarchical ID (e.g., 123/456/789)
 // and ATTRIBUTE can be a nested attribute (e.g., profile.name)
 func ParseURI(uri string) (*URI, error) {
@@ -160,6 +142,8 @@ func ParseURI(uri string) (*URI, error) {
 
 	return &URI{
 		repo: matches[1],
+		id:   NewID(matches[2]),
+		attr: NewAttr(matches[3]),
 	}, nil
 }
 

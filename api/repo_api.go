@@ -7,8 +7,7 @@ import (
 )
 
 type RepoManager interface {
-	CreateRepo(ctx context.Context, repo *core.Repo) error
-	CreateCollection(ctx context.Context, collection *core.Collection) error
+	PutRepo(ctx context.Context, repo *core.Repo) error
 }
 
 type RepoAPI struct {
@@ -19,45 +18,29 @@ func NewRepoAPI(manager RepoManager) *RepoAPI {
 	return &RepoAPI{manager: manager}
 }
 
-func (a *RepoAPI) CreateRepo() EndpointFunc[CreateRepoRequest, CreateRepoResponse] {
-	return func(ctx context.Context, req *CreateRepoRequest) (*CreateRepoResponse, error) {
+func (a *RepoAPI) PutRepo() EndpointFunc[PutRepoRequest, PutRepoResponse] {
+	return func(ctx context.Context, req *PutRepoRequest) (*PutRepoResponse, error) {
 		repo, err := core.NewRepo(req.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		err = a.manager.CreateRepo(ctx, repo)
+		repo = repo.WithSchema(req.Schema)
+
+		err = a.manager.PutRepo(ctx, repo)
 		if err != nil {
 			return nil, err
 		}
 
-		return &CreateRepoResponse{URI: repo.URI()}, nil
+		return &PutRepoResponse{URI: repo.URI()}, nil
 	}
 }
 
-func (a *RepoAPI) CreateCollection() EndpointFunc[CreateCollectionRequest, CreateCollectionResponse] {
-	return func(ctx context.Context, req *CreateCollectionRequest) (*CreateCollectionResponse, error) {
-		collection := core.Collection(*req)
-
-		err := a.manager.CreateCollection(ctx, &collection)
-		if err != nil {
-			return nil, err
-		}
-
-		return &CreateCollectionResponse{URI: collection.URI()}, nil
-	}
+type PutRepoRequest struct {
+	Name   string       `json:"name"`
+	Schema *core.Schema `json:"schema"`
 }
 
-type CreateRepoRequest struct {
-	Name string `json:"name"`
-}
-
-type CreateRepoResponse struct {
-	URI *core.URI `json:"uri"`
-}
-
-type CreateCollectionRequest core.Collection
-
-type CreateCollectionResponse struct {
+type PutRepoResponse struct {
 	URI *core.URI `json:"uri"`
 }
