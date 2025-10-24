@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v2"
+	"github.com/xdb-dev/xdb/cmd/xdb/server"
 )
 
 func main() {
@@ -26,12 +27,12 @@ func main() {
 				},
 			},
 			Action: func(ctx *cli.Context) error {
-				cfg, err := LoadConfig(ctx.Context, ctx.String("config"))
+				cfg, err := server.LoadConfig(ctx.Context, ctx.String("config"))
 				if err != nil {
 					return err
 				}
 
-				server := NewServer(cfg)
+				server := server.New(cfg)
 
 				return server.Run(ctx.Context)
 			},

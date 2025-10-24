@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"context"
@@ -19,7 +19,7 @@ type Server struct {
 	store *xdbsqlite.KVStore
 }
 
-func NewServer(cfg *Config) *Server {
+func New(cfg *Config) *Server {
 	store, err := initDatabase(cfg.SQLite)
 	if err != nil {
 		panic(err)
