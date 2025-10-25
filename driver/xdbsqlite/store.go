@@ -8,15 +8,17 @@ import (
 
 	// Register SQLite3 driver
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/xdb-dev/xdb/driver"
 )
 
 type Store struct {
-	cfg Config
-	db  *sql.DB
+	cfg   Config
+	repos driver.RepoDriver
+	db    *sql.DB
 }
 
-func NewStore(cfg Config) (*Store, error) {
-	s := &Store{cfg: cfg}
+func NewStore(cfg Config, repos driver.RepoDriver) (*Store, error) {
+	s := &Store{cfg: cfg, repos: repos}
 
 	db, err := s.newDB()
 	if err != nil {

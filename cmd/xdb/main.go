@@ -1,20 +1,23 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/rs/zerolog/log"
-	"github.com/urfave/cli/v2"
-	"github.com/xdb-dev/xdb/cmd/xdb/server"
+	"github.com/urfave/cli/v3"
+	"github.com/xdb-dev/xdb/cmd/xdb/app"
 )
 
 func main() {
-	cliApp := cli.NewApp()
-	cliApp.Name = "XDB"
-	cliApp.Description = "Your Personal Data Store"
+	cmd := &cli.Command{
+		Name:        "XDB",
+		Description: "Your Personal Data Store",
+	}
 
-	cliApp.Commands = []*cli.Command{
+	cmd.Commands = []*cli.Command{
 		{
 			Name:        "server",
 			Description: "starts XDB server",
@@ -26,22 +29,30 @@ func main() {
 					Usage:   "path to config file (defaults to xdb.yaml or xdb.yml in current directory)",
 				},
 			},
-			Action: func(ctx *cli.Context) error {
-				cfg, err := server.LoadConfig(ctx.Context, ctx.String("config"))
+			Action: func(ctx context.Context, cmd *cli.Command) error {
+				cfg, err := app.LoadConfig(ctx, cmd.String("config"))
 				if err != nil {
 					return err
 				}
 
-				server := server.New(cfg)
+				server := app.NewServer(cfg)
 
-				return server.Run(ctx.Context)
+				return server.Run(ctx)
 			},
 		},
 	}
 
-	if err := cliApp.Run(os.Args); err != nil {
-		fmt.Printf("exit with error: %+v\n", err)
+	ctx, cancel := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+		syscall.SIGTERM,
+		syscall.SIGHUP,
+	)
+	defer cancel()
+
+	if err := cmd.Run(ctx, os.Args); err != nil {
 		log.Error().Err(err).Msg("exit with error")
-		panic(err)
+		os.Exit(1)
 	}
 }

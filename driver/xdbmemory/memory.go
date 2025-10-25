@@ -6,7 +6,11 @@ import (
 	"sync"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/driver"
 )
+
+// Config holds the configuration for the in-memory driver.
+type Config struct{}
 
 // MemoryDriver is an in-memory driver for XDB.
 type MemoryDriver struct {
@@ -18,16 +22,53 @@ type MemoryDriver struct {
 // New creates a new in-memory driver.
 func New() *MemoryDriver {
 	return &MemoryDriver{
+		repos:  make(map[string]*core.Repo),
 		tuples: make(map[string]map[string]*core.Tuple),
 	}
 }
 
-// CreateRepo creates a new repository.
-func (d *MemoryDriver) CreateRepo(ctx context.Context, repo *core.Repo) error {
+// GetRepo returns the repo for the given name.
+func (d *MemoryDriver) GetRepo(ctx context.Context, name string) (*core.Repo, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	repo, ok := d.repos[name]
+	if !ok {
+		return nil, driver.ErrRepoNotFound
+	}
+
+	return repo, nil
+}
+
+// ListRepos returns the list of repos.
+func (d *MemoryDriver) ListRepos(ctx context.Context) ([]*core.Repo, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	repos := make([]*core.Repo, 0, len(d.repos))
+	for _, repo := range d.repos {
+		repos = append(repos, repo)
+	}
+
+	return repos, nil
+}
+
+// DeleteRepo deletes the repo for the given name.
+func (d *MemoryDriver) DeleteRepo(ctx context.Context, name string) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.repos[repo.String()] = repo
+	delete(d.repos, name)
+	return nil
+}
+
+// PutRepo saves the repo.
+func (d *MemoryDriver) PutRepo(ctx context.Context, repo *core.Repo) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	d.repos[repo.Name()] = repo
+	d.tuples[repo.Name()] = make(map[string]*core.Tuple)
 
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gojekfarm/xtools/errors"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/x"
 )
 
@@ -18,7 +19,40 @@ var (
 )
 
 func (s *Store) MakeRepo(ctx context.Context, repo *core.Repo) error {
-	return nil
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	migrator := NewMigrator(tx)
+
+	existing, err := s.repos.GetRepo(ctx, repo.Name())
+	if err != nil && !errors.Is(err, driver.ErrRepoNotFound) {
+		return err
+	}
+
+	var prev *core.Schema
+	if existing != nil {
+		prev = existing.Schema()
+	}
+
+	up, _, err := migrator.Generate(ctx, prev, repo.Schema())
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(up)
+	if err != nil {
+		return err
+	}
+
+	err = s.repos.PutRepo(ctx, repo)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 type Migrator struct {

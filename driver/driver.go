@@ -3,9 +3,33 @@ package driver
 
 import (
 	"context"
+	"errors"
 
 	"github.com/xdb-dev/xdb/core"
 )
+
+var (
+	// ErrRepoNotFound is returned when a repository is not found.
+	ErrRepoNotFound = errors.New("xdb/driver: repo not found")
+)
+
+// RepoReader is an interface for reading repositories.
+type RepoReader interface {
+	GetRepo(ctx context.Context, name string) (*core.Repo, error)
+	ListRepos(ctx context.Context) ([]*core.Repo, error)
+}
+
+// RepoWriter is an interface for writing & deleting repositories.
+type RepoWriter interface {
+	PutRepo(ctx context.Context, repo *core.Repo) error
+	DeleteRepo(ctx context.Context, name string) error
+}
+
+// RepoDriver is an interface for managing repositories.
+type RepoDriver interface {
+	RepoReader
+	RepoWriter
+}
 
 // TupleReader is an interface for reading tuples.
 type TupleReader interface {
