@@ -10,10 +10,9 @@ import (
 
 // MemoryDriver is an in-memory driver for XDB.
 type MemoryDriver struct {
-	mu          sync.RWMutex
-	repos       map[string]*core.Repo
-	collections map[string]map[string]*core.Collection
-	tuples      map[string]map[string]*core.Tuple
+	mu     sync.RWMutex
+	repos  map[string]*core.Repo
+	tuples map[string]map[string]*core.Tuple
 }
 
 // New creates a new in-memory driver.
@@ -29,16 +28,6 @@ func (d *MemoryDriver) CreateRepo(ctx context.Context, repo *core.Repo) error {
 	defer d.mu.Unlock()
 
 	d.repos[repo.String()] = repo
-
-	return nil
-}
-
-// CreateSchema creates a new schema.
-func (d *MemoryDriver) CreateSchema(ctx context.Context, coll *core.Collection) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	d.collections[coll.Repo][coll.ID] = coll
 
 	return nil
 }

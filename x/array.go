@@ -71,3 +71,14 @@ func Filter[T any](items []T, fn func(T) bool) []T {
 
 	return filtered
 }
+
+// Index creates a map from a list using a function.
+func Index[T any](items []T, fn func(T) string) map[string]T {
+	index := make(map[string]T)
+
+	for _, item := range items {
+		index[fn(item)] = item
+	}
+
+	return index
+}
