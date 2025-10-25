@@ -47,12 +47,41 @@ func (s *Store) MakeRepo(ctx context.Context, repo *core.Repo) error {
 		return err
 	}
 
-	err = s.repos.PutRepo(ctx, repo)
+	err = s.repos.MakeRepo(ctx, repo)
 	if err != nil {
 		return err
 	}
 
 	return tx.Commit()
+}
+
+func (s *Store) GetRepo(ctx context.Context, name string) (*core.Repo, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	migrator := NewMigrator(tx)
+
+	exists, err := migrator.tableExists(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exists {
+		return nil, driver.ErrRepoNotFound
+	}
+
+	return s.repos.GetRepo(ctx, name)
+}
+
+func (s *Store) ListRepos(ctx context.Context) ([]*core.Repo, error) {
+	return s.repos.ListRepos(ctx)
+}
+
+func (s *Store) DeleteRepo(ctx context.Context, name string) error {
+	return s.repos.DeleteRepo(ctx, name)
 }
 
 type Migrator struct {

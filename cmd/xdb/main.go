@@ -2,16 +2,26 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/phsym/console-slog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v3"
 	"github.com/xdb-dev/xdb/cmd/xdb/app"
 )
 
 func main() {
+	logger := slog.New(
+		console.NewHandler(os.Stderr, &console.HandlerOptions{
+			Level:     slog.LevelDebug,
+			AddSource: true,
+		}),
+	)
+	slog.SetDefault(logger)
+
 	cmd := &cli.Command{
 		Name:        "XDB",
 		Description: "Your Personal Data Store",
@@ -35,7 +45,10 @@ func main() {
 					return err
 				}
 
-				server := app.NewServer(cfg)
+				server, err := app.NewServer(cfg)
+				if err != nil {
+					return err
+				}
 
 				return server.Run(ctx)
 			},

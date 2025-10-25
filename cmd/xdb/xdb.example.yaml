@@ -7,55 +7,56 @@
 # Default: :8080
 ADDR: ":8081"
 
-# SQLite database configuration
-SQLITE:
-  # Database file path (use ":memory:" for in-memory database)
-  # Environment variable: SQLITE_PATH
-  # Default: xdb.db
-  PATH: "xdb.db"
+STORE:
+  # SQLite database configuration
+  SQLITE:
+    # Database file path (use ":memory:" for in-memory database)
+    # Environment variable: SQLITE_PATH
+    # Default: xdb.db
+    PATH: "xdb.db"
 
-  # Database access mode
-  # Options: "ro" (read-only), "rw" (read-write), "rwc" (read-write-create), "memory"
-  # Environment variable: SQLITE_MODE
-  # Default: rwc
-  MODE: "rwc"
+    # Database access mode
+    # Options: "ro" (read-only), "rw" (read-write), "rwc" (read-write-create), "memory"
+    # Environment variable: SQLITE_MODE
+    # Default: rwc
+    MODE: "rwc"
 
-  # Cache mode
-  # Options: "shared", "private"
-  # Environment variable: SQLITE_CACHE
-  # Default: shared
-  CACHE: "shared"
+    # Cache mode
+    # Options: "shared", "private"
+    # Environment variable: SQLITE_CACHE
+    # Default: shared
+    CACHE: "shared"
 
-  # Maximum number of open connections to the database
-  # Environment variable: SQLITE_MAX_OPEN_CONNS
-  # Default: 25
-  MAX_OPEN_CONNS: 25
+    # Maximum number of open connections to the database
+    # Environment variable: SQLITE_MAX_OPEN_CONNS
+    # Default: 25
+    MAX_OPEN_CONNS: 25
 
-  # Maximum number of idle connections
-  # Environment variable: SQLITE_MAX_IDLE_CONNS
-  # Default: 10
-  MAX_IDLE_CONNS: 10
+    # Maximum number of idle connections
+    # Environment variable: SQLITE_MAX_IDLE_CONNS
+    # Default: 10
+    MAX_IDLE_CONNS: 10
 
-  # Maximum lifetime of a connection in seconds
-  # Environment variable: SQLITE_CONN_MAX_LIFETIME
-  # Default: 3600
-  CONN_MAX_LIFETIME: 3600
+    # Maximum lifetime of a connection in seconds
+    # Environment variable: SQLITE_CONN_MAX_LIFETIME
+    # Default: 3600
+    CONN_MAX_LIFETIME: 3600
 
-  # Busy timeout in milliseconds (time to wait for locks)
-  # Environment variable: SQLITE_BUSY_TIMEOUT
-  # Default: 5000
-  BUSY_TIMEOUT: 5000
+    # Busy timeout in milliseconds (time to wait for locks)
+    # Environment variable: SQLITE_BUSY_TIMEOUT
+    # Default: 5000
+    BUSY_TIMEOUT: 5000
 
-  # Journal mode
-  # Options: "DELETE", "TRUNCATE", "PERSIST", "MEMORY", "WAL", "OFF"
-  # WAL mode is recommended for better concurrency
-  # Environment variable: SQLITE_JOURNAL_MODE
-  # Default: WAL
-  JOURNAL_MODE: "WAL"
+    # Journal mode
+    # Options: "DELETE", "TRUNCATE", "PERSIST", "MEMORY", "WAL", "OFF"
+    # WAL mode is recommended for better concurrency
+    # Environment variable: SQLITE_JOURNAL_MODE
+    # Default: WAL
+    JOURNAL_MODE: "WAL"
 
-  # Synchronous mode
-  # Options: "OFF", "NORMAL", "FULL", "EXTRA"
-  # NORMAL provides a good balance between safety and performance
-  # Environment variable: SQLITE_SYNCHRONOUS
-  # Default: NORMAL
-  SYNCHRONOUS: "NORMAL"
+    # Synchronous mode
+    # Options: "OFF", "NORMAL", "FULL", "EXTRA"
+    # NORMAL provides a good balance between safety and performance
+    # Environment variable: SQLITE_SYNCHRONOUS
+    # Default: NORMAL
+    SYNCHRONOUS: "NORMAL"

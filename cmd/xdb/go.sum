@@ -15,6 +15,8 @@ github.com/go-sql-driver/mysql v1.6.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LB
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
 github.com/gojekfarm/xtools/errors v0.10.0 h1:PJdnErmTp/RCBTU7CJL62gqucaffVh78ns7ZmgcKabA=
 github.com/gojekfarm/xtools/errors v0.10.0/go.mod h1:uP5x32tUp1F/wPuVS1QCxZhv2jrHNhOA3vC0p9Y3Nls=
+github.com/gojekfarm/xtools/xapi v0.11.0-alpha.1 h1:7wTSHMynocEBzhhTucF47Bb3HjlvKoQkNcmgi8lATdk=
+github.com/gojekfarm/xtools/xapi v0.11.0-alpha.1/go.mod h1:fV91uPvyQnX/9PESy5yRNVRaVRKJaXLDfSkp2kY8+YU=
 github.com/gojekfarm/xtools/xload v0.10.0 h1:+4/exvf2D+LnxxMFxeVU9+WQ4j6vw5sKEIGAbBvSRKs=
 github.com/gojekfarm/xtools/xload v0.10.0/go.mod h1:U5oAlXER5W8Ts2Za96Dts1YbrJE9pF/Dt4uQUSDo1zk=
 github.com/gojekfarm/xtools/xload/providers/yaml v0.10.0 h1:3Tx633Pu1+Nvm+PCMZKhqziXR101jJhGVqgBjiF6jr0=
@@ -38,6 +40,8 @@ github.com/mattn/go-isatty v0.0.19/go.mod h1:W+V8PltTTMOvKvAeJH7IuucS94S2C6jfK/D
 github.com/mattn/go-sqlite3 v1.14.7/go.mod h1:NyWgC/yNuGj7Q9rpYnZvas74GogHl5/Z4A/KQRfk6bU=
 github.com/mattn/go-sqlite3 v1.14.28 h1:ThEiQrnbtumT+QMknw63Befp/ce/nUPgBPMlRFEum7A=
 github.com/mattn/go-sqlite3 v1.14.28/go.mod h1:Uh1q+B4BYcTPb+yiD3kU8Ct7aC0hY9fxUwlHK0RXw+Y=
+github.com/phsym/console-slog v0.3.1 h1:Fuzcrjr40xTc004S9Kni8XfNsk+qrptQmyR+wZw9/7A=
+github.com/phsym/console-slog v0.3.1/go.mod h1:oJskjp/X6e6c0mGpfP8ELkfKUsrkDifYRAqJQgmdDS0=
 github.com/pkg/errors v0.9.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=

@@ -4,22 +4,19 @@ import (
 	"context"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/driver"
 )
 
-type RepoManager interface {
-	PutRepo(ctx context.Context, repo *core.Repo) error
-}
-
 type RepoAPI struct {
-	manager RepoManager
+	store driver.RepoDriver
 }
 
-func NewRepoAPI(manager RepoManager) *RepoAPI {
-	return &RepoAPI{manager: manager}
+func NewRepoAPI(store driver.RepoDriver) *RepoAPI {
+	return &RepoAPI{store: store}
 }
 
-func (a *RepoAPI) PutRepo() EndpointFunc[PutRepoRequest, PutRepoResponse] {
-	return func(ctx context.Context, req *PutRepoRequest) (*PutRepoResponse, error) {
+func (a *RepoAPI) MakeRepo() EndpointFunc[MakeRepoRequest, MakeRepoResponse] {
+	return func(ctx context.Context, req *MakeRepoRequest) (*MakeRepoResponse, error) {
 		repo, err := core.NewRepo(req.Name)
 		if err != nil {
 			return nil, err
@@ -27,20 +24,20 @@ func (a *RepoAPI) PutRepo() EndpointFunc[PutRepoRequest, PutRepoResponse] {
 
 		repo = repo.WithSchema(req.Schema)
 
-		err = a.manager.PutRepo(ctx, repo)
+		err = a.store.MakeRepo(ctx, repo)
 		if err != nil {
 			return nil, err
 		}
 
-		return &PutRepoResponse{URI: repo.URI()}, nil
+		return &MakeRepoResponse{URI: repo.URI()}, nil
 	}
 }
 
-type PutRepoRequest struct {
+type MakeRepoRequest struct {
 	Name   string       `json:"name"`
 	Schema *core.Schema `json:"schema"`
 }
 
-type PutRepoResponse struct {
+type MakeRepoResponse struct {
 	URI *core.URI `json:"uri"`
 }

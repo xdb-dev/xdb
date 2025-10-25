@@ -21,7 +21,7 @@ type RepoReader interface {
 
 // RepoWriter is an interface for writing & deleting repositories.
 type RepoWriter interface {
-	PutRepo(ctx context.Context, repo *core.Repo) error
+	MakeRepo(ctx context.Context, repo *core.Repo) error
 	DeleteRepo(ctx context.Context, name string) error
 }
 

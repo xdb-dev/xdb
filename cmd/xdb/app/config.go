@@ -24,9 +24,9 @@ type Config struct {
 	// Store configuration.
 	// Only one of the following stores can be configured.
 	Store struct {
-		SQLite *xdbsqlite.Config `env:"SQLITE"`
-		Memory *xdbmemory.Config `env:"MEMORY"`
-	}
+		SQLite *xdbsqlite.Config `env:",prefix=SQLITE_"`
+		Memory *xdbmemory.Config `env:",prefix=MEMORY_"`
+	} `env:",prefix=STORE_"`
 }
 
 func NewDefaultConfig() *Config {
@@ -46,7 +46,7 @@ func LoadConfig(ctx context.Context, configPath string) (*Config, error) {
 		return cfg, err
 	}
 
-	err = xload.Load(ctx, &cfg, xload.WithLoader(loader))
+	err = xload.Load(ctx, cfg, xload.WithLoader(loader))
 
 	return cfg, err
 }

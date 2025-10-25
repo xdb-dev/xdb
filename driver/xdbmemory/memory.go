@@ -10,7 +10,9 @@ import (
 )
 
 // Config holds the configuration for the in-memory driver.
-type Config struct{}
+type Config struct {
+	Enabled bool `env:"ENABLED"`
+}
 
 // MemoryDriver is an in-memory driver for XDB.
 type MemoryDriver struct {
@@ -62,8 +64,8 @@ func (d *MemoryDriver) DeleteRepo(ctx context.Context, name string) error {
 	return nil
 }
 
-// PutRepo saves the repo.
-func (d *MemoryDriver) PutRepo(ctx context.Context, repo *core.Repo) error {
+// MakeRepo saves the repo.
+func (d *MemoryDriver) MakeRepo(ctx context.Context, repo *core.Repo) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 

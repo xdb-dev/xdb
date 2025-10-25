@@ -8,77 +8,99 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gojekfarm/xtools/xapi"
+	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 )
 
-type Server struct {
-	http  *http.Server
-	store *xdbsqlite.Store
+type Storer interface {
+	driver.RepoDriver
 }
 
-func NewServer(cfg *Config) *Server {
-	store, err := xdbsqlite.NewStore(*cfg.Store.SQLite, xdbmemory.New())
-	if err != nil {
-		panic(err)
+type Server struct {
+	cfg         *Config
+	store       Storer
+	middlewares xapi.MiddlewareStack
+	mux         *http.ServeMux
+}
+
+func NewServer(cfg *Config) (*Server, error) {
+	server := &Server{
+		cfg: cfg,
 	}
 
-	mux := createRoutesHandler(store)
-	http := &http.Server{
-		Addr:    cfg.Addr,
-		Handler: mux,
-	}
+	err := errors.Join(
+		server.initStore(),
+		server.initMiddlewares(),
+		server.registerRoutes(),
+	)
 
-	return &Server{
-		http:  http,
-		store: store,
-	}
+	return server, err
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	s.start()
+	slog.Info("[SERVER] Starting HTTP server", "addr", s.cfg.Addr)
+
+	server := &http.Server{
+		Addr:    s.cfg.Addr,
+		Handler: s.mux,
+	}
+
+	go func(server *http.Server) {
+		err := server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			panic(err)
+		}
+	}(server)
 
 	<-ctx.Done()
 
-	return s.http.Shutdown(ctx)
+	slog.Info("[SERVER] Shutting down HTTP server")
+	return server.Shutdown(ctx)
 }
 
-func createRoutesHandler(store *xdbsqlite.Store) *http.ServeMux {
-	mux := http.NewServeMux()
+func (s *Server) initStore() error {
+	switch {
+	case s.cfg.Store.SQLite != nil:
+		slog.Info("[SERVER] Initializing SQLite store", "path", s.cfg.Store.SQLite.Path)
 
-	// middlewares := xapi.MiddlewareStack{
-	// 	xapi.MiddlewareFunc(LoggingMiddleware),
-	// }
+		store, err := xdbsqlite.NewStore(*s.cfg.Store.SQLite, xdbmemory.New())
+		if err != nil {
+			return err
+		}
+		s.store = store
+	default:
+		slog.Info("[SERVER] Initializing in-memory store")
 
-	// tupleAPI := api.NewTupleAPI(store)
+		s.store = xdbmemory.New()
 
-	// getTuples := xapi.NewEndpoint(
-	// 	xapi.EndpointFunc[api.GetTuplesRequest, api.GetTuplesResponse](tupleAPI.GetTuples()),
-	// 	xapi.WithMiddleware(middlewares...),
-	// )
-	// putTuples := xapi.NewEndpoint(
-	// 	xapi.EndpointFunc[api.PutTuplesRequest, api.PutTuplesResponse](tupleAPI.PutTuples()),
-	// 	xapi.WithMiddleware(middlewares...),
-	// )
-	// deleteTuples := xapi.NewEndpoint(
-	// 	xapi.EndpointFunc[api.DeleteTuplesRequest, api.DeleteTuplesResponse](tupleAPI.DeleteTuples()),
-	// 	xapi.WithMiddleware(middlewares...),
-	// )
-
-	// mux.Handle("POST /v1/tuples:get", getTuples.Handler())
-	// mux.Handle("PUT /v1/tuples", putTuples.Handler())
-	// mux.Handle("DELETE /v1/tuples", deleteTuples.Handler())
-
-	return mux
-}
-
-func (s *Server) start() {
-	slog.Info("[HTTP] Starting server", "addr", s.http.Addr)
-
-	err := s.http.ListenAndServe()
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		panic(err)
 	}
+
+	return nil
+}
+
+func (s *Server) initMiddlewares() error {
+	s.middlewares = xapi.MiddlewareStack{
+		xapi.MiddlewareFunc(LoggingMiddleware),
+	}
+	return nil
+}
+
+func (s *Server) registerRoutes() error {
+	s.mux = http.NewServeMux()
+
+	repoAPI := api.NewRepoAPI(s.store)
+
+	makeRepo := xapi.NewEndpoint(
+		xapi.EndpointFunc[api.MakeRepoRequest, api.MakeRepoResponse](repoAPI.MakeRepo()),
+		xapi.WithMiddleware(s.middlewares...),
+	)
+
+	s.mux.Handle("POST /v1/repos", makeRepo.Handler())
+
+	return nil
 }
 
 func LoggingMiddleware(next http.Handler) http.Handler {

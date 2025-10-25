@@ -8,8 +8,10 @@ replace (
 )
 
 require (
+	github.com/gojekfarm/xtools/xapi v0.11.0-alpha.1
 	github.com/gojekfarm/xtools/xload v0.10.0
 	github.com/gojekfarm/xtools/xload/providers/yaml v0.10.0
+	github.com/phsym/console-slog v0.3.1
 	github.com/rs/zerolog v1.34.0
 	github.com/urfave/cli/v3 v3.5.0
 	github.com/xdb-dev/xdb v0.0.0
