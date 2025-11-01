@@ -24,16 +24,6 @@ func NewRepo(name string) (*Repo, error) {
 	return &Repo{name: name}, nil
 }
 
-// MustNewRepo creates a new repo.
-// It panics if the repo name is invalid.
-func MustNewRepo(name string) *Repo {
-	repo, err := NewRepo(name)
-	if err != nil {
-		panic(err)
-	}
-	return repo
-}
-
 // WithSchema sets the schema of the repo.
 func (r *Repo) WithSchema(schema *Schema) *Repo {
 	r.schema = schema
