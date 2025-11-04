@@ -8,82 +8,11 @@ import (
 
 	"github.com/gojekfarm/xtools/errors"
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/x"
 )
 
-var (
-	ErrUnsupportedType = errors.New("xdb/driver/xdbsqlite: unsupported type")
-	ErrFieldDeleted    = errors.New("xdb/driver/xdbsqlite: deleting fields is not supported")
-	ErrFieldModified   = errors.New("xdb/driver/xdbsqlite: modifying field type or constraints is not supported")
-)
-
-func (s *Store) MakeRepo(ctx context.Context, repo *core.Repo) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	migrator := NewMigrator(tx)
-
-	existing, err := s.repos.GetRepo(ctx, repo.Name())
-	if err != nil && !errors.Is(err, driver.ErrRepoNotFound) {
-		return err
-	}
-
-	var prev *core.Schema
-	if existing != nil {
-		prev = existing.Schema()
-	}
-
-	up, _, err := migrator.Generate(ctx, prev, repo.Schema())
-	if err != nil {
-		return err
-	}
-
-	_, err = tx.Exec(up)
-	if err != nil {
-		return err
-	}
-
-	err = s.repos.MakeRepo(ctx, repo)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
-}
-
-func (s *Store) GetRepo(ctx context.Context, name string) (*core.Repo, error) {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-
-	migrator := NewMigrator(tx)
-
-	exists, err := migrator.tableExists(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-
-	if !exists {
-		return nil, driver.ErrRepoNotFound
-	}
-
-	return s.repos.GetRepo(ctx, name)
-}
-
-func (s *Store) ListRepos(ctx context.Context) ([]*core.Repo, error) {
-	return s.repos.ListRepos(ctx)
-}
-
-func (s *Store) DeleteRepo(ctx context.Context, name string) error {
-	return s.repos.DeleteRepo(ctx, name)
-}
-
+// Migrator manages the schema generation and applying SQLite
+// migrations to the database.
 type Migrator struct {
 	tx *sql.Tx
 }
@@ -92,70 +21,68 @@ func NewMigrator(tx *sql.Tx) *Migrator {
 	return &Migrator{tx: tx}
 }
 
-func (m *Migrator) Generate(ctx context.Context, prev, next *core.Schema) (string, string, error) {
-	tableName := next.Name
-
-	exists, err := m.tableExists(ctx, tableName)
+func (m *Migrator) CreateTable(ctx context.Context, schema *core.Schema) error {
+	query, err := m.generateCreateTable(schema)
 	if err != nil {
-		return "", "", err
+		return err
 	}
 
-	if prev == nil || !exists {
-		return m.generateCreateTable(next)
-	}
+	_, err = m.tx.ExecContext(ctx, query)
 
-	return m.generateAlterTable(prev, next)
+	return err
 }
 
-func (m *Migrator) tableExists(ctx context.Context, name string) (bool, error) {
-	query := "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?"
-
-	var count int
-
-	err := m.tx.QueryRowContext(ctx, query, name).Scan(&count)
+func (m *Migrator) AlterTable(ctx context.Context, prev, next *core.Schema) error {
+	query, err := m.generateAlterTable(prev, next)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	return count > 0, nil
+	_, err = m.tx.ExecContext(ctx, query)
+
+	return err
 }
 
-func (m *Migrator) generateCreateTable(schema *core.Schema) (string, string, error) {
+func (m *Migrator) DropTable(ctx context.Context, name string) error {
+	query := fmt.Sprintf(`DROP TABLE IF EXISTS "%s";`, name)
+	_, err := m.tx.ExecContext(ctx, query)
+	return err
+}
+
+func (m *Migrator) generateCreateTable(schema *core.Schema) (string, error) {
 	tableName := schema.Name
 
-	var up, down strings.Builder
+	var query strings.Builder
 
-	up.WriteString(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (`, tableName))
+	query.WriteString(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (`, tableName))
 
 	count := len(schema.Fields)
 
 	for i, field := range schema.Fields {
 		sqlType, err := sqliteTypeForField(field)
 		if err != nil {
-			return "", "", err
+			return "", err
 		}
 
-		up.WriteString(fmt.Sprintf(`	"%s" %s`, field.Name, sqlType))
+		query.WriteString(fmt.Sprintf(`	"%s" %s`, field.Name, sqlType))
 
 		if field.Required {
-			up.WriteString(" NOT NULL")
+			query.WriteString(" NOT NULL")
 		}
 
 		if i < count-1 {
-			up.WriteString(",")
+			query.WriteString(",")
 		}
 
-		up.WriteString("\n")
+		query.WriteString("\n")
 	}
 
-	up.WriteString(");")
+	query.WriteString(");")
 
-	down.WriteString(fmt.Sprintf(`DROP TABLE IF EXISTS "%s";`, tableName))
-
-	return up.String(), down.String(), nil
+	return query.String(), nil
 }
 
-func (m *Migrator) generateAlterTable(prev, next *core.Schema) (string, string, error) {
+func (m *Migrator) generateAlterTable(prev, next *core.Schema) (string, error) {
 	tableName := next.Name
 
 	add, drop, modified := m.getDiffFields(prev, next)
@@ -164,40 +91,38 @@ func (m *Migrator) generateAlterTable(prev, next *core.Schema) (string, string, 
 		names := x.Map(drop, func(field *core.Schema) string {
 			return field.Name
 		})
-		return "", "", errors.Wrap(ErrFieldDeleted, "fields", strings.Join(names, ", "))
+		return "", errors.Wrap(ErrFieldDeleted, "fields", strings.Join(names, ", "))
 	}
 
 	if len(modified) > 0 {
 		names := x.Map(modified, func(field *core.Schema) string {
 			return field.Name
 		})
-		return "", "", errors.Wrap(ErrFieldModified, "fields", strings.Join(names, ", "))
+		return "", errors.Wrap(ErrFieldModified, "fields", strings.Join(names, ", "))
 	}
 
 	if len(add) == 0 {
-		return "", "", nil
+		return "", nil
 	}
 
-	var up, down strings.Builder
+	var query strings.Builder
 
 	for _, field := range add {
 		sqlType, err := sqliteTypeForField(field)
 		if err != nil {
-			return "", "", err
+			return "", err
 		}
 
-		up.WriteString(fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s`, tableName, field.Name, sqlType))
+		query.WriteString(fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s`, tableName, field.Name, sqlType))
 
 		if field.Required {
-			up.WriteString(" NOT NULL")
+			query.WriteString(" NOT NULL")
 		}
 
-		up.WriteString(";\n")
-
-		down.WriteString(fmt.Sprintf(`ALTER TABLE "%s" DROP COLUMN "%s";\n`, tableName, field.Name))
+		query.WriteString(";\n")
 	}
 
-	return up.String(), down.String(), nil
+	return query.String(), nil
 }
 
 func (m *Migrator) getDiffFields(prev, next *core.Schema) ([]*core.Schema, []*core.Schema, []*core.Schema) {
@@ -230,12 +155,10 @@ func (m *Migrator) getDiffFields(prev, next *core.Schema) ([]*core.Schema, []*co
 	return add, drop, modified
 }
 
-// fieldModified checks if a field's type or constraints have changed.
 func fieldModified(prev, next *core.Schema) bool {
 	return prev.Type != next.Type || prev.Required != next.Required
 }
 
-// sqliteTypeForField maps core.Field to SQLite core.
 func sqliteTypeForField(field *core.Schema) (string, error) {
 	switch field.Type {
 	case core.TypeIDString.String():

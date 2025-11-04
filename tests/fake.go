@@ -9,26 +9,55 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
-// // FakePostSchema creates a fake schema of a Post.
-// func FakePostSchema() *core.Schema {
-// 	return &core.Schema{
-// 		Kind: "Post",
-// 		Attributes: []core.Attribute{
-// 			{Name: "title", Type: core.NewType(core.TypeIDString)},
-// 			{Name: "content", Type: core.NewType(core.TypeIDString)},
-// 			{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
-// 			{Name: "rating", Type: core.NewType(core.TypeIDFloat)},
-// 			{Name: "published", Type: core.NewType(core.TypeIDBoolean)},
-// 			{Name: "comments.count", Type: core.NewType(core.TypeIDInteger)},
-// 			{Name: "views.count", Type: core.NewType(core.TypeIDInteger)},
-// 			{Name: "likes.count", Type: core.NewType(core.TypeIDInteger)},
-// 			{Name: "shares.count", Type: core.NewType(core.TypeIDInteger)},
-// 			{Name: "favorites.count", Type: core.NewType(core.TypeIDInteger)},
-// 			{Name: "author.id", Type: core.NewType(core.TypeIDString)},
-// 			{Name: "author.name", Type: core.NewType(core.TypeIDString)},
-// 		},
-// 	}
-// }
+// FakePostSchema creates a fake schema of a Post.
+func FakePostSchema() *core.Schema {
+	return &core.Schema{
+		Name: "com.example.Post",
+		Fields: []*core.Schema{
+			{
+				Name:     "title",
+				Type:     core.TypeIDString.String(),
+				Required: true,
+			},
+			{
+				Name:     "content",
+				Type:     core.TypeIDString.String(),
+				Required: true,
+			},
+			{
+				Name: "tags",
+				Type: core.TypeIDArray.String(),
+				Items: &core.Schema{
+					Type: core.TypeIDString.String(),
+				},
+			},
+			{
+				Name: "metadata",
+				Type: core.TypeIDMap.String(),
+			},
+			{
+				Name: "rating",
+				Type: core.TypeIDFloat.String(),
+			},
+			{
+				Name: "published",
+				Type: core.TypeIDBoolean.String(),
+			},
+			{
+				Name: "comments.count",
+				Type: core.TypeIDInteger.String(),
+			},
+			{
+				Name: "thumbnail",
+				Type: core.TypeIDBytes.String(),
+			},
+			{
+				Name: "created_at",
+				Type: core.TypeIDTime.String(),
+			},
+		},
+	}
+}
 
 // FakePost creates a fakerecord with fake Post data.
 func FakePost() *core.Record {

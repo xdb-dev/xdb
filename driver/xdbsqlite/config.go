@@ -12,6 +12,10 @@ type Config struct {
 	// Default: "xdb.db"
 	Path string `env:"PATH"`
 
+	// SchemaDir is the directory to store schema files.
+	// Default: ".schema"
+	SchemaDir string `env:"SCHEMA_DIR"`
+
 	// Mode specifies the database access mode.
 	// Options: "ro" (read-only), "rw" (read-write), "rwc" (read-write-create), "memory"
 	// Default: "rwc"
@@ -38,15 +42,9 @@ type Config struct {
 	// Default: 5000 (5 seconds)
 	BusyTimeout int `env:"BUSY_TIMEOUT"`
 
-	// JournalMode specifies the journal mode.
-	// Options: "DELETE", "TRUNCATE", "PERSIST", "MEMORY", "WAL", "OFF"
-	// Default: "WAL"
-	JournalMode string `env:"JOURNAL_MODE"`
-
-	// Synchronous specifies the synchronous mode.
-	// Options: "OFF", "NORMAL", "FULL", "EXTRA"
-	// Default: "NORMAL"
-	Synchronous string `env:"SYNCHRONOUS"`
+	// Pragmas is a map of SQLite pragmas to set.
+	// Default: {"journal_mode": "WAL", "synchronous": "NORMAL"}
+	Pragmas map[string]string `env:"PRAGMAS"`
 }
 
 // DefaultConfig creates a Config with sensible defaults.
@@ -59,8 +57,10 @@ func DefaultConfig() Config {
 		MaxIdleConns:    10,
 		ConnMaxLifetime: 3600,
 		BusyTimeout:     5000,
-		JournalMode:     "WAL",
-		Synchronous:     "NORMAL",
+		Pragmas: map[string]string{
+			"journal_mode": "WAL",
+			"synchronous":  "NORMAL",
+		},
 	}
 }
 

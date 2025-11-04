@@ -1,11 +1,73 @@
 package xdbsqlite
 
 import (
-	"github.com/doug-martin/goqu/v9"
-	_ "github.com/doug-martin/goqu/v9/dialect/sqlite3"
+	"database/sql"
+	"fmt"
+	"log/slog"
+	"time"
+
+	// Register SQLite3 driver
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/xdb-dev/xdb/driver"
+	"github.com/xdb-dev/xdb/driver/xdbfs"
 )
 
-var dialect = goqu.Dialect("sqlite3")
+type Store struct {
+	cfg  Config
+	meta driver.RepoDriver
+	db   *sql.DB
+}
+
+func New(cfg Config) (*Store, error) {
+	s := &Store{cfg: cfg}
+
+	db, err := s.newDB()
+	if err != nil {
+		return nil, err
+	}
+
+	s.db = db
+	s.meta = xdbfs.New(s.cfg.SchemaDir)
+
+	return s, nil
+}
+
+func (s *Store) newDB() (*sql.DB, error) {
+	dsn := s.cfg.DSN()
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	// Apply connection pool settings
+	db.SetMaxOpenConns(s.cfg.MaxOpenConns)
+	db.SetMaxIdleConns(s.cfg.MaxIdleConns)
+	db.SetConnMaxLifetime(time.Duration(s.cfg.ConnMaxLifetime) * time.Second)
+
+	// Apply SQLite-specific pragmas
+	if err := s.applySQLitePragmas(db); err != nil {
+		return nil, fmt.Errorf("failed to apply SQLite pragmas: %w", err)
+	}
+
+	slog.Info("[SQLite] Database configured", "path", s.cfg.Path)
+
+	return db, nil
+}
+
+func (s *Store) applySQLitePragmas(db *sql.DB) error {
+	for name, value := range s.cfg.Pragmas {
+		if value == "" {
+			continue
+		}
+
+		query := fmt.Sprintf("PRAGMA %s = %s", name, value)
+		if _, err := db.Exec(query); err != nil {
+			return fmt.Errorf("failed to set PRAGMA %s: %w", name, err)
+		}
+	}
+
+	return nil
+}
 
 // import (
 // 	"context"

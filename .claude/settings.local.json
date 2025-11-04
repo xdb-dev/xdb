@@ -14,7 +14,9 @@
       "Bash(make test:*)",
       "Bash(make:*)",
       "Bash(go run:*)",
-      "Bash(go doc:*)"
+      "Bash(go doc:*)",
+      "Bash(go vet:*)",
+      "Bash(go fmt:*)"
     ],
     "deny": [],
     "ask": []

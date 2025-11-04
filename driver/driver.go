@@ -21,7 +21,8 @@ type RepoReader interface {
 
 // RepoWriter is an interface for writing & deleting repositories.
 type RepoWriter interface {
-	MakeRepo(ctx context.Context, repo *core.Repo) error
+	CreateRepo(ctx context.Context, repo *core.Repo) error
+	UpdateRepo(ctx context.Context, repo *core.Repo) error
 	DeleteRepo(ctx context.Context, name string) error
 }
 
@@ -51,4 +52,10 @@ type RecordReader interface {
 type RecordWriter interface {
 	PutRecords(ctx context.Context, records []*core.Record) error
 	DeleteRecords(ctx context.Context, keys []*core.Key) error
+}
+
+// RecordDriver is an interface for managing records.
+type RecordDriver interface {
+	RecordReader
+	RecordWriter
 }
