@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	// ErrRepoNotFound is returned when a repository is not found.
-	ErrRepoNotFound = errors.New("xdb/driver: repo not found")
+	// ErrNotFound is returned when a resource is not found.
+	ErrNotFound = errors.New("xdb/driver: not found")
 )
 
 // RepoReader is an interface for reading repositories.
@@ -19,17 +19,9 @@ type RepoReader interface {
 	ListRepos(ctx context.Context) ([]*core.Repo, error)
 }
 
-// RepoWriter is an interface for writing & deleting repositories.
+// RepoWriter is an interface for creating repositories.
 type RepoWriter interface {
-	CreateRepo(ctx context.Context, repo *core.Repo) error
-	UpdateRepo(ctx context.Context, repo *core.Repo) error
-	DeleteRepo(ctx context.Context, name string) error
-}
-
-// RepoDriver is an interface for managing repositories.
-type RepoDriver interface {
-	RepoReader
-	RepoWriter
+	MakeRepo(ctx context.Context, repo *core.Repo) error
 }
 
 // TupleReader is an interface for reading tuples.

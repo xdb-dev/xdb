@@ -115,54 +115,6 @@ func main() {
 			},
 		},
 		{
-			Name:        "query",
-			Description: "queries repository for resources matching the given filter",
-			Usage:       "query [repo_uri] [--filter <filter>]",
-			Arguments: []cli.Argument{
-				&cli.StringArg{
-					Name: "repo_uri",
-				},
-			},
-			Flags: []cli.Flag{
-				&cli.StringFlag{
-					Name:    "filter",
-					Aliases: []string{"f"},
-					Usage:   "filter to apply to the query",
-				},
-			},
-			Action: func(ctx context.Context, cmd *cli.Command) error {
-				repo_uri := cmd.String("repo_uri")
-				filter := cmd.String("filter")
-
-				slog.Info("[XDB] Querying repository", "repo_uri", repo_uri, "filter", filter)
-
-				return nil //app.QueryRepository(ctx, repo_uri, filter)
-			},
-		},
-		{
-			Name:        "purge",
-			Description: "permanently removes a resource by its URI",
-			Usage:       "purge [uri]",
-			Arguments: []cli.Argument{
-				&cli.StringArg{
-					Name: "uri",
-				},
-			},
-			Flags: []cli.Flag{
-				&cli.BoolFlag{
-					Name:    "recursive",
-					Aliases: []string{"r"},
-					Usage:   "purge all resources recursively",
-				},
-			},
-			Action: func(ctx context.Context, cmd *cli.Command) error {
-				uri := cmd.String("uri")
-				slog.Info("[XDB] Purging resource", "uri", uri)
-
-				return nil //app.PurgeResource(ctx, uri)
-			},
-		},
-		{
 			Name:        "server",
 			Description: "starts XDB server",
 			Usage:       "server [command]",

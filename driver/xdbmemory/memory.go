@@ -36,7 +36,7 @@ func (d *MemoryDriver) GetRepo(ctx context.Context, name string) (*core.Repo, er
 
 	repo, ok := d.repos[name]
 	if !ok {
-		return nil, driver.ErrRepoNotFound
+		return nil, driver.ErrNotFound
 	}
 
 	return repo, nil
@@ -53,15 +53,6 @@ func (d *MemoryDriver) ListRepos(ctx context.Context) ([]*core.Repo, error) {
 	}
 
 	return repos, nil
-}
-
-// DeleteRepo deletes the repo for the given name.
-func (d *MemoryDriver) DeleteRepo(ctx context.Context, name string) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
-	delete(d.repos, name)
-	return nil
 }
 
 // MakeRepo saves the repo.
