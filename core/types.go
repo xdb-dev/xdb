@@ -92,14 +92,21 @@ func NewMapType(keyTypeID, valueTypeID TypeID) Type {
 // ID returns the TypeID of the Type.
 func (t Type) ID() TypeID { return t.id }
 
-// Name returns the name of the Type.
-func (t Type) Name() string { return typeNames[t.id] }
+// String returns the name of the Type.
+func (t Type) String() string { return typeNames[t.id] }
 
 // KeyType returns the key TypeID for map types.
 func (t Type) KeyType() TypeID { return t.keyTypeID }
 
 // ValueType returns the value TypeID for array and map types.
 func (t Type) ValueType() TypeID { return t.valueTypeID }
+
+// Equals returns true if this Type is equal to the other Type.
+func (t Type) Equals(other Type) bool {
+	return t.id == other.id &&
+		t.keyTypeID == other.keyTypeID &&
+		t.valueTypeID == other.valueTypeID
+}
 
 var (
 	booleanType  = NewType(TypeIDBoolean)

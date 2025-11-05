@@ -103,7 +103,7 @@ func TestType(t *testing.T) {
 	t.Run("Basic Type Creation", func(t *testing.T) {
 		typ := core.NewType(core.TypeIDBoolean)
 		assert.Equal(t, core.TypeIDBoolean, typ.ID())
-		assert.Equal(t, "BOOLEAN", typ.Name())
+		assert.Equal(t, "BOOLEAN", typ.String())
 		assert.Equal(t, core.TypeIDUnknown, typ.KeyType())
 		assert.Equal(t, core.TypeIDUnknown, typ.ValueType())
 	})
@@ -111,7 +111,7 @@ func TestType(t *testing.T) {
 	t.Run("Array Type Creation", func(t *testing.T) {
 		typ := core.NewArrayType(core.TypeIDString)
 		assert.Equal(t, core.TypeIDArray, typ.ID())
-		assert.Equal(t, "ARRAY", typ.Name())
+		assert.Equal(t, "ARRAY", typ.String())
 		assert.Equal(t, core.TypeIDUnknown, typ.KeyType())
 		assert.Equal(t, core.TypeIDString, typ.ValueType())
 	})
@@ -119,7 +119,7 @@ func TestType(t *testing.T) {
 	t.Run("Map Type Creation", func(t *testing.T) {
 		typ := core.NewMapType(core.TypeIDString, core.TypeIDInteger)
 		assert.Equal(t, core.TypeIDMap, typ.ID())
-		assert.Equal(t, "MAP", typ.Name())
+		assert.Equal(t, "MAP", typ.String())
 		assert.Equal(t, core.TypeIDString, typ.KeyType())
 		assert.Equal(t, core.TypeIDInteger, typ.ValueType())
 	})
@@ -128,7 +128,7 @@ func TestType(t *testing.T) {
 		t.Run("Unknown Type", func(t *testing.T) {
 			typ := core.NewType(core.TypeIDUnknown)
 			assert.Equal(t, core.TypeIDUnknown, typ.ID())
-			assert.Equal(t, "UNKNOWN", typ.Name())
+			assert.Equal(t, "UNKNOWN", typ.String())
 		})
 
 		t.Run("Array with Unknown Value Type", func(t *testing.T) {
@@ -170,14 +170,14 @@ func TestType_EdgeCases(t *testing.T) {
 			typ1 := core.NewType(core.TypeIDBoolean)
 			typ2 := core.NewType(core.TypeIDBoolean)
 			assert.Equal(t, typ1.ID(), typ2.ID())
-			assert.Equal(t, typ1.Name(), typ2.Name())
+			assert.Equal(t, typ1.String(), typ2.String())
 		})
 
 		t.Run("Different Types", func(t *testing.T) {
 			typ1 := core.NewType(core.TypeIDBoolean)
 			typ2 := core.NewType(core.TypeIDInteger)
 			assert.NotEqual(t, typ1.ID(), typ2.ID())
-			assert.NotEqual(t, typ1.Name(), typ2.Name())
+			assert.NotEqual(t, typ1.String(), typ2.String())
 		})
 
 		t.Run("Array vs Scalar", func(t *testing.T) {
@@ -206,7 +206,7 @@ func TestType_EdgeCases(t *testing.T) {
 			for _, typeID := range typeIDs {
 				typ := core.NewType(typeID)
 				assert.Equal(t, typeID, typ.ID())
-				assert.NotEmpty(t, typ.Name())
+				assert.NotEmpty(t, typ.String())
 			}
 		})
 
@@ -216,7 +216,7 @@ func TestType_EdgeCases(t *testing.T) {
 			typ := core.NewType(invalidTypeID)
 			assert.Equal(t, invalidTypeID, typ.ID())
 			// Should return empty string for unknown type
-			assert.Equal(t, "", typ.Name())
+			assert.Equal(t, "", typ.String())
 		})
 	})
 

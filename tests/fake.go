@@ -9,53 +9,30 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
+// FakeRepo creates a fake repository.
+func FakeRepo() *core.Repo {
+	repo, _ := core.NewRepo("example-repo")
+	return repo.WithSchema(FakePostSchema())
+}
+
 // FakePostSchema creates a fake schema of a Post.
 func FakePostSchema() *core.Schema {
 	return &core.Schema{
-		Name: "com.example.Post",
-		Fields: []*core.Schema{
-			{
-				Name:     "title",
-				Type:     core.TypeIDString.String(),
-				Required: true,
-			},
-			{
-				Name:     "content",
-				Type:     core.TypeIDString.String(),
-				Required: true,
-			},
-			{
-				Name: "tags",
-				Type: core.TypeIDArray.String(),
-				Items: &core.Schema{
-					Type: core.TypeIDString.String(),
-				},
-			},
-			{
-				Name: "metadata",
-				Type: core.TypeIDMap.String(),
-			},
-			{
-				Name: "rating",
-				Type: core.TypeIDFloat.String(),
-			},
-			{
-				Name: "published",
-				Type: core.TypeIDBoolean.String(),
-			},
-			{
-				Name: "comments.count",
-				Type: core.TypeIDInteger.String(),
-			},
-			{
-				Name: "thumbnail",
-				Type: core.TypeIDBytes.String(),
-			},
-			{
-				Name: "created_at",
-				Type: core.TypeIDTime.String(),
-			},
+		Name:        "Post",
+		Description: "Blog post schema",
+		Version:     "1.0.0",
+		Fields: []*core.FieldSchema{
+			{Name: "title", Type: core.NewType(core.TypeIDString)},
+			{Name: "content", Type: core.NewType(core.TypeIDString)},
+			{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
+			{Name: "metadata", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
+			{Name: "rating", Type: core.NewType(core.TypeIDFloat)},
+			{Name: "published", Type: core.NewType(core.TypeIDBoolean)},
+			{Name: "comments.count", Type: core.NewType(core.TypeIDInteger)},
+			{Name: "thumbnail", Type: core.NewType(core.TypeIDBytes)},
+			{Name: "created_at", Type: core.NewType(core.TypeIDTime)},
 		},
+		Required: []string{"title", "content"},
 	}
 }
 

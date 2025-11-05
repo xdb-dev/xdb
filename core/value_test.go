@@ -258,7 +258,7 @@ func TestValue_TypeInformation(t *testing.T) {
 	t.Run("Boolean Type", func(t *testing.T) {
 		value := core.NewValue(true)
 		assert.Equal(t, core.TypeIDBoolean, value.Type().ID())
-		assert.Equal(t, "BOOLEAN", value.Type().Name())
+		assert.Equal(t, "BOOLEAN", value.Type().String())
 	})
 
 	t.Run("Array Type", func(t *testing.T) {

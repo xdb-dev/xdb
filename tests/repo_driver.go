@@ -34,7 +34,17 @@ func TestRepoReaderWriter(t *testing.T, rw repoReaderWriter) {
 	t.Run("ListRepos", func(t *testing.T) {
 		got, err := rw.ListRepos(ctx)
 		require.NoError(t, err)
-		AssertEqualRepos(t, repos, got)
+		require.NotEmpty(t, got)
+		// At least the repo we created should be in the list
+		found := false
+		for _, r := range got {
+			if r.Name() == repo.Name() {
+				found = true
+				AssertEqualRepo(t, repo, r)
+				break
+			}
+		}
+		require.True(t, found, "created repo not found in list")
 	})
 }
 

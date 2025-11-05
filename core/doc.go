@@ -25,6 +25,9 @@
 // Value is a typed container supporting Go's basic types plus arrays and maps.
 // Values provide type-safe casting methods and automatic type inference.
 //
+// Schema provides structure and validation for records.
+// Schemas define field types, constraints, and validation rules similar to JSON Schema.
+//
 // Example usage:
 //
 //	// Create a record for user "123"
@@ -38,4 +41,18 @@
 //
 //	// Create tuples directly
 //	emailTuple := NewTuple(NewID("user", "123"), NewAttr("profile", "email"), "john@example.com")
+//
+//	// Define and validate a schema
+//	schema := NewSchema("user").
+//		AddField("name", NewFieldSchema(TypeIDString).WithRequired(true)).
+//		AddField("age", NewFieldSchema(TypeIDInteger).WithConstraints(&Constraints{
+//			Minimum: Float64Ptr(0),
+//			Maximum: Float64Ptr(150),
+//		})).
+//		AddRequired("name")
+//
+//	// Validate a record against the schema
+//	if err := schema.ValidateRecord(user); err != nil {
+//		fmt.Println("Validation failed:", err)
+//	}
 package core
