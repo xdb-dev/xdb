@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
 )
@@ -19,7 +20,7 @@ var ErrInvalidURI = errors.New("[xdb/core] invalid URI")
 //
 // REPOSITORY is a data repository.
 // RECORD is a group of tuples with the same ID.
-// ATTRIBUTE is a specific attribute of a tuple.
+// ATTRIBUTE is a specific attribute of a record.
 type URI struct {
 	repo string
 	id   ID
@@ -73,17 +74,17 @@ func NewURI(parts ...any) *URI {
 	return &URI{repo: repo, id: id, attr: attr}
 }
 
-// Repo returns the repository of the URI.
+// Repo returns the repository name part of the URI.
 func (u *URI) Repo() string {
 	return u.repo
 }
 
-// ID returns the ID of the URI.
+// ID returns the ID part of the URI.
 func (u *URI) ID() ID {
 	return u.id
 }
 
-// Attr returns the attribute of the URI.
+// Attr returns the attribute part of the URI.
 func (u *URI) Attr() Attr {
 	return u.attr
 }
@@ -136,14 +137,26 @@ func ParseURI(uri string) (*URI, error) {
 		return nil, ErrInvalidURI
 	}
 
-	if len(matches) > 1 && !isValidRepo(matches[0]) {
+	if len(matches) > 1 && !isValidRepo(matches[1]) {
 		return nil, ErrInvalidRepo
+	}
+
+	// Parse ID by splitting on "/" if present
+	var id ID
+	if matches[2] != "" {
+		id = NewID(splitNonEmpty(matches[2], "/")...)
+	}
+
+	// Parse Attr by splitting on "." if present
+	var attr Attr
+	if matches[3] != "" {
+		attr = NewAttr(splitNonEmpty(matches[3], ".")...)
 	}
 
 	return &URI{
 		repo: matches[1],
-		id:   NewID(matches[2]),
-		attr: NewAttr(matches[3]),
+		id:   id,
+		attr: attr,
 	}, nil
 }
 
@@ -155,4 +168,12 @@ func MustParseURI(raw string) *URI {
 		panic(err)
 	}
 	return uri
+}
+
+// splitNonEmpty splits a string by the given separator and returns non-empty parts.
+func splitNonEmpty(s, sep string) []string {
+	if s == "" {
+		return nil
+	}
+	return strings.Split(s, sep)
 }

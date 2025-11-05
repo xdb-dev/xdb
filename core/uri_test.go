@@ -92,39 +92,58 @@ func TestParseURI(t *testing.T) {
 	testcases := []struct {
 		name string
 		uri  string
-		want *core.URI
+		repo string
+		id   core.ID
+		attr core.Attr
 	}{
 		{
 			name: "Repo URI",
 			uri:  "xdb://com.example",
-			want: core.NewURI("com.example"),
+			repo: "com.example",
 		},
 		{
 			name: "Record URI",
 			uri:  "xdb://com.example.posts/123",
-			want: core.NewURI("com.example.posts", "123"),
+			repo: "com.example.posts",
+			id:   core.NewID("123"),
 		},
 		{
 			name: "Hierarchy ID URI",
 			uri:  "xdb://com.example.posts/123/456",
-			want: core.NewURI("com.example.posts", []string{"123", "456"}),
+			repo: "com.example.posts",
+			id:   core.NewID("123", "456"),
 		},
 		{
 			name: "Attribute URI",
 			uri:  "xdb://com.example.posts/123#name",
-			want: core.NewURI("com.example.posts", "123", "name"),
+			repo: "com.example.posts",
+			id:   core.NewID("123"),
+			attr: core.NewAttr("name"),
 		},
 		{
 			name: "Nested Attribute URI",
 			uri:  "xdb://com.example.posts/123#profile.name",
-			want: core.NewURI("com.example.posts", "123", []string{"profile", "name"}),
+			repo: "com.example.posts",
+			id:   core.NewID("123"),
+			attr: core.NewAttr("profile", "name"),
 		},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			uri, err := core.ParseURI(tc.uri)
 			assert.NoError(t, err)
-			assert.Equal(t, tc.want.String(), uri.String())
+
+			assert.Equal(t, tc.repo, uri.Repo())
+
+			if len(tc.id) > 0 {
+				assert.Equal(t, tc.id.String(), uri.ID().String())
+			}
+			if len(tc.attr) > 0 {
+				assert.Equal(t, tc.attr.String(), uri.Attr().String())
+			}
+
+			want := core.NewURI(tc.repo, tc.id, tc.attr)
+			assert.Equal(t, want.String(), uri.String())
 		})
 	}
 }
