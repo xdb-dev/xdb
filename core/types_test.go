@@ -162,6 +162,72 @@ func TestType(t *testing.T) {
 	})
 }
 
+func TestType_Equals(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Scalar Types Equality", func(t *testing.T) {
+		type1 := core.TypeBool
+		type2 := core.TypeBool
+		type3 := core.TypeInt
+
+		assert.True(t, type1.Equals(type2))
+		assert.False(t, type1.Equals(type3))
+	})
+
+	t.Run("Array Types Equality", func(t *testing.T) {
+		arr1 := core.NewArrayType(core.TypeIDString)
+		arr2 := core.NewArrayType(core.TypeIDString)
+		arr3 := core.NewArrayType(core.TypeIDInteger)
+
+		assert.True(t, arr1.Equals(arr2))
+		assert.False(t, arr1.Equals(arr3))
+	})
+
+	t.Run("Map Types Equality", func(t *testing.T) {
+		map1 := core.NewMapType(core.TypeIDString, core.TypeIDInteger)
+		map2 := core.NewMapType(core.TypeIDString, core.TypeIDInteger)
+		map3 := core.NewMapType(core.TypeIDString, core.TypeIDString)
+		map4 := core.NewMapType(core.TypeIDInteger, core.TypeIDInteger)
+
+		assert.True(t, map1.Equals(map2))
+		assert.False(t, map1.Equals(map3)) // Different value type
+		assert.False(t, map1.Equals(map4)) // Different key type
+	})
+
+	t.Run("Different Type Kinds", func(t *testing.T) {
+		scalar := core.TypeString
+		array := core.NewArrayType(core.TypeIDString)
+		mapType := core.NewMapType(core.TypeIDString, core.TypeIDString)
+
+		assert.False(t, scalar.Equals(array))
+		assert.False(t, scalar.Equals(mapType))
+		assert.False(t, array.Equals(mapType))
+	})
+
+	t.Run("Complex Nested Types", func(t *testing.T) {
+		// Array of strings
+		arr1 := core.NewArrayType(core.TypeIDString)
+		// Array of integers
+		arr2 := core.NewArrayType(core.TypeIDInteger)
+
+		assert.False(t, arr1.Equals(arr2))
+
+		// Map with string keys and string values
+		map1 := core.NewMapType(core.TypeIDString, core.TypeIDString)
+		// Map with string keys and integer values
+		map2 := core.NewMapType(core.TypeIDString, core.TypeIDInteger)
+
+		assert.False(t, map1.Equals(map2))
+	})
+
+	t.Run("Unknown Types", func(t *testing.T) {
+		unknown1 := core.TypeUnknown
+		unknown2 := core.TypeUnknown
+
+		assert.True(t, unknown1.Equals(unknown2))
+	})
+}
+
 func TestType_EdgeCases(t *testing.T) {
 	t.Parallel()
 

@@ -200,3 +200,162 @@ func TestFieldSchema_ValidateValue(t *testing.T) {
 		assert.ErrorIs(t, err, core.ErrTypeMismatch)
 	})
 }
+
+func TestSchema_ArrayTypes(t *testing.T) {
+	t.Parallel()
+
+	schema := &core.Schema{
+		Name: "Post",
+		Fields: []*core.FieldSchema{
+			{
+				Name: "tags",
+				Type: core.NewArrayType(core.TypeIDString),
+			},
+			{
+				Name: "scores",
+				Type: core.NewArrayType(core.TypeIDInteger),
+			},
+		},
+	}
+
+	t.Run("Valid String Array", func(t *testing.T) {
+		tuple := core.NewTuple("Post", "123", "tags", []string{"go", "xdb", "database"})
+		err := schema.ValidateTuple(tuple)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Valid Integer Array", func(t *testing.T) {
+		tuple := core.NewTuple("Post", "123", "scores", []int64{1, 2, 3, 4, 5})
+		err := schema.ValidateTuple(tuple)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Type Mismatch - Wrong Array Element Type", func(t *testing.T) {
+		// tags should be string array, not int array
+		tuple := core.NewTuple("Post", "123", "tags", []int64{1, 2, 3})
+		err := schema.ValidateTuple(tuple)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrTypeMismatch)
+	})
+
+	t.Run("Type Mismatch - Scalar Instead of Array", func(t *testing.T) {
+		tuple := core.NewTuple("Post", "123", "tags", "single-tag")
+		err := schema.ValidateTuple(tuple)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrTypeMismatch)
+	})
+}
+
+func TestSchema_MapTypes(t *testing.T) {
+	t.Parallel()
+
+	schema := &core.Schema{
+		Name: "Config",
+		Fields: []*core.FieldSchema{
+			{
+				Name: "settings",
+				Type: core.NewMapType(core.TypeIDString, core.TypeIDString),
+			},
+			{
+				Name: "counts",
+				Type: core.NewMapType(core.TypeIDString, core.TypeIDInteger),
+			},
+		},
+	}
+
+	t.Run("Valid String-String Map", func(t *testing.T) {
+		settings := map[string]string{
+			"theme": "dark",
+			"lang":  "en",
+		}
+		tuple := core.NewTuple("Config", "123", "settings", settings)
+		err := schema.ValidateTuple(tuple)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Valid String-Integer Map", func(t *testing.T) {
+		counts := map[string]int64{
+			"views":  100,
+			"likes":  25,
+			"shares": 10,
+		}
+		tuple := core.NewTuple("Config", "123", "counts", counts)
+		err := schema.ValidateTuple(tuple)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Type Mismatch - Wrong Value Type", func(t *testing.T) {
+		// counts expects int64 values, not string
+		wrongCounts := map[string]string{
+			"views": "many",
+		}
+		tuple := core.NewTuple("Config", "123", "counts", wrongCounts)
+		err := schema.ValidateTuple(tuple)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrTypeMismatch)
+	})
+
+	t.Run("Type Mismatch - Scalar Instead of Map", func(t *testing.T) {
+		tuple := core.NewTuple("Config", "123", "settings", "just-a-string")
+		err := schema.ValidateTuple(tuple)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrTypeMismatch)
+	})
+}
+
+func TestSchema_NestedFields(t *testing.T) {
+	t.Parallel()
+
+	schema := &core.Schema{
+		Name: "User",
+		Fields: []*core.FieldSchema{
+			{
+				Name: "name",
+				Type: core.TypeString,
+			},
+			{
+				Name: "profile.bio",
+				Type: core.TypeString,
+			},
+			{
+				Name: "profile.age",
+				Type: core.TypeInt,
+			},
+			{
+				Name: "settings.notifications.email",
+				Type: core.TypeBool,
+			},
+		},
+		Required: []string{"name"},
+	}
+
+	t.Run("Valid Nested Fields", func(t *testing.T) {
+		record := core.NewRecord("User", "123")
+		record.Set("name", "John")
+		record.Set(core.NewAttr("profile", "bio"), "Software Engineer")
+		record.Set(core.NewAttr("profile", "age"), 30)
+		record.Set(core.NewAttr("settings", "notifications", "email"), true)
+
+		err := schema.ValidateRecord(record)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Type Mismatch in Nested Field", func(t *testing.T) {
+		record := core.NewRecord("User", "123")
+		record.Set("name", "John")
+		record.Set(core.NewAttr("profile", "age"), "thirty") // Should be int
+
+		err := schema.ValidateRecord(record)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrTypeMismatch)
+	})
+
+	t.Run("Missing Required Top-Level Field", func(t *testing.T) {
+		record := core.NewRecord("User", "123")
+		record.Set(core.NewAttr("profile", "bio"), "Engineer")
+
+		err := schema.ValidateRecord(record)
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrRequiredFieldMissing)
+	})
+}

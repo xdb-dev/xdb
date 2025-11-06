@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -554,5 +555,135 @@ func TestCast_StringConversionEdgeCases(t *testing.T) {
 	t.Run("NaN Values", func(t *testing.T) {
 		value := core.NewValue(math.NaN())
 		assert.Equal(t, "NaN", value.ToString())
+	})
+}
+
+func TestCast_MapValues(t *testing.T) {
+	t.Parallel()
+
+	t.Run("String to String Map", func(t *testing.T) {
+		mapValue := map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		}
+		value := core.NewValue(mapValue)
+
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+		assert.Equal(t, core.TypeIDString, value.Type().KeyType())
+		assert.Equal(t, core.TypeIDString, value.Type().ValueType())
+
+		// Verify String() returns deterministic output (sorted)
+		str := value.String()
+		assert.Contains(t, str, "key1: value1")
+		assert.Contains(t, str, "key2: value2")
+	})
+
+	t.Run("String to Int Map", func(t *testing.T) {
+		mapValue := map[string]int64{
+			"count1": 100,
+			"count2": 200,
+		}
+		value := core.NewValue(mapValue)
+
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+		assert.Equal(t, core.TypeIDString, value.Type().KeyType())
+		assert.Equal(t, core.TypeIDInteger, value.Type().ValueType())
+	})
+
+	t.Run("Int to String Map", func(t *testing.T) {
+		mapValue := map[int64]string{
+			1: "one",
+			2: "two",
+		}
+		value := core.NewValue(mapValue)
+
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+		assert.Equal(t, core.TypeIDInteger, value.Type().KeyType())
+		assert.Equal(t, core.TypeIDString, value.Type().ValueType())
+	})
+
+	t.Run("Bool to Bool Map", func(t *testing.T) {
+		mapValue := map[bool]bool{
+			true:  false,
+			false: true,
+		}
+		value := core.NewValue(mapValue)
+
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+		assert.Equal(t, core.TypeIDBoolean, value.Type().KeyType())
+		assert.Equal(t, core.TypeIDBoolean, value.Type().ValueType())
+	})
+
+	t.Run("Empty Map Returns Nil", func(t *testing.T) {
+		emptyMap := map[string]string{}
+		value := core.NewValue(emptyMap)
+
+		assert.Nil(t, value)
+	})
+
+	t.Run("Map with Mixed Value Types", func(t *testing.T) {
+		mapValue := map[string]interface{}{
+			"str": "value",
+			"num": 123,
+		}
+		value := core.NewValue(mapValue)
+
+		assert.NotNil(t, value)
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+	})
+
+	t.Run("Deterministic String Output", func(t *testing.T) {
+		// Create the same map multiple times and verify string output is consistent
+		for i := 0; i < 10; i++ {
+			mapValue := map[string]string{
+				"zebra":  "z",
+				"alpha":  "a",
+				"beta":   "b",
+				"gamma":  "g",
+				"delta":  "d",
+				"omega":  "o",
+			}
+			value := core.NewValue(mapValue)
+			str := value.String()
+
+			// All iterations should produce the same string (sorted)
+			assert.Contains(t, str, "alpha: a")
+			assert.Contains(t, str, "zebra: z")
+
+			// Verify alphabetically sorted by checking position
+			alphaPos := strings.Index(str, "alpha:")
+			zebraPos := strings.Index(str, "zebra:")
+			assert.Less(t, alphaPos, zebraPos, "Keys should be sorted alphabetically")
+		}
+	})
+
+	t.Run("Map Cannot Be Cast to Scalar", func(t *testing.T) {
+		mapValue := map[string]string{"key": "value"}
+		value := core.NewValue(mapValue)
+
+		assert.Panics(t, func() {
+			value.ToString()
+		})
+
+		assert.Panics(t, func() {
+			value.ToInt()
+		})
+
+		assert.Panics(t, func() {
+			value.ToBool()
+		})
+	})
+
+	t.Run("Map Cannot Be Cast to Array", func(t *testing.T) {
+		mapValue := map[string]string{"key": "value"}
+		value := core.NewValue(mapValue)
+
+		assert.Panics(t, func() {
+			value.ToStringArray()
+		})
+
+		assert.Panics(t, func() {
+			value.ToIntArray()
+		})
 	})
 }

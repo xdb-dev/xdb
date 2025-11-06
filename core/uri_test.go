@@ -147,3 +147,157 @@ func TestParseURI(t *testing.T) {
 		})
 	}
 }
+
+func TestParseURI_Invalid(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		name string
+		uri  string
+	}{
+		{
+			name: "Empty string",
+			uri:  "",
+		},
+		{
+			name: "Missing scheme",
+			uri:  "com.example.posts",
+		},
+		{
+			name: "Wrong scheme",
+			uri:  "http://com.example.posts",
+		},
+		{
+			name: "Missing repository",
+			uri:  "xdb://",
+		},
+		{
+			name: "Invalid repo characters",
+			uri:  "xdb://invalid repo",
+		},
+		{
+			name: "Invalid repo with special chars",
+			uri:  "xdb://repo@invalid",
+		},
+		{
+			name: "Just xdb",
+			uri:  "xdb",
+		},
+		{
+			name: "Malformed URI",
+			uri:  "xdb:///no-repo",
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			uri, err := core.ParseURI(tc.uri)
+			assert.Error(t, err)
+			assert.Nil(t, uri)
+		})
+	}
+}
+
+func TestMustParseURI(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Valid URI", func(t *testing.T) {
+		uri := core.MustParseURI("xdb://com.example.posts/123")
+		assert.NotNil(t, uri)
+		assert.Equal(t, "com.example.posts", uri.Repo())
+		assert.Equal(t, "123", uri.ID().String())
+	})
+
+	t.Run("Invalid URI Panics", func(t *testing.T) {
+		assert.Panics(t, func() {
+			core.MustParseURI("invalid-uri")
+		})
+	})
+
+	t.Run("Empty String Panics", func(t *testing.T) {
+		assert.Panics(t, func() {
+			core.MustParseURI("")
+		})
+	})
+}
+
+func TestURI_JSON(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Marshal Tuple URI", func(t *testing.T) {
+		uri := core.NewURI("com.example.posts", "123", "title")
+		data, err := uri.MarshalJSON()
+		assert.NoError(t, err)
+		assert.Equal(t, `"xdb://com.example.posts/123#title"`, string(data))
+	})
+
+	t.Run("Unmarshal Tuple URI", func(t *testing.T) {
+		var uri core.URI
+		err := uri.UnmarshalJSON([]byte(`"xdb://com.example.posts/123#title"`))
+		assert.NoError(t, err)
+		assert.Equal(t, "com.example.posts", uri.Repo())
+		assert.Equal(t, "123", uri.ID().String())
+		assert.Equal(t, "title", uri.Attr().String())
+	})
+
+	t.Run("Unmarshal Invalid JSON", func(t *testing.T) {
+		var uri core.URI
+		err := uri.UnmarshalJSON([]byte(`invalid`))
+		assert.Error(t, err)
+	})
+
+	t.Run("Unmarshal Invalid URI", func(t *testing.T) {
+		var uri core.URI
+		err := uri.UnmarshalJSON([]byte(`"invalid-uri"`))
+		assert.Error(t, err)
+	})
+
+	t.Run("Round-trip", func(t *testing.T) {
+		original := core.NewURI("com.example.posts", core.NewID("123", "456"), core.NewAttr("profile", "name"))
+
+		data, err := original.MarshalJSON()
+		assert.NoError(t, err)
+
+		var parsed core.URI
+		err = parsed.UnmarshalJSON(data)
+		assert.NoError(t, err)
+
+		assert.Equal(t, original.String(), parsed.String())
+		assert.Equal(t, original.Repo(), parsed.Repo())
+		assert.Equal(t, original.ID().String(), parsed.ID().String())
+		assert.Equal(t, original.Attr().String(), parsed.Attr().String())
+	})
+}
+
+func TestURI_EdgeCases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("URI with special characters in ID", func(t *testing.T) {
+		// Note: IDs can contain any string, even with special chars
+		uri := core.NewURI("com.example", "user-123_abc")
+		assert.Equal(t, "xdb://com.example/user-123_abc", uri.String())
+
+		parsed, err := core.ParseURI(uri.String())
+		assert.NoError(t, err)
+		assert.Equal(t, "user-123_abc", parsed.ID().String())
+	})
+
+	t.Run("URI with hierarchical ID", func(t *testing.T) {
+		uri := core.NewURI("repo", core.NewID("a", "b", "c"), "attr")
+		assert.Equal(t, "xdb://repo/a/b/c#attr", uri.String())
+
+		parsed, err := core.ParseURI("xdb://repo/a/b/c#attr")
+		assert.NoError(t, err)
+		assert.Equal(t, core.NewID("a", "b", "c").String(), parsed.ID().String())
+	})
+
+	t.Run("URI with deeply nested attribute", func(t *testing.T) {
+		attr := core.NewAttr("a", "b", "c", "d", "e")
+		uri := core.NewURI("repo", "123", attr)
+		assert.Equal(t, "xdb://repo/123#a.b.c.d.e", uri.String())
+
+		parsed, err := core.ParseURI("xdb://repo/123#a.b.c.d.e")
+		assert.NoError(t, err)
+		assert.Equal(t, "a.b.c.d.e", parsed.Attr().String())
+	})
+}
