@@ -6,8 +6,13 @@ import (
 	"github.com/gojekfarm/xtools/errors"
 )
 
-// ErrInvalidRepo is returned when an invalid repo name is encountered.
-var ErrInvalidRepo = errors.New("[xdb/core] invalid repo name")
+var (
+	// ErrInvalidRepo is returned when an invalid repo name is encountered.
+	ErrInvalidRepo = errors.New("[xdb/core] invalid repo name")
+
+	// ErrSchemaAlreadySet is returned when a schema is already set.
+	ErrSchemaAlreadySet = errors.New("[xdb/core] schema already set")
+)
 
 // Repo is a data repository.
 type Repo struct {
@@ -26,6 +31,9 @@ func NewRepo(name string) (*Repo, error) {
 
 // WithSchema sets the schema of the repo.
 func (r *Repo) WithSchema(schema *Schema) *Repo {
+	if r.schema != nil {
+		panic(ErrSchemaAlreadySet)
+	}
 	r.schema = schema
 	return r
 }

@@ -67,8 +67,7 @@ type Type struct {
 	valueTypeID TypeID
 }
 
-// NewType returns a new Type with the given TypeID.
-func NewType(id TypeID) Type {
+func newType(id TypeID) Type {
 	return Type{id: id}
 }
 
@@ -109,11 +108,12 @@ func (t Type) Equals(other Type) bool {
 }
 
 var (
-	booleanType  = NewType(TypeIDBoolean)
-	integerType  = NewType(TypeIDInteger)
-	unsignedType = NewType(TypeIDUnsigned)
-	floatType    = NewType(TypeIDFloat)
-	stringType   = NewType(TypeIDString)
-	bytesType    = NewType(TypeIDBytes)
-	timeType     = NewType(TypeIDTime)
+	TypeUnknown  = newType(TypeIDUnknown)
+	TypeBool     = newType(TypeIDBoolean)
+	TypeInt      = newType(TypeIDInteger)
+	TypeUnsigned = newType(TypeIDUnsigned)
+	TypeFloat    = newType(TypeIDFloat)
+	TypeString   = newType(TypeIDString)
+	TypeBytes    = newType(TypeIDBytes)
+	TypeTime     = newType(TypeIDTime)
 )

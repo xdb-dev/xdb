@@ -62,26 +62,26 @@ func NewSafeValue(input any) (*Value, error) {
 func newValue(iv reflect.Value) (*Value, error) {
 	switch iv.Kind() {
 	case reflect.Bool:
-		return &Value{typ: booleanType, data: iv.Bool()}, nil
+		return &Value{typ: TypeBool, data: iv.Bool()}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return &Value{typ: integerType, data: iv.Int()}, nil
+		return &Value{typ: TypeInt, data: iv.Int()}, nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return &Value{typ: unsignedType, data: iv.Uint()}, nil
+		return &Value{typ: TypeUnsigned, data: iv.Uint()}, nil
 	case reflect.Float32, reflect.Float64:
-		return &Value{typ: floatType, data: iv.Float()}, nil
+		return &Value{typ: TypeFloat, data: iv.Float()}, nil
 	case reflect.String:
-		return &Value{typ: stringType, data: iv.String()}, nil
+		return &Value{typ: TypeString, data: iv.String()}, nil
 	case reflect.Struct:
 		// Well-known types
 		if iv.Type() == reflect.TypeOf(time.Time{}) {
-			return &Value{typ: timeType, data: iv.Interface().(time.Time)}, nil
+			return &Value{typ: TypeTime, data: iv.Interface().(time.Time)}, nil
 		}
 
 		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
 	case reflect.Slice, reflect.Array:
 		// Special case for []byte
 		if iv.Type().Elem().Kind() == reflect.Uint8 {
-			return &Value{typ: bytesType, data: iv.Bytes()}, nil
+			return &Value{typ: TypeBytes, data: iv.Bytes()}, nil
 		}
 
 		if iv.Len() == 0 {

@@ -19,8 +19,7 @@
 // Record is a collection of tuples sharing the same ID.
 // Records are mutable and thread-safe for concurrent access.
 //
-// Key provides unique references to either records (ID only) or specific tuples (ID + Attr).
-// Keys can be used to create tuples and generate string representations.
+// URI provides unique references to repositories, records, and tuples.
 //
 // Value is a typed container supporting Go's basic types plus arrays and maps.
 // Values provide type-safe casting methods and automatic type inference.
@@ -41,6 +40,7 @@
 //
 //	// Create tuples directly
 //	emailTuple := NewTuple(
+//		"user",
 //		NewID("123"),
 //		NewAttr("profile", "email"),
 //		"john@example.com",

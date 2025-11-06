@@ -19,17 +19,17 @@ func TestSchema_ValidateRecord(t *testing.T) {
 			{
 				Name:        "name",
 				Description: "User's full name",
-				Type:        core.NewType(core.TypeIDString),
+				Type:        core.TypeString,
 			},
 			{
 				Name:        "email",
 				Description: "User's email address",
-				Type:        core.NewType(core.TypeIDString),
+				Type:        core.TypeString,
 			},
 			{
 				Name:        "age",
 				Description: "User's age",
-				Type:        core.NewType(core.TypeIDInteger),
+				Type:        core.TypeInt,
 			},
 		},
 		Required: []string{"name", "email"},
@@ -100,36 +100,36 @@ func TestSchema_ValidateTuple(t *testing.T) {
 		Fields: []*core.FieldSchema{
 			{
 				Name: "title",
-				Type: core.NewType(core.TypeIDString),
+				Type: core.TypeString,
 			},
 			{
 				Name: "likes",
-				Type: core.NewType(core.TypeIDInteger),
+				Type: core.TypeInt,
 			},
 		},
 	}
 
 	t.Run("Valid String Tuple", func(t *testing.T) {
-		tuple := core.NewTuple("Post/123", "title", "My Post")
+		tuple := core.NewTuple("com.example.posts", "123", "title", "My Post")
 		err := schema.ValidateTuple(tuple)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Valid Integer Tuple", func(t *testing.T) {
-		tuple := core.NewTuple("Post/123", "likes", 42)
+		tuple := core.NewTuple("com.example.posts", "123", "likes", 42)
 		err := schema.ValidateTuple(tuple)
 		assert.NoError(t, err)
 	})
 
 	t.Run("Type Mismatch", func(t *testing.T) {
-		tuple := core.NewTuple("Post/123", "likes", "many") // Should be integer
+		tuple := core.NewTuple("com.example.posts", "123", "likes", "many") // Should be integer
 		err := schema.ValidateTuple(tuple)
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, core.ErrTypeMismatch)
 	})
 
 	t.Run("Field Not In Schema", func(t *testing.T) {
-		tuple := core.NewTuple("Post/123", "unknown", "value")
+		tuple := core.NewTuple("com.example.posts", "123", "unknown", "value")
 		err := schema.ValidateTuple(tuple)
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, core.ErrFieldSchemaNotFound)
@@ -148,15 +148,15 @@ func TestSchema_GetFieldSchema(t *testing.T) {
 		Fields: []*core.FieldSchema{
 			{
 				Name: "name",
-				Type: core.NewType(core.TypeIDString),
+				Type: core.TypeString,
 			},
 			{
 				Name: "price",
-				Type: core.NewType(core.TypeIDFloat),
+				Type: core.TypeFloat,
 			},
 			{
 				Name: "category.name",
-				Type: core.NewType(core.TypeIDString),
+				Type: core.TypeString,
 			},
 		},
 	}
@@ -184,7 +184,7 @@ func TestSchema_GetFieldSchema(t *testing.T) {
 func TestFieldSchema_ValidateValue(t *testing.T) {
 	field := &core.FieldSchema{
 		Name: "name",
-		Type: core.NewType(core.TypeIDString),
+		Type: core.TypeString,
 	}
 
 	t.Run("Valid", func(t *testing.T) {

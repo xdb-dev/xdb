@@ -15,9 +15,6 @@ var (
 	ErrFieldSchemaNotFound = errors.New("xdb/schema: field schema not found")
 )
 
-// ValidatorFunc is a custom validation function for field values.
-type ValidatorFunc func(value *Value) error
-
 // Schema defines the structure and validation rules for records.
 // It provides metadata, field definitions, and record-level constraints.
 type Schema struct {

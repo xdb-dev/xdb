@@ -5,11 +5,20 @@ import (
 	"strings"
 
 	"slices"
+
+	"github.com/gojekfarm/xtools/errors"
+)
+
+var (
+	// ErrInvalidID is returned when an invalid ID is encountered.
+	ErrInvalidID = errors.New("[xdb/core] invalid ID")
+
+	// ErrInvalidAttr is returned when an invalid Attr is encountered.
+	ErrInvalidAttr = errors.New("[xdb/core] invalid Attr")
 )
 
 // ID represents a hierarchical identifier as a slice of strings.
-// IDs are used to uniquely identify entities across the database.
-// For example: ["user", "123"] or ["organization", "abc", "department", "engineering"].
+// For example: ["123"] or ["organization", "abc", "department", "engineering"].
 type ID []string
 
 // NewID creates a new ID from the provided string components.
@@ -19,7 +28,7 @@ func NewID(raw ...string) ID {
 }
 
 // String returns the ID as a forward-slash separated string.
-// For example: ["user", "123"] becomes "user/123".
+// For example: ["123", "456"] becomes "123/456".
 func (i ID) String() string {
 	return strings.Join(i, "/")
 }
@@ -30,7 +39,8 @@ func (i ID) Equals(other ID) bool {
 	return slices.Equal(i, other)
 }
 
-// Attr represents an attribute name as a slice of strings, supporting nested attributes.
+// Attr represents an attribute name as an array of strings,
+// which supports nested attributes.
 // For example: ["name"] for simple attributes or ["profile", "email"] for nested ones.
 type Attr []string
 
@@ -49,27 +59,35 @@ func (a Attr) String() string {
 // Tuple is the core data structure of XDB.
 //
 // Tuple is an immutable data structure containing:
+// - Repo: The repository name.
 // - ID: The ID of the tuple.
 // - Attr: Name of the attribute.
 // - Value: Value of the attribute.
 type Tuple struct {
+	repo  string
 	id    ID
 	attr  Attr
 	value *Value
 }
 
 // NewTuple creates a new Tuple.
-func NewTuple(id, attr, value any) *Tuple {
+func NewTuple(repo string, id, attr, value any) *Tuple {
 	return &Tuple{
+		repo:  repo,
 		id:    newID(id),
 		attr:  newAttr(attr),
 		value: NewValue(value),
 	}
 }
 
-// Key returns a reference to the tuple.
-func (t *Tuple) Key() *Key {
-	return NewKey(t.id, t.attr)
+// URI returns a reference to the tuple.
+func (t *Tuple) URI() *URI {
+	return NewURI(t.repo, t.id, t.attr)
+}
+
+// Repo returns the repository name of the tuple.
+func (t *Tuple) Repo() string {
+	return t.repo
 }
 
 // ID returns the ID of the tuple.
@@ -87,9 +105,14 @@ func (t *Tuple) Value() *Value {
 	return t.value
 }
 
+// IsNil returns true if the tuple value is nil.
+func (t *Tuple) IsNil() bool {
+	return t.value == nil || t.value.IsNil()
+}
+
 // GoString returns Go syntax of the tuple.
 func (t *Tuple) GoString() string {
-	return fmt.Sprintf("Tuple(%s, %s, %#v)", t.id.String(), t.attr.String(), t.value)
+	return fmt.Sprintf("Tuple(%s, %s, %s, %#v)", t.repo, t.id.String(), t.attr.String(), t.value)
 }
 
 func newID(id any) ID {
@@ -101,7 +124,7 @@ func newID(id any) ID {
 	case []string:
 		return ID(v)
 	default:
-		panic(fmt.Sprintf("invalid ID: %v", id))
+		panic(errors.Wrap(ErrInvalidID, "id", fmt.Sprintf("%v", id)))
 	}
 }
 
@@ -114,6 +137,6 @@ func newAttr(attr any) Attr {
 	case []string:
 		return Attr(v)
 	default:
-		panic(fmt.Sprintf("invalid Attr: %v", attr))
+		panic(errors.Wrap(ErrInvalidAttr, "attr", fmt.Sprintf("%v", attr)))
 	}
 }
