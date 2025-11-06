@@ -6,13 +6,13 @@ import (
 
 var (
 	// ErrEmptyRecord is returned when a record is nil.
-	ErrEmptyRecord = errors.New("xdb/schema: record is nil")
+	ErrEmptyRecord = errors.New("[xdb/core] record is nil")
 	// ErrEmptyTuple is returned when a tuple is nil.
-	ErrEmptyTuple = errors.New("xdb/schema: tuple is nil")
+	ErrEmptyTuple = errors.New("[xdb/core] tuple is nil")
 	// ErrRequiredFieldMissing is returned when a required field is missing.
-	ErrRequiredFieldMissing = errors.New("xdb/schema: required field missing")
+	ErrRequiredFieldMissing = errors.New("[xdb/core] required field missing")
 	// ErrFieldSchemaNotFound is returned when a field schema is not found.
-	ErrFieldSchemaNotFound = errors.New("xdb/schema: field schema not found")
+	ErrFieldSchemaNotFound = errors.New("[xdb/core] field schema not found")
 )
 
 // Schema defines the structure and validation rules for records.

@@ -49,17 +49,19 @@ func (r *Repo) Schema() *Schema {
 }
 
 // String returns the repo as a string.
-func (r Repo) String() string {
+func (r *Repo) String() string {
 	return r.name
 }
 
 // URI returns the URI of the repo.
-func (r Repo) URI() *URI {
+func (r *Repo) URI() *URI {
 	return &URI{repo: r.name}
 }
 
 var repoRegex = regexp.MustCompile(`^[a-zA-Z0-9.-_]+$`)
 
+// isValidRepo checks if a repository name is valid.
+// Valid names contain only alphanumeric characters, dots, hyphens, and underscores.
 func isValidRepo(name string) bool {
 	return repoRegex.MatchString(name)
 }

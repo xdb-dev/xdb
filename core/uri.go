@@ -170,7 +170,8 @@ func MustParseURI(raw string) *URI {
 	return uri
 }
 
-// splitNonEmpty splits a string by the given separator and returns non-empty parts.
+// splitNonEmpty splits a string by the given separator and returns the parts.
+// Returns nil if the string is empty to distinguish between "" and "a/b".
 func splitNonEmpty(s, sep string) []string {
 	if s == "" {
 		return nil

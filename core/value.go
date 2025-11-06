@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -12,9 +13,9 @@ import (
 
 var (
 	// ErrUnsupportedValue is returned when a value is not supported.
-	ErrUnsupportedValue = errors.New("xdb/types: unsupported value")
+	ErrUnsupportedValue = errors.New("[xdb/core] unsupported value")
 	// ErrTypeMismatch is returned when a value is not of the expected type.
-	ErrTypeMismatch = errors.New("xdb/types: type mismatch")
+	ErrTypeMismatch = errors.New("[xdb/core] type mismatch")
 )
 
 // Value represents an attribute value using a tagged union.
@@ -181,11 +182,16 @@ func (v *Value) String() string {
 		return fmt.Sprintf("[%s]", strings.Join(s, ", "))
 	case TypeIDMap:
 		values := v.data.(map[*Value]*Value)
-		s := make([]string, 0, len(values))
+		// Collect key-value pairs
+		pairs := make([]string, 0, len(values))
 		for k, val := range values {
-			s = append(s, fmt.Sprintf("%s: %s", k.String(), val.String()))
+			pairs = append(pairs, fmt.Sprintf("%s: %s", k.String(), val.String()))
 		}
-		return fmt.Sprintf("{%s}", strings.Join(s, ", "))
+		// Sort for deterministic output
+		// Note: This sorts by string representation, which may not be semantically perfect
+		// but ensures consistent output for debugging and testing.
+		slices.Sort(pairs)
+		return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 	default:
 		return ""
 	}

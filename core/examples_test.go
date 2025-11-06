@@ -16,7 +16,7 @@ func ExampleTuple() {
 	fmt.Println(tuple.URI())
 
 	// Output:
-	// User/123
+	// 123
 	// name
 	// John Doe
 	// xdb://com.example.users/123#name

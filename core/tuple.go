@@ -39,6 +39,24 @@ func (i ID) Equals(other ID) bool {
 	return slices.Equal(i, other)
 }
 
+// IsEmpty returns true if the ID has no components.
+func (i ID) IsEmpty() bool {
+	return len(i) == 0
+}
+
+// IsValid returns true if the ID is valid (non-empty and contains no empty strings).
+func (i ID) IsValid() bool {
+	if len(i) == 0 {
+		return false
+	}
+	for _, component := range i {
+		if component == "" {
+			return false
+		}
+	}
+	return true
+}
+
 // Attr represents an attribute name as an array of strings,
 // which supports nested attributes.
 // For example: ["name"] for simple attributes or ["profile", "email"] for nested ones.
@@ -46,7 +64,13 @@ type Attr []string
 
 // NewAttr creates a new Attr from the provided string components.
 // Each component represents a level in the attribute hierarchy.
+// If a single string contains dots (e.g., "profile.email"), it will be split
+// into separate levels. To create a single-level attribute with a dot in the name,
+// use the Attr type directly.
 func NewAttr(raw ...string) Attr {
+	if len(raw) == 1 && strings.Contains(raw[0], ".") {
+		return Attr(strings.Split(raw[0], "."))
+	}
 	return Attr(raw)
 }
 
@@ -54,6 +78,30 @@ func NewAttr(raw ...string) Attr {
 // For example: ["profile", "email"] becomes "profile.email".
 func (a Attr) String() string {
 	return strings.Join(a, ".")
+}
+
+// IsEmpty returns true if the Attr has no components.
+func (a Attr) IsEmpty() bool {
+	return len(a) == 0
+}
+
+// IsValid returns true if the Attr is valid (non-empty and contains no empty strings).
+func (a Attr) IsValid() bool {
+	if len(a) == 0 {
+		return false
+	}
+	for _, component := range a {
+		if component == "" {
+			return false
+		}
+	}
+	return true
+}
+
+// Equals returns true if this Attr is equal to the other Attr.
+// Comparison is done component-wise.
+func (a Attr) Equals(other Attr) bool {
+	return slices.Equal(a, other)
 }
 
 // Tuple is the core data structure of XDB.
@@ -115,6 +163,9 @@ func (t *Tuple) GoString() string {
 	return fmt.Sprintf("Tuple(%s, %s, %s, %#v)", t.repo, t.id.String(), t.attr.String(), t.value)
 }
 
+// newID is a helper that converts various ID representations into an ID.
+// It accepts ID, string, or []string types.
+// Panics with ErrInvalidID if the input type is not supported.
 func newID(id any) ID {
 	switch v := id.(type) {
 	case ID:
@@ -128,12 +179,15 @@ func newID(id any) ID {
 	}
 }
 
+// newAttr is a helper that converts various Attr representations into an Attr.
+// It accepts Attr, string (supports dot-separated paths), or []string types.
+// Panics with ErrInvalidAttr if the input type is not supported.
 func newAttr(attr any) Attr {
 	switch v := attr.(type) {
 	case Attr:
 		return v
 	case string:
-		return Attr{v}
+		return NewAttr(v)
 	case []string:
 		return Attr(v)
 	default:

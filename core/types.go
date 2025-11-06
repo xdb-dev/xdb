@@ -9,7 +9,7 @@ import (
 
 var (
 	// ErrUnknownType is returned when an unknown type is encountered.
-	ErrUnknownType = errors.New("xdb/types: unknown type")
+	ErrUnknownType = errors.New("[xdb/core] unknown type")
 )
 
 // TypeID represents the type of a value.
@@ -67,6 +67,8 @@ type Type struct {
 	valueTypeID TypeID
 }
 
+// newType creates a new scalar Type with the given TypeID.
+// This is used to create the predefined Type constants.
 func newType(id TypeID) Type {
 	return Type{id: id}
 }
