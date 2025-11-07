@@ -2,6 +2,7 @@ package core_test
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,7 +50,7 @@ func TestValue_ToBool(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple(id, "attr", tc.value)
+			tuple := core.NewTuple("test.repo", id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToBool())
 			assert.Equal(t, tc.expected, tuple.Value().ToBool())
 		})
@@ -88,7 +89,7 @@ func TestValue_ToInt(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple(id, "attr", tc.value)
+			tuple := core.NewTuple("test.repo", id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToInt())
 			assert.Equal(t, tc.expected, tuple.Value().ToInt())
 		})
@@ -128,7 +129,7 @@ func TestValue_ToUint(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple(id, "attr", tc.value)
+			tuple := core.NewTuple("test.repo", id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToUint())
 			assert.Equal(t, tc.expected, tuple.Value().ToUint())
 		})
@@ -162,7 +163,7 @@ func TestValue_ToFloat(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple(id, "attr", tc.value)
+			tuple := core.NewTuple("test.repo", id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToFloat())
 			assert.Equal(t, tc.expected, tuple.Value().ToFloat())
 		})
@@ -201,7 +202,7 @@ func TestValue_ToString(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple(id, "attr", tc.value)
+			tuple := core.NewTuple("test.repo", id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToString())
 			assert.Equal(t, tc.expected, tuple.Value().ToString())
 		})
@@ -245,7 +246,7 @@ func TestValue_ToBytes(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple(id, "attr", tc.value)
+			tuple := core.NewTuple("test.repo", id, "attr", tc.value)
 			assert.Equal(t, tc.expected, tuple.ToBytes())
 			assert.Equal(t, tc.expected, tuple.Value().ToBytes())
 		})
@@ -294,7 +295,7 @@ func TestValue_ToTime(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			tuple := core.NewTuple(id, "attr", tc.value)
+			tuple := core.NewTuple("test.repo", id, "attr", tc.value)
 			assert.Equal(t, tc.expected.Compare(tuple.ToTime()), 0)
 			assert.Equal(t, tc.expected.Compare(tuple.Value().ToTime()), 0)
 		})
@@ -306,42 +307,42 @@ func TestValue_Slices(t *testing.T) {
 
 	t.Run("IntArray", func(t *testing.T) {
 		value := []int64{1, 2, 3}
-		tuple := core.NewTuple(id, "attr", value)
+		tuple := core.NewTuple("test.repo", id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToIntArray())
 		assert.EqualValues(t, value, tuple.Value().ToIntArray())
 	})
 
 	t.Run("FloatArray", func(t *testing.T) {
 		value := []float64{1.1, 2.2, 3.3}
-		tuple := core.NewTuple(id, "attr", value)
+		tuple := core.NewTuple("test.repo", id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToFloatArray())
 		assert.EqualValues(t, value, tuple.Value().ToFloatArray())
 	})
 
 	t.Run("StringArray", func(t *testing.T) {
 		value := []string{"a", "b", "c"}
-		tuple := core.NewTuple(id, "attr", value)
+		tuple := core.NewTuple("test.repo", id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToStringArray())
 		assert.EqualValues(t, value, tuple.Value().ToStringArray())
 	})
 
 	t.Run("BoolArray", func(t *testing.T) {
 		value := []bool{true, false, true}
-		tuple := core.NewTuple(id, "attr", value)
+		tuple := core.NewTuple("test.repo", id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToBoolArray())
 		assert.EqualValues(t, value, tuple.Value().ToBoolArray())
 	})
 
 	t.Run("BytesArray", func(t *testing.T) {
 		value := [][]byte{[]byte("a"), []byte("b")}
-		tuple := core.NewTuple(id, "attr", value)
+		tuple := core.NewTuple("test.repo", id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToBytesArray())
 		assert.EqualValues(t, value, tuple.Value().ToBytesArray())
 	})
 
 	t.Run("UintArray", func(t *testing.T) {
 		value := []uint64{1, 2, 3}
-		tuple := core.NewTuple(id, "attr", value)
+		tuple := core.NewTuple("test.repo", id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToUintArray())
 		assert.EqualValues(t, value, tuple.Value().ToUintArray())
 	})
@@ -350,7 +351,7 @@ func TestValue_Slices(t *testing.T) {
 		t1 := time.Date(2025, 6, 10, 1, 2, 3, 0, time.UTC)
 		t2 := time.Date(2026, 7, 11, 4, 5, 6, 0, time.UTC)
 		value := []time.Time{t1, t2}
-		tuple := core.NewTuple(id, "attr", value)
+		tuple := core.NewTuple("test.repo", id, "attr", value)
 		assert.EqualValues(t, value, tuple.ToTimeArray())
 		assert.EqualValues(t, value, tuple.Value().ToTimeArray())
 	})
@@ -554,5 +555,135 @@ func TestCast_StringConversionEdgeCases(t *testing.T) {
 	t.Run("NaN Values", func(t *testing.T) {
 		value := core.NewValue(math.NaN())
 		assert.Equal(t, "NaN", value.ToString())
+	})
+}
+
+func TestCast_MapValues(t *testing.T) {
+	t.Parallel()
+
+	t.Run("String to String Map", func(t *testing.T) {
+		mapValue := map[string]string{
+			"key1": "value1",
+			"key2": "value2",
+		}
+		value := core.NewValue(mapValue)
+
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+		assert.Equal(t, core.TypeIDString, value.Type().KeyType())
+		assert.Equal(t, core.TypeIDString, value.Type().ValueType())
+
+		// Verify String() returns deterministic output (sorted)
+		str := value.String()
+		assert.Contains(t, str, "key1: value1")
+		assert.Contains(t, str, "key2: value2")
+	})
+
+	t.Run("String to Int Map", func(t *testing.T) {
+		mapValue := map[string]int64{
+			"count1": 100,
+			"count2": 200,
+		}
+		value := core.NewValue(mapValue)
+
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+		assert.Equal(t, core.TypeIDString, value.Type().KeyType())
+		assert.Equal(t, core.TypeIDInteger, value.Type().ValueType())
+	})
+
+	t.Run("Int to String Map", func(t *testing.T) {
+		mapValue := map[int64]string{
+			1: "one",
+			2: "two",
+		}
+		value := core.NewValue(mapValue)
+
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+		assert.Equal(t, core.TypeIDInteger, value.Type().KeyType())
+		assert.Equal(t, core.TypeIDString, value.Type().ValueType())
+	})
+
+	t.Run("Bool to Bool Map", func(t *testing.T) {
+		mapValue := map[bool]bool{
+			true:  false,
+			false: true,
+		}
+		value := core.NewValue(mapValue)
+
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+		assert.Equal(t, core.TypeIDBoolean, value.Type().KeyType())
+		assert.Equal(t, core.TypeIDBoolean, value.Type().ValueType())
+	})
+
+	t.Run("Empty Map Returns Nil", func(t *testing.T) {
+		emptyMap := map[string]string{}
+		value := core.NewValue(emptyMap)
+
+		assert.Nil(t, value)
+	})
+
+	t.Run("Map with Mixed Value Types", func(t *testing.T) {
+		mapValue := map[string]interface{}{
+			"str": "value",
+			"num": 123,
+		}
+		value := core.NewValue(mapValue)
+
+		assert.NotNil(t, value)
+		assert.Equal(t, core.TypeIDMap, value.Type().ID())
+	})
+
+	t.Run("Deterministic String Output", func(t *testing.T) {
+		// Create the same map multiple times and verify string output is consistent
+		for i := 0; i < 10; i++ {
+			mapValue := map[string]string{
+				"zebra":  "z",
+				"alpha":  "a",
+				"beta":   "b",
+				"gamma":  "g",
+				"delta":  "d",
+				"omega":  "o",
+			}
+			value := core.NewValue(mapValue)
+			str := value.String()
+
+			// All iterations should produce the same string (sorted)
+			assert.Contains(t, str, "alpha: a")
+			assert.Contains(t, str, "zebra: z")
+
+			// Verify alphabetically sorted by checking position
+			alphaPos := strings.Index(str, "alpha:")
+			zebraPos := strings.Index(str, "zebra:")
+			assert.Less(t, alphaPos, zebraPos, "Keys should be sorted alphabetically")
+		}
+	})
+
+	t.Run("Map Cannot Be Cast to Scalar", func(t *testing.T) {
+		mapValue := map[string]string{"key": "value"}
+		value := core.NewValue(mapValue)
+
+		assert.Panics(t, func() {
+			value.ToString()
+		})
+
+		assert.Panics(t, func() {
+			value.ToInt()
+		})
+
+		assert.Panics(t, func() {
+			value.ToBool()
+		})
+	})
+
+	t.Run("Map Cannot Be Cast to Array", func(t *testing.T) {
+		mapValue := map[string]string{"key": "value"}
+		value := core.NewValue(mapValue)
+
+		assert.Panics(t, func() {
+			value.ToStringArray()
+		})
+
+		assert.Panics(t, func() {
+			value.ToIntArray()
+		})
 	})
 }

@@ -9,7 +9,7 @@ import (
 
 var (
 	// ErrUnknownType is returned when an unknown type is encountered.
-	ErrUnknownType = errors.New("xdb/types: unknown type")
+	ErrUnknownType = errors.New("[xdb/core] unknown type")
 )
 
 // TypeID represents the type of a value.
@@ -67,8 +67,9 @@ type Type struct {
 	valueTypeID TypeID
 }
 
-// NewType returns a new Type with the given TypeID.
-func NewType(id TypeID) Type {
+// newType creates a new scalar Type with the given TypeID.
+// This is used to create the predefined Type constants.
+func newType(id TypeID) Type {
 	return Type{id: id}
 }
 
@@ -92,8 +93,8 @@ func NewMapType(keyTypeID, valueTypeID TypeID) Type {
 // ID returns the TypeID of the Type.
 func (t Type) ID() TypeID { return t.id }
 
-// Name returns the name of the Type.
-func (t Type) Name() string { return typeNames[t.id] }
+// String returns the name of the Type.
+func (t Type) String() string { return typeNames[t.id] }
 
 // KeyType returns the key TypeID for map types.
 func (t Type) KeyType() TypeID { return t.keyTypeID }
@@ -101,12 +102,20 @@ func (t Type) KeyType() TypeID { return t.keyTypeID }
 // ValueType returns the value TypeID for array and map types.
 func (t Type) ValueType() TypeID { return t.valueTypeID }
 
+// Equals returns true if this Type is equal to the other Type.
+func (t Type) Equals(other Type) bool {
+	return t.id == other.id &&
+		t.keyTypeID == other.keyTypeID &&
+		t.valueTypeID == other.valueTypeID
+}
+
 var (
-	booleanType  = NewType(TypeIDBoolean)
-	integerType  = NewType(TypeIDInteger)
-	unsignedType = NewType(TypeIDUnsigned)
-	floatType    = NewType(TypeIDFloat)
-	stringType   = NewType(TypeIDString)
-	bytesType    = NewType(TypeIDBytes)
-	timeType     = NewType(TypeIDTime)
+	TypeUnknown  = newType(TypeIDUnknown)
+	TypeBool     = newType(TypeIDBoolean)
+	TypeInt      = newType(TypeIDInteger)
+	TypeUnsigned = newType(TypeIDUnsigned)
+	TypeFloat    = newType(TypeIDFloat)
+	TypeString   = newType(TypeIDString)
+	TypeBytes    = newType(TypeIDBytes)
+	TypeTime     = newType(TypeIDTime)
 )

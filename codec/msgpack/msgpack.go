@@ -1,8 +1,6 @@
 package msgpack
 
 import (
-	"errors"
-	"strings"
 	"time"
 
 	"github.com/vmihailenco/msgpack/v5"
@@ -12,80 +10,59 @@ import (
 )
 
 // Codec implements the KVCodec interface using MessagePack encoding.
-type Codec struct {
-	idSep   string
-	attrSep string
-}
+type Codec struct{}
 
 // New creates a new MessagePack codec.
 func New() *Codec {
-	return &Codec{
-		idSep:   "/",
-		attrSep: ".",
-	}
+	return &Codec{}
 }
 
-// NewWithSep creates a new MessagePack codec with the given
-// id and attr separators.
-func NewWithSep(idSep, attrSep string) *Codec {
-	return &Codec{
-		idSep:   idSep,
-		attrSep: attrSep,
+// EncodeTuple encodes a [core.Tuple] to key-value pair.
+func (c *Codec) EncodeTuple(tuple *core.Tuple) ([]byte, []byte, error) {
+	encodedURI, err := c.EncodeURI(tuple.URI())
+	if err != nil {
+		return nil, nil, err
 	}
+
+	encodedValue, err := c.EncodeValue(tuple.Value())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return encodedURI, encodedValue, nil
 }
 
-// EncodeID encodes a [core.ID] to []byte.
-func (c *Codec) EncodeID(id core.ID) ([]byte, error) {
-	if len(id) == 0 {
+// DecodeTuple decodes a key-value pair to a [core.Tuple].
+func (c *Codec) DecodeTuple(key []byte, value []byte) (*core.Tuple, error) {
+	decodedURI, err := c.DecodeURI(key)
+	if err != nil {
+		return nil, err
+	}
+
+	decodedValue, err := c.DecodeValue(value)
+	if err != nil {
+		return nil, err
+	}
+
+	return core.NewTuple(decodedURI.Repo(), decodedURI.ID(), decodedURI.Attr(), decodedValue), nil
+}
+
+// EncodeURI encodes a [core.URI] to []byte.
+func (c *Codec) EncodeURI(uri *core.URI) ([]byte, error) {
+	if uri == nil {
 		return nil, nil
 	}
 
-	return []byte(strings.Join(id, c.idSep)), nil
+	return []byte(uri.String()), nil
 }
 
-// DecodeID decodes a []byte to a [core.ID].
-func (c *Codec) DecodeID(data []byte) (core.ID, error) {
+// DecodeURI decodes a []byte to a [core.URI].
+func (c *Codec) DecodeURI(data []byte) (*core.URI, error) {
 	if len(data) == 0 {
 		return nil, nil
 	}
 
-	parts := strings.Split(string(data), c.idSep)
-	return core.NewID(parts...), nil
-}
-
-// EncodeAttr encodes a [core.Attr] to []byte.
-func (c *Codec) EncodeAttr(attr core.Attr) ([]byte, error) {
-	if len(attr) == 0 {
-		return nil, nil
-	}
-
-	return []byte(strings.Join(attr, c.attrSep)), nil
-}
-
-// DecodeAttr decodes a []byte to a [core.Attr].
-func (c *Codec) DecodeAttr(data []byte) (core.Attr, error) {
-	if len(data) == 0 {
-		return nil, nil
-	}
-
-	parts := strings.Split(string(data), c.attrSep)
-	return core.NewAttr(parts...), nil
-}
-
-// EncodeKey encodes a [core.Key] to key-attr pair.
-func (c *Codec) EncodeKey(key *core.Key) ([]byte, []byte, error) {
-	encodedID, idErr := c.EncodeID(key.ID())
-	encodedAttr, attrErr := c.EncodeAttr(key.Attr())
-
-	return encodedID, encodedAttr, errors.Join(idErr, attrErr)
-}
-
-// DecodeKey decodes a key-attr pair to a [core.Key].
-func (c *Codec) DecodeKey(id []byte, attr []byte) (*core.Key, error) {
-	decodedID, idErr := c.DecodeID(id)
-	decodedAttr, attrErr := c.DecodeAttr(attr)
-
-	return core.NewKey(decodedID, decodedAttr), errors.Join(idErr, attrErr)
+	return core.ParseURI(string(data))
 }
 
 // EncodeValue encodes a [core.Value] to []byte.
@@ -190,16 +167,37 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 		}
 		return core.NewSafeValue(arr)
 	case core.TypeIDMap:
-		rawMap, ok := decoded.Data.(map[string][]byte)
+		rawMap, ok := decoded.Data.(map[string]any)
 		if !ok {
-			return nil, codec.ErrDecodingValue
+			// Try map[string][]byte as fallback for msgpack which might preserve types
+			if rawMapBytes, bytesOk := decoded.Data.(map[string][]byte); bytesOk {
+				rawMap = make(map[string]any, len(rawMapBytes))
+				for k, v := range rawMapBytes {
+					rawMap[k] = v
+				}
+			} else {
+				return nil, codec.ErrDecodingValue
+			}
 		}
 		mp := make(map[*core.Value]*core.Value, len(rawMap))
-		for kStr, vBytes := range rawMap {
+		for kStr, vAny := range rawMap {
 			kVal, err := unmarshalValue([]byte(kStr))
 			if err != nil {
 				return nil, err
 			}
+
+			var vBytes []byte
+			// Handle both []byte and other types
+			if vBytes, ok = vAny.([]byte); !ok {
+				// If not []byte, try to marshal it back to get bytes
+				// This handles cases where msgpack unmarshals to different types
+				var err error
+				vBytes, err = msgpack.Marshal(vAny)
+				if err != nil {
+					return nil, err
+				}
+			}
+
 			vVal, err := unmarshalValue(vBytes)
 			if err != nil {
 				return nil, err

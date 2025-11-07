@@ -11,7 +11,7 @@ import (
 )
 
 func TestRecord(t *testing.T) {
-	record := core.NewRecord("Post", "123")
+	record := core.NewRecord("com.example.posts", "123")
 
 	record.Set("title", "Hello, World!")
 	record.Set("content", "This is my first post")
@@ -20,9 +20,10 @@ func TestRecord(t *testing.T) {
 	record.Set("tags", []string{"xdb", "golang"})
 
 	t.Run("Getters", func(t *testing.T) {
-		assert.Equal(t, "Post/123", record.Key().String())
-		assert.Equal(t, "Post/123", record.ID().String())
-		assert.Equal(t, "Record(Post/123)", record.GoString())
+		assert.Equal(t, "com.example.posts", record.Repo())
+		assert.Equal(t, "xdb://com.example.posts/123", record.URI().String())
+		assert.Equal(t, "123", record.ID().String())
+		assert.Equal(t, "Record(com.example.posts, 123)", record.GoString())
 		assert.False(t, record.IsEmpty())
 	})
 
@@ -49,20 +50,21 @@ func TestRecord(t *testing.T) {
 
 		for _, tuple := range tuples {
 			assert.NotNil(t, tuple)
-			assert.Equal(t, "Post/123", tuple.ID().String())
+			assert.Equal(t, "com.example.posts", tuple.Repo())
+			assert.Equal(t, "123", tuple.ID().String())
 		}
 	})
 
 	t.Run("Edge Cases", func(t *testing.T) {
 		t.Run("Empty Record", func(t *testing.T) {
-			emptyRecord := core.NewRecord("Empty", "123")
+			emptyRecord := core.NewRecord("test.repo", "Empty", "123")
 			assert.True(t, emptyRecord.IsEmpty())
 			assert.Equal(t, 0, len(emptyRecord.Tuples()))
 			assert.Nil(t, emptyRecord.Get("nonexistent"))
 		})
 
 		t.Run("Attribute Overwrite", func(t *testing.T) {
-			record := core.NewRecord("User", "123")
+			record := core.NewRecord("com.example.users", "123")
 			record.Set("name", "John")
 			record.Set("name", "Jane") // Overwrite
 
@@ -71,19 +73,16 @@ func TestRecord(t *testing.T) {
 		})
 
 		t.Run("Nil Values", func(t *testing.T) {
-			record := core.NewRecord("User", "123")
+			record := core.NewRecord("com.example.users", "123")
 			record.Set("name", nil)
 
 			tuple := record.Get("name")
 			assert.NotNil(t, tuple)
-			// Check if the value is nil by checking the tuple's value
-			if tuple.Value() != nil {
-				assert.True(t, tuple.Value().IsNil())
-			}
+			assert.True(t, tuple.IsNil())
 		})
 
 		t.Run("Different Attribute Types", func(t *testing.T) {
-			record := core.NewRecord("User", "123")
+			record := core.NewRecord("com.example.users", "123")
 
 			// Test with Attr type
 			attr := core.NewAttr("profile", "name")
@@ -96,7 +95,7 @@ func TestRecord(t *testing.T) {
 		})
 
 		t.Run("Nested Attributes", func(t *testing.T) {
-			record := core.NewRecord("User", "123")
+			record := core.NewRecord("com.example.users", "123")
 			record.Set(core.NewAttr("profile", "name"), "John")
 			record.Set(core.NewAttr("profile", "age"), 25)
 
@@ -106,7 +105,7 @@ func TestRecord(t *testing.T) {
 		})
 
 		t.Run("Concurrent Access", func(t *testing.T) {
-			record := core.NewRecord("User", "123")
+			record := core.NewRecord("com.example.users", "123")
 
 			// Test concurrent writes
 			done := make(chan bool, 10)
@@ -140,7 +139,7 @@ func TestRecord(t *testing.T) {
 		})
 
 		t.Run("Get Non-existent Attribute", func(t *testing.T) {
-			record := core.NewRecord("User", "123")
+			record := core.NewRecord("com.example.users", "123")
 			record.Set("name", "John")
 
 			assert.Nil(t, record.Get("nonexistent"))
@@ -148,7 +147,7 @@ func TestRecord(t *testing.T) {
 		})
 
 		t.Run("Method Chaining", func(t *testing.T) {
-			record := core.NewRecord("User", "123").
+			record := core.NewRecord("com.example.users", "123").
 				Set("name", "John").
 				Set("age", 25).
 				Set("email", "john@example.com")

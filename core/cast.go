@@ -11,7 +11,7 @@ import (
 var (
 	// ErrCastFailed is returned when a value cannot
 	// be converted to the desired type.
-	ErrCastFailed = errors.New("xdb/types: cast failed")
+	ErrCastFailed = errors.New("[xdb/core] cast failed")
 )
 
 // ToBool returns the value as a bool.

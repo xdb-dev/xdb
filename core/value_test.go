@@ -208,10 +208,12 @@ func TestValue_MethodsOnNil(t *testing.T) {
 func TestValue_MixedTypes(t *testing.T) {
 	t.Parallel()
 
+	testID := core.NewID("test-id")
+
 	t.Run("Array with Mixed Types", func(t *testing.T) {
 		// This should work as each element is converted individually
 		value := []any{"string", 123, true, 45.67}
-		tuple := core.NewTuple(id, "attr", value)
+		tuple := core.NewTuple("test", testID, "attr", value)
 
 		assert.NotNil(t, tuple)
 		assert.Equal(t, core.TypeIDArray, tuple.Value().Type().ID())
@@ -224,7 +226,7 @@ func TestValue_MixedTypes(t *testing.T) {
 			"number": 123,
 			"bool":   true,
 		}
-		tuple := core.NewTuple(id, "attr", value)
+		tuple := core.NewTuple("test", testID, "attr", value)
 
 		assert.NotNil(t, tuple)
 		assert.Equal(t, core.TypeIDMap, tuple.Value().Type().ID())
@@ -258,7 +260,7 @@ func TestValue_TypeInformation(t *testing.T) {
 	t.Run("Boolean Type", func(t *testing.T) {
 		value := core.NewValue(true)
 		assert.Equal(t, core.TypeIDBoolean, value.Type().ID())
-		assert.Equal(t, "BOOLEAN", value.Type().Name())
+		assert.Equal(t, "BOOLEAN", value.Type().String())
 	})
 
 	t.Run("Array Type", func(t *testing.T) {

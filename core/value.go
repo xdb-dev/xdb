@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -12,9 +13,9 @@ import (
 
 var (
 	// ErrUnsupportedValue is returned when a value is not supported.
-	ErrUnsupportedValue = errors.New("xdb/types: unsupported value")
+	ErrUnsupportedValue = errors.New("[xdb/core] unsupported value")
 	// ErrTypeMismatch is returned when a value is not of the expected type.
-	ErrTypeMismatch = errors.New("xdb/types: type mismatch")
+	ErrTypeMismatch = errors.New("[xdb/core] type mismatch")
 )
 
 // Value represents an attribute value using a tagged union.
@@ -62,26 +63,26 @@ func NewSafeValue(input any) (*Value, error) {
 func newValue(iv reflect.Value) (*Value, error) {
 	switch iv.Kind() {
 	case reflect.Bool:
-		return &Value{typ: booleanType, data: iv.Bool()}, nil
+		return &Value{typ: TypeBool, data: iv.Bool()}, nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return &Value{typ: integerType, data: iv.Int()}, nil
+		return &Value{typ: TypeInt, data: iv.Int()}, nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return &Value{typ: unsignedType, data: iv.Uint()}, nil
+		return &Value{typ: TypeUnsigned, data: iv.Uint()}, nil
 	case reflect.Float32, reflect.Float64:
-		return &Value{typ: floatType, data: iv.Float()}, nil
+		return &Value{typ: TypeFloat, data: iv.Float()}, nil
 	case reflect.String:
-		return &Value{typ: stringType, data: iv.String()}, nil
+		return &Value{typ: TypeString, data: iv.String()}, nil
 	case reflect.Struct:
 		// Well-known types
 		if iv.Type() == reflect.TypeOf(time.Time{}) {
-			return &Value{typ: timeType, data: iv.Interface().(time.Time)}, nil
+			return &Value{typ: TypeTime, data: iv.Interface().(time.Time)}, nil
 		}
 
 		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
 	case reflect.Slice, reflect.Array:
 		// Special case for []byte
 		if iv.Type().Elem().Kind() == reflect.Uint8 {
-			return &Value{typ: bytesType, data: iv.Bytes()}, nil
+			return &Value{typ: TypeBytes, data: iv.Bytes()}, nil
 		}
 
 		if iv.Len() == 0 {
@@ -181,11 +182,16 @@ func (v *Value) String() string {
 		return fmt.Sprintf("[%s]", strings.Join(s, ", "))
 	case TypeIDMap:
 		values := v.data.(map[*Value]*Value)
-		s := make([]string, 0, len(values))
+		// Collect key-value pairs
+		pairs := make([]string, 0, len(values))
 		for k, val := range values {
-			s = append(s, fmt.Sprintf("%s: %s", k.String(), val.String()))
+			pairs = append(pairs, fmt.Sprintf("%s: %s", k.String(), val.String()))
 		}
-		return fmt.Sprintf("{%s}", strings.Join(s, ", "))
+		// Sort for deterministic output
+		// Note: This sorts by string representation, which may not be semantically perfect
+		// but ensures consistent output for debugging and testing.
+		slices.Sort(pairs)
+		return fmt.Sprintf("{%s}", strings.Join(pairs, ", "))
 	default:
 		return ""
 	}
@@ -193,5 +199,5 @@ func (v *Value) String() string {
 
 // GoString returns Go syntax of the value.
 func (v *Value) GoString() string {
-	return fmt.Sprintf("Value(%s, %s)", v.typ.Name(), v.String())
+	return fmt.Sprintf("Value(%s, %s)", v.typ.String(), v.String())
 }

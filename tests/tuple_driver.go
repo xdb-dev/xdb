@@ -21,7 +21,7 @@ func TestTupleReaderWriter(t *testing.T, rw tupleReaderWriter) {
 
 	ctx := context.Background()
 	tuples := FakeTuples()
-	keys := x.Keys(tuples...)
+	uris := x.URIs(tuples...)
 
 	t.Run("PutTuples", func(t *testing.T) {
 		err := rw.PutTuples(ctx, tuples)
@@ -29,35 +29,35 @@ func TestTupleReaderWriter(t *testing.T, rw tupleReaderWriter) {
 	})
 
 	t.Run("GetTuples", func(t *testing.T) {
-		got, missing, err := rw.GetTuples(ctx, keys)
+		got, missing, err := rw.GetTuples(ctx, uris)
 		require.NoError(t, err)
 		require.Len(t, missing, 0)
 		AssertEqualTuples(t, tuples, got)
 	})
 
 	t.Run("GetTuplesSomeMissing", func(t *testing.T) {
-		notFound := []*core.Key{
-			core.NewKey(core.NewID("Test", "1"), "not_found"),
-			core.NewKey(core.NewID("Test", "2"), "not_found"),
+		notFound := []*core.URI{
+			core.NewURI("test.repo", core.NewID("Test", "1"), "not_found"),
+			core.NewURI("test.repo", core.NewID("Test", "2"), "not_found"),
 		}
 
-		got, missing, err := rw.GetTuples(ctx, append(keys, notFound...))
+		got, missing, err := rw.GetTuples(ctx, append(uris, notFound...))
 		require.NoError(t, err)
 		require.NotEmpty(t, missing)
-		AssertEqualKeys(t, missing, notFound)
+		AssertEqualURIs(t, missing, notFound)
 		AssertEqualTuples(t, tuples, got)
 	})
 
 	t.Run("DeleteTuples", func(t *testing.T) {
-		err := rw.DeleteTuples(ctx, keys)
+		err := rw.DeleteTuples(ctx, uris)
 		require.NoError(t, err)
 	})
 
 	t.Run("GetTuplesAllMissing", func(t *testing.T) {
-		got, missing, err := rw.GetTuples(ctx, keys)
+		got, missing, err := rw.GetTuples(ctx, uris)
 		require.NoError(t, err)
 		require.NotEmpty(t, missing)
 		require.Len(t, got, 0)
-		AssertEqualKeys(t, missing, keys)
+		AssertEqualURIs(t, missing, uris)
 	})
 }

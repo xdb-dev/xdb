@@ -1,166 +1,183 @@
 package xdbsqlite
 
-// import (
-// 	"context"
-// 	"database/sql"
-// 	"fmt"
-// 	"io"
-// 	"strings"
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"strings"
 
-// 	"github.com/gojekfarm/xtools/errors"
+	"github.com/gojekfarm/xtools/errors"
+	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/x"
+)
 
-// 	"github.com/xdb-dev/xdb/core"
-// )
+// Migrator manages the schema generation and applying SQLite
+// migrations to the database.
+type Migrator struct {
+	tx *sql.Tx
+}
 
-// // Migrator is a migration manager for the SQLite driver.
-// type Migrator struct {
-// 	db *sql.DB
-// }
+func NewMigrator(tx *sql.Tx) *Migrator {
+	return &Migrator{tx: tx}
+}
 
-// // NewMigrator creates a new migration manager.
-// func NewMigrator(db *sql.DB) *Migrator {
-// 	return &Migrator{db: db}
-// }
+func (m *Migrator) CreateTable(ctx context.Context, schema *core.Schema) error {
+	query, err := m.generateCreateTable(schema)
+	if err != nil {
+		return err
+	}
 
-// // GenerateMigrations generates SQL migration statements for the given schema.
-// func (m *Migrator) GenerateMigrations(ctx context.Context, schemas []*core.Schema, w io.Writer) error {
-// 	for _, schema := range schemas {
-// 		tableName := schema.Kind
-// 		exists, err := m.tableExists(ctx, tableName)
-// 		if err != nil {
-// 			return errors.Wrap(err, "kind", schema.Kind)
-// 		}
+	_, err = m.tx.ExecContext(ctx, query)
 
-// 		if exists {
-// 			err = m.generateAlterTable(ctx, schema, w)
-// 			if err != nil {
-// 				return errors.Wrap(err, "kind", schema.Kind)
-// 			}
-// 		} else {
-// 			err = m.generateCreateTable(schema, w)
-// 			if err != nil {
-// 				return errors.Wrap(err, "kind", schema.Kind)
-// 			}
-// 		}
-// 	}
+	return err
+}
 
-// 	return nil
-// }
+func (m *Migrator) AlterTable(ctx context.Context, prev, next *core.Schema) error {
+	query, err := m.generateAlterTable(prev, next)
+	if err != nil {
+		return err
+	}
 
-// func (m *Migrator) tableExists(ctx context.Context, name string) (bool, error) {
-// 	query := "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?"
+	_, err = m.tx.ExecContext(ctx, query)
 
-// 	var count int
+	return err
+}
 
-// 	err := m.db.QueryRowContext(ctx, query, name).Scan(&count)
-// 	if err != nil {
-// 		return false, errors.Wrap(err)
-// 	}
+func (m *Migrator) DropTable(ctx context.Context, name string) error {
+	query := fmt.Sprintf(`DROP TABLE IF EXISTS "%s";`, name)
+	_, err := m.tx.ExecContext(ctx, query)
+	return err
+}
 
-// 	return count > 0, nil
-// }
+func (m *Migrator) generateCreateTable(schema *core.Schema) (string, error) {
+	tableName := schema.Name
 
-// func (m *Migrator) generateCreateTable(schema *core.Schema, w io.Writer) error {
-// 	tableName := schema.Kind
+	var query strings.Builder
 
-// 	up := []string{fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (`, tableName)}
+	query.WriteString(fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (`, tableName))
 
-// 	for i, attr := range schema.Attributes {
-// 		sqlType, err := sqliteTypeForField(attr)
-// 		if err != nil {
-// 			return err
-// 		}
+	count := len(schema.Fields)
 
-// 		line := fmt.Sprintf(`	"%s" %s`, attr.Name, sqlType)
-// 		if attr.PrimaryKey {
-// 			line += " PRIMARY KEY"
-// 		}
+	for i, field := range schema.Fields {
+		sqlType, err := sqliteTypeForField(field)
+		if err != nil {
+			return "", err
+		}
 
-// 		if i < len(schema.Attributes)-1 {
-// 			line += ","
-// 		}
+		query.WriteString(fmt.Sprintf(`	"%s" %s`, field.Name, sqlType))
 
-// 		up = append(up, line)
-// 	}
+		if field.Required {
+			query.WriteString(" NOT NULL")
+		}
 
-// 	up = append(up, ");")
+		if i < count-1 {
+			query.WriteString(",")
+		}
 
-// 	_, err := w.Write([]byte(strings.Join(up, "\n")))
-// 	if err != nil {
-// 		return errors.Wrap(err, "kind", schema.Kind)
-// 	}
+		query.WriteString("\n")
+	}
 
-// 	return nil
-// }
+	query.WriteString(");")
 
-// func (m *Migrator) generateAlterTable(ctx context.Context, schema *core.Schema, w io.Writer) error {
-// 	tableName := schema.Kind
-// 	up := []string{}
+	return query.String(), nil
+}
 
-// 	existingCols, err := m.getTableColumns(ctx, tableName)
-// 	if err != nil {
-// 		return errors.Wrap(err, "kind", schema.Kind)
-// 	}
+func (m *Migrator) generateAlterTable(prev, next *core.Schema) (string, error) {
+	tableName := next.Name
 
-// 	for _, attr := range schema.Attributes {
-// 		if _, ok := existingCols[attr.Name]; !ok {
-// 			sqlType, err := sqliteTypeForField(attr)
-// 			if err != nil {
-// 				return err
-// 			}
+	add, drop, modified := m.getDiffFields(prev, next)
 
-// 			up = append(up, fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s;`, tableName, attr.Name, sqlType))
-// 		}
-// 	}
+	if len(drop) > 0 {
+		names := x.Map(drop, func(field *core.Schema) string {
+			return field.Name
+		})
+		return "", errors.Wrap(ErrFieldDeleted, "fields", strings.Join(names, ", "))
+	}
 
-// 	_, err = w.Write([]byte(strings.Join(up, "\n")))
-// 	if err != nil {
-// 		return errors.Wrap(err, "kind", schema.Kind)
-// 	}
+	if len(modified) > 0 {
+		names := x.Map(modified, func(field *core.Schema) string {
+			return field.Name
+		})
+		return "", errors.Wrap(ErrFieldModified, "fields", strings.Join(names, ", "))
+	}
 
-// 	return nil
-// }
+	if len(add) == 0 {
+		return "", nil
+	}
 
-// func (m *Migrator) getTableColumns(ctx context.Context, name string) (map[string]string, error) {
-// 	query := "SELECT name, type FROM pragma_table_info(?)"
+	var query strings.Builder
 
-// 	rows, err := m.db.QueryContext(ctx, query, name)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err)
-// 	}
-// 	defer rows.Close()
+	for _, field := range add {
+		sqlType, err := sqliteTypeForField(field)
+		if err != nil {
+			return "", err
+		}
 
-// 	existingCols := make(map[string]string)
-// 	for rows.Next() {
-// 		var name, dataType string
-// 		if err := rows.Scan(&name, &dataType); err != nil {
-// 			return nil, err
-// 		}
+		query.WriteString(fmt.Sprintf(`ALTER TABLE "%s" ADD COLUMN "%s" %s`, tableName, field.Name, sqlType))
 
-// 		existingCols[name] = dataType
-// 	}
+		if field.Required {
+			query.WriteString(" NOT NULL")
+		}
 
-// 	return existingCols, nil
-// }
+		query.WriteString(";\n")
+	}
 
-// // sqliteTypeForField maps core.Field to SQLite core.
-// func sqliteTypeForField(attr core.Attribute) (string, error) {
-// 	switch attr.Type.ID() {
-// 	case core.TypeIDString:
-// 		return "TEXT", nil
-// 	case core.TypeIDInteger,
-// 		core.TypeIDBoolean,
-// 		core.TypeIDTime:
-// 		return "INTEGER", nil
-// 	case core.TypeIDFloat:
-// 		return "REAL", nil
-// 	case core.TypeIDBytes:
-// 		return "BLOB", nil
-// 	case core.TypeIDArray:
-// 		return "TEXT", nil
-// 	case core.TypeIDMap:
-// 		return "TEXT", nil
-// 	default:
-// 		return "", errors.Wrap(ErrUnsupportedValue, "type", attr.Type.Name())
-// 	}
-// }
+	return query.String(), nil
+}
+
+func (m *Migrator) getDiffFields(prev, next *core.Schema) ([]*core.Schema, []*core.Schema, []*core.Schema) {
+	add := []*core.Schema{}
+	drop := []*core.Schema{}
+	modified := []*core.Schema{}
+
+	nextFields := x.Index(next.Fields, func(field *core.Schema) string {
+		return field.Name
+	})
+	prevFields := x.Index(prev.Fields, func(field *core.Schema) string {
+		return field.Name
+	})
+
+	for _, field := range next.Fields {
+		prevField, existsInPrev := prevFields[field.Name]
+		if !existsInPrev {
+			add = append(add, field)
+		} else if fieldModified(prevField, field) {
+			modified = append(modified, field)
+		}
+	}
+
+	for _, field := range prev.Fields {
+		if _, ok := nextFields[field.Name]; !ok {
+			drop = append(drop, field)
+		}
+	}
+
+	return add, drop, modified
+}
+
+func fieldModified(prev, next *core.Schema) bool {
+	return prev.Type != next.Type || prev.Required != next.Required
+}
+
+func sqliteTypeForField(field *core.Schema) (string, error) {
+	switch field.Type {
+	case core.TypeIDString.String():
+		return "TEXT", nil
+	case core.TypeIDInteger.String():
+		return "INTEGER", nil
+	case core.TypeIDBoolean.String():
+		return "INTEGER", nil
+	case core.TypeIDTime.String():
+		return "INTEGER", nil
+	case core.TypeIDFloat.String():
+		return "REAL", nil
+	case core.TypeIDBytes.String():
+		return "BLOB", nil
+	case core.TypeIDArray.String():
+		return "TEXT", nil
+	case core.TypeIDMap.String():
+		return "TEXT", nil
+	default:
+		return "", errors.Wrap(ErrUnsupportedType, "type", field.Type)
+	}
+}

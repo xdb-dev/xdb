@@ -1,29 +1,31 @@
 // Package core provides the fundamental data structures for XDB, a tuple-based database abstraction.
 //
 // XDB models data using tuples, where each tuple contains:
-//   - ID: A hierarchical identifier (e.g., ["user", "123"])
+//   - ID: A hierarchical identifier (e.g., ["123"])
 //   - Attr: An attribute name (e.g., ["name"], ["profile", "email"])
 //   - Value: A typed value containing the actual data
 //
 // Core Types:
 //
-// ID represents hierarchical identifiers as string slices.
+// ID represents a hierarchical identifier as an array of strings.
 // Use NewID() to create IDs from strings or existing ID values.
 //
-// Attr represents attribute names as string slices, supporting nested attributes.
+// Attr represents an attribute name as an array of strings, supporting nested attributes.
 // Use NewAttr() to create attributes from strings or existing Attr values.
 //
-// Tuple is the fundamental unit combining an ID, Attr, and Value.
+// Tuple is the fundamental building block combining an ID, Attr, and Value.
 // Tuples are immutable and represent a single fact about an entity.
 //
-// Record is a collection of tuples sharing the same ID, similar to a database row.
+// Record is a collection of tuples sharing the same ID.
 // Records are mutable and thread-safe for concurrent access.
 //
-// Key provides unique references to either records (ID only) or specific tuples (ID + Attr).
-// Keys can be used to create tuples and generate string representations.
+// URI provides unique references to repositories, records, and tuples.
 //
 // Value is a typed container supporting Go's basic types plus arrays and maps.
 // Values provide type-safe casting methods and automatic type inference.
+//
+// Schema provides structure and validation for records.
+// Schemas define field types, constraints, and validation rules similar to JSON Schema.
 //
 // Example usage:
 //
@@ -37,5 +39,10 @@
 //	fmt.Println(nameTuple.ToString()) // "John Doe"
 //
 //	// Create tuples directly
-//	emailTuple := NewTuple(NewID("user", "123"), NewAttr("profile", "email"), "john@example.com")
+//	emailTuple := NewTuple(
+//		"user",
+//		NewID("123"),
+//		NewAttr("profile", "email"),
+//		"john@example.com",
+//	)
 package core

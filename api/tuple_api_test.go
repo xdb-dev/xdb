@@ -23,12 +23,13 @@ func TestTupleAPI(t *testing.T) {
 	deleteEndpoint := store.DeleteTuples()
 
 	tuples := tests.FakeTuples()
-	keys := x.Keys(tuples...)
+	uris := x.URIs(tuples...)
 
 	t.Run("PutTuples", func(t *testing.T) {
 		req := &api.PutTuplesRequest{}
 		for _, tuple := range tuples {
 			*req = append(*req, &api.Tuple{
+				Repo:  tuple.Repo(),
 				ID:    tuple.ID(),
 				Attr:  tuple.Attr(),
 				Value: tuple.Value().Unwrap(),
@@ -42,10 +43,11 @@ func TestTupleAPI(t *testing.T) {
 
 	t.Run("GetTuples", func(t *testing.T) {
 		req := &api.GetTuplesRequest{}
-		for _, key := range keys {
-			*req = append(*req, &api.Key{
-				ID:   key.ID(),
-				Attr: key.Attr(),
+		for _, uri := range uris {
+			*req = append(*req, &api.URI{
+				Repo: uri.Repo(),
+				ID:   uri.ID(),
+				Attr: uri.Attr(),
 			})
 		}
 
@@ -58,10 +60,11 @@ func TestTupleAPI(t *testing.T) {
 
 	t.Run("DeleteTuples", func(t *testing.T) {
 		req := &api.DeleteTuplesRequest{}
-		for _, key := range keys {
-			*req = append(*req, &api.Key{
-				ID:   key.ID(),
-				Attr: key.Attr(),
+		for _, uri := range uris {
+			*req = append(*req, &api.URI{
+				Repo: uri.Repo(),
+				ID:   uri.ID(),
+				Attr: uri.Attr(),
 			})
 		}
 
@@ -72,10 +75,11 @@ func TestTupleAPI(t *testing.T) {
 
 	t.Run("VerifyDeleted", func(t *testing.T) {
 		req := &api.GetTuplesRequest{}
-		for _, key := range keys {
-			*req = append(*req, &api.Key{
-				ID:   key.ID(),
-				Attr: key.Attr(),
+		for _, uri := range uris {
+			*req = append(*req, &api.URI{
+				Repo: uri.Repo(),
+				ID:   uri.ID(),
+				Attr: uri.Attr(),
 			})
 		}
 
@@ -83,6 +87,6 @@ func TestTupleAPI(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, res)
 		require.Len(t, res.Tuples, 0)
-		require.Len(t, res.Missing, len(keys))
+		require.Len(t, res.Missing, len(uris))
 	})
 }
