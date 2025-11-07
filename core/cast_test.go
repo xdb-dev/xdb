@@ -636,12 +636,12 @@ func TestCast_MapValues(t *testing.T) {
 		// Create the same map multiple times and verify string output is consistent
 		for i := 0; i < 10; i++ {
 			mapValue := map[string]string{
-				"zebra":  "z",
-				"alpha":  "a",
-				"beta":   "b",
-				"gamma":  "g",
-				"delta":  "d",
-				"omega":  "o",
+				"zebra": "z",
+				"alpha": "a",
+				"beta":  "b",
+				"gamma": "g",
+				"delta": "d",
+				"omega": "o",
 			}
 			value := core.NewValue(mapValue)
 			str := value.String()

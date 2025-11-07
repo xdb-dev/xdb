@@ -39,7 +39,7 @@ func FakePostSchema() *core.Schema {
 	}
 }
 
-// FakePost creates a fakerecord with fake Post data.
+// FakePost creates a fake record with fake Post data.
 func FakePost() *core.Record {
 	repo := "test.repo"
 	kind := "Post"
@@ -52,15 +52,15 @@ func FakePost() *core.Record {
 			gofakeit.Word(),
 			gofakeit.Word(),
 		}).
+		Set("metadata", map[string]string{
+			"category": gofakeit.Word(),
+			"author":   gofakeit.Name(),
+		}).
 		Set("rating", gofakeit.Float64Range(0, 5)).
 		Set("published", gofakeit.Bool()).
 		Set("comments.count", gofakeit.IntRange(0, 100)).
-		Set("views.count", gofakeit.IntRange(0, 1000)).
-		Set("likes.count", gofakeit.IntRange(0, 1000)).
-		Set("shares.count", gofakeit.IntRange(0, 1000)).
-		Set("favorites.count", gofakeit.IntRange(0, 1000)).
-		Set("author.id", gofakeit.UUID()).
-		Set("author.name", gofakeit.Name())
+		Set("thumbnail", []byte(gofakeit.LoremIpsumSentence(5))).
+		Set("created_at", gofakeit.Date())
 }
 
 // FakePosts creates a list of fake records.
@@ -74,37 +74,68 @@ func FakePosts(n int) []*core.Record {
 	return records
 }
 
-// // FakeTupleSchema creates a fake schema for all types of tuples.
-// func FakeTupleSchema() *core.Schema {
-// 	return &core.Schema{
-// 		Kind: "Test",
-// 		Attributes: []core.Attribute{
-// 			{Name: "id", Type: core.NewType(core.TypeIDString), PrimaryKey: true},
-// 			{Name: "string", Type: core.NewType(core.TypeIDString)},
-// 			{Name: "int64", Type: core.NewType(core.TypeIDInteger)},
-// 			{Name: "float", Type: core.NewType(core.TypeIDFloat)},
-// 			{Name: "bool", Type: core.NewType(core.TypeIDBoolean)},
-// 			{Name: "bytes", Type: core.NewType(core.TypeIDBytes)},
-// 			{Name: "time", Type: core.NewType(core.TypeIDTime)},
-// 			{Name: "string_array", Type: core.NewArrayType(core.TypeIDString)},
-// 			{Name: "int64_array", Type: core.NewArrayType(core.TypeIDInteger)},
-// 			{Name: "float_array", Type: core.NewArrayType(core.TypeIDFloat)},
-// 			{Name: "bool_array", Type: core.NewArrayType(core.TypeIDBoolean)},
-// 			{Name: "bytes_array", Type: core.NewArrayType(core.TypeIDBytes)},
-// 			{Name: "time_array", Type: core.NewArrayType(core.TypeIDTime)},
-// 			{Name: "not_found", Type: core.NewType(core.TypeIDString)},
-// 		},
-// 	}
-// }
+// FakeTestRepo creates a fake repository for comprehensive type testing.
+func FakeTestRepo() *core.Repo {
+	repo, err := core.NewRepo("test-repo")
+	if err != nil {
+		panic(err)
+	}
+	return repo.WithSchema(FakeTestSchema())
+}
 
-// FakeTuples creates a list of fake tuples covering all core.
+// FakeTestSchema creates a fake schema covering all XDB types.
+func FakeTestSchema() *core.Schema {
+	return &core.Schema{
+		Name:        "Test",
+		Description: "Comprehensive test schema covering all types",
+		Version:     "1.0.0",
+		Fields: []*core.FieldSchema{
+			{Name: "string", Type: core.TypeString},
+			{Name: "int", Type: core.TypeInt},
+			{Name: "unsigned", Type: core.TypeUnsigned},
+			{Name: "float", Type: core.TypeFloat},
+			{Name: "bool", Type: core.TypeBool},
+			{Name: "bytes", Type: core.TypeBytes},
+			{Name: "time", Type: core.TypeTime},
+			{Name: "string_array", Type: core.NewArrayType(core.TypeIDString)},
+			{Name: "metadata", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
+		},
+		Required: []string{"string"},
+	}
+}
+
+// FakeTestRecord creates a fake record with comprehensive type coverage.
+func FakeTestRecord() *core.Record {
+	repo := "test.repo"
+	kind := "Test"
+	id := gofakeit.UUID()
+
+	return core.NewRecord(repo, kind, id).
+		Set("string", gofakeit.Sentence(10)).
+		Set("int", gofakeit.Int64()).
+		Set("unsigned", gofakeit.Uint64()).
+		Set("float", gofakeit.Float64()).
+		Set("bool", gofakeit.Bool()).
+		Set("bytes", []byte(gofakeit.Sentence(5))).
+		Set("time", gofakeit.Date()).
+		Set("string_array", []string{gofakeit.Word(), gofakeit.Word()}).
+		Set("metadata", map[string]string{
+			"key1": gofakeit.Word(),
+			"key2": gofakeit.Word(),
+		})
+}
+
+// FakeTuples creates a list of fake tuples covering all core types.
 func FakeTuples() []*core.Tuple {
 	return x.Join(
 		FakeStringTuples(),
 		FakeIntTuples(),
+		FakeUnsignedTuples(),
 		FakeFloatTuples(),
 		FakeBoolTuples(),
 		FakeBytesTuples(),
+		FakeTimeTuples(),
+		FakeMapTuples(),
 	)
 }
 
@@ -173,6 +204,19 @@ func FakeBytesTuples() []*core.Tuple {
 	}
 }
 
+// FakeUnsignedTuples creates fake tuples for unsigned values.
+func FakeUnsignedTuples() []*core.Tuple {
+	repo := "test.repo"
+	id := core.NewID("Test", "1")
+	return []*core.Tuple{
+		core.NewTuple(repo, id, "unsigned", gofakeit.Uint64()),
+		core.NewTuple(repo, id, "unsigned_array", []uint64{
+			gofakeit.Uint64(),
+			gofakeit.Uint64(),
+		}),
+	}
+}
+
 // FakeTimeTuples creates fake tuples for time.Time.
 func FakeTimeTuples() []*core.Tuple {
 	repo := "test.repo"
@@ -182,6 +226,18 @@ func FakeTimeTuples() []*core.Tuple {
 		core.NewTuple(repo, id, "time_array", []time.Time{
 			gofakeit.Date(),
 			gofakeit.Date(),
+		}),
+	}
+}
+
+// FakeMapTuples creates fake tuples for map values.
+func FakeMapTuples() []*core.Tuple {
+	repo := "test.repo"
+	id := core.NewID("Test", "1")
+	return []*core.Tuple{
+		core.NewTuple(repo, id, "metadata", map[string]string{
+			gofakeit.Word(): gofakeit.Sentence(5),
+			gofakeit.Word(): gofakeit.Sentence(5),
 		}),
 	}
 }

@@ -4,15 +4,17 @@ This file provides guidance for working with code in this repository.
 
 ## Development Commands
 
+**Note:** All make commands automatically set `GOEXPERIMENT=jsonv2` and run across all modules in the repository.
+
 ### Build and Test
 
-- `make test` - Run all tests with race detection and coverage
+- `make test` - Run all tests with race detection and coverage across all modules
 - `make check` - Run all code quality checks (formatting, vetting, linting)
 - `make fmt` - Format code with `go fmt`
 - `make lint` - Run revive linter
 - `make vet` - Run `go vet`
 - `make imports` - Format imports with gci
-- `make tidy` - Run `go mod tidy`
+- `make tidy` - Run `go mod tidy` on all modules
 - `make setup` - Initial project setup
 
 ### Coverage Reports
@@ -31,83 +33,44 @@ This file provides guidance for working with code in this repository.
 - The server runs on port 8080 by default
 - Use Bruno collections in `bruno/` directory for testing API endpoints
 
-## Core Architecture
-
-XDB is a tuple-based database abstraction library with a layered architecture:
-
-### 1. Core Data Model (`core/` package)
-
-- **Tuple**: Fundamental building block combining ID, Attribute, and Value
-- **Record**: Collection of tuples sharing the same ID (similar to database rows)
-- **Key**: Unique reference to a record or tuple
-- **Value**: Typed value container with casting methods
-- **ID**: Hierarchical identifier represented as string slices
-- **Attr**: Attribute names supporting nested structures
-
-### 2. Driver Layer (`driver/` package)
-
-Bridges XDB's tuple model to specific database backends:
-
-- **Interfaces**: `TupleReader/Writer`, `RecordReader/Writer`
-- **Current Implementations**:
-  - `xdbmemory/`: In-memory driver for testing
-  - `xdbsqlite/`: SQLite driver with migrations
-  - `xdbredis/`: Redis driver for key-value storage
-
-### 3. API Layer (`api/` package)
-
-HTTP API layer providing RESTful endpoints for tuple operations:
-
-- **TupleAPI**: Handles tuple CRUD operations (Get, Put, Delete)
-- **Types**: API-specific types for requests and responses
-- **Generic EndpointFunc**: Type-safe endpoint handlers with request/response types
-
-### 4. Encoding Layer (`encoding/` package)
-
-Converts between XDB types and various formats:
-
-- `xdbjson/`: JSON encoding/decoding
-- `xdbstruct/`: Go struct ↔ XDB record conversion
-- `xdbproto/`: Protocol Buffer support
-
-### 5. Codec Layer (`codec/` package)
-
-Low-level serialization interfaces for key-value storage:
-
-- `codec.go`: Core `KeyValueCodec` interface for marshaling/unmarshaling
-- `json/`: JSON codec implementation
-- `msgpack/`: MessagePack implementation
-
-### 6. Command Line Application (`cmd/xdb/` package)
-
-CLI application for running XDB server:
-
-- **server**: Starts HTTP server with tuple API endpoints
-- **config**: Configuration management for server settings
-- Uses SQLite as the default storage backend
-
-### 7. Supporting Packages
-
-- `x/`: Utility functions for grouping, mapping, filtering
-- `tests/`: Shared test helpers and fixtures
-- `examples/`: Self-contained example applications
-- `bruno/`: Bruno API client collections for testing endpoints
-
 ## Project Structure
 
-XDB uses a multi-module structure where some packages have their own `go.mod` files:
+```
+xdb/
+├── api/                    # HTTP API layer (see api/README.md)
+├── cmd/xdb/               # CLI application (see cmd/xdb/README.md)
+│   ├── app/               # Application commands
+│   └── main.go            # Entry point
+├── codec/                 # Low-level serialization (see codec/README.md)
+├── core/                  # Core data model
+├── driver/                # Database backends (see driver/README.md)
+├── encoding/              # Format conversions (see encoding/README.md)
+├── x/                     # Utility functions
+├── tests/                 # Shared test suites
+├── examples/              # Example applications
+```
 
-- Root module: Core packages (`core/`, `driver/`, `x/`, `tests/`)
-- `cmd/xdb/`: CLI application module
-- `driver/xdbsqlite/`: SQLite driver module
-- `driver/xdbredis/`: Redis driver module
-- `codec/msgpack/`: MessagePack codec module
-- `encoding/xdbjson/`: JSON encoding module
-- `encoding/xdbproto/`: Protocol Buffer encoding module
+## Core Architecture
 
-The Makefile automatically runs commands across all modules in the repository, ensuring consistent formatting, testing, and linting across the entire codebase.
+XDB is a tuple-based database abstraction library with a layered architecture.
 
-## Package Structure Guidelines
+### Core Data Model (`core/`)
+
+- **Tuple**: Fundamental building block (ID + Attribute + Value)
+- **Record**: Collection of tuples with the same ID
+- **Value**: Typed container supporting basic types, arrays, and maps
+- **URI**: Resource identifiers (`xdb://REPOSITORY[/RECORD][#ATTRIBUTE]`)
+- **Type**: Type system with scalar, array, and map types
+- **Repo**: Repository for organizing records
+- **Schema**: Structure and validation rules
+
+## Multi-Module Structure
+
+XDB uses a multi-module structure where some packages have their own `go.mod` files.
+
+The Makefile automatically discovers and runs commands across all modules (via `go.mod` discovery), ensuring consistent formatting, testing, and linting across the entire codebase.
+
+## Package Guidelines
 
 ### File Organization
 
@@ -115,28 +78,14 @@ The Makefile automatically runs commands across all modules in the repository, e
 - Test files use `_test.go` suffix and are co-located with source
 - Example functions go in `examples_test.go` and are named `ExampleXxx`
 - Package documentation goes in `doc.go`
-- Use package `doc.go` for understaning the package
-
-### Driver Implementation
-
-- Each driver lives in its own subdirectory under `driver/`
-- Drivers implement capability interfaces (not all drivers support all features)
-- Use the existing `xdbmemory` driver as a reference for new implementations
-
-### Encoding Implementation
-
-- Each format lives in its own subdirectory under `encoding/`
-- Follow the pattern of existing encoders for consistency
-
-### API Implementation
-
-- API endpoints are defined in `api/` package
-- Each API type (Tuple, Record, etc.) has its own file with handler implementations
-- Request and response types are defined in `types.go`
-- Use generic `EndpointFunc[Req, Res]` type for type-safe endpoint handlers
-- API types should be separate from core types to allow independent evolution
 
 ## Code Style Requirements
+
+### Comments
+
+- Only write GoDoc comments for exported types, functions, methods, constants, and variables
+- Do not write inline comments or non-GoDoc comments
+- Code should be self-explanatory; if it needs comments, consider refactoring
 
 ### Import Organization
 
@@ -149,7 +98,8 @@ Group imports with blank lines between groups:
 ### Error Handling
 
 - Return errors as the last return value
-- Use `fmt.Errorf` for error creation with context
+- Use `errors.Wrap` for error wrapping with context
+- Only add context that callers need to know about
 - Return early on errors using `if` statements
 - Do not use generic error names; be descriptive
 
@@ -166,10 +116,16 @@ Group imports with blank lines between groups:
 - Place test functions in `package_test` form when testing public APIs
 - Use `testify/assert` for assertions
 - Example tests must have exact `// Output:` comments
+- The `tests/` package provides shared test suites for driver implementations:
+  - `TupleDriverTest`: Test suite for `TupleDriver` implementations
+  - `RecordDriverTest`: Test suite for `RecordDriver` implementations
+  - `RepoDriverTest`: Test suite for `RepoDriver` implementations
+- Use these test suites to ensure consistent behavior across driver implementations
 
 ## Important Notes
 
 - All exported functions and types must have GoDoc comments
-- Use context.Context as the first parameter for functions that need it
+- Use `context.Context` as the first parameter for functions that need it
 - Linting is enforced via `revive` with configuration in `revive.toml`
-- Make sure to keep GoDoc comments and respective package's`doc.go` up to date
+- Make sure to keep GoDoc comments and respective package's `doc.go` up to date
+- Development tools (gci, revive, gocov, etc.) are managed via `tools.mod` and installed using `go get -modfile=tools.mod -tool`
