@@ -21,17 +21,17 @@ func GroupTuples(tuples ...*core.Tuple) map[string][]*core.Tuple {
 }
 
 // GroupAttrs groups a list of attributes by their ID.
-func GroupAttrs(keys ...*core.Key) map[string][]string {
+func GroupAttrs(uris ...*core.URI) map[string][]string {
 	grouped := make(map[string][]string)
 
-	for _, key := range keys {
-		id := key.ID().String()
+	for _, uri := range uris {
+		id := uri.ID().String()
 
 		if _, ok := grouped[id]; !ok {
 			grouped[id] = make([]string, 0)
 		}
 
-		grouped[id] = append(grouped[id], key.Attr().String())
+		grouped[id] = append(grouped[id], uri.Attr().String())
 	}
 
 	return grouped

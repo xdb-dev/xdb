@@ -14,8 +14,11 @@ import (
 
 type Store struct {
 	cfg  Config
-	meta driver.RepoDriver
-	db   *sql.DB
+	meta interface {
+		driver.RepoReader
+		driver.RepoWriter
+	}
+	db *sql.DB
 }
 
 func New(cfg Config) (*Store, error) {

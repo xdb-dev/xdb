@@ -17,7 +17,8 @@
       "Bash(go doc:*)",
       "Bash(go vet:*)",
       "Bash(go fmt:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

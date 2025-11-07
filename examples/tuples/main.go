@@ -13,15 +13,16 @@ import (
 
 func main() {
 	ctx := context.Background()
+	repo := "com.example.posts"
 	id := core.NewID(gofakeit.UUID())
 	authorID := core.NewID(gofakeit.UUID())
 
 	post := []*core.Tuple{
-		core.NewTuple(id, "title", "Hello, World!"),
-		core.NewTuple(id, "content", "This is my first post"),
-		core.NewTuple(id, "author_id", authorID),
-		core.NewTuple(id, "created_at", time.Now()),
-		core.NewTuple(id, "tags", []string{"xdb", "golang"}),
+		core.NewTuple(repo, id, "title", "Hello, World!"),
+		core.NewTuple(repo, id, "content", "This is my first post"),
+		core.NewTuple(repo, id, "author_id", authorID),
+		core.NewTuple(repo, id, "created_at", time.Now()),
+		core.NewTuple(repo, id, "tags", []string{"xdb", "golang"}),
 	}
 
 	store := xdbmemory.New()
@@ -30,24 +31,24 @@ func main() {
 		panic(err)
 	}
 
-	keys := []*core.Key{
-		core.NewKey(id, "title"),
-		core.NewKey(id, "content"),
-		core.NewKey(id, "author_id"),
-		core.NewKey(id, "created_at"),
-		core.NewKey(id, "tags"),
+	uris := []*core.URI{
+		core.NewURI(repo, id, "title"),
+		core.NewURI(repo, id, "content"),
+		core.NewURI(repo, id, "author_id"),
+		core.NewURI(repo, id, "created_at"),
+		core.NewURI(repo, id, "tags"),
 	}
 
-	tuples, _, err := store.GetTuples(ctx, keys)
+	tuples, _, err := store.GetTuples(ctx, uris)
 	if err != nil {
 		panic(err)
 	}
 
 	for _, tuple := range tuples {
-		fmt.Println(tuple.ID(), tuple.Attr(), tuple.Value().String())
+		fmt.Println(tuple.URI().String(), tuple.Value().String())
 	}
 
-	err = store.DeleteTuples(ctx, keys)
+	err = store.DeleteTuples(ctx, uris)
 	if err != nil {
 		panic(err)
 	}

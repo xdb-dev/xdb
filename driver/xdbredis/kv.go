@@ -33,15 +33,13 @@ func New(c *redis.Client) *KVStore {
 }
 
 // GetTuples gets tuples from the key-value store.
-func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tuple, []*core.Key, error) {
+func (kv *KVStore) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple, []*core.URI, error) {
 	tx := kv.getTx(ctx)
 
-	cmds := make([]*redis.StringCmd, 0, len(keys))
-	for _, key := range keys {
-		hmid, hmattr, err := kv.codec.EncodeKey(key)
-		if err != nil {
-			return nil, nil, err
-		}
+	cmds := make([]*redis.StringCmd, 0, len(uris))
+	for _, uri := range uris {
+		hmid := []byte(uri.ID().String())
+		hmattr := []byte(uri.Attr().String())
 
 		cmd := tx.HGet(ctx, string(hmid), string(hmattr))
 		cmds = append(cmds, cmd)
@@ -52,15 +50,15 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 		return nil, nil, err
 	}
 
-	tuples := make([]*core.Tuple, 0, len(keys))
-	missing := make([]*core.Key, 0, len(keys))
+	tuples := make([]*core.Tuple, 0, len(uris))
+	missing := make([]*core.URI, 0, len(uris))
 
-	for i, key := range keys {
+	for i, uri := range uris {
 		cmd := cmds[i]
 
 		err := cmd.Err()
 		if errors.Is(err, redis.Nil) {
-			missing = append(missing, key)
+			missing = append(missing, uri)
 			continue
 		} else if err != nil {
 			return nil, nil, err
@@ -71,7 +69,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 			return nil, nil, err
 		}
 
-		tuple := core.NewTuple(key.ID(), key.Attr(), val)
+		tuple := core.NewTuple(uri.Repo(), uri.ID(), uri.Attr(), val)
 		tuples = append(tuples, tuple)
 	}
 
@@ -83,10 +81,8 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	tx := kv.getTx(ctx)
 
 	for _, tuple := range tuples {
-		hmid, hmattr, err := kv.codec.EncodeKey(tuple.Key())
-		if err != nil {
-			return err
-		}
+		hmid := []byte(tuple.ID().String())
+		hmattr := []byte(tuple.Attr().String())
 
 		hmval, err := kv.codec.EncodeValue(tuple.Value())
 		if err != nil {
@@ -102,14 +98,13 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 }
 
 // DeleteTuples deletes tuples from the key-value store.
-func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
+func (kv *KVStore) DeleteTuples(ctx context.Context, uris []*core.URI) error {
 	tx := kv.getTx(ctx)
 
-	for _, key := range keys {
-		hmid, hmattr, err := kv.codec.EncodeKey(key)
-		if err != nil {
-			return err
-		}
+	for _, uri := range uris {
+		hmid := []byte(uri.ID().String())
+		hmattr := []byte(uri.Attr().String())
+
 		tx.HDel(ctx, string(hmid), string(hmattr))
 	}
 
@@ -118,16 +113,14 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
 }
 
 // GetRecords gets records from the key-value store.
-func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Record, []*core.Key, error) {
+func (kv *KVStore) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Record, []*core.URI, error) {
 	tx := kv.getTx(ctx)
 
-	cmds := make([]*redis.MapStringStringCmd, 0, len(keys))
-	for _, key := range keys {
-		hmid, _, err := kv.codec.EncodeKey(key)
-		if err != nil {
-			return nil, nil, err
-		}
+	cmds := make([]*redis.MapStringStringCmd, 0, len(uris))
+	for _, uri := range uris {
+		hmid := []byte(uri.ID().String())
 		cmd := tx.HGetAll(ctx, string(hmid))
+
 		cmds = append(cmds, cmd)
 	}
 
@@ -136,10 +129,10 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 		return nil, nil, err
 	}
 
-	records := make([]*core.Record, 0, len(keys))
-	missing := make([]*core.Key, 0, len(keys))
+	records := make([]*core.Record, 0, len(uris))
+	missing := make([]*core.URI, 0, len(uris))
 
-	for i, key := range keys {
+	for i, uri := range uris {
 		cmd := cmds[i]
 
 		err := cmd.Err()
@@ -149,18 +142,15 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 
 		attrs := cmd.Val()
 		if len(attrs) == 0 {
-			missing = append(missing, key)
+			missing = append(missing, uri)
 			continue
 		}
 
-		record := core.NewRecord(key.ID()...)
+		repo := uri.Repo()
+		record := core.NewRecord(repo, uri.ID().String())
 
 		for attr, val := range attrs {
-			decodedAttr, err := kv.codec.DecodeAttr([]byte(attr))
-			if err != nil {
-				return nil, nil, err
-			}
-
+			decodedAttr := core.NewAttr(attr)
 			decodedVal, err := kv.codec.DecodeValue([]byte(val))
 			if err != nil {
 				return nil, nil, err
@@ -187,14 +177,12 @@ func (kv *KVStore) PutRecords(ctx context.Context, records []*core.Record) error
 }
 
 // DeleteRecords deletes records from the key-value store.
-func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
+func (kv *KVStore) DeleteRecords(ctx context.Context, uris []*core.URI) error {
 	tx := kv.getTx(ctx)
 
-	for _, key := range keys {
-		hmid, _, err := kv.codec.EncodeKey(key)
-		if err != nil {
-			return err
-		}
+	for _, uri := range uris {
+		hmid := []byte(uri.ID().String())
+
 		tx.Del(ctx, string(hmid))
 	}
 

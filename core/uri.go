@@ -37,7 +37,10 @@ func NewURI(parts ...any) *URI {
 	var id ID
 	var attr Attr
 
-	if len(parts) >= 1 && parts[0] != nil {
+	if len(parts) >= 1 {
+		if parts[0] == nil {
+			panic(ErrInvalidURI)
+		}
 		r, ok := parts[0].(string)
 		if !ok {
 			panic(ErrInvalidURI)
@@ -45,7 +48,10 @@ func NewURI(parts ...any) *URI {
 		repo = r
 	}
 
-	if len(parts) >= 2 && parts[1] != nil {
+	if len(parts) >= 2 {
+		if parts[1] == nil {
+			panic(ErrInvalidURI)
+		}
 		switch v := parts[1].(type) {
 		case string:
 			id = NewID(v)
@@ -58,7 +64,10 @@ func NewURI(parts ...any) *URI {
 		}
 	}
 
-	if len(parts) >= 3 && parts[2] != nil {
+	if len(parts) >= 3 {
+		if parts[2] == nil {
+			panic(ErrInvalidURI)
+		}
 		switch v := parts[2].(type) {
 		case string:
 			attr = NewAttr(v)
@@ -141,16 +150,22 @@ func ParseURI(uri string) (*URI, error) {
 		return nil, ErrInvalidRepo
 	}
 
-	// Parse ID by splitting on "/" if present
 	var id ID
+	var err error
+
 	if matches[2] != "" {
-		id = NewID(splitNonEmpty(matches[2], "/")...)
+		id, err = ParseID(matches[2])
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Parse Attr by splitting on "." if present
 	var attr Attr
 	if matches[3] != "" {
-		attr = NewAttr(splitNonEmpty(matches[3], ".")...)
+		attr, err = ParseAttr(matches[3])
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &URI{

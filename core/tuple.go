@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"slices"
@@ -171,12 +172,32 @@ func newID(id any) ID {
 	case ID:
 		return v
 	case string:
-		return NewID(v)
+		id, err := ParseID(v)
+		if err != nil {
+			panic(err)
+		}
+		return id
 	case []string:
 		return ID(v)
 	default:
 		panic(errors.Wrap(ErrInvalidID, "id", fmt.Sprintf("%v", id)))
 	}
+}
+
+var idRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+// ParseID parses a string into an ID.
+func ParseID(raw string) (ID, error) {
+	if raw == "" {
+		return ID([]string{}), nil
+	}
+	parts := strings.Split(raw, "/")
+	for _, part := range parts {
+		if !idRegex.MatchString(part) {
+			return nil, errors.Wrap(ErrInvalidID, "id", raw)
+		}
+	}
+	return ID(parts), nil
 }
 
 // newAttr is a helper that converts various Attr representations into an Attr.
@@ -187,10 +208,30 @@ func newAttr(attr any) Attr {
 	case Attr:
 		return v
 	case string:
-		return NewAttr(v)
+		attr, err := ParseAttr(v)
+		if err != nil {
+			panic(err)
+		}
+		return attr
 	case []string:
 		return Attr(v)
 	default:
 		panic(errors.Wrap(ErrInvalidAttr, "attr", fmt.Sprintf("%v", attr)))
 	}
+}
+
+var attrRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+// ParseAttr parses a string into an Attr.
+func ParseAttr(raw string) (Attr, error) {
+	if raw == "" {
+		return Attr([]string{}), nil
+	}
+	parts := strings.Split(raw, ".")
+	for _, part := range parts {
+		if !attrRegex.MatchString(part) {
+			return nil, errors.Wrap(ErrInvalidAttr, "attr", raw)
+		}
+	}
+	return Attr(parts), nil
 }

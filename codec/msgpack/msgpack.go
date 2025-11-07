@@ -17,6 +17,36 @@ func New() *Codec {
 	return &Codec{}
 }
 
+// EncodeTuple encodes a [core.Tuple] to key-value pair.
+func (c *Codec) EncodeTuple(tuple *core.Tuple) ([]byte, []byte, error) {
+	encodedURI, err := c.EncodeURI(tuple.URI())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	encodedValue, err := c.EncodeValue(tuple.Value())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return encodedURI, encodedValue, nil
+}
+
+// DecodeTuple decodes a key-value pair to a [core.Tuple].
+func (c *Codec) DecodeTuple(key []byte, value []byte) (*core.Tuple, error) {
+	decodedURI, err := c.DecodeURI(key)
+	if err != nil {
+		return nil, err
+	}
+
+	decodedValue, err := c.DecodeValue(value)
+	if err != nil {
+		return nil, err
+	}
+
+	return core.NewTuple(decodedURI.Repo(), decodedURI.ID(), decodedURI.Attr(), decodedValue), nil
+}
+
 // EncodeURI encodes a [core.URI] to []byte.
 func (c *Codec) EncodeURI(uri *core.URI) ([]byte, error) {
 	if uri == nil {

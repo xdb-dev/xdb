@@ -24,26 +24,38 @@ type RepoWriter interface {
 	MakeRepo(ctx context.Context, repo *core.Repo) error
 }
 
+// RepoDriver is an interface for managing repositories.
+type RepoDriver interface {
+	RepoReader
+	RepoWriter
+}
+
 // TupleReader is an interface for reading tuples.
 type TupleReader interface {
-	GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tuple, []*core.Key, error)
+	GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple, []*core.URI, error)
 }
 
 // TupleWriter is an interface for writing & deleting tuples.
 type TupleWriter interface {
 	PutTuples(ctx context.Context, tuples []*core.Tuple) error
-	DeleteTuples(ctx context.Context, keys []*core.Key) error
+	DeleteTuples(ctx context.Context, uris []*core.URI) error
+}
+
+// TupleDriver is an interface for managing tuples.
+type TupleDriver interface {
+	TupleReader
+	TupleWriter
 }
 
 // RecordReader is an interface for reading records.
 type RecordReader interface {
-	GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Record, []*core.Key, error)
+	GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Record, []*core.URI, error)
 }
 
 // RecordWriter is an interface for writing & deleting records.
 type RecordWriter interface {
 	PutRecords(ctx context.Context, records []*core.Record) error
-	DeleteRecords(ctx context.Context, keys []*core.Key) error
+	DeleteRecords(ctx context.Context, uris []*core.URI) error
 }
 
 // RecordDriver is an interface for managing records.

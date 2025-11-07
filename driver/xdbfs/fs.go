@@ -35,7 +35,7 @@ func (fs *FS) GetRepo(ctx context.Context, name string) (*core.Repo, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, driver.ErrRepoNotFound
+			return nil, driver.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to read repo file: %w", err)
 	}

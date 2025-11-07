@@ -3,12 +3,14 @@ package api
 import "context"
 
 type Tuple struct {
+	Repo  string   `json:"repo"`
 	ID    []string `json:"id"`
 	Attr  []string `json:"attr"`
 	Value any      `json:"value"`
 }
 
-type Key struct {
+type URI struct {
+	Repo string   `json:"repo"`
 	ID   []string `json:"id"`
 	Attr []string `json:"attr"`
 }

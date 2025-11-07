@@ -38,8 +38,8 @@ func NewKVStore(db *sql.DB) *KVStore {
 }
 
 // GetTuples gets tuples from the SQLite key-value table.
-func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tuple, []*core.Key, error) {
-	if len(keys) == 0 {
+func (kv *KVStore) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple, []*core.URI, error) {
+	if len(uris) == 0 {
 		return nil, nil, nil
 	}
 
@@ -51,8 +51,8 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 
 	tuplesMap := make(map[string]*core.Tuple)
 
-	encodedKeys := x.Map(keys, func(key *core.Key) string {
-		id, attr, err := kv.codec.EncodeKey(key)
+	encodedKeys := x.Map(uris, func(uri *core.URI) string {
+		id, attr, err := kv.codec.EncodeURI(uri)
 		if err != nil {
 			return ""
 		}
@@ -84,7 +84,7 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 			return nil, nil, err
 		}
 
-		xk, err := kv.codec.DecodeKey([]byte(id), []byte(attr))
+		xu, err := kv.codec.DecodeURI([]byte(id), []byte(attr))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -94,17 +94,17 @@ func (kv *KVStore) GetTuples(ctx context.Context, keys []*core.Key) ([]*core.Tup
 			return nil, nil, err
 		}
 
-		tuple := xk.Value(xv)
-		tuplesMap[xk.String()] = tuple
+		tuple := core.NewTuple(xu.Repo(), xu.ID(), xu.Attr(), xv)
+		tuplesMap[xu.String()] = tuple
 	}
 
-	tuples := make([]*core.Tuple, 0, len(keys))
-	missing := make([]*core.Key, 0, len(keys))
+	tuples := make([]*core.Tuple, 0, len(uris))
+	missing := make([]*core.URI, 0, len(uris))
 
-	for _, key := range keys {
-		tuple, ok := tuplesMap[key.String()]
+	for _, uri := range uris {
+		tuple, ok := tuplesMap[uri.String()]
 		if !ok {
-			missing = append(missing, key)
+			missing = append(missing, uri)
 			continue
 		}
 
@@ -130,7 +130,7 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	putRecords := make([]goqu.Record, 0, len(tuples))
 
 	for _, tuple := range tuples {
-		id, attr, err := kv.codec.EncodeKey(tuple.Key())
+		id, attr, err := kv.codec.EncodeURI(tuple.URI())
 		if err != nil {
 			return err
 		}
@@ -172,8 +172,8 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 }
 
 // DeleteTuples deletes tuples from the key-value store.
-func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
-	if len(keys) == 0 {
+func (kv *KVStore) DeleteTuples(ctx context.Context, uris []*core.URI) error {
+	if len(uris) == 0 {
 		return nil
 	}
 
@@ -183,8 +183,8 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
 	}
 	defer tx.Rollback()
 
-	encodedKeys := x.Map(keys, func(key *core.Key) string {
-		id, attr, err := kv.codec.EncodeKey(key)
+	encodedKeys := x.Map(uris, func(uri *core.URI) string {
+		id, attr, err := kv.codec.EncodeURI(uri)
 		if err != nil {
 			return ""
 		}
@@ -210,8 +210,8 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, keys []*core.Key) error {
 }
 
 // GetRecords gets records from the key-value store.
-func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Record, []*core.Key, error) {
-	if len(keys) == 0 {
+func (kv *KVStore) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Record, []*core.URI, error) {
+	if len(uris) == 0 {
 		return nil, nil, nil
 	}
 
@@ -221,8 +221,8 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 	}
 	defer tx.Rollback()
 
-	encodedIDs := x.Map(keys, func(key *core.Key) string {
-		id, err := kv.codec.EncodeID(key.ID())
+	encodedIDs := x.Map(uris, func(uri *core.URI) string {
+		id, err := kv.codec.EncodeID(uri.ID())
 		if err != nil {
 			return ""
 		}
@@ -246,6 +246,7 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 	}
 
 	recordsMap := make(map[string]*core.Record)
+	repoMap := make(map[string]string)
 
 	for rows.Next() {
 		var id string
@@ -256,7 +257,7 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 			return nil, nil, err
 		}
 
-		xk, err := kv.codec.DecodeKey([]byte(id), []byte(attr))
+		xu, err := kv.codec.DecodeURI([]byte(id), []byte(attr))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -266,21 +267,23 @@ func (kv *KVStore) GetRecords(ctx context.Context, keys []*core.Key) ([]*core.Re
 			return nil, nil, err
 		}
 
-		_, ok := recordsMap[xk.ID().String()]
+		idStr := xu.ID().String()
+		_, ok := recordsMap[idStr]
 		if !ok {
-			recordsMap[xk.ID().String()] = core.NewRecord(xk.ID()...)
+			recordsMap[idStr] = core.NewRecord(xu.Repo(), xu.ID()...)
+			repoMap[idStr] = xu.Repo()
 		}
 
-		recordsMap[xk.ID().String()].Set(xk.Attr(), xv)
+		recordsMap[idStr].Set(xu.Attr(), xv)
 	}
 
 	records := make([]*core.Record, 0, len(recordsMap))
-	missing := make([]*core.Key, 0, len(keys))
+	missing := make([]*core.URI, 0, len(uris))
 
-	for _, key := range keys {
-		record, ok := recordsMap[key.ID().String()]
+	for _, uri := range uris {
+		record, ok := recordsMap[uri.ID().String()]
 		if !ok {
-			missing = append(missing, key)
+			missing = append(missing, uri)
 			continue
 		}
 
@@ -302,8 +305,8 @@ func (kv *KVStore) PutRecords(ctx context.Context, records []*core.Record) error
 }
 
 // DeleteRecords deletes records from the key-value store.
-func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
-	if len(keys) == 0 {
+func (kv *KVStore) DeleteRecords(ctx context.Context, uris []*core.URI) error {
+	if len(uris) == 0 {
 		return nil
 	}
 
@@ -313,8 +316,8 @@ func (kv *KVStore) DeleteRecords(ctx context.Context, keys []*core.Key) error {
 	}
 	defer tx.Rollback()
 
-	encodedIDs := x.Map(keys, func(key *core.Key) string {
-		id, err := kv.codec.EncodeID(key.ID())
+	encodedIDs := x.Map(uris, func(uri *core.URI) string {
+		id, err := kv.codec.EncodeID(uri.ID())
 		if err != nil {
 			return ""
 		}

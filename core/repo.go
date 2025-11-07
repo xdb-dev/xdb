@@ -58,7 +58,7 @@ func (r *Repo) URI() *URI {
 	return &URI{repo: r.name}
 }
 
-var repoRegex = regexp.MustCompile(`^[a-zA-Z0-9.-_]+$`)
+var repoRegex = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 
 // isValidRepo checks if a repository name is valid.
 // Valid names contain only alphanumeric characters, dots, hyphens, and underscores.
