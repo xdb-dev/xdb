@@ -11,7 +11,10 @@ import (
 
 // FakeRepo creates a fake repository.
 func FakeRepo() *core.Repo {
-	repo, _ := core.NewRepo("example-repo")
+	repo, err := core.NewRepo("example-repo")
+	if err != nil {
+		panic(err)
+	}
 	return repo.WithSchema(FakePostSchema())
 }
 
@@ -22,15 +25,15 @@ func FakePostSchema() *core.Schema {
 		Description: "Blog post schema",
 		Version:     "1.0.0",
 		Fields: []*core.FieldSchema{
-			{Name: "title", Type: core.NewType(core.TypeIDString)},
-			{Name: "content", Type: core.NewType(core.TypeIDString)},
+			{Name: "title", Type: core.TypeString},
+			{Name: "content", Type: core.TypeString},
 			{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
 			{Name: "metadata", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
-			{Name: "rating", Type: core.NewType(core.TypeIDFloat)},
-			{Name: "published", Type: core.NewType(core.TypeIDBoolean)},
-			{Name: "comments.count", Type: core.NewType(core.TypeIDInteger)},
-			{Name: "thumbnail", Type: core.NewType(core.TypeIDBytes)},
-			{Name: "created_at", Type: core.NewType(core.TypeIDTime)},
+			{Name: "rating", Type: core.TypeFloat},
+			{Name: "published", Type: core.TypeBool},
+			{Name: "comments.count", Type: core.TypeInt},
+			{Name: "thumbnail", Type: core.TypeBytes},
+			{Name: "created_at", Type: core.TypeTime},
 		},
 		Required: []string{"title", "content"},
 	}
@@ -38,10 +41,11 @@ func FakePostSchema() *core.Schema {
 
 // FakePost creates a fakerecord with fake Post data.
 func FakePost() *core.Record {
+	repo := "test.repo"
 	kind := "Post"
 	id := gofakeit.UUID()
 
-	return core.NewRecord(kind, id).
+	return core.NewRecord(repo, kind, id).
 		Set("title", gofakeit.Sentence(10)).
 		Set("content", gofakeit.Paragraph(10, 10, 10, " ")).
 		Set("tags", []string{
@@ -106,10 +110,11 @@ func FakeTuples() []*core.Tuple {
 
 // FakeStringTuples creates fake tuples for string values.
 func FakeStringTuples() []*core.Tuple {
+	repo := "test.repo"
 	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple(id, "string", gofakeit.Sentence(10)),
-		core.NewTuple(id, "string_array", []string{
+		core.NewTuple(repo, id, "string", gofakeit.Sentence(10)),
+		core.NewTuple(repo, id, "string_array", []string{
 			gofakeit.Sentence(10),
 			gofakeit.Sentence(10),
 		}),
@@ -118,10 +123,11 @@ func FakeStringTuples() []*core.Tuple {
 
 // FakeIntTuples creates fake tuples for int values.
 func FakeIntTuples() []*core.Tuple {
+	repo := "test.repo"
 	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple(id, "int64", gofakeit.Int64()),
-		core.NewTuple(id, "int64_array", []int64{
+		core.NewTuple(repo, id, "int64", gofakeit.Int64()),
+		core.NewTuple(repo, id, "int64_array", []int64{
 			gofakeit.Int64(),
 			gofakeit.Int64(),
 		}),
@@ -130,10 +136,11 @@ func FakeIntTuples() []*core.Tuple {
 
 // FakeFloatTuples creates fake tuples for float values.
 func FakeFloatTuples() []*core.Tuple {
+	repo := "test.repo"
 	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple(id, "float", gofakeit.Float64()),
-		core.NewTuple(id, "float_array", []float64{
+		core.NewTuple(repo, id, "float", gofakeit.Float64()),
+		core.NewTuple(repo, id, "float_array", []float64{
 			gofakeit.Float64(),
 			gofakeit.Float64(),
 		}),
@@ -142,10 +149,11 @@ func FakeFloatTuples() []*core.Tuple {
 
 // FakeBoolTuples creates fake tuples for bool values.
 func FakeBoolTuples() []*core.Tuple {
+	repo := "test.repo"
 	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple(id, "bool", gofakeit.Bool()),
-		core.NewTuple(id, "bool_array", []bool{
+		core.NewTuple(repo, id, "bool", gofakeit.Bool()),
+		core.NewTuple(repo, id, "bool_array", []bool{
 			gofakeit.Bool(),
 			gofakeit.Bool(),
 		}),
@@ -154,10 +162,11 @@ func FakeBoolTuples() []*core.Tuple {
 
 // FakeBytesTuples creates fake tuples for bytes values.
 func FakeBytesTuples() []*core.Tuple {
+	repo := "test.repo"
 	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple(id, "bytes", []byte(gofakeit.Sentence(10))),
-		core.NewTuple(id, "bytes_array", [][]byte{
+		core.NewTuple(repo, id, "bytes", []byte(gofakeit.Sentence(10))),
+		core.NewTuple(repo, id, "bytes_array", [][]byte{
 			[]byte(gofakeit.Sentence(10)),
 			[]byte(gofakeit.Sentence(10)),
 		}),
@@ -166,10 +175,11 @@ func FakeBytesTuples() []*core.Tuple {
 
 // FakeTimeTuples creates fake tuples for time.Time.
 func FakeTimeTuples() []*core.Tuple {
+	repo := "test.repo"
 	id := core.NewID("Test", "1")
 	return []*core.Tuple{
-		core.NewTuple(id, "time", gofakeit.Date()),
-		core.NewTuple(id, "time_array", []time.Time{
+		core.NewTuple(repo, id, "time", gofakeit.Date()),
+		core.NewTuple(repo, id, "time_array", []time.Time{
 			gofakeit.Date(),
 			gofakeit.Date(),
 		}),

@@ -21,7 +21,7 @@ func TestRecordReaderWriter(t *testing.T, rw recordReaderWriter) {
 
 	ctx := context.Background()
 	records := FakePosts(10)
-	keys := x.Keys(records...)
+	uris := x.URIs(records...)
 
 	t.Run("PutRecords", func(t *testing.T) {
 		err := rw.PutRecords(ctx, records)
@@ -29,34 +29,34 @@ func TestRecordReaderWriter(t *testing.T, rw recordReaderWriter) {
 	})
 
 	t.Run("GetRecords", func(t *testing.T) {
-		got, missing, err := rw.GetRecords(ctx, keys)
+		got, missing, err := rw.GetRecords(ctx, uris)
 		require.NoError(t, err)
 		require.Len(t, missing, 0)
 		AssertEqualRecords(t, records, got)
 	})
 
 	t.Run("GetRecordsSomeMissing", func(t *testing.T) {
-		notFound := []*core.Key{
-			core.NewKey(core.NewID("Post", "not_found_1")),
-			core.NewKey(core.NewID("Post", "not_found_2")),
+		notFound := []*core.URI{
+			core.NewURI("test.repo", core.NewID("Post", "not_found_1")),
+			core.NewURI("test.repo", core.NewID("Post", "not_found_2")),
 		}
 
-		got, missing, err := rw.GetRecords(ctx, append(keys, notFound...))
+		got, missing, err := rw.GetRecords(ctx, append(uris, notFound...))
 		require.NoError(t, err)
-		AssertEqualKeys(t, notFound, missing)
+		AssertEqualURIs(t, notFound, missing)
 		AssertEqualRecords(t, records, got)
 	})
 
 	t.Run("DeleteRecords", func(t *testing.T) {
-		err := rw.DeleteRecords(ctx, keys)
+		err := rw.DeleteRecords(ctx, uris)
 		require.NoError(t, err)
 	})
 
 	t.Run("GetRecordsAllMissing", func(t *testing.T) {
-		got, missing, err := rw.GetRecords(ctx, keys)
+		got, missing, err := rw.GetRecords(ctx, uris)
 		require.NoError(t, err)
 		require.NotEmpty(t, missing)
 		require.Len(t, got, 0)
-		AssertEqualKeys(t, missing, keys)
+		AssertEqualURIs(t, missing, uris)
 	})
 }
