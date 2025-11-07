@@ -58,8 +58,11 @@ func DefaultConfig() Config {
 		ConnMaxLifetime: 3600,
 		BusyTimeout:     5000,
 		Pragmas: map[string]string{
-			"journal_mode": "WAL",
-			"synchronous":  "NORMAL",
+			"journal_mode":  "WAL",
+			"page_size":     "4096",
+			"cache_size":    "-8000",
+			"synchronous":   "NORMAL",
+			"secure_delete": "ON",
 		},
 	}
 }

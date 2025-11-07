@@ -2,14 +2,16 @@ package main
 
 import (
 	"context"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"log/slog"
+
 	"github.com/phsym/console-slog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v3"
+
 	"github.com/xdb-dev/xdb/cmd/xdb/app"
 )
 
@@ -40,19 +42,17 @@ func main() {
 			},
 			Flags: []cli.Flag{
 				&cli.StringFlag{
+					Name:    "config",
+					Aliases: []string{"c"},
+					Usage:   "path to config file (defaults to xdb.yaml or xdb.yml in current directory)",
+				},
+				&cli.StringFlag{
 					Name:    "schema",
 					Aliases: []string{"s"},
 					Usage:   "path to schema file",
 				},
 			},
-			Action: func(ctx context.Context, cmd *cli.Command) error {
-				name := cmd.String("name")
-				schema := cmd.String("schema")
-
-				slog.Info("[XDB] Making repo", "name", name, "schema", schema)
-
-				return nil //app.MakeRepo(ctx, name, schema)
-			},
+			Action: app.MakeRepo,
 		},
 		{
 			Name:        "get",

@@ -3,12 +3,12 @@ package core
 import (
 	"fmt"
 	"reflect"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gojekfarm/xtools/errors"
+	"slices"
 )
 
 var (

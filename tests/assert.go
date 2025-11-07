@@ -180,3 +180,25 @@ func assertEqualMapValues(t *testing.T, expected, actual *core.Value) {
 		}
 	}
 }
+
+// AssertSchemaEqual asserts that two schemas are equal.
+func AssertSchemaEqual(t *testing.T, expected, actual *core.Schema) {
+	t.Helper()
+
+	assert.Equal(t, expected.Name, actual.Name, "schema name mismatch")
+	assert.Equal(t, expected.Description, actual.Description, "schema description mismatch")
+	assert.Equal(t, expected.Version, actual.Version, "schema version mismatch")
+	assert.Equal(t, expected.Required, actual.Required, "schema required fields mismatch")
+	require.Len(t, actual.Fields, len(expected.Fields), "schema fields length mismatch")
+
+	for i, expectedField := range expected.Fields {
+		actualField := actual.Fields[i]
+		assert.Equal(t, expectedField.Name, actualField.Name,
+			"field[%d] name mismatch", i)
+		assert.Equal(t, expectedField.Description, actualField.Description,
+			"field[%d] description mismatch", i)
+		assert.True(t, expectedField.Type.Equals(actualField.Type),
+			"field[%d] (%s): expected type %v, got %v",
+			i, expectedField.Name, expectedField.Type, actualField.Type)
+	}
+}

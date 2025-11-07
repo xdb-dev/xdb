@@ -1,4 +1,4 @@
-package xdbsqlite_test
+package xdbsqlite
 
 import (
 	"database/sql"
@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 	"github.com/xdb-dev/xdb/tests"
 )
 
@@ -38,7 +37,7 @@ func (s *MigratorTestSuite) TestCreateTable() {
 	s.Require().NoError(err)
 	defer tx.Rollback()
 
-	migrator := xdbsqlite.NewMigrator(tx)
+	migrator := &Migrator{tx: tx}
 
 	err = migrator.CreateTable(s.T().Context(), tests.FakePostSchema())
 	s.Require().NoError(err)
@@ -70,7 +69,7 @@ func (s *MigratorTestSuite) TestAlterTable_NoChange() {
 	s.Require().NoError(err)
 	defer tx.Rollback()
 
-	migrator := xdbsqlite.NewMigrator(tx)
+	migrator := &Migrator{tx: tx}
 
 	schema := tests.FakePostSchema()
 
@@ -107,7 +106,7 @@ func (s *MigratorTestSuite) TestAlterTable_AddFields() {
 	s.Require().NoError(err)
 	defer tx.Rollback()
 
-	migrator := xdbsqlite.NewMigrator(tx)
+	migrator := &Migrator{tx: tx}
 
 	schema := tests.FakePostSchema()
 
@@ -115,9 +114,9 @@ func (s *MigratorTestSuite) TestAlterTable_AddFields() {
 	s.Require().NoError(err)
 
 	extendedSchema := tests.FakePostSchema()
-	extendedSchema.Fields = append(schema.Fields, &core.Schema{
+	extendedSchema.Fields = append(schema.Fields, &core.FieldSchema{
 		Name: "author",
-		Type: core.TypeIDString.String(),
+		Type: core.TypeString,
 	})
 
 	err = migrator.AlterTable(s.T().Context(), schema, extendedSchema)
@@ -151,7 +150,7 @@ func (s *MigratorTestSuite) TestAlterTable_DropFields() {
 	s.Require().NoError(err)
 	defer tx.Rollback()
 
-	migrator := xdbsqlite.NewMigrator(tx)
+	migrator := &Migrator{tx: tx}
 
 	schema := tests.FakePostSchema()
 
@@ -162,22 +161,22 @@ func (s *MigratorTestSuite) TestAlterTable_DropFields() {
 	reducedSchema.Fields = reducedSchema.Fields[:len(reducedSchema.Fields)-1]
 
 	err = migrator.AlterTable(s.T().Context(), schema, reducedSchema)
-	s.ErrorIs(err, xdbsqlite.ErrFieldDeleted)
+	s.ErrorIs(err, ErrFieldDeleted)
 }
 
 func (s *MigratorTestSuite) TestAllTypeMappings() {
 	// Test schema with one field of each supported type
 	allTypesSchema := &core.Schema{
 		Name: "com.example.AllTypes",
-		Fields: []*core.Schema{
-			{Name: "field_string", Type: core.TypeIDString.String()},
-			{Name: "field_integer", Type: core.TypeIDInteger.String()},
-			{Name: "field_boolean", Type: core.TypeIDBoolean.String()},
-			{Name: "field_time", Type: core.TypeIDTime.String()},
-			{Name: "field_float", Type: core.TypeIDFloat.String()},
-			{Name: "field_bytes", Type: core.TypeIDBytes.String()},
-			{Name: "field_array", Type: core.TypeIDArray.String()},
-			{Name: "field_map", Type: core.TypeIDMap.String()},
+		Fields: []*core.FieldSchema{
+			{Name: "field_string", Type: core.TypeString},
+			{Name: "field_integer", Type: core.TypeInt},
+			{Name: "field_boolean", Type: core.TypeBool},
+			{Name: "field_time", Type: core.TypeTime},
+			{Name: "field_float", Type: core.TypeFloat},
+			{Name: "field_bytes", Type: core.TypeBytes},
+			{Name: "field_array", Type: core.NewArrayType(core.TypeIDString)},
+			{Name: "field_map", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
 		},
 	}
 
@@ -185,7 +184,7 @@ func (s *MigratorTestSuite) TestAllTypeMappings() {
 	s.Require().NoError(err)
 	defer tx.Rollback()
 
-	migrator := xdbsqlite.NewMigrator(tx)
+	migrator := &Migrator{tx: tx}
 
 	err = migrator.CreateTable(s.T().Context(), allTypesSchema)
 	s.Require().NoError(err)

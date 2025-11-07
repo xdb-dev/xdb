@@ -52,14 +52,14 @@ func (kv *KVStore) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tup
 	tuplesMap := make(map[string]*core.Tuple)
 
 	encodedKeys := x.Map(uris, func(uri *core.URI) string {
-		id, attr, err := kv.codec.EncodeURI(uri)
+		key, err := kv.codec.EncodeURI(uri)
 		if err != nil {
 			return ""
 		}
-		return string(id) + ":" + string(attr)
+		return string(key)
 	})
 
-	getQuery := goqu.Select("id", "attr", "value").
+	getQuery := goqu.Select("key", "value").
 		From("xdbkvstore").
 		Where(goqu.Ex{
 			"key": encodedKeys,
@@ -76,15 +76,14 @@ func (kv *KVStore) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tup
 	}
 
 	for rows.Next() {
-		var id string
-		var attr string
+		var key string
 		var value []byte
-		err := rows.Scan(&id, &attr, &value)
+		err := rows.Scan(&key, &value)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		xu, err := kv.codec.DecodeURI([]byte(id), []byte(attr))
+		xu, err := kv.codec.DecodeURI([]byte(key))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -130,7 +129,7 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	putRecords := make([]goqu.Record, 0, len(tuples))
 
 	for _, tuple := range tuples {
-		id, attr, err := kv.codec.EncodeURI(tuple.URI())
+		key, err := kv.codec.EncodeURI(tuple.URI())
 		if err != nil {
 			return err
 		}
@@ -141,9 +140,9 @@ func (kv *KVStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 		}
 
 		insertRecord := goqu.Record{
-			"key":        string(id) + ":" + string(attr),
-			"id":         string(id),
-			"attr":       string(attr),
+			"key":        string(key),
+			"id":         tuple.ID().String(),
+			"attr":       tuple.Attr().String(),
 			"value":      v,
 			"updated_at": time.Now().UnixMilli(),
 		}
@@ -184,11 +183,11 @@ func (kv *KVStore) DeleteTuples(ctx context.Context, uris []*core.URI) error {
 	defer tx.Rollback()
 
 	encodedKeys := x.Map(uris, func(uri *core.URI) string {
-		id, attr, err := kv.codec.EncodeURI(uri)
+		key, err := kv.codec.EncodeURI(uri)
 		if err != nil {
 			return ""
 		}
-		return string(id) + ":" + string(attr)
+		return string(key)
 	})
 
 	deleteQuery := goqu.Delete("xdbkvstore").
@@ -222,14 +221,10 @@ func (kv *KVStore) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Re
 	defer tx.Rollback()
 
 	encodedIDs := x.Map(uris, func(uri *core.URI) string {
-		id, err := kv.codec.EncodeID(uri.ID())
-		if err != nil {
-			return ""
-		}
-		return string(id)
+		return uri.ID().String()
 	})
 
-	selectQuery := goqu.Select("id", "attr", "value").
+	selectQuery := goqu.Select("key", "value").
 		From("xdbkvstore").
 		Where(goqu.Ex{
 			"id": encodedIDs,
@@ -249,15 +244,14 @@ func (kv *KVStore) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Re
 	repoMap := make(map[string]string)
 
 	for rows.Next() {
-		var id string
-		var attr string
+		var key string
 		var value []byte
-		err := rows.Scan(&id, &attr, &value)
+		err := rows.Scan(&key, &value)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		xu, err := kv.codec.DecodeURI([]byte(id), []byte(attr))
+		xu, err := kv.codec.DecodeURI([]byte(key))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -317,11 +311,7 @@ func (kv *KVStore) DeleteRecords(ctx context.Context, uris []*core.URI) error {
 	defer tx.Rollback()
 
 	encodedIDs := x.Map(uris, func(uri *core.URI) string {
-		id, err := kv.codec.EncodeID(uri.ID())
-		if err != nil {
-			return ""
-		}
-		return string(id)
+		return uri.ID().String()
 	})
 
 	deleteQuery := goqu.Delete("xdbkvstore").

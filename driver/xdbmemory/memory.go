@@ -66,6 +66,17 @@ func (d *MemoryDriver) MakeRepo(ctx context.Context, repo *core.Repo) error {
 	return nil
 }
 
+// DeleteRepo deletes the repo for the given name.
+func (d *MemoryDriver) DeleteRepo(ctx context.Context, name string) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	delete(d.repos, name)
+	delete(d.tuples, name)
+
+	return nil
+}
+
 // GetTuples returns the tuples for the given uris.
 func (d *MemoryDriver) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple, []*core.URI, error) {
 	d.mu.RLock()

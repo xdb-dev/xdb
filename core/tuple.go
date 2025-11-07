@@ -5,9 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"slices"
-
 	"github.com/gojekfarm/xtools/errors"
+	"slices"
 )
 
 var (

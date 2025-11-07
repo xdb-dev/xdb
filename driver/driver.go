@@ -22,6 +22,7 @@ type RepoReader interface {
 // RepoWriter is an interface for creating repositories.
 type RepoWriter interface {
 	MakeRepo(ctx context.Context, repo *core.Repo) error
+	DeleteRepo(ctx context.Context, name string) error
 }
 
 // RepoDriver is an interface for managing repositories.

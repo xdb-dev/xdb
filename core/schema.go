@@ -50,6 +50,13 @@ type FieldSchema struct {
 	Default *Value
 }
 
+// Equals returns true if this FieldSchema is equal to the other FieldSchema.
+func (f *FieldSchema) Equals(other *FieldSchema) bool {
+	return f.Name == other.Name &&
+		f.Description == other.Description &&
+		f.Type.Equals(other.Type)
+}
+
 // ValidateRecord validates all tuples in a record against this schema.
 // It checks that required fields are present and validates each tuple's value.
 func (s *Schema) ValidateRecord(record *Record) error {

@@ -3,11 +3,12 @@ package app
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/gojekfarm/xtools/xload"
 	"github.com/gojekfarm/xtools/xload/providers/yaml"
+	"log/slog"
+
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 )
@@ -16,10 +17,6 @@ type Config struct {
 	// Address to bind the HTTP server to.
 	// Default: :8080
 	Addr string `env:"ADDR"`
-
-	// Directory to store schema files.
-	// Default: .schema/
-	SchemaDir string `env:"SCHEMA_DIR"`
 
 	// Store configuration.
 	// Only one of the following stores can be configured.
@@ -33,7 +30,6 @@ func NewDefaultConfig() *Config {
 	cfg := &Config{}
 
 	cfg.Addr = ":8080"
-	cfg.SchemaDir = ".schema"
 
 	return cfg
 }

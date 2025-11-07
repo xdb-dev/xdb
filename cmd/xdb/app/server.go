@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gojekfarm/xtools/xapi"
+	"log/slog"
+
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
-	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 )
 
 type Storer interface {
@@ -66,11 +66,11 @@ func (s *Server) initStore() error {
 	case s.cfg.Store.SQLite != nil:
 		slog.Info("[SERVER] Initializing SQLite store", "path", s.cfg.Store.SQLite.Path)
 
-		store, err := xdbsqlite.NewStore(*s.cfg.Store.SQLite, xdbmemory.New())
-		if err != nil {
-			return err
-		}
-		s.store = store
+		// store, err := xdbsqlite.NewStore(*s.cfg.Store.SQLite, xdbmemory.New())
+		// if err != nil {
+		// 	return err
+		// }
+		// s.store = store
 	default:
 		slog.Info("[SERVER] Initializing in-memory store")
 

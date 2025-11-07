@@ -88,13 +88,8 @@ func (fs *FS) ListRepos(ctx context.Context) ([]*core.Repo, error) {
 	return repos, nil
 }
 
-// CreateRepo creates a new repo in the filesystem.
-func (fs *FS) CreateRepo(ctx context.Context, repo *core.Repo) error {
-	// Ensure the root directory exists
-	if err := os.MkdirAll(fs.root, 0755); err != nil {
-		return fmt.Errorf("failed to create root directory: %w", err)
-	}
-
+// MakeRepo creates a new repo in the filesystem.
+func (fs *FS) MakeRepo(ctx context.Context, repo *core.Repo) error {
 	rf := repoFile{
 		Name:   repo.Name(),
 		Schema: repo.Schema(),
@@ -106,25 +101,6 @@ func (fs *FS) CreateRepo(ctx context.Context, repo *core.Repo) error {
 	}
 
 	path := fs.repoPath(repo.Name())
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("failed to write repo file: %w", err)
-	}
-
-	return nil
-}
-
-// UpdateRepo updates a repo in the filesystem.
-func (fs *FS) UpdateRepo(ctx context.Context, repo *core.Repo) error {
-	path := fs.repoPath(repo.Name())
-
-	data, err := json.MarshalIndent(repoFile{
-		Name:   repo.Name(),
-		Schema: repo.Schema(),
-	}, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal repo: %w", err)
-	}
-
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write repo file: %w", err)
 	}

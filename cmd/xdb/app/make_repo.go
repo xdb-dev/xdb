@@ -1,0 +1,67 @@
+package app
+
+import (
+	"context"
+	"log/slog"
+	"os"
+
+	"github.com/urfave/cli/v3"
+
+	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
+)
+
+func MakeRepo(ctx context.Context, cmd *cli.Command) error {
+	config := cmd.String("config")
+	name := cmd.String("name")
+	schemaPath := cmd.String("schema")
+
+	slog.Info("[XDB] Making repo", "name", name, "schema", schemaPath)
+
+	cfg, err := LoadConfig(ctx, config)
+	if err != nil {
+		return err
+	}
+
+	schema, err := loadSchema(ctx, schemaPath)
+	if err != nil {
+		return err
+	}
+
+	app, err := New(cfg)
+	if err != nil {
+		return err
+	}
+
+	repo, err := core.NewRepo(name)
+	if err != nil {
+		return err
+	}
+
+	repo = repo.WithSchema(schema)
+
+	err = app.RepoDriver.MakeRepo(ctx, repo)
+	if err != nil {
+		return err
+	}
+
+	return app.Shutdown(ctx)
+}
+
+func loadSchema(ctx context.Context, path string) (*core.Schema, error) {
+	if path == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	s, err := schema.LoadFromJSON(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
+}
