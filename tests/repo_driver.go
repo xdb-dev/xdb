@@ -47,6 +47,18 @@ func TestRepoReaderWriter(t *testing.T, rw repoReaderWriter) {
 		}
 		require.True(t, found, "created repo not found in list")
 	})
+
+	t.Run("DeleteRepo", func(t *testing.T) {
+		err := rw.DeleteRepo(ctx, repo.Name())
+		require.NoError(t, err)
+	})
+
+	t.Run("GetRepo", func(t *testing.T) {
+		got, err := rw.GetRepo(ctx, repo.Name())
+		require.Error(t, err)
+		require.ErrorIs(t, err, driver.ErrNotFound)
+		require.Nil(t, got)
+	})
 }
 
 func AssertEqualRepos(t *testing.T, expected, actual []*core.Repo) {

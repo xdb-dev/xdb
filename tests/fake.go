@@ -11,7 +11,7 @@ import (
 
 // FakeRepo creates a fake repository.
 func FakeRepo() *core.Repo {
-	repo, err := core.NewRepo("example-repo")
+	repo, err := core.NewRepo("com.example.posts")
 	if err != nil {
 		panic(err)
 	}
@@ -21,7 +21,7 @@ func FakeRepo() *core.Repo {
 // FakePostSchema creates a fake schema of a Post.
 func FakePostSchema() *core.Schema {
 	return &core.Schema{
-		Name:        "Post",
+		Name:        "com.example.posts",
 		Description: "Blog post schema",
 		Version:     "1.0.0",
 		Fields: []*core.FieldSchema{
@@ -41,11 +41,10 @@ func FakePostSchema() *core.Schema {
 
 // FakePost creates a fake record with fake Post data.
 func FakePost() *core.Record {
-	repo := "test.repo"
-	kind := "Post"
+	repo := "com.example.posts"
 	id := gofakeit.UUID()
 
-	return core.NewRecord(repo, kind, id).
+	return core.NewRecord(repo, id).
 		Set("title", gofakeit.Sentence(10)).
 		Set("content", gofakeit.Paragraph(10, 10, 10, " ")).
 		Set("tags", []string{
