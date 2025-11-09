@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
@@ -44,7 +43,7 @@ var typeNames = map[TypeID]string{
 
 // String returns the name of the type.
 func (t TypeID) String() string {
-	return fmt.Sprintf("TypeID(%s)", typeNames[t])
+	return typeNames[t]
 }
 
 // ParseType parses a type name into a TypeID.

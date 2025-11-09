@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"log/slog"
-
 	"github.com/ncruces/go-sqlite3"
 	"github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
+	"log/slog"
 
 	xdbdriver "github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/driver/xdbfs"

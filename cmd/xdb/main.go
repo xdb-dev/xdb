@@ -6,11 +6,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"log/slog"
-
 	"github.com/phsym/console-slog"
 	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v3"
+	"log/slog"
 
 	"github.com/xdb-dev/xdb/cmd/xdb/app"
 )

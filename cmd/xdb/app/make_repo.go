@@ -2,10 +2,10 @@ package app
 
 import (
 	"context"
-	"log/slog"
 	"os"
 
 	"github.com/urfave/cli/v3"
+	"log/slog"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
