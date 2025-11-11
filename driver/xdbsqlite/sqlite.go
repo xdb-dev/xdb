@@ -3,12 +3,15 @@ package xdbsqlite
 import (
 	"database/sql"
 	"fmt"
+	"path/filepath"
 	"time"
 
+	"log/slog"
+
+	"github.com/gojekfarm/xtools/errors"
 	"github.com/ncruces/go-sqlite3"
 	"github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
-	"log/slog"
 
 	xdbdriver "github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/driver/xdbfs"
@@ -29,7 +32,12 @@ func New(cfg Config) (*Store, error) {
 	}
 
 	s.db = db
-	s.meta = xdbfs.New(s.cfg.SchemaDir)
+
+	schemaDir := filepath.Join(s.cfg.Dir, ".schema")
+	s.meta, err = xdbfs.New(schemaDir)
+	if err != nil {
+		return nil, err
+	}
 
 	return s, nil
 }
@@ -39,11 +47,9 @@ func (s *Store) Close() error {
 }
 
 func (s *Store) newDB() (*sql.DB, error) {
-	dbPath := s.cfg.Path
-
-	db, err := driver.Open(dbPath, s.applySQLitePragmas)
+	db, err := driver.Open(s.cfg.DSN(), s.applySQLitePragmas)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+		return nil, err
 	}
 
 	// Apply connection pool settings
@@ -51,7 +57,7 @@ func (s *Store) newDB() (*sql.DB, error) {
 	db.SetMaxIdleConns(s.cfg.MaxIdleConns)
 	db.SetConnMaxLifetime(time.Duration(s.cfg.ConnMaxLifetime) * time.Second)
 
-	slog.Info("[SQLite] Database configured", "path", s.cfg.Path)
+	slog.Info("[SQLite] Database configured", "path", s.cfg.DSN())
 
 	return db, nil
 }
@@ -64,7 +70,7 @@ func (s *Store) applySQLitePragmas(c *sqlite3.Conn) error {
 
 		query := fmt.Sprintf("PRAGMA %s = %s", name, value)
 		if err := c.Exec(query); err != nil {
-			return fmt.Errorf("failed to set PRAGMA %s: %w", name, err)
+			return errors.Wrap(err, "pragma", name, "value", value)
 		}
 	}
 

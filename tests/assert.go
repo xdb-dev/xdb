@@ -185,7 +185,6 @@ func assertEqualMapValues(t *testing.T, expected, actual *core.Value) {
 func AssertSchemaEqual(t *testing.T, expected, actual *core.Schema) {
 	t.Helper()
 
-	assert.Equal(t, expected.Name, actual.Name, "schema name mismatch")
 	assert.Equal(t, expected.Description, actual.Description, "schema description mismatch")
 	assert.Equal(t, expected.Version, actual.Version, "schema version mismatch")
 	assert.Equal(t, expected.Required, actual.Required, "schema required fields mismatch")

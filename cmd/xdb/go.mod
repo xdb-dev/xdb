@@ -23,7 +23,6 @@ require (
 	github.com/gojekfarm/xtools/errors v0.10.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
-	github.com/mattn/go-sqlite3 v1.14.28 // indirect
 	github.com/ncruces/go-sqlite3 v0.30.0 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/sourcegraph/conc v0.3.0 // indirect

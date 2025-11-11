@@ -43,12 +43,14 @@ func (fs *FS) GetRepo(ctx context.Context, name string) (*core.Repo, error) {
 		return nil, err
 	}
 
-	repo, err := core.NewRepo(name)
+	if len(schema.Fields) == 0 {
+		return core.NewRepo(schema.Name)
+	}
+
+	repo, err := core.NewRepo(schema)
 	if err != nil {
 		return nil, err
 	}
-
-	repo = repo.WithSchema(schema)
 
 	return repo, nil
 }
@@ -80,12 +82,17 @@ func (fs *FS) ListRepos(ctx context.Context) ([]*core.Repo, error) {
 			return err
 		}
 
-		repo, err := core.NewRepo(schema.Name)
+		var repo *core.Repo
+		if len(schema.Fields) == 0 {
+			repo, err = core.NewRepo(schema.Name)
+		} else {
+			repo, err = core.NewRepo(schema)
+		}
 		if err != nil {
 			return err
 		}
 
-		repos = append(repos, repo.WithSchema(schema))
+		repos = append(repos, repo)
 		return nil
 	})
 
@@ -100,7 +107,13 @@ func (fs *FS) MakeRepo(ctx context.Context, repo *core.Repo) error {
 		return err
 	}
 
-	data, err := schema.WriteToJSON(repo.Schema())
+	s := repo.Schema()
+
+	if repo.Mode() == core.ModeFlexible {
+		s = &core.Schema{Name: repo.Name()}
+	}
+
+	data, err := schema.WriteToJSON(s)
 	if err != nil {
 		return err
 	}

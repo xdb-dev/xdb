@@ -33,12 +33,16 @@ func MakeRepo(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	repo, err := core.NewRepo(name)
+	var repo *core.Repo
+	if schema != nil {
+		schema.Name = name
+		repo, err = core.NewRepo(schema)
+	} else {
+		repo, err = core.NewRepo(name)
+	}
 	if err != nil {
 		return err
 	}
-
-	repo = repo.WithSchema(schema)
 
 	err = app.RepoDriver.MakeRepo(ctx, repo)
 	if err != nil {

@@ -1,6 +1,8 @@
 package core
 
 import (
+	"slices"
+
 	"github.com/gojekfarm/xtools/errors"
 )
 
@@ -17,6 +19,7 @@ var (
 
 // Schema defines the structure and validation rules for records.
 // It provides metadata, field definitions, and record-level constraints.
+// The schema name is derived from the Repo it belongs to.
 type Schema struct {
 	// Name is the schema name.
 	Name string
@@ -55,6 +58,30 @@ func (f *FieldSchema) Equals(other *FieldSchema) bool {
 	return f.Name == other.Name &&
 		f.Description == other.Description &&
 		f.Type.Equals(other.Type)
+}
+
+// Clone returns a deep copy of the FieldSchema.
+func (f *FieldSchema) Clone() *FieldSchema {
+	return &FieldSchema{
+		Name:        f.Name,
+		Description: f.Description,
+		Type:        f.Type,
+		Default:     f.Default,
+	}
+}
+
+// Clone returns a deep copy of the Schema.
+func (s *Schema) Clone() *Schema {
+	clone := &Schema{
+		Description: s.Description,
+		Version:     s.Version,
+		Fields:      make([]*FieldSchema, 0, len(s.Fields)),
+		Required:    slices.Clone(s.Required),
+	}
+	for _, field := range s.Fields {
+		clone.Fields = append(clone.Fields, field.Clone())
+	}
+	return clone
 }
 
 // ValidateRecord validates all tuples in a record against this schema.

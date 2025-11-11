@@ -33,7 +33,7 @@ func New(cfg *Config) (*App, error) {
 func (a *App) initStore() error {
 	switch {
 	case a.cfg.Store.SQLite != nil:
-		slog.Info("[APP] Initializing SQLite store", "path", a.cfg.Store.SQLite.Path)
+		slog.Info("[APP] Initializing SQLite store", "dir", a.cfg.Store.SQLite.Dir)
 
 		store, err := xdbsqlite.New(*a.cfg.Store.SQLite)
 		if err != nil {

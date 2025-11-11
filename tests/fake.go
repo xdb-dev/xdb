@@ -11,11 +11,11 @@ import (
 
 // FakeRepo creates a fake repository.
 func FakeRepo() *core.Repo {
-	repo, err := core.NewRepo("com.example.posts")
+	repo, err := core.NewRepo(FakePostSchema())
 	if err != nil {
 		panic(err)
 	}
-	return repo.WithSchema(FakePostSchema())
+	return repo
 }
 
 // FakePostSchema creates a fake schema of a Post.
@@ -75,17 +75,17 @@ func FakePosts(n int) []*core.Record {
 
 // FakeTestRepo creates a fake repository for comprehensive type testing.
 func FakeTestRepo() *core.Repo {
-	repo, err := core.NewRepo("test-repo")
+	repo, err := core.NewRepo(FakeTestSchema())
 	if err != nil {
 		panic(err)
 	}
-	return repo.WithSchema(FakeTestSchema())
+	return repo
 }
 
 // FakeTestSchema creates a fake schema covering all XDB types.
 func FakeTestSchema() *core.Schema {
 	return &core.Schema{
-		Name:        "Test",
+		Name:        "com.example.all_types",
 		Description: "Comprehensive test schema covering all types",
 		Version:     "1.0.0",
 		Fields: []*core.FieldSchema{

@@ -2,19 +2,21 @@ package xdbsqlite
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Config holds SQLite-specific configuration options.
 type Config struct {
-	// Path is the path to the SQLite database file.
+	// Dir is the directory to store the schema files and the SQLite database file.
+	// Default: "."
+	Dir string `env:"DIR"`
+
+	// Name  is the name of the SQLite database file.
 	// Supports special values like ":memory:" for in-memory databases.
 	// Default: "xdb.db"
-	Path string `env:"PATH"`
-
-	// SchemaDir is the directory to store schema files.
-	// Default: ".schema"
-	SchemaDir string `env:"SCHEMA_DIR"`
+	Name string `env:"NAME"`
 
 	// Mode specifies the database access mode.
 	// Options: "ro" (read-only), "rw" (read-write), "rwc" (read-write-create), "memory"
@@ -35,12 +37,12 @@ type Config struct {
 	MaxIdleConns int `env:"MAX_IDLE_CONNS"`
 
 	// ConnMaxLifetime is the maximum amount of time a connection may be reused (in seconds).
-	// Default: 3600 (1 hour)
-	ConnMaxLifetime int `env:"CONN_MAX_LIFETIME"`
+	// Default: 3600 seconds (1 hour)
+	ConnMaxLifetime time.Duration `env:"CONN_MAX_LIFETIME"`
 
 	// BusyTimeout is the timeout for waiting on locks (in milliseconds).
-	// Default: 5000 (5 seconds)
-	BusyTimeout int `env:"BUSY_TIMEOUT"`
+	// Default: 5 seconds
+	BusyTimeout time.Duration `env:"BUSY_TIMEOUT"`
 
 	// Pragmas is a map of SQLite pragmas to set.
 	// Default: {"journal_mode": "WAL", "synchronous": "NORMAL"}
@@ -50,13 +52,14 @@ type Config struct {
 // DefaultConfig creates a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		Path:            "xdb.db",
+		Dir:             ".xdb",
+		Name:            "xdb.db",
 		Mode:            "rwc",
 		Cache:           "shared",
 		MaxOpenConns:    25,
 		MaxIdleConns:    10,
-		ConnMaxLifetime: 3600,
-		BusyTimeout:     5000,
+		ConnMaxLifetime: 3600 * time.Second,
+		BusyTimeout:     5 * time.Second,
 		Pragmas: map[string]string{
 			"journal_mode":  "WAL",
 			"page_size":     "4096",
@@ -79,12 +82,12 @@ func (cfg *Config) DSN() string {
 	}
 
 	if cfg.BusyTimeout > 0 {
-		params = append(params, fmt.Sprintf("_busy_timeout=%d", cfg.BusyTimeout))
+		params = append(params, fmt.Sprintf("_busy_timeout=%d", cfg.BusyTimeout.Milliseconds()))
 	}
 
-	dsn := cfg.Path
+	dsn := filepath.Join(cfg.Dir, cfg.Name)
 	if len(params) > 0 {
-		dsn = fmt.Sprintf("file:%s?%s", cfg.Path, strings.Join(params, "&"))
+		dsn = fmt.Sprintf("file:%s?%s", dsn, strings.Join(params, "&"))
 	}
 
 	return dsn

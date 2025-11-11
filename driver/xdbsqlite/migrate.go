@@ -4,85 +4,31 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
-	"slices"
-
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/x"
 )
 
 var (
-	ErrUnsupportedType = errors.New("[xdbsqlite] unsupported type")
-	ErrFieldDeleted    = errors.New("[xdbsqlite] deleting fields is not supported")
-	ErrFieldModified   = errors.New("[xdbsqlite] modifying field type or constraints is not supported")
+	// ErrUnsupportedType is returned when a XDB type is not supported by SQLite.
+	ErrUnsupportedType = errors.New("[xdbsqlite] unsupported XDB type")
+	// ErrFieldDeleted is returned when a field is deleted from a schema.
+	ErrFieldDeleted = errors.New("[xdbsqlite] deleting fields is not supported")
+	// ErrFieldModified is returned when a field is modified in a schema.
+	ErrFieldModified = errors.New("[xdbsqlite] modifying field type or constraints is not supported")
 )
 
-var (
-	_ driver.RepoDriver = (*Store)(nil)
-)
-
-// MakeRepo creates or updates the table for the given schema.
-func (s *Store) MakeRepo(ctx context.Context, repo *core.Repo) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	r := &Migrator{tx: tx}
-
-	err = r.CreateTable(ctx, repo.Schema())
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-
-	return s.meta.MakeRepo(ctx, repo)
-}
-
-func (s *Store) DeleteRepo(ctx context.Context, name string) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	r := &Migrator{tx: tx}
-
-	err = r.DropTable(ctx, name)
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-
-	return s.meta.DeleteRepo(ctx, name)
-}
-
-func (s *Store) GetRepo(ctx context.Context, name string) (*core.Repo, error) {
-	return s.meta.GetRepo(ctx, name)
-}
-
-func (s *Store) ListRepos(ctx context.Context) ([]*core.Repo, error) {
-	return s.meta.ListRepos(ctx)
-}
-
+// Migrator manages the schema generation and migrations
 type Migrator struct {
 	tx *sql.Tx
 }
 
-func (r *Migrator) CreateTable(ctx context.Context, schema *core.Schema) error {
-	query, err := r.generateCreateTable(schema)
+// CreateTable creates a new table for the given schema.
+func (r *Migrator) CreateTable(ctx context.Context, tableName string, schema *core.Schema) error {
+	query, err := r.generateCreateTable(tableName, schema)
 	if err != nil {
 		return err
 	}
@@ -92,8 +38,39 @@ func (r *Migrator) CreateTable(ctx context.Context, schema *core.Schema) error {
 	return err
 }
 
-func (r *Migrator) AlterTable(ctx context.Context, prev, next *core.Schema) error {
-	query, err := r.generateAlterTable(prev, next)
+// CreateKeyValueTable creates a new key-value table for the given name.
+func (r *Migrator) CreateKeyValueTable(ctx context.Context, name string) error {
+	query := fmt.Sprintf(`CREATE TABLE IF NOT EXISTS "%s" (
+		key TEXT PRIMARY KEY,
+		id TEXT,
+		attr TEXT,
+		value TEXT,
+		updated_at INTEGER
+	)`, name)
+	_, err := r.tx.ExecContext(ctx, query)
+	if err != nil {
+		return err
+	}
+
+	idxID := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_id ON %s (id);", name, name)
+	_, err = r.tx.ExecContext(ctx, idxID)
+	if err != nil {
+		return err
+	}
+
+	idxAttr := fmt.Sprintf("CREATE INDEX IF NOT EXISTS idx_%s_attr ON %s (attr);", name, name)
+	_, err = r.tx.ExecContext(ctx, idxAttr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// AlterTable alters the table by adding fields.
+// Deleting or modifying fields is not supported.
+func (r *Migrator) AlterTable(ctx context.Context, tableName string, prev, next *core.Schema) error {
+	query, err := r.generateAlterTable(tableName, prev, next)
 	if err != nil {
 		return err
 	}
@@ -103,14 +80,14 @@ func (r *Migrator) AlterTable(ctx context.Context, prev, next *core.Schema) erro
 	return err
 }
 
+// DropTable drops the table for the given name.
 func (r *Migrator) DropTable(ctx context.Context, name string) error {
 	query := fmt.Sprintf(`DROP TABLE IF EXISTS "%s";`, name)
 	_, err := r.tx.ExecContext(ctx, query)
 	return err
 }
 
-func (r *Migrator) generateCreateTable(schema *core.Schema) (string, error) {
-	tableName := schema.Name
+func (r *Migrator) generateCreateTable(tableName string, schema *core.Schema) (string, error) {
 
 	var query strings.Builder
 
@@ -131,7 +108,7 @@ func (r *Migrator) generateCreateTable(schema *core.Schema) (string, error) {
 		}
 
 		if field.Default != nil {
-			query.WriteString(fmt.Sprintf(" DEFAULT %s", field.Default.String()))
+			query.WriteString(fmt.Sprintf(" DEFAULT \"%s\"", field.Default.String()))
 		}
 
 		if i < count-1 {
@@ -146,8 +123,7 @@ func (r *Migrator) generateCreateTable(schema *core.Schema) (string, error) {
 	return query.String(), nil
 }
 
-func (r *Migrator) generateAlterTable(prev, next *core.Schema) (string, error) {
-	tableName := next.Name
+func (r *Migrator) generateAlterTable(tableName string, prev, next *core.Schema) (string, error) {
 
 	add, drop, modified := r.getDiffFields(prev, next)
 
@@ -184,7 +160,7 @@ func (r *Migrator) generateAlterTable(prev, next *core.Schema) (string, error) {
 		}
 
 		if field.Default != nil {
-			query.WriteString(fmt.Sprintf(" DEFAULT %s", field.Default.String()))
+			query.WriteString(fmt.Sprintf(" DEFAULT \"%s\"", field.Default.String()))
 		}
 
 		query.WriteString(";\n")
@@ -242,6 +218,9 @@ func sqliteTypeForField(field *core.FieldSchema) (string, error) {
 	case core.TypeIDMap:
 		return "TEXT", nil
 	default:
-		return "", errors.Wrap(ErrUnsupportedType, "type", field.Type.String())
+		return "", errors.Wrap(ErrUnsupportedType,
+			"type", field.Type.String(),
+			"field", field.Name,
+		)
 	}
 }
