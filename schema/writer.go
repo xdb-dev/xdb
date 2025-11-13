@@ -10,7 +10,7 @@ import (
 )
 
 // WriteToJSON writes a schema to JSON format.
-func WriteToJSON(schema *core.Schema) ([]byte, error) {
+func WriteToJSON(schema *core.SchemaDef) ([]byte, error) {
 	raw, err := convertToRaw(schema)
 	if err != nil {
 		return nil, err
@@ -19,7 +19,7 @@ func WriteToJSON(schema *core.Schema) ([]byte, error) {
 }
 
 // WriteToYAML writes a schema to YAML format.
-func WriteToYAML(schema *core.Schema) ([]byte, error) {
+func WriteToYAML(schema *core.SchemaDef) ([]byte, error) {
 	raw, err := convertToRaw(schema)
 	if err != nil {
 		return nil, err
@@ -28,7 +28,7 @@ func WriteToYAML(schema *core.Schema) ([]byte, error) {
 }
 
 // convertToRaw converts a core.Schema to a rawSchema.
-func convertToRaw(schema *core.Schema) (*rawSchema, error) {
+func convertToRaw(schema *core.SchemaDef) (*rawSchema, error) {
 	if schema == nil {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "schema is nil")
 	}
@@ -57,7 +57,7 @@ func convertToRaw(schema *core.Schema) (*rawSchema, error) {
 }
 
 // convertFieldToRaw converts a core.FieldSchema to a rawField.
-func convertFieldToRaw(field *core.FieldSchema) (*rawField, error) {
+func convertFieldToRaw(field *core.FieldDef) (*rawField, error) {
 	if field == nil {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "field is nil")
 	}

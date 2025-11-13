@@ -17,7 +17,7 @@ var (
 )
 
 // LoadFromJSON loads a schema from JSON data.
-func LoadFromJSON(data []byte) (*core.Schema, error) {
+func LoadFromJSON(data []byte) (*core.SchemaDef, error) {
 	var raw rawSchema
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, errors.Wrap(ErrInvalidSchema, "error", err.Error())
@@ -26,7 +26,7 @@ func LoadFromJSON(data []byte) (*core.Schema, error) {
 }
 
 // LoadFromYAML loads a schema from YAML data.
-func LoadFromYAML(data []byte) (*core.Schema, error) {
+func LoadFromYAML(data []byte) (*core.SchemaDef, error) {
 	var raw rawSchema
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, errors.Wrap(ErrInvalidSchema, "error", err.Error())
@@ -39,6 +39,7 @@ type rawSchema struct {
 	Name        string     `json:"name" yaml:"name"`
 	Description string     `json:"description,omitempty" yaml:"description,omitempty"`
 	Version     string     `json:"version,omitempty" yaml:"version,omitempty"`
+	Mode        string     `json:"mode,omitempty" yaml:"mode,omitempty"`
 	Fields      []rawField `json:"fields" yaml:"fields"`
 	Required    []string   `json:"required,omitempty" yaml:"required,omitempty"`
 }
@@ -55,17 +56,17 @@ type rawField struct {
 }
 
 // convert converts a rawSchema to a core.Schema.
-func convert(raw *rawSchema) (*core.Schema, error) {
+func convert(raw *rawSchema) (*core.SchemaDef, error) {
 	if raw.Name == "" {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "schema name is required")
 	}
 
-	schema := &core.Schema{
+	schema := &core.SchemaDef{
 		Name:        raw.Name,
 		Description: raw.Description,
 		Version:     raw.Version,
 		Required:    raw.Required,
-		Fields:      make([]*core.FieldSchema, 0, len(raw.Fields)),
+		Fields:      make([]*core.FieldDef, 0, len(raw.Fields)),
 	}
 
 	for _, rf := range raw.Fields {
@@ -80,7 +81,7 @@ func convert(raw *rawSchema) (*core.Schema, error) {
 }
 
 // convertField converts a rawField to a core.FieldSchema.
-func convertField(rf *rawField) (*core.FieldSchema, error) {
+func convertField(rf *rawField) (*core.FieldDef, error) {
 	if rf.Name == "" {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "field name is required")
 	}
@@ -90,7 +91,7 @@ func convertField(rf *rawField) (*core.FieldSchema, error) {
 		return nil, err
 	}
 
-	field := &core.FieldSchema{
+	field := &core.FieldDef{
 		Name:        rf.Name,
 		Description: rf.Description,
 		Type:        typ,

@@ -76,11 +76,5 @@ func AssertEqualRepo(t *testing.T, expected, actual *core.Repo) {
 	t.Helper()
 
 	require.Equal(t, expected.Name(), actual.Name(), "repo names are different")
-	AssertEqualSchema(t, expected.Schema(), actual.Schema())
-}
-
-func AssertEqualSchema(t *testing.T, expected, actual *core.Schema) {
-	t.Helper()
-
-	// TODO: Implement
+	AssertSchemaDefEqual(t, expected.Schema(), actual.Schema())
 }

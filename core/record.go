@@ -8,49 +8,54 @@ import (
 // Record is a collection of tuples that share the same ID.
 // Records are mutable and thread-safe, similar to database rows.
 type Record struct {
-	repo string
-	id   ID
+	rkey *URI
 
 	mu     sync.RWMutex
 	tuples map[string]*Tuple
 }
 
 // NewRecord creates a new Record.
-func NewRecord(repo string, id ...string) *Record {
+func NewRecord(ns, schema, id string) *Record {
+	rkey := New().NS(ns).Schema(schema).ID(id).MustURI()
+	return newRecord(rkey)
+}
+
+func newRecord(rkey *URI) *Record {
 	return &Record{
-		repo:   repo,
-		id:     NewID(id...),
+		rkey:   rkey,
 		tuples: make(map[string]*Tuple),
 	}
 }
 
-// URI returns a URI that references this Record (ID only, no attribute).
-func (r *Record) URI() *URI {
-	return NewURI(r.repo, r.id)
-}
+// NS returns the namespace of the record.
+func (r *Record) NS() *NS { return r.rkey.NS() }
 
-// Repo returns the repo name of the Record.
-func (r *Record) Repo() string {
-	return r.repo
-}
+// Schema returns the schema of the record.
+func (r *Record) Schema() *Schema { return r.rkey.Schema() }
 
-// ID returns the id of the Record.
-func (r *Record) ID() ID {
-	return r.id
-}
+// ID returns the ID of the record.
+func (r *Record) ID() *ID { return r.rkey.ID() }
+
+// URI returns a URI that references this Record.
+func (r *Record) URI() *URI { return r.rkey }
 
 // GoString returns Go syntax of the Record.
 func (r *Record) GoString() string {
-	return fmt.Sprintf("Record(%s, %s)", r.repo, r.id.String())
+	return fmt.Sprintf("Record(%s)", r.rkey.String())
 }
 
 // Set adds or updates a tuple in the Record with the given attribute and value.
 // If a tuple with the same attribute already exists, it will be replaced.
-func (r *Record) Set(attr any, value any) *Record {
+func (r *Record) Set(attr string, value any) *Record {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	t := NewTuple(r.repo, r.id, attr, value)
+	a, err := ParseAttr(attr)
+	if err != nil {
+		panic(err)
+	}
+
+	t := newTuple(r.rkey, a, value)
 	r.tuples[t.Attr().String()] = t
 
 	return r
@@ -58,13 +63,11 @@ func (r *Record) Set(attr any, value any) *Record {
 
 // Get retrieves the tuple for the given attribute path.
 // Returns nil if no tuple exists for the specified attribute.
-func (r *Record) Get(attr ...string) *Tuple {
+func (r *Record) Get(attr string) *Tuple {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	a := NewAttr(attr...)
-
-	return r.tuples[a.String()]
+	return r.tuples[attr]
 }
 
 // IsEmpty returns true if the Record has no tuples.

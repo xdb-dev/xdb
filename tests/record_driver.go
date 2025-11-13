@@ -36,9 +36,10 @@ func TestRecordReaderWriter(t *testing.T, rw recordReaderWriter) {
 	})
 
 	t.Run("GetRecordsSomeMissing", func(t *testing.T) {
+		coll := core.NewURI("com.example").WithSchema("posts")
 		notFound := []*core.URI{
-			core.NewURI("test.repo", core.NewID("Post", "not_found_1")),
-			core.NewURI("test.repo", core.NewID("Post", "not_found_2")),
+			coll.WithID("not_found_1"),
+			coll.WithID("not_found_2"),
 		}
 
 		got, missing, err := rw.GetRecords(ctx, append(uris, notFound...))

@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/tests"
 )
 
 func TestNewValue_Primitives(t *testing.T) {
@@ -54,7 +53,7 @@ func TestNewValue_Primitives(t *testing.T) {
 
 			got := value.Type().ID()
 			assert.Equal(t, tc.expected, got)
-			tests.AssertEqualValues(t, tc.value, value)
+			assert.EqualValues(t, tc.value, value.Unwrap())
 		})
 	}
 }
@@ -103,7 +102,7 @@ func TestNewValue_Arrays(t *testing.T) {
 
 			at := value.Type()
 			assert.Equal(t, tc.expected, at.ValueType())
-			tests.AssertEqualValues(t, tc.value, value)
+			assert.EqualValues(t, tc.value, value.Unwrap())
 		})
 	}
 }
@@ -208,12 +207,12 @@ func TestValue_MethodsOnNil(t *testing.T) {
 func TestValue_MixedTypes(t *testing.T) {
 	t.Parallel()
 
-	testID := core.NewID("test-id")
+	path := "com.example/test/test-id"
 
 	t.Run("Array with Mixed Types", func(t *testing.T) {
 		// This should work as each element is converted individually
 		value := []any{"string", 123, true, 45.67}
-		tuple := core.NewTuple("test", testID, "attr", value)
+		tuple := core.NewTuple(path, "attr", value)
 
 		assert.NotNil(t, tuple)
 		assert.Equal(t, core.TypeIDArray, tuple.Value().Type().ID())
@@ -226,7 +225,7 @@ func TestValue_MixedTypes(t *testing.T) {
 			"number": 123,
 			"bool":   true,
 		}
-		tuple := core.NewTuple("test", testID, "attr", value)
+		tuple := core.NewTuple(path, "attr", value)
 
 		assert.NotNil(t, tuple)
 		assert.Equal(t, core.TypeIDMap, tuple.Value().Type().ID())

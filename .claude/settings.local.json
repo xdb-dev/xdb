@@ -18,7 +18,8 @@
       "Bash(go vet:*)",
       "Bash(go fmt:*)",
       "Bash(cat:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(touch:*)"
     ],
     "deny": [],
     "ask": []

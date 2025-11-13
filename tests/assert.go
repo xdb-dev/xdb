@@ -70,34 +70,8 @@ func AssertEqualTuple(t *testing.T, expected, actual *core.Tuple) {
 		"tuple URI mismatch: %s",
 		expected.URI().String(),
 	)
-	assert.EqualValuesf(t,
-		expected.Value(),
-		actual.Value(),
-		"tuple value mismatch: %s",
-		expected.URI().String(),
-	)
+	AssertEqualValues(t, expected.Value(), actual.Value())
 }
-
-// AssertEqualKeys asserts that two lists of keys are equal.
-// Deprecated: Use AssertEqualURIs instead. Removed due to core.Key no longer existing.
-// func AssertEqualKeys(t *testing.T, expected, actual []*core.Key) {
-// 	t.Helper()
-//
-// 	require.Equal(t, len(expected), len(actual), "key lists have different lengths")
-//
-// 	for i, expected := range expected {
-// 		actual := actual[i]
-// 		AssertEqualKey(t, expected, actual)
-// 	}
-// }
-
-// AssertEqualKey asserts that two keys are equal.
-// Deprecated: Use AssertEqualURI instead. Removed due to core.Key no longer existing.
-// func AssertEqualKey(t *testing.T, expected, actual *core.Key) {
-// 	t.Helper()
-//
-// 	assert.Equal(t, expected.String(), actual.String(), "key mismatch")
-// }
 
 // AssertEqualURIs asserts that two lists of URIs are equal.
 func AssertEqualURIs(t *testing.T, expected, actual []*core.URI) {
@@ -115,89 +89,49 @@ func AssertEqualURIs(t *testing.T, expected, actual []*core.URI) {
 func AssertEqualURI(t *testing.T, expected, actual *core.URI) {
 	t.Helper()
 
-	assert.Equal(t, expected.Repo(), actual.Repo(), "URI: repo mismatch")
+	assert.Equal(t, expected.NS().String(), actual.NS().String(), "URI: ns mismatch")
+	assert.Equal(t, expected.Schema(), actual.Schema(), "URI: schema mismatch")
 	assert.Truef(t, expected.ID().Equals(actual.ID()), "URI: id mismatch: %s != %s", expected.ID().String(), actual.ID().String())
 	assert.Truef(t, expected.Attr().Equals(actual.Attr()), "URI: attr mismatch: %s != %s", expected.Attr().String(), actual.Attr().String())
 	assert.Equal(t, expected.String(), actual.String(), "URI: string mismatch")
 }
 
 // AssertEqualValues asserts that two values are equal.
-func AssertEqualValues(t *testing.T, expected, actual any) {
+func AssertEqualValues(t *testing.T, expected, actual *core.Value) {
 	t.Helper()
 
-	ev := core.NewValue(expected)
-	av := core.NewValue(actual)
-
-	assert.Equal(t, ev.Type(), av.Type(), "value type mismatch")
-
-	// Handle maps specially since map keys are *core.Value pointers
-	// and can't be compared using reflect.DeepEqual
-	if ev != nil && av != nil && ev.Type().ID() == core.TypeIDMap {
-		assertEqualMapValues(t, ev, av)
-		return
-	}
-
-	assert.EqualValues(t, ev, av, "value mismatch")
+	assert.Equal(t, expected.Type().ID(), actual.Type().ID(), "value type mismatch")
+	assert.EqualValues(t, expected.Unwrap(), actual.Unwrap(), "value mismatch")
 }
 
-// assertEqualMapValues asserts that two map values are equal by comparing
-// each key-value pair individually.
-func assertEqualMapValues(t *testing.T, expected, actual *core.Value) {
+// AssertSchemaDefEqual asserts that two schema definitions are equal.
+func AssertSchemaDefEqual(t *testing.T, expected, actual *core.SchemaDef) {
 	t.Helper()
 
-	expectedMap := expected.Unwrap().(map[*core.Value]*core.Value)
-	actualMap := actual.Unwrap().(map[*core.Value]*core.Value)
-
-	require.Equal(t, len(expectedMap), len(actualMap), "map length mismatch")
-
-	// Build a lookup map for actual key-value pairs using string representation of keys
-	actualLookup := make(map[string]struct {
-		key   *core.Value
-		value *core.Value
-	})
-	for k, v := range actualMap {
-		actualLookup[k.String()] = struct {
-			key   *core.Value
-			value *core.Value
-		}{key: k, value: v}
-	}
-
-	// Compare each expected key-value pair
-	for expectedKey, expectedValue := range expectedMap {
-		keyStr := expectedKey.String()
-		actualPair, ok := actualLookup[keyStr]
-		require.True(t, ok, "key %s not found in actual map", keyStr)
-
-		// Compare the key types
-		assert.Equal(t, expectedKey.Type(), actualPair.key.Type(), "key type mismatch for %s", keyStr)
-
-		// Recursively compare values
-		if expectedValue != nil && actualPair.value != nil &&
-			expectedValue.Type().ID() == core.TypeIDMap {
-			assertEqualMapValues(t, expectedValue, actualPair.value)
-		} else {
-			assert.EqualValues(t, expectedValue, actualPair.value, "value mismatch for key %s", keyStr)
-		}
-	}
-}
-
-// AssertSchemaEqual asserts that two schemas are equal.
-func AssertSchemaEqual(t *testing.T, expected, actual *core.Schema) {
-	t.Helper()
-
-	assert.Equal(t, expected.Description, actual.Description, "schema description mismatch")
-	assert.Equal(t, expected.Version, actual.Version, "schema version mismatch")
-	assert.Equal(t, expected.Required, actual.Required, "schema required fields mismatch")
-	require.Len(t, actual.Fields, len(expected.Fields), "schema fields length mismatch")
+	assert.Equal(t, expected.Name, actual.Name, "SchemaDef: name mismatch")
+	assert.Equal(t, expected.Description, actual.Description, "SchemaDef: description mismatch")
+	assert.Equal(t, expected.Version, actual.Version, "SchemaDef: version mismatch")
+	assert.Equal(t, expected.Required, actual.Required, "SchemaDef: required fields mismatch")
+	require.Len(t, actual.Fields, len(expected.Fields), "SchemaDef: fields length mismatch")
 
 	for i, expectedField := range expected.Fields {
 		actualField := actual.Fields[i]
-		assert.Equal(t, expectedField.Name, actualField.Name,
-			"field[%d] name mismatch", i)
-		assert.Equal(t, expectedField.Description, actualField.Description,
-			"field[%d] description mismatch", i)
-		assert.True(t, expectedField.Type.Equals(actualField.Type),
-			"field[%d] (%s): expected type %v, got %v",
-			i, expectedField.Name, expectedField.Type, actualField.Type)
+		AssertFieldDefEqual(t, expectedField, actualField)
+	}
+}
+
+// AssertFieldDefEqual asserts that two field definitions are equal.
+func AssertFieldDefEqual(t *testing.T, expected, actual *core.FieldDef) {
+	t.Helper()
+
+	assert.Equal(t, expected.Name, actual.Name, "FieldDef: name mismatch")
+	assert.Equal(t, expected.Description, actual.Description, "FieldDef: description mismatch")
+	assert.Equal(t, expected.Type, actual.Type, "FieldDef: type mismatch")
+
+	if expected.Default != nil {
+		assert.NotNil(t, actual.Default, "FieldDef: default mismatch")
+		AssertEqualValues(t, expected.Default, actual.Default)
+	} else {
+		assert.Nil(t, actual.Default, "FieldDef: default mismatch")
 	}
 }

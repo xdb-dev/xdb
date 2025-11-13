@@ -16,7 +16,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 	cases := []struct {
 		name     string
 		input    string
-		expected *core.Schema
+		expected *core.SchemaDef
 	}{
 		{
 			name: "Scalar Types",
@@ -31,11 +31,11 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 				],
 				"required": ["name"]
 			}`,
-			expected: &core.Schema{
+			expected: &core.SchemaDef{
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
-				Fields: []*core.FieldSchema{
+				Fields: []*core.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
 					{Name: "active", Type: core.TypeBool},
@@ -52,9 +52,9 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 					{"name": "scores", "type": "ARRAY", "array_of": "INTEGER"}
 				]
 			}`,
-			expected: &core.Schema{
+			expected: &core.SchemaDef{
 				Name: "Post",
-				Fields: []*core.FieldSchema{
+				Fields: []*core.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
 					{Name: "scores", Type: core.NewArrayType(core.TypeIDInteger)},
 				},
@@ -69,9 +69,9 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 					{"name": "counts", "type": "MAP", "map_key": "STRING", "map_value": "INTEGER"}
 				]
 			}`,
-			expected: &core.Schema{
+			expected: &core.SchemaDef{
 				Name: "Config",
-				Fields: []*core.FieldSchema{
+				Fields: []*core.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
 					{Name: "counts", Type: core.NewMapType(core.TypeIDString, core.TypeIDInteger)},
 				},
@@ -87,9 +87,9 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 					{"name": "settings.notifications.email", "type": "BOOLEAN"}
 				]
 			}`,
-			expected: &core.Schema{
+			expected: &core.SchemaDef{
 				Name: "User",
-				Fields: []*core.FieldSchema{
+				Fields: []*core.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "profile.bio", Type: core.TypeString},
 					{Name: "settings.notifications.email", Type: core.TypeBool},
@@ -110,9 +110,9 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 					{"name": "time_field", "type": "TIME"}
 				]
 			}`,
-			expected: &core.Schema{
+			expected: &core.SchemaDef{
 				Name: "Complete",
-				Fields: []*core.FieldSchema{
+				Fields: []*core.FieldDef{
 					{Name: "bool_field", Type: core.TypeBool},
 					{Name: "int_field", Type: core.TypeInt},
 					{Name: "unsigned_field", Type: core.TypeUnsigned},
@@ -129,7 +129,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s, err := schema.LoadFromJSON([]byte(tt.input))
 			assert.NoError(t, err)
-			tests.AssertSchemaEqual(t, tt.expected, s)
+			tests.AssertSchemaDefEqual(t, tt.expected, s)
 		})
 	}
 }
@@ -210,7 +210,7 @@ func TestLoader_LoadFromYAML_Valid(t *testing.T) {
 	cases := []struct {
 		name     string
 		input    string
-		expected *core.Schema
+		expected *core.SchemaDef
 	}{
 		{
 			name: "Scalar Types",
@@ -226,11 +226,11 @@ fields:
 required:
   - name
 `,
-			expected: &core.Schema{
+			expected: &core.SchemaDef{
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
-				Fields: []*core.FieldSchema{
+				Fields: []*core.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
 				},
@@ -246,9 +246,9 @@ fields:
     type: ARRAY
     array_of: STRING
 `,
-			expected: &core.Schema{
+			expected: &core.SchemaDef{
 				Name: "Post",
-				Fields: []*core.FieldSchema{
+				Fields: []*core.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
 				},
 			},
@@ -263,9 +263,9 @@ fields:
     map_key: STRING
     map_value: STRING
 `,
-			expected: &core.Schema{
+			expected: &core.SchemaDef{
 				Name: "Config",
-				Fields: []*core.FieldSchema{
+				Fields: []*core.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
 				},
 			},
@@ -282,9 +282,9 @@ fields:
   - name: settings.notifications.email
     type: BOOLEAN
 `,
-			expected: &core.Schema{
+			expected: &core.SchemaDef{
 				Name: "User",
-				Fields: []*core.FieldSchema{
+				Fields: []*core.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "profile.bio", Type: core.TypeString},
 					{Name: "settings.notifications.email", Type: core.TypeBool},
@@ -297,7 +297,7 @@ fields:
 		t.Run(tt.name, func(t *testing.T) {
 			s, err := schema.LoadFromYAML([]byte(tt.input))
 			assert.NoError(t, err)
-			tests.AssertSchemaEqual(t, tt.expected, s)
+			tests.AssertSchemaDefEqual(t, tt.expected, s)
 		})
 	}
 }

@@ -8,11 +8,15 @@ Read about the motivation behind XDB in [Introducing XDB](https://raviatluri.in/
 
 ## Core Concepts
 
-The XDB data model can be visualized as a tree of **Repositories**, **Records**, and **Tuples**.
+The XDB data model can be visualized as a tree of **Repositories**, **Collections**, **Records**, and **Tuples**.
 
 ```
 ┌─────────────────────────────────┐
 │           Repository            │
+└────────────────┬────────────────┘
+                 ↓
+┌─────────────────────────────────┐
+│           Collection            │
 └────────────────┬────────────────┘
                  ↓
 ┌─────────────────────────────────┐
@@ -30,8 +34,8 @@ The XDB data model can be visualized as a tree of **Repositories**, **Records**,
 
 A **Tuple** is the fundamental building block in XDB. It combines:
 
-- ID: a string array that uniquely identifies the record
-- Attr: a string array that identifies the attribute
+- ID: a string that uniquely identifies the record
+- Attr: a string that identifies the attribute. It supports dot-separated nesting.
 - Value: The attribute's value
 - Options: Key-value pairs for metadata
 
@@ -41,13 +45,17 @@ A **Tuple** is the fundamental building block in XDB. It combines:
 
 One or more **Tuples**, with the same **ID**, make up a **Record**. Records are similar to objects, structs, or rows in a database. Records typically represent a single entity or object of domain data.
 
+### Collection
+
+A **Collection** is a collection of records with the same **Schema**. Collections are identified by their schema name and are unique within a repository.
+
 ### Repository
 
-A **Repository** is a collection of records with the same **Schema**.
+A **Repository** is a data repository holding one or more **Collections**. Repositories are typically used to group collections by domain, application, or tenant. Repositories are identified by their name (referred to as "NS" in the URI).
 
 ### Schema
 
-A **Schema** is a definition of your domain entities and their relationships. It is used to validate and enforce the structure of the data.
+A **Schema** is a definition of your domain entities and their relationships. Schemas can be "strict" or "flexible". Strict schemas enforce a predefined structure on the data, while flexible schemas allow for arbitrary data.
 
 ### URI
 
@@ -62,34 +70,46 @@ The general format of a URI is:
 XDB URIs follow the following format:
 
 ```
-    xdb:// REPOSITORY [ "/" RECORD ] [ "#" ATTRIBUTE ]
+    xdb:// NS [ "/" SCHEMA ] [ "/" ID ] [ "#" ATTRIBUTE ]
 ```
 
-- The scheme is always `xdb://`.
-- Repository is mandatory.
-- Record and Attribute are conditionally required.
-- All components MUST use only alphanumeric (**A-Za-z0-9**), period, hyphen, underscore, and colon (**.-\_:**).
-- Attributes when present must be valid JSON Path strings.
+```
+    xdb://com.example/posts/123-456-789#author.id
+    └─┬──┘└────┬────┘└──┬─┘└─────┬─────┘└─────┬─────┘
+   scheme     NS    SCHEMA      ID        ATTRIBUTE
+              └───────────┬───────────┘
+                      RECORD KEY
+                        (rkey)
+```
+
+The components of the URI are:
+
+- **NS**: The name of the repository.
+- **SCHEMA**: The name of the collection.
+- **ID**: The unique identifier of the record.
+- **ATTRIBUTE**: The name of the attribute.
+- **RECORD KEY (rkey)**: NS, SCHEMA, and ID combined uniquely identify a record
 
 Valid examples:
 
 ```
-Repository: xdb://com.example.posts
-Record:     xdb://com.example.posts/123-456-789
-Attribute:  xdb://com.example.posts/123-456-789#author.id
+Repository: xdb://com.example
+Collection: xdb://com.example/posts
+Record:     xdb://com.example/posts/123-456-789
+Attribute:  xdb://com.example/posts/123-456-789#author.id
 ```
 
 ## Supported Types
 
-| Type      | PostgreSQL       | Description                  |
-| --------- | ---------------- | ---------------------------- |
-| String    | TEXT             | UTF-8 string                 |
-| Integer   | BIGINT           | 64-bit signed integer        |
-| Float     | DOUBLE PRECISION | 64-bit floating point number |
-| Boolean   | BOOLEAN          | True or False                |
-| Timestamp | TIMESTAMPZ       | Date and time in UTC         |
-| JSON      | JSONB            | JSON data type               |
-| Bytes     | BYTEA            | Binary data                  |
+| Type      | PostgreSQL       | SQLite  | Description                  |
+| --------- | ---------------- | ------- | ---------------------------- |
+| String    | TEXT             | TEXT    | UTF-8 string                 |
+| Integer   | BIGINT           | INTEGER | 64-bit signed integer        |
+| Float     | DOUBLE PRECISION | REAL    | 64-bit floating point number |
+| Boolean   | BOOLEAN          | INTEGER | True or False                |
+| Timestamp | TIMESTAMPZ       | INTEGER | Date and time in UTC         |
+| JSON      | JSONB            | TEXT    | JSON data type               |
+| Bytes     | BYTEA            | BLOB    | Binary data                  |
 
 ## Building Blocks
 

@@ -7,20 +7,51 @@ import (
 )
 
 var (
-	// ErrEmptyRecord is returned when a record is nil.
-	ErrEmptyRecord = errors.New("[xdb/core] record is nil")
-	// ErrEmptyTuple is returned when a tuple is nil.
-	ErrEmptyTuple = errors.New("[xdb/core] tuple is nil")
-	// ErrRequiredFieldMissing is returned when a required field is missing.
-	ErrRequiredFieldMissing = errors.New("[xdb/core] required field missing")
-	// ErrFieldSchemaNotFound is returned when a field schema is not found.
-	ErrFieldSchemaNotFound = errors.New("[xdb/core] field schema not found")
+	// ErrInvalidSchema is returned when an invalid Schema is encountered.
+	ErrInvalidSchema = errors.New("[xdb/core] invalid Schema")
 )
 
-// Schema defines the structure and validation rules for records.
-// It provides metadata, field definitions, and record-level constraints.
-// The schema name is derived from the Repo it belongs to.
+// Schema is a name of a schema.
 type Schema struct {
+	name string
+}
+
+// NewSchema creates a new Schema.
+func NewSchema(raw string) *Schema {
+	return &Schema{name: raw}
+}
+
+// ParseSchema parses a string into a Schema.
+// Returns [ErrInvalidSchema] if the Schema is invalid.
+func ParseSchema(raw string) (*Schema, error) {
+	if !isValidComponent(raw) {
+		return nil, ErrInvalidSchema
+	}
+	return &Schema{name: raw}, nil
+}
+
+// String returns the Schema.
+func (s *Schema) String() string { return s.name }
+
+// Equals returns true if this Schema is equal to the other Schema.
+func (s *Schema) Equals(other *Schema) bool { return s.name == other.name }
+
+// Mode defines how records are validated against the schema.
+type Mode string
+
+const (
+	// ModeFlexible represents schemaless collections where
+	// records can have arbitrary attributes.
+	ModeFlexible Mode = "flexible"
+
+	// ModeStrict represents structured collections where
+	// records must have attributes defined in the schema.
+	ModeStrict Mode = "strict"
+)
+
+// SchemaDef defines the structure and validation rules for records.
+// It provides metadata, field definitions, and record-level constraints.
+type SchemaDef struct {
 	// Name is the schema name.
 	Name string
 
@@ -30,16 +61,43 @@ type Schema struct {
 	// Version tracks schema evolution (e.g., "1.0.0").
 	Version string
 
+	// Mode defines how records are validated against the schema.
+	Mode Mode
+
 	// Fields is a list of field schemas.
 	// Use hierarchical paths for nested fields (e.g., "profile.email").
-	Fields []*FieldSchema
+	Fields []*FieldDef
 
 	// Required is a list of field names that are required.
 	Required []string
 }
 
-// FieldSchema defines the schema for a single field.
-type FieldSchema struct {
+// Clone returns a deep copy of the SchemaDef.
+func (s *SchemaDef) Clone() *SchemaDef {
+	clone := &SchemaDef{
+		Description: s.Description,
+		Version:     s.Version,
+		Fields:      make([]*FieldDef, 0, len(s.Fields)),
+		Required:    slices.Clone(s.Required),
+	}
+	for _, field := range s.Fields {
+		clone.Fields = append(clone.Fields, field.Clone())
+	}
+	return clone
+}
+
+// GetField returns the field definition for the given path.
+func (s *SchemaDef) GetField(path string) *FieldDef {
+	for _, field := range s.Fields {
+		if field.Name == path {
+			return field
+		}
+	}
+	return nil
+}
+
+// FieldDef defines the definition for a single field.
+type FieldDef struct {
 	// Name is the field name.
 	Name string
 
@@ -54,94 +112,18 @@ type FieldSchema struct {
 }
 
 // Equals returns true if this FieldSchema is equal to the other FieldSchema.
-func (f *FieldSchema) Equals(other *FieldSchema) bool {
+func (f *FieldDef) Equals(other *FieldDef) bool {
 	return f.Name == other.Name &&
 		f.Description == other.Description &&
 		f.Type.Equals(other.Type)
 }
 
-// Clone returns a deep copy of the FieldSchema.
-func (f *FieldSchema) Clone() *FieldSchema {
-	return &FieldSchema{
+// Clone returns a deep copy of the FieldDef.
+func (f *FieldDef) Clone() *FieldDef {
+	return &FieldDef{
 		Name:        f.Name,
 		Description: f.Description,
 		Type:        f.Type,
 		Default:     f.Default,
 	}
-}
-
-// Clone returns a deep copy of the Schema.
-func (s *Schema) Clone() *Schema {
-	clone := &Schema{
-		Description: s.Description,
-		Version:     s.Version,
-		Fields:      make([]*FieldSchema, 0, len(s.Fields)),
-		Required:    slices.Clone(s.Required),
-	}
-	for _, field := range s.Fields {
-		clone.Fields = append(clone.Fields, field.Clone())
-	}
-	return clone
-}
-
-// ValidateRecord validates all tuples in a record against this schema.
-// It checks that required fields are present and validates each tuple's value.
-func (s *Schema) ValidateRecord(record *Record) error {
-	if record == nil {
-		return ErrEmptyRecord
-	}
-
-	for _, field := range s.Required {
-		tuple := record.Get(field)
-		if tuple == nil {
-			return errors.Wrap(ErrRequiredFieldMissing,
-				"record", record.ID().String(),
-				"field", field,
-			)
-		}
-	}
-
-	for _, tuple := range record.Tuples() {
-		if err := s.ValidateTuple(tuple); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// GetFieldSchema returns the field schema for the given path.
-func (s *Schema) GetFieldSchema(path string) *FieldSchema {
-	for _, field := range s.Fields {
-		if field.Name == path {
-			return field
-		}
-	}
-	return nil
-}
-
-// ValidateTuple validates a single tuple against this schema.
-// It looks up the field schema by the tuple's attribute path and validates the value.
-func (s *Schema) ValidateTuple(tuple *Tuple) error {
-	if tuple == nil {
-		return ErrEmptyTuple
-	}
-
-	fieldSchema := s.GetFieldSchema(tuple.Attr().String())
-	if fieldSchema == nil {
-		return errors.Wrap(ErrFieldSchemaNotFound, "field", tuple.Attr().String())
-	}
-
-	return fieldSchema.ValidateValue(tuple.Value())
-}
-
-// ValidateValue validates a value against this field schema.
-func (f *FieldSchema) ValidateValue(value *Value) error {
-	if !value.Type().Equals(f.Type) {
-		return errors.Wrap(ErrTypeMismatch,
-			"expected", f.Type.String(),
-			"got", value.Type().String())
-	}
-
-	return nil
 }
