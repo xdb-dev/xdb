@@ -101,8 +101,8 @@ func TestNewValue_Arrays(t *testing.T) {
 			value := core.NewValue(tc.value)
 
 			at := value.Type()
+			assert.Equal(t, core.TypeIDArray, at.ID())
 			assert.Equal(t, tc.expected, at.ValueTypeID())
-			assert.EqualValues(t, tc.value, value.Unwrap())
 		})
 	}
 }

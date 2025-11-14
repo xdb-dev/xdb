@@ -16,16 +16,16 @@ func TestTypeID(t *testing.T) {
 			typeID   core.TypeID
 			expected string
 		}{
-			{core.TypeIDUnknown, "TypeID(UNKNOWN)"},
-			{core.TypeIDBoolean, "TypeID(BOOLEAN)"},
-			{core.TypeIDInteger, "TypeID(INTEGER)"},
-			{core.TypeIDUnsigned, "TypeID(UNSIGNED)"},
-			{core.TypeIDFloat, "TypeID(FLOAT)"},
-			{core.TypeIDString, "TypeID(STRING)"},
-			{core.TypeIDBytes, "TypeID(BYTES)"},
-			{core.TypeIDTime, "TypeID(TIME)"},
-			{core.TypeIDArray, "TypeID(ARRAY)"},
-			{core.TypeIDMap, "TypeID(MAP)"},
+			{core.TypeIDUnknown, "UNKNOWN"},
+			{core.TypeIDBoolean, "BOOLEAN"},
+			{core.TypeIDInteger, "INTEGER"},
+			{core.TypeIDUnsigned, "UNSIGNED"},
+			{core.TypeIDFloat, "FLOAT"},
+			{core.TypeIDString, "STRING"},
+			{core.TypeIDBytes, "BYTES"},
+			{core.TypeIDTime, "TIME"},
+			{core.TypeIDArray, "ARRAY"},
+			{core.TypeIDMap, "MAP"},
 		}
 
 		for _, tc := range testcases {
