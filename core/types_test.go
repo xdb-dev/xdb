@@ -104,24 +104,24 @@ func TestType(t *testing.T) {
 		typ := core.TypeBool
 		assert.Equal(t, core.TypeIDBoolean, typ.ID())
 		assert.Equal(t, "BOOLEAN", typ.String())
-		assert.Equal(t, core.TypeIDUnknown, typ.KeyType())
-		assert.Equal(t, core.TypeIDUnknown, typ.ValueType())
+		assert.Equal(t, core.TypeIDUnknown, typ.KeyTypeID())
+		assert.Equal(t, core.TypeIDUnknown, typ.ValueTypeID())
 	})
 
 	t.Run("Array Type Creation", func(t *testing.T) {
 		typ := core.NewArrayType(core.TypeIDString)
 		assert.Equal(t, core.TypeIDArray, typ.ID())
 		assert.Equal(t, "ARRAY", typ.String())
-		assert.Equal(t, core.TypeIDUnknown, typ.KeyType())
-		assert.Equal(t, core.TypeIDString, typ.ValueType())
+		assert.Equal(t, core.TypeIDUnknown, typ.KeyTypeID())
+		assert.Equal(t, core.TypeIDString, typ.ValueTypeID())
 	})
 
 	t.Run("Map Type Creation", func(t *testing.T) {
 		typ := core.NewMapType(core.TypeIDString, core.TypeIDInteger)
 		assert.Equal(t, core.TypeIDMap, typ.ID())
 		assert.Equal(t, "MAP", typ.String())
-		assert.Equal(t, core.TypeIDString, typ.KeyType())
-		assert.Equal(t, core.TypeIDInteger, typ.ValueType())
+		assert.Equal(t, core.TypeIDString, typ.KeyTypeID())
+		assert.Equal(t, core.TypeIDInteger, typ.ValueTypeID())
 	})
 
 	t.Run("Edge Cases", func(t *testing.T) {
@@ -134,14 +134,14 @@ func TestType(t *testing.T) {
 		t.Run("Array with Unknown Value Type", func(t *testing.T) {
 			typ := core.NewArrayType(core.TypeIDUnknown)
 			assert.Equal(t, core.TypeIDArray, typ.ID())
-			assert.Equal(t, core.TypeIDUnknown, typ.ValueType())
+			assert.Equal(t, core.TypeIDUnknown, typ.ValueTypeID())
 		})
 
 		t.Run("Map with Unknown Types", func(t *testing.T) {
 			typ := core.NewMapType(core.TypeIDUnknown, core.TypeIDUnknown)
 			assert.Equal(t, core.TypeIDMap, typ.ID())
-			assert.Equal(t, core.TypeIDUnknown, typ.KeyType())
-			assert.Equal(t, core.TypeIDUnknown, typ.ValueType())
+			assert.Equal(t, core.TypeIDUnknown, typ.KeyTypeID())
+			assert.Equal(t, core.TypeIDUnknown, typ.ValueTypeID())
 		})
 
 		t.Run("Nested Array Types", func(t *testing.T) {
@@ -149,15 +149,15 @@ func TestType(t *testing.T) {
 			innerArrayType := core.NewArrayType(core.TypeIDString)
 			outerArrayType := core.NewArrayType(innerArrayType.ID())
 			assert.Equal(t, core.TypeIDArray, outerArrayType.ID())
-			assert.Equal(t, core.TypeIDArray, outerArrayType.ValueType())
+			assert.Equal(t, core.TypeIDArray, outerArrayType.ValueTypeID())
 		})
 
 		t.Run("Complex Map Types", func(t *testing.T) {
 			// Map with array values
 			mapType := core.NewMapType(core.TypeIDString, core.TypeIDArray)
 			assert.Equal(t, core.TypeIDMap, mapType.ID())
-			assert.Equal(t, core.TypeIDString, mapType.KeyType())
-			assert.Equal(t, core.TypeIDArray, mapType.ValueType())
+			assert.Equal(t, core.TypeIDString, mapType.KeyTypeID())
+			assert.Equal(t, core.TypeIDArray, mapType.ValueTypeID())
 		})
 	})
 }
@@ -250,7 +250,7 @@ func TestType_EdgeCases(t *testing.T) {
 			scalarType := core.TypeString
 			arrayType := core.NewArrayType(core.TypeIDString)
 			assert.NotEqual(t, scalarType.ID(), arrayType.ID())
-			assert.Equal(t, core.TypeIDString, arrayType.ValueType())
+			assert.Equal(t, core.TypeIDString, arrayType.ValueTypeID())
 		})
 	})
 

@@ -569,8 +569,8 @@ func TestCast_MapValues(t *testing.T) {
 		value := core.NewValue(mapValue)
 
 		assert.Equal(t, core.TypeIDMap, value.Type().ID())
-		assert.Equal(t, core.TypeIDString, value.Type().KeyType())
-		assert.Equal(t, core.TypeIDString, value.Type().ValueType())
+		assert.Equal(t, core.TypeIDString, value.Type().KeyTypeID())
+		assert.Equal(t, core.TypeIDString, value.Type().ValueTypeID())
 
 		// Verify String() returns deterministic output (sorted)
 		str := value.String()
@@ -586,8 +586,8 @@ func TestCast_MapValues(t *testing.T) {
 		value := core.NewValue(mapValue)
 
 		assert.Equal(t, core.TypeIDMap, value.Type().ID())
-		assert.Equal(t, core.TypeIDString, value.Type().KeyType())
-		assert.Equal(t, core.TypeIDInteger, value.Type().ValueType())
+		assert.Equal(t, core.TypeIDString, value.Type().KeyTypeID())
+		assert.Equal(t, core.TypeIDInteger, value.Type().ValueTypeID())
 	})
 
 	t.Run("Int to String Map", func(t *testing.T) {
@@ -598,8 +598,8 @@ func TestCast_MapValues(t *testing.T) {
 		value := core.NewValue(mapValue)
 
 		assert.Equal(t, core.TypeIDMap, value.Type().ID())
-		assert.Equal(t, core.TypeIDInteger, value.Type().KeyType())
-		assert.Equal(t, core.TypeIDString, value.Type().ValueType())
+		assert.Equal(t, core.TypeIDInteger, value.Type().KeyTypeID())
+		assert.Equal(t, core.TypeIDString, value.Type().ValueTypeID())
 	})
 
 	t.Run("Bool to Bool Map", func(t *testing.T) {
@@ -610,8 +610,8 @@ func TestCast_MapValues(t *testing.T) {
 		value := core.NewValue(mapValue)
 
 		assert.Equal(t, core.TypeIDMap, value.Type().ID())
-		assert.Equal(t, core.TypeIDBoolean, value.Type().KeyType())
-		assert.Equal(t, core.TypeIDBoolean, value.Type().ValueType())
+		assert.Equal(t, core.TypeIDBoolean, value.Type().KeyTypeID())
+		assert.Equal(t, core.TypeIDBoolean, value.Type().ValueTypeID())
 	})
 
 	t.Run("Empty Map Returns Nil", func(t *testing.T) {

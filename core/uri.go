@@ -45,12 +45,12 @@ func (u *URI) Attr() *Attr { return u.attr }
 // Equals returns true if this URI is equal to the other URI.
 func (u *URI) Equals(other *URI) bool {
 	return u.ns.Equals(other.ns) &&
-		(u.schema == nil && other.schema == nil) ||
-		(u.schema != nil && other.schema != nil && u.schema.Equals(other.schema)) &&
-			(u.id == nil && other.id == nil) ||
-		(u.id != nil && other.id != nil && u.id.Equals(other.id)) &&
-			(u.attr == nil && other.attr == nil) ||
-		(u.attr != nil && other.attr != nil && u.attr.Equals(other.attr))
+		((u.schema == nil && other.schema == nil) ||
+			(u.schema != nil && other.schema != nil && u.schema.Equals(other.schema))) &&
+		((u.id == nil && other.id == nil) ||
+			(u.id != nil && other.id != nil && u.id.Equals(other.id))) &&
+		((u.attr == nil && other.attr == nil) ||
+			(u.attr != nil && other.attr != nil && u.attr.Equals(other.attr)))
 }
 
 // Path returns the URI without the scheme.

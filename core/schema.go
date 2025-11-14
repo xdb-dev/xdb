@@ -17,8 +17,14 @@ type Schema struct {
 }
 
 // NewSchema creates a new Schema.
+// Panics if the Schema name is invalid
+// (contains characters outside [a-zA-Z0-9._/-]).
 func NewSchema(raw string) *Schema {
-	return &Schema{name: raw}
+	schema, err := ParseSchema(raw)
+	if err != nil {
+		panic(err)
+	}
+	return schema
 }
 
 // ParseSchema parses a string into a Schema.

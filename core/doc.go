@@ -67,16 +67,24 @@
 //
 // Example usage:
 //
-//	// Create a repository URI
-//	repo := NewURI("com.example")
+//	// Create tuples using the builder pattern
+//	title := New().
+//		NS("com.example").
+//		Schema("posts").
+//		ID("123-456-789").
+//		MustTuple("title", "Hello World")
 //
-//	// Create a record key (repository + collection + id)
-//	rkey := repo.WithSchema("posts").WithID("123-456-789")
-//
-//	// Create tuples
-//	title := NewTuple(rkey, NewAttr("title"), "Hello World")
-//	author := NewTuple(rkey, NewAttr("author", "id"), "user-001")
+//	author := New().
+//		NS("com.example").
+//		Schema("posts").
+//		ID("123-456-789").
+//		MustTuple("author.id", "user-001")
 //
 //	// Get tuple URI
 //	uri := title.URI() // xdb://com.example/posts/123-456-789#title
+//
+//	// Create records with multiple tuples
+//	record := NewRecord("com.example", "posts", "123-456-789").
+//		Set("title", "Hello World").
+//		Set("author", "user-001")
 package core

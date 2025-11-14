@@ -12,8 +12,8 @@ type ID struct {
 	id string
 }
 
-// NewID creates a new ID.
-// Panics if the ID is invalid.
+// NewID creates a new ID from a string.
+// Panics if the ID is invalid (contains characters outside [a-zA-Z0-9._/-]).
 func NewID(raw string) *ID {
 	id, err := ParseID(raw)
 	if err != nil {

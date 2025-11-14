@@ -101,7 +101,7 @@ func TestNewValue_Arrays(t *testing.T) {
 			value := core.NewValue(tc.value)
 
 			at := value.Type()
-			assert.Equal(t, tc.expected, at.ValueType())
+			assert.Equal(t, tc.expected, at.ValueTypeID())
 			assert.EqualValues(t, tc.value, value.Unwrap())
 		})
 	}
@@ -265,13 +265,13 @@ func TestValue_TypeInformation(t *testing.T) {
 	t.Run("Array Type", func(t *testing.T) {
 		value := core.NewValue([]string{"a", "b"})
 		assert.Equal(t, core.TypeIDArray, value.Type().ID())
-		assert.Equal(t, core.TypeIDString, value.Type().ValueType())
+		assert.Equal(t, core.TypeIDString, value.Type().ValueTypeID())
 	})
 
 	t.Run("Map Type", func(t *testing.T) {
 		value := core.NewValue(map[string]int{"a": 1})
 		assert.Equal(t, core.TypeIDMap, value.Type().ID())
-		assert.Equal(t, core.TypeIDString, value.Type().KeyType())
-		assert.Equal(t, core.TypeIDInteger, value.Type().ValueType())
+		assert.Equal(t, core.TypeIDString, value.Type().KeyTypeID())
+		assert.Equal(t, core.TypeIDInteger, value.Type().ValueTypeID())
 	})
 }

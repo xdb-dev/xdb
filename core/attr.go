@@ -12,8 +12,9 @@ type Attr struct {
 	name string
 }
 
-// NewAttr creates a new Attr.
-// Panics if the Attr is invalid.
+// NewAttr creates a new attribute name.
+// Panics if the attribute name is invalid
+// (contains characters outside [a-zA-Z0-9._/-]).
 func NewAttr(raw string) *Attr {
 	attr, err := ParseAttr(raw)
 	if err != nil {

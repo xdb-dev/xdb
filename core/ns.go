@@ -12,8 +12,8 @@ type NS struct {
 	name string
 }
 
-// NewNS creates a new NS from a string.
-// Panics if the NS is invalid.
+// NewNS creates a new namespace identifier.
+// Panics if the namespace is invalid (contains characters outside [a-zA-Z0-9._/-]).
 func NewNS(raw string) *NS {
 	ns, err := ParseNS(raw)
 	if err != nil {
