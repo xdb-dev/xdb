@@ -114,7 +114,7 @@ func FakeTuples() []*core.Tuple {
 	)
 }
 
-var recordPath = "com.example/all_types/1"
+var recordPath = "xdb://com.example/all_types/1"
 
 // FakeStringTuples creates fake tuples for string values.
 func FakeStringTuples() []*core.Tuple {

@@ -16,64 +16,62 @@ type Config struct {
 
 // MemoryDriver is an in-memory driver for XDB.
 type MemoryDriver struct {
-	mu     sync.RWMutex
-	repos  map[string]*core.Repo
-	tuples map[string]map[string]*core.Tuple
+	mu      sync.RWMutex
+	tuples  map[string]map[string]*core.Tuple
+	schemas map[string]*core.SchemaDef
 }
 
 // New creates a new in-memory driver.
 func New() *MemoryDriver {
 	return &MemoryDriver{
-		repos:  make(map[string]*core.Repo),
-		tuples: make(map[string]map[string]*core.Tuple),
+		tuples:  make(map[string]map[string]*core.Tuple),
+		schemas: make(map[string]*core.SchemaDef),
 	}
 }
 
-// GetRepo returns the repo for the given name.
-func (d *MemoryDriver) GetRepo(ctx context.Context, name string) (*core.Repo, error) {
+// GetSchema returns the schema definition for the given URI.
+func (d *MemoryDriver) GetSchema(ctx context.Context, uri *core.URI) (*core.SchemaDef, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	repo, ok := d.repos[name]
+	key := uri.Schema().String()
+	schema, ok := d.schemas[key]
 	if !ok {
 		return nil, driver.ErrNotFound
 	}
 
-	return repo, nil
+	return schema, nil
 }
 
-// ListRepos returns the list of repos.
-func (d *MemoryDriver) ListRepos(ctx context.Context) ([]*core.Repo, error) {
+// ListSchemas returns all schema definitions in the given namespace.
+func (d *MemoryDriver) ListSchemas(ctx context.Context, ns *core.NS) ([]*core.SchemaDef, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	repos := make([]*core.Repo, 0, len(d.repos))
-	for _, repo := range d.repos {
-		repos = append(repos, repo)
+	schemas := make([]*core.SchemaDef, 0, len(d.schemas))
+	for _, schema := range d.schemas {
+		schemas = append(schemas, schema)
 	}
 
-	return repos, nil
+	return schemas, nil
 }
 
-// MakeRepo saves the repo.
-func (d *MemoryDriver) MakeRepo(ctx context.Context, repo *core.Repo) error {
+// PutSchema saves the schema definition.
+func (d *MemoryDriver) PutSchema(ctx context.Context, def *core.SchemaDef) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.repos[repo.Name()] = repo
-	d.tuples[repo.Name()] = make(map[string]*core.Tuple)
-
+	d.schemas[def.Name] = def
 	return nil
 }
 
-// DeleteRepo deletes the repo for the given name.
-func (d *MemoryDriver) DeleteRepo(ctx context.Context, name string) error {
+// DeleteSchema deletes the schema definition.
+func (d *MemoryDriver) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	delete(d.repos, name)
-	delete(d.tuples, name)
-
+	key := uri.Schema().String()
+	delete(d.schemas, key)
 	return nil
 }
 
@@ -157,8 +155,7 @@ func (d *MemoryDriver) GetRecords(ctx context.Context, uris []*core.URI) ([]*cor
 	missed := make([]*core.URI, 0, len(uris))
 
 	for _, uri := range uris {
-		repo := uri.Repo()
-		record := core.NewRecord(repo, uri.ID()...)
+		record := core.NewRecord(uri.NS().String(), uri.Schema().String(), uri.ID().String())
 
 		id := uri.ID().String()
 
@@ -168,7 +165,7 @@ func (d *MemoryDriver) GetRecords(ctx context.Context, uris []*core.URI) ([]*cor
 		}
 
 		for _, t := range d.tuples[id] {
-			record.Set(t.Attr(), t.Value())
+			record.Set(t.Attr().String(), t.Value())
 		}
 
 		if record.IsEmpty() {

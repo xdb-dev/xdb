@@ -81,6 +81,7 @@ type SchemaDef struct {
 // Clone returns a deep copy of the SchemaDef.
 func (s *SchemaDef) Clone() *SchemaDef {
 	clone := &SchemaDef{
+		Name:        s.Name,
 		Description: s.Description,
 		Version:     s.Version,
 		Fields:      make([]*FieldDef, 0, len(s.Fields)),

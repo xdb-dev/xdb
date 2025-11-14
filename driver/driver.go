@@ -13,22 +13,22 @@ var (
 	ErrNotFound = errors.New("xdb/driver: not found")
 )
 
-// RepoReader is an interface for reading repositories.
-type RepoReader interface {
-	GetRepo(ctx context.Context, name string) (*core.Repo, error)
-	ListRepos(ctx context.Context) ([]*core.Repo, error)
+// SchemaReader is an interface for reading schemas.
+type SchemaReader interface {
+	GetSchema(ctx context.Context, uri *core.URI) (*core.SchemaDef, error)
+	ListSchemas(ctx context.Context, ns *core.NS) ([]*core.SchemaDef, error)
 }
 
-// RepoWriter is an interface for creating repositories.
-type RepoWriter interface {
-	MakeRepo(ctx context.Context, repo *core.Repo) error
-	DeleteRepo(ctx context.Context, name string) error
+// SchemaWriter is an interface for writing & deleting schemas.
+type SchemaWriter interface {
+	PutSchema(ctx context.Context, def *core.SchemaDef) error
+	DeleteSchema(ctx context.Context, uri *core.URI) error
 }
 
-// RepoDriver is an interface for managing repositories.
-type RepoDriver interface {
-	RepoReader
-	RepoWriter
+// SchemaDriver is an interface for managing schemas.
+type SchemaDriver interface {
+	SchemaReader
+	SchemaWriter
 }
 
 // TupleReader is an interface for reading tuples.

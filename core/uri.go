@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/json"
-	"regexp"
+	"net/url"
 	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
@@ -101,64 +101,29 @@ func (u *URI) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// uriRegex matches XDB URIs in the format: xdb://NS[/SCHEMA][/ID][#ATTRIBUTE]
-var uriRegex = regexp.MustCompile(`^xdb://([^/]+)(?:/([^#]+))?(?:#(.+))?$`)
-
 // ParsePath parses a path string into a URI struct.
 // The path format is: NS[/SCHEMA][/ID][#ATTRIBUTE]
 func ParsePath(path string) (*URI, error) {
-	matches := uriRegex.FindStringSubmatch(path)
-	if matches == nil {
-		return nil, ErrInvalidURI
-	}
-
-	var ns *NS
-	var schema *Schema
-	var id *ID
-	var attr *Attr
-	var err error
-
-	if len(matches) > 1 {
-		ns, err = ParseNS(matches[1])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(matches) > 2 && matches[2] != "" {
-		schema, err = ParseSchema(matches[2])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(matches) > 3 && matches[3] != "" {
-		id, err = ParseID(matches[3])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(matches) > 4 && matches[4] != "" {
-		attr, err = ParseAttr(matches[4])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &URI{
-		ns:     ns,
-		schema: schema,
-		id:     id,
-		attr:   attr,
-	}, nil
+	return ParseURI("xdb://" + path)
 }
 
 // ParseURI parses a URI string into a URI struct.
 // The URI format is: xdb://NS[/SCHEMA][/ID][#ATTRIBUTE]
 func ParseURI(uri string) (*URI, error) {
-	matches := uriRegex.FindStringSubmatch(uri)
-	if matches == nil {
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return nil, errors.Join(err, ErrInvalidURI)
+	}
+
+	if parsed.Scheme != "xdb" {
+		return nil, ErrInvalidURI
+	}
+
+	if parsed.Host == "" {
+		return nil, ErrInvalidURI
+	}
+
+	if parsed.User != nil {
 		return nil, ErrInvalidURI
 	}
 
@@ -166,31 +131,32 @@ func ParseURI(uri string) (*URI, error) {
 	var schema *Schema
 	var id *ID
 	var attr *Attr
-	var err error
 
-	if len(matches) > 1 {
-		ns, err = ParseNS(matches[1])
+	ns, err = ParseNS(parsed.Host)
+	if err != nil {
+		return nil, err
+	}
+
+	pathParts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+
+	if len(parsed.Path) == 0 {
+		return &URI{ns: ns}, nil
+	}
+
+	schema, err = ParseSchema(pathParts[0])
+	if err != nil {
+		return nil, err
+	}
+
+	if len(pathParts) > 1 {
+		id, err = ParseID(strings.Join(pathParts[1:], "/"))
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if len(matches) > 2 && matches[2] != "" {
-		schema, err = ParseSchema(matches[2])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(matches) > 3 && matches[3] != "" {
-		id, err = ParseID(matches[3])
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if len(matches) > 4 && matches[4] != "" {
-		attr, err = ParseAttr(matches[4])
+	if parsed.Fragment != "" {
+		attr, err = ParseAttr(parsed.Fragment)
 		if err != nil {
 			return nil, err
 		}
@@ -204,8 +170,17 @@ func ParseURI(uri string) (*URI, error) {
 	}, nil
 }
 
-var componentRegex = regexp.MustCompile(`^[a-zA-Z0-9._/-]+$`)
-
 func isValidComponent(raw string) bool {
-	return componentRegex.MatchString(raw)
+	if raw == "" {
+		return false
+	}
+	for _, ch := range raw {
+		if !((ch >= 'a' && ch <= 'z') ||
+			(ch >= 'A' && ch <= 'Z') ||
+			(ch >= '0' && ch <= '9') ||
+			ch == '.' || ch == '_' || ch == '-' || ch == '/') {
+			return false
+		}
+	}
+	return true
 }

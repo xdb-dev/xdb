@@ -21,10 +21,10 @@ func TestRecord(t *testing.T) {
 
 	t.Run("Getters", func(t *testing.T) {
 		assert.Equal(t, "com.example", record.NS().String())
-		assert.Equal(t, "posts", record.Schema())
+		assert.Equal(t, "posts", record.Schema().String())
 		assert.Equal(t, "123", record.ID().String())
-		assert.Equal(t, "xdb://com.example.posts/123", record.URI().String())
-		assert.Equal(t, "Record(xdb://com.example.posts/123)", record.GoString())
+		assert.Equal(t, "xdb://com.example/posts/123", record.URI().String())
+		assert.Equal(t, "Record(xdb://com.example/posts/123)", record.GoString())
 		assert.False(t, record.IsEmpty())
 	})
 
@@ -52,7 +52,7 @@ func TestRecord(t *testing.T) {
 		for _, tuple := range tuples {
 			assert.NotNil(t, tuple)
 			assert.Equal(t, "com.example", tuple.NS().String())
-			assert.Equal(t, "posts", tuple.Schema())
+			assert.Equal(t, "posts", tuple.Schema().String())
 			assert.Equal(t, "123", tuple.ID().String())
 		}
 	})

@@ -24,7 +24,7 @@ func TestNewURI(t *testing.T) {
 			URI()
 		require.NoError(t, err)
 		assert.Equal(t, "com.example", uri.NS().String())
-		assert.Equal(t, "posts", uri.Schema())
+		assert.Equal(t, "posts", uri.Schema().String())
 		assert.Equal(t, "xdb://com.example/posts", uri.String())
 	})
 
@@ -35,7 +35,7 @@ func TestNewURI(t *testing.T) {
 			URI()
 		require.NoError(t, err)
 		assert.Equal(t, "123", uri.ID().String())
-		assert.Equal(t, "xdb://com.example.posts/123", uri.String())
+		assert.Equal(t, "xdb://com.example/posts/123", uri.String())
 	})
 
 	t.Run("Hierarchy ID URI", func(t *testing.T) {
@@ -45,7 +45,7 @@ func TestNewURI(t *testing.T) {
 			URI()
 		require.NoError(t, err)
 		assert.Equal(t, "123/456", uri.ID().String())
-		assert.Equal(t, "xdb://com.example.posts/123/456", uri.String())
+		assert.Equal(t, "xdb://com.example/posts/123/456", uri.String())
 	})
 
 	t.Run("Attribute URI", func(t *testing.T) {
@@ -56,7 +56,7 @@ func TestNewURI(t *testing.T) {
 			URI()
 		require.NoError(t, err)
 		assert.Equal(t, "name", uri.Attr().String())
-		assert.Equal(t, "xdb://com.example.posts/123#name", uri.String())
+		assert.Equal(t, "xdb://com.example/posts/123#name", uri.String())
 	})
 
 	t.Run("Nested Attribute URI", func(t *testing.T) {
@@ -67,6 +67,6 @@ func TestNewURI(t *testing.T) {
 			URI()
 		require.NoError(t, err)
 		assert.Equal(t, "profile.name", uri.Attr().String())
-		assert.Equal(t, "xdb://com.example.posts/123#profile.name", uri.String())
+		assert.Equal(t, "xdb://com.example/posts/123#profile.name", uri.String())
 	})
 }

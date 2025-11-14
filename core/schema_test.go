@@ -12,7 +12,7 @@ func TestSchemaDef(t *testing.T) {
 	t.Parallel()
 
 	schema := &core.SchemaDef{
-		Name:        "com.example.users",
+		Name:        "users",
 		Description: "User schema",
 		Version:     "1.0.0",
 		Mode:        core.ModeStrict,

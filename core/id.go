@@ -32,7 +32,20 @@ func ParseID(raw string) (*ID, error) {
 }
 
 // String returns the ID.
-func (id *ID) String() string { return id.id }
+func (id *ID) String() string {
+	if id == nil {
+		return ""
+	}
+	return id.id
+}
 
 // Equals returns true if this ID is equal to the other ID.
-func (id *ID) Equals(other *ID) bool { return id.id == other.id }
+func (id *ID) Equals(other *ID) bool {
+	if id == nil && other == nil {
+		return true
+	}
+	if id == nil || other == nil {
+		return false
+	}
+	return id.id == other.id
+}

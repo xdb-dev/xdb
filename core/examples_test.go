@@ -25,7 +25,7 @@ func ExampleTuple() {
 	// 123
 	// name
 	// John Doe
-	// xdb://com.example.users/123#name
+	// xdb://com.example/users/123#name
 
 }
 
@@ -49,5 +49,5 @@ func ExampleRecord() {
 	// John Doe
 	// 25
 	// [reading traveling coding]
-	// xdb://com.example.users/123
+	// xdb://com.example/users/123
 }

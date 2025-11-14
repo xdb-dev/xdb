@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gojekfarm/xtools/errors"
 	"slices"
+
+	"github.com/gojekfarm/xtools/errors"
 )
 
 var (
@@ -149,6 +150,9 @@ func (v *Value) Unwrap() any {
 
 // IsNil returns true if the value is nil (a zero Value).
 func (v *Value) IsNil() bool {
+	if v == nil {
+		return true
+	}
 	return v.data == nil
 }
 

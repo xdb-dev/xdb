@@ -20,8 +20,8 @@ func TestTuple(t *testing.T) {
 		assert.Equal(t, "123", tuple.ID().String())
 		assert.Equal(t, "title", tuple.Attr().String())
 		assert.Equal(t, "Hello, World!", tuple.Value().ToString())
-		assert.Equal(t, "xdb://com.example.posts/123#title", tuple.URI().String())
-		assert.Equal(t, "Tuple(com.example.posts, 123, title, Value(STRING, Hello, World!))", tuple.GoString())
+		assert.Equal(t, "xdb://com.example/posts/123#title", tuple.URI().String())
+		assert.Equal(t, "Tuple(xdb://com.example/posts/123, title, Value(STRING, Hello, World!))", tuple.GoString())
 	})
 
 	t.Run("Hierarchy ID", func(t *testing.T) {

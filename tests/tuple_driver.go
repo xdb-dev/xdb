@@ -36,10 +36,9 @@ func TestTupleReaderWriter(t *testing.T, rw tupleReaderWriter) {
 	})
 
 	t.Run("GetTuplesSomeMissing", func(t *testing.T) {
-		coll := core.NewURI("com.example").WithSchema("all_types")
 		notFound := []*core.URI{
-			coll.WithID("not_found_1"),
-			coll.WithID("not_found_2"),
+			core.New().NS("com.example").Schema("all_types").ID("not_found_1").MustURI(),
+			core.New().NS("com.example").Schema("all_types").ID("not_found_2").MustURI(),
 		}
 
 		got, missing, err := rw.GetTuples(ctx, append(uris, notFound...))

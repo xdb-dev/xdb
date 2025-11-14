@@ -33,7 +33,20 @@ func ParseAttr(raw string) (*Attr, error) {
 }
 
 // String returns the Attr.
-func (a *Attr) String() string { return a.name }
+func (a *Attr) String() string {
+	if a == nil {
+		return ""
+	}
+	return a.name
+}
 
 // Equals returns true if this Attr is equal to the other Attr.
-func (a *Attr) Equals(other *Attr) bool { return a.name == other.name }
+func (a *Attr) Equals(other *Attr) bool {
+	if a == nil && other == nil {
+		return true
+	}
+	if a == nil || other == nil {
+		return false
+	}
+	return a.name == other.name
+}

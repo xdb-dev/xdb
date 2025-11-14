@@ -20,7 +20,7 @@ func TestNewNS(t *testing.T) {
 
 	t.Run("Invalid NS", func(t *testing.T) {
 		assert.Panics(t, func() {
-			core.NewNS("invalid.example")
+			core.NewNS("invalid example")
 		})
 	})
 

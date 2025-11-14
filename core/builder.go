@@ -43,22 +43,40 @@ func (b *Builder) Attr(attr string) *Builder {
 // URI builds and returns a URI from the configured components.
 // Returns an error if any component is invalid.
 func (b *Builder) URI() (*URI, error) {
-	ns, err := ParseNS(b.ns)
-	if err != nil {
-		return nil, err
+	var ns *NS
+	var schema *Schema
+	var id *ID
+	var attr *Attr
+	var err error
+
+	if b.ns != "" {
+		ns, err = ParseNS(b.ns)
+		if err != nil {
+			return nil, err
+		}
 	}
-	schema, err := ParseSchema(b.schema)
-	if err != nil {
-		return nil, err
+
+	if b.schema != "" {
+		schema, err = ParseSchema(b.schema)
+		if err != nil {
+			return nil, err
+		}
 	}
-	id, err := ParseID(b.id)
-	if err != nil {
-		return nil, err
+
+	if b.id != "" {
+		id, err = ParseID(b.id)
+		if err != nil {
+			return nil, err
+		}
 	}
-	attr, err := ParseAttr(b.attr)
-	if err != nil {
-		return nil, err
+
+	if b.attr != "" {
+		attr, err = ParseAttr(b.attr)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return &URI{
 		ns:     ns,
 		schema: schema,

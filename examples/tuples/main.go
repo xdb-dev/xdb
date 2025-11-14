@@ -13,7 +13,7 @@ import (
 
 func main() {
 	ctx := context.Background()
-	repo := "com.example.posts"
+	repo := "com.example/posts"
 	id := core.NewID(gofakeit.UUID())
 	authorID := core.NewID(gofakeit.UUID())
 
