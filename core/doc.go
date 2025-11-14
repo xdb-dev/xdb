@@ -25,11 +25,11 @@
 // Core Types:
 //
 // Tuple is the fundamental building block in XDB. Each tuple contains:
-//   - RKey: A URI identifying the record (NS + SCHEMA + ID)
+//   - Path: A URI identifying the record (NS + SCHEMA + ID)
 //   - Attr: An attribute name (e.g., "name", "profile.email")
 //   - Value: A typed value containing the actual data
 //
-// Record is a collection of tuples sharing the same RKey.
+// Record is a collection of tuples sharing the same path.
 // Records are similar to objects, structs, or rows in a database.
 // Records typically represent a single entity or object of domain data.
 //
@@ -60,7 +60,7 @@
 // SCHEMA is the collection name.
 // ID is the record identifier
 // ATTRIBUTE is a specific attribute of a record (supports nesting like "profile.email").
-// RECORD KEY (rkey): NS, SCHEMA, and ID combined uniquely identify a record.
+// Path: NS, SCHEMA, and ID combined uniquely identify a record (URI without xdb://).
 //
 // Value is a typed container supporting Go's basic types plus arrays and maps.
 // Values provide type-safe casting methods and automatic type inference.

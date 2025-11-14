@@ -78,8 +78,7 @@ XDB URIs follow the following format:
     └─┬──┘└────┬────┘└──┬─┘└─────┬─────┘└─────┬─────┘
    scheme     NS    SCHEMA      ID        ATTRIBUTE
               └───────────┬───────────┘
-                      RECORD KEY
-                        (rkey)
+                       path
 ```
 
 The components of the URI are:
@@ -88,7 +87,7 @@ The components of the URI are:
 - **SCHEMA**: The name of the collection.
 - **ID**: The unique identifier of the record.
 - **ATTRIBUTE**: The name of the attribute.
-- **RECORD KEY (rkey)**: NS, SCHEMA, and ID combined uniquely identify a record
+- **path**: NS, SCHEMA, and ID combined uniquely identify a record (URI without xdb://)
 
 Valid examples:
 

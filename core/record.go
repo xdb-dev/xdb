@@ -8,7 +8,7 @@ import (
 // Record is a collection of tuples that share the same ID.
 // Records are mutable and thread-safe, similar to database rows.
 type Record struct {
-	rkey *URI
+	path *URI
 
 	mu     sync.RWMutex
 	tuples map[string]*Tuple
@@ -16,32 +16,32 @@ type Record struct {
 
 // NewRecord creates a new Record.
 func NewRecord(ns, schema, id string) *Record {
-	rkey := New().NS(ns).Schema(schema).ID(id).MustURI()
-	return newRecord(rkey)
+	path := New().NS(ns).Schema(schema).ID(id).MustURI()
+	return newRecord(path)
 }
 
-func newRecord(rkey *URI) *Record {
+func newRecord(path *URI) *Record {
 	return &Record{
-		rkey:   rkey,
+		path:   path,
 		tuples: make(map[string]*Tuple),
 	}
 }
 
 // NS returns the namespace of the record.
-func (r *Record) NS() *NS { return r.rkey.NS() }
+func (r *Record) NS() *NS { return r.path.NS() }
 
 // Schema returns the schema of the record.
-func (r *Record) Schema() *Schema { return r.rkey.Schema() }
+func (r *Record) Schema() *Schema { return r.path.Schema() }
 
 // ID returns the ID of the record.
-func (r *Record) ID() *ID { return r.rkey.ID() }
+func (r *Record) ID() *ID { return r.path.ID() }
 
 // URI returns a URI that references this Record.
-func (r *Record) URI() *URI { return r.rkey }
+func (r *Record) URI() *URI { return r.path }
 
 // GoString returns Go syntax of the Record.
 func (r *Record) GoString() string {
-	return fmt.Sprintf("Record(%s)", r.rkey.String())
+	return fmt.Sprintf("Record(%s)", r.path.String())
 }
 
 // Set adds or updates a tuple in the Record with the given attribute and value.
@@ -55,7 +55,7 @@ func (r *Record) Set(attr string, value any) *Record {
 		panic(err)
 	}
 
-	t := newTuple(r.rkey, a, value)
+	t := newTuple(r.path, a, value)
 	r.tuples[t.Attr().String()] = t
 
 	return r
