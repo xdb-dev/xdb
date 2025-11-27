@@ -101,7 +101,37 @@ func AssertEqualValues(t *testing.T, expected, actual *core.Value) {
 	t.Helper()
 
 	assert.Equal(t, expected.Type().ID(), actual.Type().ID(), "value type mismatch")
-	assert.EqualValues(t, expected.Unwrap(), actual.Unwrap(), "value mismatch")
+
+	switch expected.Type().ID() {
+	case core.TypeIDArray:
+		expectedArr := expected.Unwrap().([]*core.Value)
+		actualArr := actual.Unwrap().([]*core.Value)
+
+		require.Equal(t, len(expectedArr), len(actualArr), "array length mismatch")
+
+		for i, expectedVal := range expectedArr {
+			AssertEqualValues(t, expectedVal, actualArr[i])
+		}
+	case core.TypeIDMap:
+		expectedMap := expected.Unwrap().(map[*core.Value]*core.Value)
+		actualMap := actual.Unwrap().(map[*core.Value]*core.Value)
+
+		require.Equal(t, len(expectedMap), len(actualMap), "map length mismatch")
+
+		for expectedKey, expectedVal := range expectedMap {
+			var found bool
+			for actualKey, actualVal := range actualMap {
+				if expectedKey.String() == actualKey.String() {
+					AssertEqualValues(t, expectedVal, actualVal)
+					found = true
+					break
+				}
+			}
+			require.True(t, found, "map key %s not found", expectedKey.String())
+		}
+	default:
+		assert.EqualValues(t, expected.Unwrap(), actual.Unwrap(), "value mismatch")
+	}
 }
 
 // AssertSchemaDefEqual asserts that two schema definitions are equal.

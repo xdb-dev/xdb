@@ -34,17 +34,17 @@ func (c *Codec) EncodeTuple(tuple *core.Tuple) ([]byte, []byte, error) {
 
 // DecodeTuple decodes a key-value pair to a [core.Tuple].
 func (c *Codec) DecodeTuple(key []byte, value []byte) (*core.Tuple, error) {
-	decodedURI, err := c.DecodeURI(key)
+	uri, err := c.DecodeURI(key)
 	if err != nil {
 		return nil, err
 	}
 
-	decodedValue, err := c.DecodeValue(value)
+	val, err := c.DecodeValue(value)
 	if err != nil {
 		return nil, err
 	}
 
-	return core.NewTuple(decodedURI.Repo(), decodedURI.ID(), decodedURI.Attr(), decodedValue), nil
+	return core.NewTuple(uri.Path(), uri.Attr().String(), val), nil
 }
 
 // EncodeURI encodes a [core.URI] to []byte.

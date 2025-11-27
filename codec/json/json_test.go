@@ -15,8 +15,7 @@ import (
 func TestJsonCodec(t *testing.T) {
 	t.Parallel()
 
-	repo := "test.repo"
-	id := core.NewID("123")
+	path := "com.example/posts/123"
 
 	testCases := []struct {
 		name  string
@@ -26,67 +25,67 @@ func TestJsonCodec(t *testing.T) {
 		{
 			name:  "boolean",
 			value: true,
-			uri:   "xdb://test.repo/123#boolean",
+			uri:   "xdb://com.example/posts/123#boolean",
 		},
 		{
 			name:  "integer",
 			value: int64(42),
-			uri:   "xdb://test.repo/123#integer",
+			uri:   "xdb://com.example/posts/123#integer",
 		},
 		{
 			name:  "string",
 			value: "hello world",
-			uri:   "xdb://test.repo/123#string",
+			uri:   "xdb://com.example/posts/123#string",
 		},
 		{
 			name:  "float",
 			value: float64(3.14),
-			uri:   "xdb://test.repo/123#float",
+			uri:   "xdb://com.example/posts/123#float",
 		},
 		{
 			name:  "uint64",
 			value: uint64(123),
-			uri:   "xdb://test.repo/123#uint64",
+			uri:   "xdb://com.example/posts/123#uint64",
 		},
 		{
 			name:  "bytes",
 			value: []byte("hello world"),
-			uri:   "xdb://test.repo/123#bytes",
+			uri:   "xdb://com.example/posts/123#bytes",
 		},
 		{
 			name:  "time",
 			value: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-			uri:   "xdb://test.repo/123#time",
+			uri:   "xdb://com.example/posts/123#time",
 		},
 		{
 			name:  "boolean_array",
 			value: []bool{true, false, true},
-			uri:   "xdb://test.repo/123#boolean_array",
+			uri:   "xdb://com.example/posts/123#boolean_array",
 		},
 		{
 			name:  "integer_array",
 			value: []int64{1, 2, 3},
-			uri:   "xdb://test.repo/123#integer_array",
+			uri:   "xdb://com.example/posts/123#integer_array",
 		},
 		{
 			name:  "unsigned_array",
 			value: []uint64{1, 2, 3},
-			uri:   "xdb://test.repo/123#unsigned_array",
+			uri:   "xdb://com.example/posts/123#unsigned_array",
 		},
 		{
 			name:  "float_array",
 			value: []float64{1.1, 2.2, 3.3},
-			uri:   "xdb://test.repo/123#float_array",
+			uri:   "xdb://com.example/posts/123#float_array",
 		},
 		{
 			name:  "string_array",
 			value: []string{"value1", "value2", "value3"},
-			uri:   "xdb://test.repo/123#string_array",
+			uri:   "xdb://com.example/posts/123#string_array",
 		},
 		{
 			name:  "bytes_array",
 			value: [][]byte{[]byte("hello"), []byte("world")},
-			uri:   "xdb://test.repo/123#bytes_array",
+			uri:   "xdb://com.example/posts/123#bytes_array",
 		},
 		{
 			name: "time_array",
@@ -94,32 +93,32 @@ func TestJsonCodec(t *testing.T) {
 				time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
 				time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
 			},
-			uri: "xdb://test.repo/123#time_array",
+			uri: "xdb://com.example/posts/123#time_array",
 		},
 		{
 			name:  "string_map",
 			value: map[string]string{"key1": "value1", "key2": "value2"},
-			uri:   "xdb://test.repo/123#string_map",
+			uri:   "xdb://com.example/posts/123#string_map",
 		},
 		{
 			name:  "integer_map",
 			value: map[string]int64{"a": 1, "b": 2, "c": 3},
-			uri:   "xdb://test.repo/123#integer_map",
+			uri:   "xdb://com.example/posts/123#integer_map",
 		},
 		{
 			name:  "boolean_map",
 			value: map[string]bool{"flag1": true, "flag2": false},
-			uri:   "xdb://test.repo/123#boolean_map",
+			uri:   "xdb://com.example/posts/123#boolean_map",
 		},
 		{
 			name:  "float_map",
 			value: map[string]float64{"x": 1.1, "y": 2.2},
-			uri:   "xdb://test.repo/123#float_map",
+			uri:   "xdb://com.example/posts/123#float_map",
 		},
 		{
 			name:  "int_key_map",
 			value: map[int64]string{1: "one", 2: "two", 3: "three"},
-			uri:   "xdb://test.repo/123#int_key_map",
+			uri:   "xdb://com.example/posts/123#int_key_map",
 		},
 	}
 
@@ -129,7 +128,7 @@ func TestJsonCodec(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			tuple := core.NewTuple(repo, id, tc.name, tc.value)
+			tuple := core.NewTuple(path, tc.name, tc.value)
 
 			encodedURI, err := codec.EncodeURI(tuple.URI())
 			require.NoError(t, err)
