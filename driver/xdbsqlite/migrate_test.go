@@ -14,47 +14,47 @@ var (
 	allTypesSchemaName = "com.example.AllTypes"
 	allTypesSchema     = &core.Schema{
 		Fields: []*core.FieldSchema{
-		{
-			Name:    "field_string",
-			Type:    core.TypeString,
-			Default: core.NewValue("default string"),
+			{
+				Name:    "field_string",
+				Type:    core.TypeString,
+				Default: core.NewValue("default string"),
+			},
+			{
+				Name:    "field_integer",
+				Type:    core.TypeInt,
+				Default: core.NewValue(int64(100)),
+			},
+			{
+				Name:    "field_boolean",
+				Type:    core.TypeBool,
+				Default: core.NewValue(true),
+			},
+			{
+				Name:    "field_time",
+				Type:    core.TypeTime,
+				Default: core.NewValue(time.Now()),
+			},
+			{
+				Name:    "field_float",
+				Type:    core.TypeFloat,
+				Default: core.NewValue(3.14),
+			},
+			{
+				Name:    "field_bytes",
+				Type:    core.TypeBytes,
+				Default: core.NewValue([]byte("hello")),
+			},
+			{
+				Name:    "field_array",
+				Type:    core.NewArrayType(core.TypeIDString),
+				Default: core.NewValue([]string{"hello", "world"}),
+			},
+			{
+				Name:    "field_map",
+				Type:    core.NewMapType(core.TypeIDString, core.TypeIDString),
+				Default: core.NewValue(map[string]string{"hello": "world"}),
+			},
 		},
-		{
-			Name:    "field_integer",
-			Type:    core.TypeInt,
-			Default: core.NewValue(int64(100)),
-		},
-		{
-			Name:    "field_boolean",
-			Type:    core.TypeBool,
-			Default: core.NewValue(true),
-		},
-		{
-			Name:    "field_time",
-			Type:    core.TypeTime,
-			Default: core.NewValue(time.Now()),
-		},
-		{
-			Name:    "field_float",
-			Type:    core.TypeFloat,
-			Default: core.NewValue(3.14),
-		},
-		{
-			Name:    "field_bytes",
-			Type:    core.TypeBytes,
-			Default: core.NewValue([]byte("hello")),
-		},
-		{
-			Name:    "field_array",
-			Type:    core.NewArrayType(core.TypeIDString),
-			Default: core.NewValue([]string{"hello", "world"}),
-		},
-		{
-			Name:    "field_map",
-			Type:    core.NewMapType(core.TypeIDString, core.TypeIDString),
-			Default: core.NewValue(map[string]string{"hello": "world"}),
-		},
-	},
 	}
 )
 

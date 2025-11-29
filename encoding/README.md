@@ -10,7 +10,8 @@ Each encoding lives in its own subdirectory:
 encoding/
 ├── xdbjson/       # JSON encoding/decoding
 ├── xdbproto/      # Protocol Buffer support
-└── xdbstruct/     # Go struct ↔ XDB record conversion
+├── xdbstruct/     # Go struct ↔ XDB record conversion
+└── wkt/           # Well-known types registry
 ```
 
 ## xdbstruct
@@ -54,6 +55,50 @@ type Profile struct {
 
 // Results in attributes: profile.email, profile.bio
 ```
+
+## wkt
+
+Provides a registry system for well-known types (custom types with special handling during encoding/decoding).
+
+### Basic Usage
+
+```go
+import "github.com/xdb-dev/xdb/encoding/wkt"
+
+// Use the default registry with built-in types (time.Time, time.Duration)
+encoder := xdbstruct.NewEncoder(xdbstruct.Options{
+    Tag:      "xdb",
+    Registry: wkt.DefaultRegistry,
+})
+```
+
+### Custom Type Registration
+
+```go
+type Money struct {
+    Amount   int64
+    Currency string
+}
+
+registry := wkt.NewRegistry()
+registry.Register(
+    reflect.TypeOf(Money{}),
+    func(v reflect.Value) (any, error) {
+        m := v.Interface().(Money)
+        return fmt.Sprintf("%d %s", m.Amount, m.Currency), nil
+    },
+    func(v any, target reflect.Value) error {
+        // Parse string back to Money
+        return nil
+    },
+)
+```
+
+### Built-in Types
+
+The `DefaultRegistry` includes:
+- `time.Time` (marshaled as RFC3339Nano strings)
+- `time.Duration` (marshaled as int64 nanoseconds)
 
 ## Implementation Guide
 

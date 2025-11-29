@@ -19,7 +19,9 @@
       "Bash(go fmt:*)",
       "Bash(cat:*)",
       "Bash(mkdir:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(GOEXPERIMENT=jsonv2 go test:*)",
+      "Bash(GOEXPERIMENT=jsonv2 go vet:*)"
     ],
     "deny": [],
     "ask": []
