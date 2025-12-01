@@ -24,7 +24,7 @@
 //	    Schema: "users",
 //	})
 //
-//	record, err := encoder.Encode(&User{
+//	record, err := encoder.ToRecord(&User{
 //	    ID:    "123",
 //	    Name:  "John Doe",
 //	    Email: "john@example.com",
@@ -36,7 +36,7 @@
 //	decoder := xdbstruct.NewDecoder(xdbstruct.Options{Tag: "xdb"})
 //
 //	var user User
-//	err := decoder.Decode(record, &user)
+//	err := decoder.FromRecord(record, &user)
 //	// user is now populated with data from record
 //
 // # Struct Tags
@@ -83,7 +83,7 @@
 //	func (u User) Schema() string { return "users" }
 //
 //	encoder := xdbstruct.NewDefaultEncoder()
-//	record, _ := encoder.Encode(&user)
+//	record, _ := encoder.ToRecord(&user)
 //	// record.URI() -> xdb://com.example/users/123
 //
 // Symmetric setters for decoding:
@@ -101,7 +101,7 @@
 //
 //	decoder := xdbstruct.NewDefaultDecoder()
 //	var user User
-//	decoder.Decode(record, &user)
+//	decoder.FromRecord(record, &user)
 //	// user.id, user.ns, user.schema are now populated
 //
 // # Configuration Priority

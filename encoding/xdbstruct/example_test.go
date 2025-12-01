@@ -7,7 +7,7 @@ import (
 	"github.com/xdb-dev/xdb/encoding/xdbstruct"
 )
 
-func ExampleEncoder_Encode() {
+func ExampleEncoder_ToRecord() {
 	type User struct {
 		ID    string `xdb:"id,primary_key"`
 		Name  string `xdb:"name"`
@@ -19,7 +19,7 @@ func ExampleEncoder_Encode() {
 		NS:     "com.example",
 		Schema: "users",
 	})
-	record, err := encoder.Encode(&User{
+	record, err := encoder.ToRecord(&User{
 		ID:    "123",
 		Name:  "John Doe",
 		Email: "john@example.com",
@@ -50,7 +50,7 @@ type UserWithMethods struct {
 func (u *UserWithMethods) GetNS() string     { return "com.example" }
 func (u *UserWithMethods) GetSchema() string { return "users" }
 
-func ExampleEncoder_Encode_withInterfaces() {
+func ExampleEncoder_ToRecord_withInterfaces() {
 	user := UserWithMethods{
 		ID:    "123",
 		Name:  "John Doe",
@@ -58,7 +58,7 @@ func ExampleEncoder_Encode_withInterfaces() {
 	}
 
 	encoder := xdbstruct.NewEncoder(xdbstruct.Options{Tag: "xdb"})
-	record, err := encoder.Encode(&user)
+	record, err := encoder.ToRecord(&user)
 
 	if err != nil {
 		panic(err)
@@ -70,7 +70,7 @@ func ExampleEncoder_Encode_withInterfaces() {
 	// URI: xdb://com.example/users/123
 }
 
-func ExampleEncoder_Encode_nestedStruct() {
+func ExampleEncoder_ToRecord_nestedStruct() {
 	type Address struct {
 		Street string `xdb:"street"`
 		City   string `xdb:"city"`
@@ -87,7 +87,7 @@ func ExampleEncoder_Encode_nestedStruct() {
 		NS:     "com.example",
 		Schema: "users",
 	})
-	record, err := encoder.Encode(&User{
+	record, err := encoder.ToRecord(&User{
 		ID:   "123",
 		Name: "John Doe",
 		Address: Address{
@@ -112,7 +112,7 @@ func ExampleEncoder_Encode_nestedStruct() {
 	// City: Boston
 }
 
-func ExampleEncoder_Encode_customMarshaler() {
+func ExampleEncoder_ToRecord_customMarshaler() {
 	type User struct {
 		ID       string          `xdb:"id,primary_key"`
 		Name     string          `xdb:"name"`
@@ -124,7 +124,7 @@ func ExampleEncoder_Encode_customMarshaler() {
 		NS:     "com.example",
 		Schema: "users",
 	})
-	record, err := encoder.Encode(&User{
+	record, err := encoder.ToRecord(&User{
 		ID:       "123",
 		Name:     "John Doe",
 		Metadata: json.RawMessage(`{"role":"admin"}`),

@@ -22,12 +22,12 @@ func NewDefaultDecoder() *Decoder {
 	return NewDecoder(DefaultOptions())
 }
 
-// Decode populates a struct from a core.Record.
+// FromRecord populates a struct from a core.Record.
 // Returns an error if:
 //   - v is not a pointer to struct
 //   - Type mismatch between record value and struct field
 //   - Custom unmarshaler fails
-func (d *Decoder) Decode(record *core.Record, v any) error {
+func (d *Decoder) FromRecord(record *core.Record, v any) error {
 	// TODO: Implement full decoding logic
 	// 1. Validate v is pointer to struct
 	// 2. Iterate record tuples

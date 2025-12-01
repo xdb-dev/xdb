@@ -40,7 +40,7 @@ func TestEncoder_BasicEncoding(t *testing.T) {
 		Email: "john@example.com",
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 	require.NotNil(t, record)
 
@@ -64,7 +64,7 @@ func TestEncoder_Encode_withInterfaces(t *testing.T) {
 		Schema: "custom.schema",
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "custom.ns", record.NS().String())
@@ -86,7 +86,7 @@ func TestEncoder_InterfaceIDGetter(t *testing.T) {
 		id:   "custom-id-456",
 	}
 
-	record, err := defaultEncoder.Encode(u)
+	record, err := defaultEncoder.ToRecord(u)
 	require.NoError(t, err)
 
 	assert.Equal(t, "custom-id-456", record.ID().String())
@@ -107,7 +107,7 @@ func TestEncoder_SkipFields(t *testing.T) {
 		secret:   "unexported",
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 
 	assert.Nil(t, record.Get("internal"))
@@ -143,7 +143,7 @@ func TestEncoder_NestedStruct(t *testing.T) {
 		},
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123 Main St", record.Get("address.street").ToString())
@@ -162,7 +162,7 @@ func TestEncoder_BasicTypes(t *testing.T) {
 		StrVal   string  `xdb:"str_val"`
 	}
 
-	record, err := defaultEncoder.Encode(&AllTypes{
+	record, err := defaultEncoder.ToRecord(&AllTypes{
 		ID:       "123",
 		BoolVal:  true,
 		IntVal:   42,
@@ -197,7 +197,7 @@ func TestEncoder_ArraysAndSlices(t *testing.T) {
 		Features: []bool{true, false, true},
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 
 	tags := record.Get("tags")
@@ -230,7 +230,7 @@ func TestEncoder_ByteSlice(t *testing.T) {
 		Data: []byte("hello world"),
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 
 	data := record.Get("data")
@@ -249,7 +249,7 @@ func TestEncoder_CustomMarshaler(t *testing.T) {
 		Metadata: json.RawMessage(`{"role":"admin","level":5}`),
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 
 	metadata := record.Get("metadata")
@@ -276,7 +276,7 @@ func TestEncoder_PointerFields(t *testing.T) {
 		Email: nil,
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "John Doe", record.Get("name").ToString())
@@ -295,7 +295,7 @@ func TestEncoder_ErrorNoPrimaryKey(t *testing.T) {
 		Email: "john@example.com",
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	assert.Error(t, err)
 	assert.Nil(t, record)
 	assert.ErrorIs(t, err, xdbstruct.ErrNoPrimaryKey)
@@ -314,7 +314,7 @@ func TestEncoder_ErrorNotStruct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			record, err := defaultEncoder.Encode(tt.input)
+			record, err := defaultEncoder.ToRecord(tt.input)
 			assert.Error(t, err)
 			assert.Nil(t, record)
 			assert.ErrorIs(t, err, xdbstruct.ErrNotStruct)
@@ -336,7 +336,7 @@ func TestEncoder_ZeroValues(t *testing.T) {
 		Age:  0,
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "", record.Get("name").ToString())
@@ -361,7 +361,7 @@ func TestEncoder_CustomTag(t *testing.T) {
 		Name: "John",
 	}
 
-	record, err := encoder.Encode(&user)
+	record, err := encoder.ToRecord(&user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123", record.ID().String())
@@ -381,7 +381,7 @@ func TestEncoder_ErrorEmptyNS(t *testing.T) {
 		Name: "John",
 	}
 
-	record, err := encoder.Encode(&user)
+	record, err := encoder.ToRecord(&user)
 	assert.Error(t, err)
 	assert.Nil(t, record)
 	assert.ErrorIs(t, err, xdbstruct.ErrEmptyNamespace)
@@ -400,7 +400,7 @@ func TestEncoder_ErrorEmptySchema(t *testing.T) {
 		Name: "John",
 	}
 
-	record, err := encoder.Encode(&user)
+	record, err := encoder.ToRecord(&user)
 	assert.Error(t, err)
 	assert.Nil(t, record)
 	assert.ErrorIs(t, err, xdbstruct.ErrEmptySchema)
@@ -417,7 +417,7 @@ func TestEncoder_ErrorEmptyID(t *testing.T) {
 		Name: "John",
 	}
 
-	record, err := defaultEncoder.Encode(&user)
+	record, err := defaultEncoder.ToRecord(&user)
 	assert.Error(t, err)
 	assert.Nil(t, record)
 	assert.ErrorIs(t, err, xdbstruct.ErrEmptyID)

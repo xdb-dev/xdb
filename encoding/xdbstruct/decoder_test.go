@@ -25,7 +25,7 @@ func TestDecoder_BasicDecoding(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123", user.ID)
@@ -59,7 +59,7 @@ func TestDecoder_InterfaceSetters(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user userWithSetters
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123", user.id)
@@ -90,7 +90,7 @@ func TestDecoder_NestedStructUnflattening(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123", user.ID)
@@ -124,7 +124,7 @@ func TestDecoder_DeeplyNestedStruct(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123 Main St", user.Address.Street)
@@ -154,7 +154,7 @@ func TestDecoder_BasicTypes(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var obj AllTypes
-	err := decoder.Decode(record, &obj)
+	err := decoder.FromRecord(record, &obj)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123", obj.ID)
@@ -182,7 +182,7 @@ func TestDecoder_ArraysAndSlices(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"go", "rust", "python"}, user.Tags)
@@ -202,7 +202,7 @@ func TestDecoder_ByteSlice(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, []byte("hello world"), user.Data)
@@ -220,7 +220,7 @@ func TestDecoder_CustomUnmarshaler(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, json.RawMessage(`{"role":"admin","level":5}`), user.Metadata)
@@ -241,7 +241,7 @@ func TestDecoder_PointerFields(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	require.NotNil(t, user.Name)
@@ -267,7 +267,7 @@ func TestDecoder_SkipFields(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "John Doe", user.Name)
@@ -284,7 +284,7 @@ func TestDecoder_ErrorNotPointer(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, user)
+	err := decoder.FromRecord(record, user)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, xdbstruct.ErrNotImplemented)
 }
@@ -305,7 +305,7 @@ func TestDecoder_ErrorNotStruct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := decoder.Decode(record, tt.input)
+			err := decoder.FromRecord(record, tt.input)
 			assert.Error(t, err)
 			assert.ErrorIs(t, err, xdbstruct.ErrNotImplemented)
 		})
@@ -324,7 +324,7 @@ func TestDecoder_TypeMismatch(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	assert.Error(t, err)
 }
 
@@ -341,7 +341,7 @@ func TestDecoder_MissingFields(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "John Doe", user.Name)
@@ -362,7 +362,7 @@ func TestDecoder_ExtraFields(t *testing.T) {
 	decoder := xdbstruct.NewDefaultDecoder()
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "John Doe", user.Name)
@@ -380,7 +380,7 @@ func TestDecoder_CustomTag(t *testing.T) {
 	decoder := xdbstruct.NewDecoder(xdbstruct.Options{Tag: "db"})
 
 	var user User
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123", user.ID)
@@ -404,7 +404,7 @@ func TestDecoder_ZeroValues(t *testing.T) {
 	var user User
 	user.Score = 100
 
-	err := decoder.Decode(record, &user)
+	err := decoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "", user.Name)
@@ -442,11 +442,11 @@ func TestDecoder_RoundTrip(t *testing.T) {
 		},
 	}
 
-	record, err := encoder.Encode(&original)
+	record, err := encoder.ToRecord(&original)
 	require.NoError(t, err)
 
 	var decoded User
-	err = decoder.Decode(record, &decoded)
+	err = decoder.FromRecord(record, &decoded)
 	require.NoError(t, err)
 
 	assert.Equal(t, original.ID, decoded.ID)

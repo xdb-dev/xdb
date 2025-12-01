@@ -29,7 +29,7 @@ func NewDefaultEncoder(ns, schema string) *Encoder {
 	return NewEncoder(opts)
 }
 
-// Encode converts a struct to a core.Record.
+// ToRecord converts a struct to a core.Record.
 // Returns an error if:
 //   - v is not a struct or pointer to struct
 //   - Cannot determine record ID (no IDGetter interface, no primary_key tag)
@@ -37,7 +37,7 @@ func NewDefaultEncoder(ns, schema string) *Encoder {
 //   - Namespace is empty
 //   - Schema is empty
 //   - Type conversion fails
-func (e *Encoder) Encode(v any) (*core.Record, error) {
+func (e *Encoder) ToRecord(v any) (*core.Record, error) {
 	rv, err := e.validateInput(v)
 	if err != nil {
 		return nil, err
