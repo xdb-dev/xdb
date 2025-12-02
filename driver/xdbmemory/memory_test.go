@@ -6,6 +6,12 @@ import (
 	"github.com/xdb-dev/xdb/tests"
 )
 
+func TestMemoryDriver_Schema(t *testing.T) {
+	t.Parallel()
+	driver := New()
+	tests.TestSchemaReaderWriter(t, driver)
+}
+
 func TestMemoryDriver_Tuples(t *testing.T) {
 	t.Parallel()
 	driver := New()
