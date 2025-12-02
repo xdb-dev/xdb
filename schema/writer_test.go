@@ -15,16 +15,16 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		schema   *core.SchemaDef
+		schema   *schema.Def
 		expected string
 	}{
 		{
 			name: "Scalar Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
 					{Name: "active", Type: core.TypeBool},
@@ -35,9 +35,9 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 		},
 		{
 			name: "Array Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Post",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
 					{Name: "scores", Type: core.NewArrayType(core.TypeIDInteger)},
 				},
@@ -46,9 +46,9 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 		},
 		{
 			name: "Map Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Config",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
 					{Name: "counts", Type: core.NewMapType(core.TypeIDString, core.TypeIDInteger)},
 				},
@@ -57,9 +57,9 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 		},
 		{
 			name: "All Scalar Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Complete",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "bool_field", Type: core.TypeBool},
 					{Name: "int_field", Type: core.TypeInt},
 					{Name: "unsigned_field", Type: core.TypeUnsigned},
@@ -73,9 +73,9 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 		},
 		{
 			name: "With Default Values",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "User",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString, Default: core.NewValue("John Doe")},
 					{Name: "age", Type: core.TypeInt, Default: core.NewValue(25)},
 					{Name: "active", Type: core.TypeBool, Default: core.NewValue(true)},
@@ -99,15 +99,15 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 
 	cases := []struct {
 		name   string
-		schema *core.SchemaDef
+		schema *schema.Def
 	}{
 		{
 			name: "Scalar Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
 					{Name: "active", Type: core.TypeBool},
@@ -117,9 +117,9 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 		},
 		{
 			name: "Array Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Post",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
 					{Name: "scores", Type: core.NewArrayType(core.TypeIDInteger)},
 				},
@@ -127,9 +127,9 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 		},
 		{
 			name: "Map Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Config",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
 					{Name: "counts", Type: core.NewMapType(core.TypeIDString, core.TypeIDInteger)},
 				},
@@ -137,9 +137,9 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 		},
 		{
 			name: "Nested Fields",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "User",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "profile.bio", Type: core.TypeString},
 					{Name: "settings.notifications.email", Type: core.TypeBool},
@@ -155,7 +155,7 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 
 			loaded, err := schema.LoadFromJSON(data)
 			assert.NoError(t, err)
-			tests.AssertSchemaDefEqual(t, tt.schema, loaded)
+			tests.AssertDefEqual(t, tt.schema, loaded)
 		})
 	}
 }
@@ -165,7 +165,7 @@ func TestWriter_WriteToJSON_Errors(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		schema      *core.SchemaDef
+		schema      *schema.Def
 		expectedErr error
 	}{
 		{
@@ -175,9 +175,9 @@ func TestWriter_WriteToJSON_Errors(t *testing.T) {
 		},
 		{
 			name: "Empty Schema Name",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "field1", Type: core.TypeString},
 				},
 			},
@@ -185,9 +185,9 @@ func TestWriter_WriteToJSON_Errors(t *testing.T) {
 		},
 		{
 			name: "Nil Field",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Test",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					nil,
 				},
 			},
@@ -195,9 +195,9 @@ func TestWriter_WriteToJSON_Errors(t *testing.T) {
 		},
 		{
 			name: "Empty Field Name",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Test",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "", Type: core.TypeString},
 				},
 			},
@@ -220,16 +220,16 @@ func TestWriter_WriteToYAML_Valid(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		schema   *core.SchemaDef
+		schema   *schema.Def
 		contains []string
 	}{
 		{
 			name: "Scalar Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
 				},
@@ -239,9 +239,9 @@ func TestWriter_WriteToYAML_Valid(t *testing.T) {
 		},
 		{
 			name: "Array Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Post",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
 				},
 			},
@@ -249,9 +249,9 @@ func TestWriter_WriteToYAML_Valid(t *testing.T) {
 		},
 		{
 			name: "Map Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Config",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
 				},
 			},
@@ -276,15 +276,15 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 
 	cases := []struct {
 		name   string
-		schema *core.SchemaDef
+		schema *schema.Def
 	}{
 		{
 			name: "Scalar Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
 				},
@@ -293,9 +293,9 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 		},
 		{
 			name: "Array Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Post",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
 					{Name: "scores", Type: core.NewArrayType(core.TypeIDInteger)},
 				},
@@ -303,9 +303,9 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 		},
 		{
 			name: "Map Types",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "Config",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
 					{Name: "counts", Type: core.NewMapType(core.TypeIDString, core.TypeIDInteger)},
 				},
@@ -320,7 +320,7 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 
 			loaded, err := schema.LoadFromYAML(data)
 			assert.NoError(t, err)
-			tests.AssertSchemaDefEqual(t, tt.schema, loaded)
+			tests.AssertDefEqual(t, tt.schema, loaded)
 		})
 	}
 }
@@ -330,7 +330,7 @@ func TestWriter_WriteToYAML_Errors(t *testing.T) {
 
 	cases := []struct {
 		name        string
-		schema      *core.SchemaDef
+		schema      *schema.Def
 		expectedErr error
 	}{
 		{
@@ -340,9 +340,9 @@ func TestWriter_WriteToYAML_Errors(t *testing.T) {
 		},
 		{
 			name: "Empty Schema Name",
-			schema: &core.SchemaDef{
+			schema: &schema.Def{
 				Name: "",
-				Fields: []*core.FieldDef{
+				Fields: []*schema.FieldDef{
 					{Name: "field1", Type: core.TypeString},
 				},
 			},

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 // AssertEqualRecords asserts that two lists of records are equal.
@@ -134,15 +135,15 @@ func AssertEqualValues(t *testing.T, expected, actual *core.Value) {
 	}
 }
 
-// AssertSchemaDefEqual asserts that two schema definitions are equal.
-func AssertSchemaDefEqual(t *testing.T, expected, actual *core.SchemaDef) {
+// AssertDefEqual asserts that two schema definitions are equal.
+func AssertDefEqual(t *testing.T, expected, actual *schema.Def) {
 	t.Helper()
 
-	assert.Equal(t, expected.Name, actual.Name, "SchemaDef: name mismatch")
-	assert.Equal(t, expected.Description, actual.Description, "SchemaDef: description mismatch")
-	assert.Equal(t, expected.Version, actual.Version, "SchemaDef: version mismatch")
-	assert.Equal(t, expected.Required, actual.Required, "SchemaDef: required fields mismatch")
-	require.Len(t, actual.Fields, len(expected.Fields), "SchemaDef: fields length mismatch")
+	assert.Equal(t, expected.Name, actual.Name, "Def: name mismatch")
+	assert.Equal(t, expected.Description, actual.Description, "Def: description mismatch")
+	assert.Equal(t, expected.Version, actual.Version, "Def: version mismatch")
+	assert.Equal(t, expected.Required, actual.Required, "Def: required fields mismatch")
+	require.Len(t, actual.Fields, len(expected.Fields), "Def: fields length mismatch")
 
 	for i, expectedField := range expected.Fields {
 		actualField := actual.Fields[i]
@@ -151,7 +152,7 @@ func AssertSchemaDefEqual(t *testing.T, expected, actual *core.SchemaDef) {
 }
 
 // AssertFieldDefEqual asserts that two field definitions are equal.
-func AssertFieldDefEqual(t *testing.T, expected, actual *core.FieldDef) {
+func AssertFieldDefEqual(t *testing.T, expected, actual *schema.FieldDef) {
 	t.Helper()
 
 	assert.Equal(t, expected.Name, actual.Name, "FieldDef: name mismatch")

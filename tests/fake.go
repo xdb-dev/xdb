@@ -6,16 +6,17 @@ import (
 	"github.com/brianvoe/gofakeit/v7"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/x"
 )
 
 // FakePostSchema creates a fake schema of a Post.
-func FakePostSchema() *core.SchemaDef {
-	return &core.SchemaDef{
+func FakePostSchema() *schema.Def {
+	return &schema.Def{
 		Name:        "posts",
 		Description: "Blog post schema",
 		Version:     "1.0.0",
-		Fields: []*core.FieldDef{
+		Fields: []*schema.FieldDef{
 			{Name: "title", Type: core.TypeString},
 			{Name: "content", Type: core.TypeString},
 			{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
@@ -63,12 +64,12 @@ func FakePosts(n int) []*core.Record {
 }
 
 // FakeTestSchema creates a fake schema covering all XDB types.
-func FakeTestSchema() *core.SchemaDef {
-	return &core.SchemaDef{
+func FakeTestSchema() *schema.Def {
+	return &schema.Def{
 		Name:        "all_types",
 		Description: "Comprehensive test schema covering all types",
 		Version:     "1.0.0",
-		Fields: []*core.FieldDef{
+		Fields: []*schema.FieldDef{
 			{Name: "string", Type: core.TypeString},
 			{Name: "int", Type: core.TypeInt},
 			{Name: "unsigned", Type: core.TypeUnsigned},

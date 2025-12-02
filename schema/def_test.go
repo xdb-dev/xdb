@@ -1,4 +1,4 @@
-package core_test
+package schema_test
 
 import (
 	"testing"
@@ -6,36 +6,37 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/tests"
 )
 
-func TestSchemaDef(t *testing.T) {
+func TestDef(t *testing.T) {
 	t.Parallel()
 
-	schema := &core.SchemaDef{
+	s := &schema.Def{
 		Name:        "users",
 		Description: "User schema",
 		Version:     "1.0.0",
-		Mode:        core.ModeStrict,
-		Fields: []*core.FieldDef{
+		Mode:        schema.ModeStrict,
+		Fields: []*schema.FieldDef{
 			{Name: "name", Type: core.TypeString},
 		},
 	}
 
 	t.Run("Clone", func(t *testing.T) {
-		clone := schema.Clone()
-		tests.AssertSchemaDefEqual(t, schema, clone)
+		clone := s.Clone()
+		tests.AssertDefEqual(t, s, clone)
 	})
 
 	t.Run("GetField", func(t *testing.T) {
-		got := schema.GetField("name")
+		got := s.GetField("name")
 		assert.NotNil(t, got)
 		assert.Equal(t, "name", got.Name)
 		assert.Equal(t, core.TypeString, got.Type)
 	})
 
 	t.Run("GetField not found", func(t *testing.T) {
-		got := schema.GetField("not-found")
+		got := s.GetField("not-found")
 		assert.Nil(t, got)
 	})
 }

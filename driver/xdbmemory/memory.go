@@ -7,6 +7,7 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 // Config holds the configuration for the in-memory driver.
@@ -18,46 +19,46 @@ type Config struct {
 type MemoryDriver struct {
 	mu      sync.RWMutex
 	tuples  map[string]map[string]*core.Tuple
-	schemas map[string]*core.SchemaDef
+	schemas map[string]*schema.Def
 }
 
 // New creates a new in-memory driver.
 func New() *MemoryDriver {
 	return &MemoryDriver{
 		tuples:  make(map[string]map[string]*core.Tuple),
-		schemas: make(map[string]*core.SchemaDef),
+		schemas: make(map[string]*schema.Def),
 	}
 }
 
 // GetSchema returns the schema definition for the given URI.
-func (d *MemoryDriver) GetSchema(ctx context.Context, uri *core.URI) (*core.SchemaDef, error) {
+func (d *MemoryDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
 	key := uri.Schema().String()
-	schema, ok := d.schemas[key]
+	s, ok := d.schemas[key]
 	if !ok {
 		return nil, driver.ErrNotFound
 	}
 
-	return schema, nil
+	return s, nil
 }
 
 // ListSchemas returns all schema definitions in the given namespace.
-func (d *MemoryDriver) ListSchemas(ctx context.Context, ns *core.NS) ([]*core.SchemaDef, error) {
+func (d *MemoryDriver) ListSchemas(ctx context.Context, ns *core.NS) ([]*schema.Def, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	schemas := make([]*core.SchemaDef, 0, len(d.schemas))
-	for _, schema := range d.schemas {
-		schemas = append(schemas, schema)
+	schemas := make([]*schema.Def, 0, len(d.schemas))
+	for _, s := range d.schemas {
+		schemas = append(schemas, s)
 	}
 
 	return schemas, nil
 }
 
 // PutSchema saves the schema definition.
-func (d *MemoryDriver) PutSchema(ctx context.Context, def *core.SchemaDef) error {
+func (d *MemoryDriver) PutSchema(ctx context.Context, def *schema.Def) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 

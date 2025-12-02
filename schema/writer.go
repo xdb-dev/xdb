@@ -10,7 +10,7 @@ import (
 )
 
 // WriteToJSON writes a schema to JSON format.
-func WriteToJSON(schema *core.SchemaDef) ([]byte, error) {
+func WriteToJSON(schema *Def) ([]byte, error) {
 	raw, err := convertToRaw(schema)
 	if err != nil {
 		return nil, err
@@ -19,7 +19,7 @@ func WriteToJSON(schema *core.SchemaDef) ([]byte, error) {
 }
 
 // WriteToYAML writes a schema to YAML format.
-func WriteToYAML(schema *core.SchemaDef) ([]byte, error) {
+func WriteToYAML(schema *Def) ([]byte, error) {
 	raw, err := convertToRaw(schema)
 	if err != nil {
 		return nil, err
@@ -27,8 +27,8 @@ func WriteToYAML(schema *core.SchemaDef) ([]byte, error) {
 	return yaml.Marshal(raw)
 }
 
-// convertToRaw converts a core.Schema to a rawSchema.
-func convertToRaw(schema *core.SchemaDef) (*rawSchema, error) {
+// convertToRaw converts a Def to a rawSchema.
+func convertToRaw(schema *Def) (*rawSchema, error) {
 	if schema == nil {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "schema is nil")
 	}
@@ -46,6 +46,9 @@ func convertToRaw(schema *core.SchemaDef) (*rawSchema, error) {
 	}
 
 	for _, field := range schema.Fields {
+		if field == nil {
+			return nil, errors.Wrap(ErrInvalidSchema, "reason", "field is nil")
+		}
 		rf, err := convertFieldToRaw(field)
 		if err != nil {
 			return nil, errors.Wrap(err, "field_name", field.Name)
@@ -56,8 +59,8 @@ func convertToRaw(schema *core.SchemaDef) (*rawSchema, error) {
 	return raw, nil
 }
 
-// convertFieldToRaw converts a core.FieldSchema to a rawField.
-func convertFieldToRaw(field *core.FieldDef) (*rawField, error) {
+// convertFieldToRaw converts a FieldDef to a rawField.
+func convertFieldToRaw(field *FieldDef) (*rawField, error) {
 	if field == nil {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "field is nil")
 	}

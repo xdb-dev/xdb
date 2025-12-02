@@ -1,7 +1,12 @@
 // Package schema provides utilities for loading and parsing XDB schemas
 // from various file formats including JSON and YAML.
 //
-// The package supports loading schema definitions that include:
+// The package defines schema structures and supports loading schema definitions:
+//   - [Def]: Schema definition with metadata, fields, and validation rules
+//   - [FieldDef]: Individual field definition with type and constraints
+//   - [Mode]: Validation mode (flexible or strict)
+//
+// Supported field types:
 //   - Scalar types (STRING, INTEGER, FLOAT, BOOLEAN, etc.)
 //   - Array types
 //   - Map types

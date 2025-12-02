@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 var (
@@ -15,13 +16,13 @@ var (
 
 // SchemaReader is an interface for reading schemas.
 type SchemaReader interface {
-	GetSchema(ctx context.Context, uri *core.URI) (*core.SchemaDef, error)
-	ListSchemas(ctx context.Context, ns *core.NS) ([]*core.SchemaDef, error)
+	GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error)
+	ListSchemas(ctx context.Context, ns *core.NS) ([]*schema.Def, error)
 }
 
 // SchemaWriter is an interface for writing & deleting schemas.
 type SchemaWriter interface {
-	PutSchema(ctx context.Context, def *core.SchemaDef) error
+	PutSchema(ctx context.Context, def *schema.Def) error
 	DeleteSchema(ctx context.Context, uri *core.URI) error
 }
 
