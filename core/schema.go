@@ -1,9 +1,8 @@
 package core
 
 import (
-	"slices"
-
 	"github.com/gojekfarm/xtools/errors"
+	"slices"
 )
 
 var (

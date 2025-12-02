@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/tests"
 )

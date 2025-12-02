@@ -30,6 +30,12 @@ var (
 	// ErrNoMarshaler is returned when a value does not implement a required marshaler interface.
 	ErrNoMarshaler = errors.New("value does not implement marshaler interface")
 
+	// ErrNotPointer is returned when the input is not a pointer.
+	ErrNotPointer = errors.New("input must be a pointer to struct")
+
+	// ErrTypeMismatch is returned when a value cannot be converted to the target field type.
+	ErrTypeMismatch = errors.New("type mismatch between record value and struct field")
+
 	// ErrNotImplemented is returned when a feature is not yet implemented.
 	ErrNotImplemented = errors.New("not implemented")
 )

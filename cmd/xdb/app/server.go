@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"log/slog"
-
 	"github.com/gojekfarm/xtools/xapi"
+	"log/slog"
 
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/driver"

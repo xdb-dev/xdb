@@ -13,26 +13,6 @@ import (
 
 var defaultEncoder = xdbstruct.NewDefaultEncoder("com.example", "users")
 
-type User struct {
-	ID    string `xdb:"id,primary_key"`
-	Name  string `xdb:"name"`
-	Email string `xdb:"email"`
-}
-
-type UserWithMetadata struct {
-	User
-	NS     string
-	Schema string
-}
-
-func (u *UserWithMetadata) GetNS() string {
-	return u.NS
-}
-
-func (u *UserWithMetadata) GetSchema() string {
-	return u.Schema
-}
-
 func TestEncoder_BasicEncoding(t *testing.T) {
 	user := User{
 		ID:    "123",
@@ -54,42 +34,20 @@ func TestEncoder_BasicEncoding(t *testing.T) {
 }
 
 func TestEncoder_Encode_withInterfaces(t *testing.T) {
-	user := UserWithMetadata{
-		User: User{
-			ID:    "123",
-			Name:  "John Doe",
-			Email: "john@example.com",
-		},
-		NS:     "custom.ns",
-		Schema: "custom.schema",
+	user := Account{
+		ns:     "com.example",
+		schema: "users",
+		id:     "123",
+		Name:   "John Doe",
 	}
 
 	record, err := defaultEncoder.ToRecord(&user)
 	require.NoError(t, err)
 
-	assert.Equal(t, "custom.ns", record.NS().String())
-	assert.Equal(t, "custom.schema", record.Schema().String())
-}
-
-type userWithID struct {
-	Name string `xdb:"name"`
-	id   string
-}
-
-func (u *userWithID) GetID() string {
-	return u.id
-}
-
-func TestEncoder_InterfaceIDGetter(t *testing.T) {
-	u := &userWithID{
-		Name: "John",
-		id:   "custom-id-456",
-	}
-
-	record, err := defaultEncoder.ToRecord(u)
-	require.NoError(t, err)
-
-	assert.Equal(t, "custom-id-456", record.ID().String())
+	assert.Equal(t, "com.example", record.NS().String())
+	assert.Equal(t, "users", record.Schema().String())
+	assert.Equal(t, "123", record.ID().String())
+	assert.Equal(t, "xdb://com.example/users/123", record.URI().String())
 }
 
 func TestEncoder_SkipFields(t *testing.T) {

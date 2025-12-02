@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 )

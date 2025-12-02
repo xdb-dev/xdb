@@ -11,21 +11,15 @@ import (
 	"github.com/xdb-dev/xdb/encoding/xdbstruct"
 )
 
+var defaultDecoder = xdbstruct.NewDefaultDecoder()
+
 func TestDecoder_BasicDecoding(t *testing.T) {
-	type User struct {
-		ID    string `xdb:"id,primary_key"`
-		Name  string `xdb:"name"`
-		Email string `xdb:"email"`
-	}
-
-	record := core.NewRecord("com.example", "users", "123")
-	record.Set("name", "John Doe")
-	record.Set("email", "john@example.com")
-
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123").
+		Set("name", "John Doe").
+		Set("email", "john@example.com")
 
 	var user User
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123", user.ID)
@@ -33,103 +27,54 @@ func TestDecoder_BasicDecoding(t *testing.T) {
 	assert.Equal(t, "john@example.com", user.Email)
 }
 
-type userWithSetters struct {
-	id     string
-	ns     string
-	schema string
-	Name   string `xdb:"name"`
-}
-
-func (u *userWithSetters) SetID(id string) {
-	u.id = id
-}
-
-func (u *userWithSetters) SetNS(ns string) {
-	u.ns = ns
-}
-
-func (u *userWithSetters) SetSchema(schema string) {
-	u.schema = schema
-}
-
-func TestDecoder_InterfaceSetters(t *testing.T) {
+func TestDecoder_Decode_withInterfaces(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123")
 	record.Set("name", "John Doe")
 
-	decoder := xdbstruct.NewDefaultDecoder()
-
-	var user userWithSetters
-	err := decoder.FromRecord(record, &user)
+	var account Account
+	err := defaultDecoder.FromRecord(record, &account)
 	require.NoError(t, err)
 
-	assert.Equal(t, "123", user.id)
-	assert.Equal(t, "com.example", user.ns)
-	assert.Equal(t, "users", user.schema)
-	assert.Equal(t, "John Doe", user.Name)
+	assert.Equal(t, "123", account.GetID())
+	assert.Equal(t, "com.example", account.GetNS())
+	assert.Equal(t, "users", account.GetSchema())
+	assert.Equal(t, "John Doe", account.Name)
 }
 
-func TestDecoder_NestedStructUnflattening(t *testing.T) {
-	type Address struct {
-		Street string `xdb:"street"`
-		City   string `xdb:"city"`
-		Zip    string `xdb:"zip"`
-	}
-
+func TestDecoder_SkipFields(t *testing.T) {
 	type User struct {
-		ID      string  `xdb:"id,primary_key"`
-		Name    string  `xdb:"name"`
-		Address Address `xdb:"address"`
+		ID       string `xdb:"id,primary_key"`
+		Name     string `xdb:"name"`
+		Internal string `xdb:"-"`
 	}
 
-	record := core.NewRecord("", "", "123")
-	record.Set("name", "John Doe")
-	record.Set("address.street", "123 Main St")
-	record.Set("address.city", "Boston")
-	record.Set("address.zip", "02101")
-
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123").
+		Set("name", "John").
+		Set("internal", "should be skipped")
 
 	var user User
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
-	assert.Equal(t, "123", user.ID)
-	assert.Equal(t, "John Doe", user.Name)
-	assert.Equal(t, "123 Main St", user.Address.Street)
-	assert.Equal(t, "Boston", user.Address.City)
-	assert.Equal(t, "02101", user.Address.Zip)
+	assert.Equal(t, "John", user.Name)
+	assert.Equal(t, "", user.Internal)
 }
 
-func TestDecoder_DeeplyNestedStruct(t *testing.T) {
-	type Location struct {
-		Lat float64 `xdb:"lat"`
-		Lon float64 `xdb:"lon"`
-	}
+func TestDecoder_NestedStruct(t *testing.T) {
+	record := core.NewRecord("com.example", "users", "123").
+		Set("name", "John Doe").
+		Set("address.street", "123 Main St").
+		Set("address.location.lat", 42.3601).
+		Set("address.location.lon", -71.0589)
 
-	type Address struct {
-		Street   string   `xdb:"street"`
-		Location Location `xdb:"location"`
-	}
-
-	type User struct {
-		ID      string  `xdb:"id,primary_key"`
-		Address Address `xdb:"address"`
-	}
-
-	record := core.NewRecord("", "", "123")
-	record.Set("address.street", "123 Main St")
-	record.Set("address.location.lat", 42.3601)
-	record.Set("address.location.lon", -71.0589)
-
-	decoder := xdbstruct.NewDefaultDecoder()
-
-	var user User
-	err := decoder.FromRecord(record, &user)
+	var account Account
+	err := defaultDecoder.FromRecord(record, &account)
 	require.NoError(t, err)
 
-	assert.Equal(t, "123 Main St", user.Address.Street)
-	assert.Equal(t, 42.3601, user.Address.Location.Lat)
-	assert.Equal(t, -71.0589, user.Address.Location.Lon)
+	assert.Equal(t, "John Doe", account.Name)
+	assert.Equal(t, "123 Main St", account.Address.Street)
+	assert.Equal(t, 42.3601, account.Address.Location.Lat)
+	assert.Equal(t, -71.0589, account.Address.Location.Lon)
 }
 
 func TestDecoder_BasicTypes(t *testing.T) {
@@ -143,18 +88,16 @@ func TestDecoder_BasicTypes(t *testing.T) {
 		StrVal   string  `xdb:"str_val"`
 	}
 
-	record := core.NewRecord("", "", "123")
-	record.Set("bool_val", true)
-	record.Set("int_val", 42)
-	record.Set("int64_val", int64(9223372036854775807))
-	record.Set("uint_val", uint(100))
-	record.Set("float_val", 3.14159)
-	record.Set("str_val", "hello")
-
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "all_types", "123").
+		Set("bool_val", true).
+		Set("int_val", 42).
+		Set("int64_val", int64(9223372036854775807)).
+		Set("uint_val", uint(100)).
+		Set("float_val", 3.14159).
+		Set("str_val", "hello")
 
 	var obj AllTypes
-	err := decoder.FromRecord(record, &obj)
+	err := defaultDecoder.FromRecord(record, &obj)
 	require.NoError(t, err)
 
 	assert.Equal(t, "123", obj.ID)
@@ -174,15 +117,13 @@ func TestDecoder_ArraysAndSlices(t *testing.T) {
 		Features []bool   `xdb:"features"`
 	}
 
-	record := core.NewRecord("", "", "123")
-	record.Set("tags", []string{"go", "rust", "python"})
-	record.Set("scores", []int{10, 20, 30})
-	record.Set("features", []bool{true, false, true})
-
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123").
+		Set("tags", []string{"go", "rust", "python"}).
+		Set("scores", []int{10, 20, 30}).
+		Set("features", []bool{true, false, true})
 
 	var user User
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"go", "rust", "python"}, user.Tags)
@@ -196,13 +137,11 @@ func TestDecoder_ByteSlice(t *testing.T) {
 		Data []byte `xdb:"data"`
 	}
 
-	record := core.NewRecord("", "", "123")
-	record.Set("data", []byte("hello world"))
-
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123").
+		Set("data", []byte("hello world"))
 
 	var user User
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, []byte("hello world"), user.Data)
@@ -214,13 +153,11 @@ func TestDecoder_CustomUnmarshaler(t *testing.T) {
 		Metadata json.RawMessage `xdb:"metadata"`
 	}
 
-	record := core.NewRecord("", "", "123")
-	record.Set("metadata", []byte(`{"role":"admin","level":5}`))
-
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123").
+		Set("metadata", []byte(`{"role":"admin","level":5}`))
 
 	var user User
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, json.RawMessage(`{"role":"admin","level":5}`), user.Metadata)
@@ -234,14 +171,12 @@ func TestDecoder_PointerFields(t *testing.T) {
 		Email *string `xdb:"email"`
 	}
 
-	record := core.NewRecord("", "", "123")
-	record.Set("name", "John Doe")
-	record.Set("age", 30)
-
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123").
+		Set("name", "John Doe").
+		Set("age", 30)
 
 	var user User
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	require.NotNil(t, user.Name)
@@ -253,45 +188,22 @@ func TestDecoder_PointerFields(t *testing.T) {
 	assert.Nil(t, user.Email)
 }
 
-func TestDecoder_SkipFields(t *testing.T) {
-	type User struct {
-		ID       string `xdb:"id,primary_key"`
-		Name     string `xdb:"name"`
-		Internal string `xdb:"-"`
-	}
-
-	record := core.NewRecord("", "", "123")
-	record.Set("name", "John Doe")
-	record.Set("internal", "should be ignored")
-
-	decoder := xdbstruct.NewDefaultDecoder()
-
-	var user User
-	err := decoder.FromRecord(record, &user)
-	require.NoError(t, err)
-
-	assert.Equal(t, "John Doe", user.Name)
-	assert.Equal(t, "", user.Internal)
-}
-
 func TestDecoder_ErrorNotPointer(t *testing.T) {
 	type User struct {
 		ID   string `xdb:"id,primary_key"`
 		Name string `xdb:"name"`
 	}
 
-	record := core.NewRecord("", "", "123")
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123")
 
 	var user User
-	err := decoder.FromRecord(record, user)
+	err := defaultDecoder.FromRecord(record, user)
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, xdbstruct.ErrNotImplemented)
+	assert.ErrorIs(t, err, xdbstruct.ErrNotPointer)
 }
 
 func TestDecoder_ErrorNotStruct(t *testing.T) {
-	record := core.NewRecord("", "", "123")
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123")
 
 	tests := []struct {
 		name  string
@@ -305,9 +217,9 @@ func TestDecoder_ErrorNotStruct(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := decoder.FromRecord(record, tt.input)
+			err := defaultDecoder.FromRecord(record, tt.input)
 			assert.Error(t, err)
-			assert.ErrorIs(t, err, xdbstruct.ErrNotImplemented)
+			assert.ErrorIs(t, err, xdbstruct.ErrNotStruct)
 		})
 	}
 }
@@ -318,13 +230,11 @@ func TestDecoder_TypeMismatch(t *testing.T) {
 		Age int    `xdb:"age"`
 	}
 
-	record := core.NewRecord("", "", "123")
+	record := core.NewRecord("com.example", "users", "123")
 	record.Set("age", "not a number")
 
-	decoder := xdbstruct.NewDefaultDecoder()
-
 	var user User
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	assert.Error(t, err)
 }
 
@@ -335,13 +245,11 @@ func TestDecoder_MissingFields(t *testing.T) {
 		Email string `xdb:"email"`
 	}
 
-	record := core.NewRecord("", "", "123")
+	record := core.NewRecord("com.example", "users", "123")
 	record.Set("name", "John Doe")
 
-	decoder := xdbstruct.NewDefaultDecoder()
-
 	var user User
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "John Doe", user.Name)
@@ -354,37 +262,16 @@ func TestDecoder_ExtraFields(t *testing.T) {
 		Name string `xdb:"name"`
 	}
 
-	record := core.NewRecord("", "", "123")
-	record.Set("name", "John Doe")
-	record.Set("extra_field", "should be ignored")
-	record.Set("another_field", 42)
-
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123")
+	record.Set("name", "John Doe").
+		Set("extra_field", "should be ignored").
+		Set("another_field", 42)
 
 	var user User
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "John Doe", user.Name)
-}
-
-func TestDecoder_CustomTag(t *testing.T) {
-	type User struct {
-		ID   string `db:"id,primary_key"`
-		Name string `db:"name"`
-	}
-
-	record := core.NewRecord("", "", "123")
-	record.Set("name", "John")
-
-	decoder := xdbstruct.NewDecoder(xdbstruct.Options{Tag: "db"})
-
-	var user User
-	err := decoder.FromRecord(record, &user)
-	require.NoError(t, err)
-
-	assert.Equal(t, "123", user.ID)
-	assert.Equal(t, "John", user.Name)
 }
 
 func TestDecoder_ZeroValues(t *testing.T) {
@@ -395,21 +282,38 @@ func TestDecoder_ZeroValues(t *testing.T) {
 		Score int    `xdb:"score"`
 	}
 
-	record := core.NewRecord("", "", "123")
-	record.Set("name", "")
-	record.Set("age", 0)
-
-	decoder := xdbstruct.NewDefaultDecoder()
+	record := core.NewRecord("com.example", "users", "123").
+		Set("name", "").
+		Set("age", 0)
 
 	var user User
 	user.Score = 100
 
-	err := decoder.FromRecord(record, &user)
+	err := defaultDecoder.FromRecord(record, &user)
 	require.NoError(t, err)
 
 	assert.Equal(t, "", user.Name)
 	assert.Equal(t, 0, user.Age)
 	assert.Equal(t, 100, user.Score)
+}
+
+func TestDecoder_CustomTag(t *testing.T) {
+	type User struct {
+		ID   string `db:"id,primary_key"`
+		Name string `db:"name"`
+	}
+
+	record := core.NewRecord("com.example", "users", "123")
+	record.Set("name", "John")
+
+	decoder := xdbstruct.NewDecoder(xdbstruct.Options{Tag: "db"})
+
+	var user User
+	err := decoder.FromRecord(record, &user)
+	require.NoError(t, err)
+
+	assert.Equal(t, "123", user.ID)
+	assert.Equal(t, "John", user.Name)
 }
 
 func TestDecoder_RoundTrip(t *testing.T) {
@@ -430,7 +334,6 @@ func TestDecoder_RoundTrip(t *testing.T) {
 		NS:     "com.example",
 		Schema: "users",
 	})
-	decoder := xdbstruct.NewDecoder(xdbstruct.Options{Tag: "xdb"})
 
 	original := User{
 		ID:   "123",
@@ -446,7 +349,7 @@ func TestDecoder_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	var decoded User
-	err = decoder.FromRecord(record, &decoded)
+	err = defaultDecoder.FromRecord(record, &decoded)
 	require.NoError(t, err)
 
 	assert.Equal(t, original.ID, decoded.ID)

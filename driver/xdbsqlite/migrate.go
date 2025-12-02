@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
+	"slices"
+
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/x"
 )

@@ -35,8 +35,11 @@ func main() {
 		Age:   30,
 	}
 
-	encoder := xdbstruct.NewEncoder(xdbstruct.Options{Tag: "xdb"})
-	record, err := encoder.Encode(user)
+	encoder := xdbstruct.NewEncoder(xdbstruct.Options{
+		NS:     "com.example",
+		Schema: "users",
+	})
+	record, err := encoder.ToRecord(user)
 	if err != nil {
 		panic(err)
 	}

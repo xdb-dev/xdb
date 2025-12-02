@@ -7,9 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"slices"
-
 	"github.com/gojekfarm/xtools/errors"
+	"slices"
 )
 
 var (
