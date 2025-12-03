@@ -11,43 +11,43 @@ var (
 	ErrUnknownType = errors.New("[xdb/core] unknown type")
 )
 
-// TypeID represents the type of a value.
-type TypeID int
+// TID represents the type of a value.
+type TID int
 
 // All supported types.
 const (
-	TypeIDUnknown TypeID = iota
-	TypeIDBoolean
-	TypeIDInteger
-	TypeIDUnsigned
-	TypeIDFloat
-	TypeIDString
-	TypeIDBytes
-	TypeIDTime
-	TypeIDArray
-	TypeIDMap
+	TIDUnknown TID = iota
+	TIDBoolean
+	TIDInteger
+	TIDUnsigned
+	TIDFloat
+	TIDString
+	TIDBytes
+	TIDTime
+	TIDArray
+	TIDMap
 )
 
-var typeNames = map[TypeID]string{
-	TypeIDUnknown:  "UNKNOWN",
-	TypeIDBoolean:  "BOOLEAN",
-	TypeIDInteger:  "INTEGER",
-	TypeIDUnsigned: "UNSIGNED",
-	TypeIDFloat:    "FLOAT",
-	TypeIDString:   "STRING",
-	TypeIDBytes:    "BYTES",
-	TypeIDTime:     "TIME",
-	TypeIDArray:    "ARRAY",
-	TypeIDMap:      "MAP",
+var typeNames = map[TID]string{
+	TIDUnknown:  "UNKNOWN",
+	TIDBoolean:  "BOOLEAN",
+	TIDInteger:  "INTEGER",
+	TIDUnsigned: "UNSIGNED",
+	TIDFloat:    "FLOAT",
+	TIDString:   "STRING",
+	TIDBytes:    "BYTES",
+	TIDTime:     "TIME",
+	TIDArray:    "ARRAY",
+	TIDMap:      "MAP",
 }
 
 // String returns the name of the type.
-func (t TypeID) String() string {
+func (t TID) String() string {
 	return typeNames[t]
 }
 
-// ParseType parses a type name into a TypeID.
-func ParseType(name string) (TypeID, error) {
+// ParseType parses a type name into a TID.
+func ParseType(name string) (TID, error) {
 	name = strings.TrimSpace(strings.ToUpper(name))
 
 	for t, n := range typeNames {
@@ -56,50 +56,50 @@ func ParseType(name string) (TypeID, error) {
 		}
 	}
 
-	return TypeIDUnknown, errors.Wrap(ErrUnknownType, "type", name)
+	return TIDUnknown, errors.Wrap(ErrUnknownType, "type", name)
 }
 
 // Type represents a value type in XDB, including scalar, array, and map types.
 type Type struct {
-	id          TypeID
-	keyTypeID   TypeID
-	valueTypeID TypeID
+	id          TID
+	keyTypeID   TID
+	valueTypeID TID
 }
 
-// newType creates a new scalar Type with the given TypeID.
+// newType creates a new scalar Type with the given TID.
 // This is used to create the predefined Type constants.
-func newType(id TypeID) Type {
+func newType(id TID) Type {
 	return Type{id: id}
 }
 
-// NewArrayType returns a new array Type with the given value TypeID.
-func NewArrayType(valueTypeID TypeID) Type {
+// NewArrayType returns a new array Type with the given value TID.
+func NewArrayType(valueTypeID TID) Type {
 	return Type{
-		id:          TypeIDArray,
+		id:          TIDArray,
 		valueTypeID: valueTypeID,
 	}
 }
 
-// NewMapType returns a new map Type with the given key and value TypeIDs.
-func NewMapType(keyTypeID, valueTypeID TypeID) Type {
+// NewMapType returns a new map Type with the given key and value TIDs.
+func NewMapType(keyTypeID, valueTypeID TID) Type {
 	return Type{
-		id:          TypeIDMap,
+		id:          TIDMap,
 		keyTypeID:   keyTypeID,
 		valueTypeID: valueTypeID,
 	}
 }
 
-// ID returns the TypeID of the Type.
-func (t Type) ID() TypeID { return t.id }
+// ID returns the TID of the Type.
+func (t Type) ID() TID { return t.id }
 
 // String returns the name of the Type.
 func (t Type) String() string { return typeNames[t.id] }
 
-// KeyTypeID returns the key TypeID for map types.
-func (t Type) KeyTypeID() TypeID { return t.keyTypeID }
+// KeyTypeID returns the key TID for map types.
+func (t Type) KeyTypeID() TID { return t.keyTypeID }
 
-// ValueTypeID returns the value TypeID for array and map types.
-func (t Type) ValueTypeID() TypeID { return t.valueTypeID }
+// ValueTypeID returns the value TID for array and map types.
+func (t Type) ValueTypeID() TID { return t.valueTypeID }
 
 // Equals returns true if this Type is equal to the other Type.
 func (t Type) Equals(other Type) bool {
@@ -109,12 +109,12 @@ func (t Type) Equals(other Type) bool {
 }
 
 var (
-	TypeUnknown  = newType(TypeIDUnknown)
-	TypeBool     = newType(TypeIDBoolean)
-	TypeInt      = newType(TypeIDInteger)
-	TypeUnsigned = newType(TypeIDUnsigned)
-	TypeFloat    = newType(TypeIDFloat)
-	TypeString   = newType(TypeIDString)
-	TypeBytes    = newType(TypeIDBytes)
-	TypeTime     = newType(TypeIDTime)
+	TypeUnknown  = newType(TIDUnknown)
+	TypeBool     = newType(TIDBoolean)
+	TypeInt      = newType(TIDInteger)
+	TypeUnsigned = newType(TIDUnsigned)
+	TypeFloat    = newType(TIDFloat)
+	TypeString   = newType(TIDString)
+	TypeBytes    = newType(TIDBytes)
+	TypeTime     = newType(TIDTime)
 )

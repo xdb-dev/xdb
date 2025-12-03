@@ -13,7 +13,7 @@ func TestNewValue_Primitives(t *testing.T) {
 	testcases := []struct {
 		name     string
 		value    any
-		expected core.TypeID
+		expected core.TID
 	}{
 		{
 			name:     "string",
@@ -62,7 +62,7 @@ func TestNewValue_Arrays(t *testing.T) {
 	testcases := []struct {
 		name     string
 		value    any
-		expected core.TypeID
+		expected core.TID
 	}{
 		{
 			name:     "string",

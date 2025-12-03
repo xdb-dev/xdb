@@ -215,17 +215,17 @@ func toBool(v *Value) (bool, error) {
 		return false, nil
 	}
 	switch v.Type().ID() {
-	case TypeIDBoolean:
+	case TIDBoolean:
 		return v.data.(bool), nil
-	case TypeIDInteger:
+	case TIDInteger:
 		return v.data.(int64) != 0, nil
-	case TypeIDUnsigned:
+	case TIDUnsigned:
 		return v.data.(uint64) != 0, nil
-	case TypeIDFloat:
+	case TIDFloat:
 		return v.data.(float64) != 0, nil
-	case TypeIDString:
+	case TIDString:
 		return cast.ToBool(v.data.(string)), nil
-	case TypeIDBytes:
+	case TIDBytes:
 		return cast.ToBool(string(v.data.([]byte))), nil
 	default:
 		return false, ErrCastFailed
@@ -237,20 +237,20 @@ func toInt64(v *Value) (int64, error) {
 		return 0, nil
 	}
 	switch v.Type().ID() {
-	case TypeIDBoolean:
+	case TIDBoolean:
 		if v.data.(bool) {
 			return 1, nil
 		}
 		return 0, nil
-	case TypeIDInteger:
+	case TIDInteger:
 		return v.data.(int64), nil
-	case TypeIDUnsigned:
+	case TIDUnsigned:
 		return int64(v.data.(uint64)), nil
-	case TypeIDFloat:
+	case TIDFloat:
 		return int64(v.data.(float64)), nil
-	case TypeIDString:
+	case TIDString:
 		return cast.ToInt64(v.data.(string)), nil
-	case TypeIDBytes:
+	case TIDBytes:
 		return cast.ToInt64(string(v.data.([]byte))), nil
 	default:
 		return 0, ErrCastFailed
@@ -262,20 +262,20 @@ func toUint64(v *Value) (uint64, error) {
 		return 0, nil
 	}
 	switch v.Type().ID() {
-	case TypeIDBoolean:
+	case TIDBoolean:
 		if v.data.(bool) {
 			return 1, nil
 		}
 		return 0, nil
-	case TypeIDInteger:
+	case TIDInteger:
 		return uint64(v.data.(int64)), nil
-	case TypeIDUnsigned:
+	case TIDUnsigned:
 		return v.data.(uint64), nil
-	case TypeIDFloat:
+	case TIDFloat:
 		return uint64(v.data.(float64)), nil
-	case TypeIDString:
+	case TIDString:
 		return cast.ToUint64(v.data.(string)), nil
-	case TypeIDBytes:
+	case TIDBytes:
 		return cast.ToUint64(string(v.data.([]byte))), nil
 	default:
 		return 0, ErrCastFailed
@@ -287,20 +287,20 @@ func toFloat64(v *Value) (float64, error) {
 		return 0, nil
 	}
 	switch v.Type().ID() {
-	case TypeIDBoolean:
+	case TIDBoolean:
 		if v.data.(bool) {
 			return 1, nil
 		}
 		return 0, nil
-	case TypeIDInteger:
+	case TIDInteger:
 		return float64(v.data.(int64)), nil
-	case TypeIDUnsigned:
+	case TIDUnsigned:
 		return float64(v.data.(uint64)), nil
-	case TypeIDFloat:
+	case TIDFloat:
 		return v.data.(float64), nil
-	case TypeIDString:
+	case TIDString:
 		return cast.ToFloat64(v.data.(string)), nil
-	case TypeIDBytes:
+	case TIDBytes:
 		return cast.ToFloat64(string(v.data.([]byte))), nil
 	default:
 		return 0, ErrCastFailed
@@ -312,17 +312,17 @@ func toString(v *Value) (string, error) {
 		return "", nil
 	}
 	switch v.Type().ID() {
-	case TypeIDBoolean:
+	case TIDBoolean:
 		return strconv.FormatBool(v.data.(bool)), nil
-	case TypeIDInteger:
+	case TIDInteger:
 		return strconv.FormatInt(v.data.(int64), 10), nil
-	case TypeIDUnsigned:
+	case TIDUnsigned:
 		return strconv.FormatUint(v.data.(uint64), 10), nil
-	case TypeIDFloat:
+	case TIDFloat:
 		return strconv.FormatFloat(v.data.(float64), 'f', -1, 64), nil
-	case TypeIDString:
+	case TIDString:
 		return v.data.(string), nil
-	case TypeIDBytes:
+	case TIDBytes:
 		return string(v.data.([]byte)), nil
 	default:
 		return "", ErrCastFailed
@@ -334,17 +334,17 @@ func toBytes(v *Value) ([]byte, error) {
 		return nil, nil
 	}
 	switch v.Type().ID() {
-	case TypeIDBoolean:
+	case TIDBoolean:
 		return []byte(strconv.FormatBool(v.data.(bool))), nil
-	case TypeIDInteger:
+	case TIDInteger:
 		return []byte(strconv.FormatInt(v.data.(int64), 10)), nil
-	case TypeIDUnsigned:
+	case TIDUnsigned:
 		return []byte(strconv.FormatUint(v.data.(uint64), 10)), nil
-	case TypeIDFloat:
+	case TIDFloat:
 		return []byte(strconv.FormatFloat(v.data.(float64), 'f', -1, 64)), nil
-	case TypeIDString:
+	case TIDString:
 		return []byte(v.data.(string)), nil
-	case TypeIDBytes:
+	case TIDBytes:
 		return v.data.([]byte), nil
 	default:
 		return nil, ErrCastFailed
@@ -356,17 +356,17 @@ func toTime(v *Value) (time.Time, error) {
 		return time.Time{}, nil
 	}
 	switch v.Type().ID() {
-	case TypeIDInteger:
+	case TIDInteger:
 		return time.UnixMilli(v.data.(int64)), nil
-	case TypeIDUnsigned:
+	case TIDUnsigned:
 		return time.UnixMilli(int64(v.data.(uint64))), nil
-	case TypeIDFloat:
+	case TIDFloat:
 		return time.UnixMilli(int64(v.data.(float64))), nil
-	case TypeIDString:
+	case TIDString:
 		return time.Parse(time.RFC3339, v.data.(string))
-	case TypeIDBytes:
+	case TIDBytes:
 		return time.Parse(time.RFC3339, string(v.data.([]byte)))
-	case TypeIDTime:
+	case TIDTime:
 		return v.data.(time.Time), nil
 	default:
 		return time.Time{}, ErrCastFailed

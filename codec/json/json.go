@@ -83,17 +83,17 @@ func (c *Codec) DecodeValue(data []byte) (*core.Value, error) {
 
 // value is the msgpack wire format for a core.Value
 type value struct {
-	TypeID core.TypeID `json:"t"`
-	Data   any         `json:"d"`
+	TypeID core.TID `json:"t"`
+	Data   any      `json:"d"`
 }
 
 func marshalValue(v *core.Value) ([]byte, error) {
 	if v == nil || v.IsNil() {
-		return json.Marshal(value{TypeID: core.TypeIDUnknown, Data: nil})
+		return json.Marshal(value{TypeID: core.TIDUnknown, Data: nil})
 	}
 
 	switch v.Type().ID() {
-	case core.TypeIDArray:
+	case core.TIDArray:
 		arr := v.Unwrap().([]*core.Value)
 		data := make([][]byte, len(arr))
 
@@ -105,8 +105,8 @@ func marshalValue(v *core.Value) ([]byte, error) {
 			data[i] = b
 		}
 
-		return json.Marshal(value{TypeID: core.TypeIDArray, Data: data})
-	case core.TypeIDMap:
+		return json.Marshal(value{TypeID: core.TIDArray, Data: data})
+	case core.TIDMap:
 		mp := v.Unwrap().(map[*core.Value]*core.Value)
 		data := make(map[string][]byte, len(mp))
 
@@ -124,11 +124,11 @@ func marshalValue(v *core.Value) ([]byte, error) {
 			data[string(kb)] = vb
 		}
 
-		return json.Marshal(value{TypeID: core.TypeIDMap, Data: data})
-	case core.TypeIDTime:
+		return json.Marshal(value{TypeID: core.TIDMap, Data: data})
+	case core.TIDTime:
 		unixtime := v.Unwrap().(time.Time).UnixMilli()
 
-		return json.Marshal(value{TypeID: core.TypeIDTime, Data: unixtime})
+		return json.Marshal(value{TypeID: core.TIDTime, Data: unixtime})
 	default:
 		return json.Marshal(value{TypeID: v.Type().ID(), Data: v.Unwrap()})
 	}
@@ -144,12 +144,12 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 		return nil, err
 	}
 
-	if decoded.TypeID == core.TypeIDUnknown || decoded.Data == nil {
+	if decoded.TypeID == core.TIDUnknown || decoded.Data == nil {
 		return nil, nil
 	}
 
 	switch decoded.TypeID {
-	case core.TypeIDArray:
+	case core.TIDArray:
 		rawArr, ok := decoded.Data.([]any)
 		if !ok {
 			return nil, codec.ErrDecodingValue
@@ -181,7 +181,7 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 			arr[i] = v
 		}
 		return core.NewSafeValue(arr)
-	case core.TypeIDMap:
+	case core.TIDMap:
 		rawMap, ok := decoded.Data.(map[string]any)
 		if !ok {
 			return nil, codec.ErrDecodingValue
@@ -215,7 +215,7 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 			mp[kVal] = vVal
 		}
 		return core.NewSafeValue(mp)
-	case core.TypeIDTime:
+	case core.TIDTime:
 		var unixtime int64
 		var ok bool
 
@@ -231,19 +231,19 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 		t := time.UnixMilli(unixtime).UTC()
 
 		return core.NewSafeValue(t)
-	case core.TypeIDInteger:
+	case core.TIDInteger:
 		// JSON unmarshals numbers as float64, so we need to convert back to int64
 		if f, ok := decoded.Data.(float64); ok {
 			return core.NewSafeValue(int64(f))
 		}
 		return core.NewSafeValue(decoded.Data)
-	case core.TypeIDUnsigned:
+	case core.TIDUnsigned:
 		// JSON unmarshals numbers as float64, so we need to convert back to uint64
 		if f, ok := decoded.Data.(float64); ok {
 			return core.NewSafeValue(uint64(f))
 		}
 		return core.NewSafeValue(decoded.Data)
-	case core.TypeIDBytes:
+	case core.TIDBytes:
 		// JSON unmarshals []byte as base64 string, so we need to decode it back
 		if s, ok := decoded.Data.(string); ok {
 			decodedBytes, err := base64.StdEncoding.DecodeString(s)

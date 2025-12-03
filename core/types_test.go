@@ -13,7 +13,7 @@ func TestTypeID(t *testing.T) {
 
 	t.Run("String Representation", func(t *testing.T) {
 		testcases := []struct {
-			typeID   core.TypeID
+			typeID   core.TID
 			expected string
 		}{
 			{core.TypeIDUnknown, "UNKNOWN"},
@@ -42,7 +42,7 @@ func TestParseType(t *testing.T) {
 	t.Run("Valid Types", func(t *testing.T) {
 		testcases := []struct {
 			input    string
-			expected core.TypeID
+			expected core.TID
 		}{
 			{"BOOLEAN", core.TypeIDBoolean},
 			{"INTEGER", core.TypeIDInteger},
@@ -275,7 +275,7 @@ func TestType_EdgeCases(t *testing.T) {
 		t.Run("Case Sensitivity", func(t *testing.T) {
 			testcases := []struct {
 				input    string
-				expected core.TypeID
+				expected core.TID
 			}{
 				{"boolean", core.TypeIDBoolean},
 				{"BOOLEAN", core.TypeIDBoolean},

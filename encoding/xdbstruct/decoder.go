@@ -241,36 +241,36 @@ func (d *Decoder) setValue(target reflect.Value, value *core.Value) error {
 	return nil
 }
 
-func isConvertibleToBool(typeID core.TypeID) bool {
+func isConvertibleToBool(typeID core.TID) bool {
 	switch typeID {
-	case core.TypeIDBoolean, core.TypeIDInteger, core.TypeIDUnsigned, core.TypeIDFloat:
+	case core.TIDBoolean, core.TIDInteger, core.TIDUnsigned, core.TIDFloat:
 		return true
 	default:
 		return false
 	}
 }
 
-func isConvertibleToInt(typeID core.TypeID) bool {
+func isConvertibleToInt(typeID core.TID) bool {
 	switch typeID {
-	case core.TypeIDBoolean, core.TypeIDInteger, core.TypeIDUnsigned, core.TypeIDFloat:
+	case core.TIDBoolean, core.TIDInteger, core.TIDUnsigned, core.TIDFloat:
 		return true
 	default:
 		return false
 	}
 }
 
-func isConvertibleToUint(typeID core.TypeID) bool {
+func isConvertibleToUint(typeID core.TID) bool {
 	switch typeID {
-	case core.TypeIDBoolean, core.TypeIDInteger, core.TypeIDUnsigned, core.TypeIDFloat:
+	case core.TIDBoolean, core.TIDInteger, core.TIDUnsigned, core.TIDFloat:
 		return true
 	default:
 		return false
 	}
 }
 
-func isConvertibleToFloat(typeID core.TypeID) bool {
+func isConvertibleToFloat(typeID core.TID) bool {
 	switch typeID {
-	case core.TypeIDBoolean, core.TypeIDInteger, core.TypeIDUnsigned, core.TypeIDFloat:
+	case core.TIDBoolean, core.TIDInteger, core.TIDUnsigned, core.TIDFloat:
 		return true
 	default:
 		return false

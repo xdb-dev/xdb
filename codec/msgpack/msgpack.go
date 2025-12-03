@@ -85,8 +85,8 @@ func (c *Codec) DecodeValue(data []byte) (*core.Value, error) {
 
 // value is the msgpack wire format for a core.Value
 type value struct {
-	TypeID core.TypeID `msgpack:"t"`
-	Data   any         `msgpack:"d"`
+	TypeID core.TID `msgpack:"t"`
+	Data   any      `msgpack:"d"`
 }
 
 func marshalValue(v *core.Value) ([]byte, error) {

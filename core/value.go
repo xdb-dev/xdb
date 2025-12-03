@@ -162,28 +162,28 @@ func (v *Value) String() string {
 	}
 
 	switch v.typ.ID() {
-	case TypeIDBoolean:
+	case TIDBoolean:
 		return strconv.FormatBool(v.data.(bool))
-	case TypeIDInteger:
+	case TIDInteger:
 		return strconv.FormatInt(v.data.(int64), 10)
-	case TypeIDUnsigned:
+	case TIDUnsigned:
 		return strconv.FormatUint(v.data.(uint64), 10)
-	case TypeIDFloat:
+	case TIDFloat:
 		return strconv.FormatFloat(v.data.(float64), 'f', -1, 64)
-	case TypeIDString:
+	case TIDString:
 		return v.data.(string)
-	case TypeIDBytes:
+	case TIDBytes:
 		return string(v.data.([]byte))
-	case TypeIDTime:
+	case TIDTime:
 		return v.data.(time.Time).Format(time.RFC3339)
-	case TypeIDArray:
+	case TIDArray:
 		values := v.data.([]*Value)
 		s := make([]string, len(values))
 		for i, val := range values {
 			s[i] = val.String()
 		}
 		return fmt.Sprintf("[%s]", strings.Join(s, ", "))
-	case TypeIDMap:
+	case TIDMap:
 		values := v.data.(map[*Value]*Value)
 		// Collect key-value pairs
 		pairs := make([]string, 0, len(values))
