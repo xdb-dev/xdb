@@ -1,7 +1,9 @@
 // Package x provides utility and helper functions used throughout XDB.
 package x
 
-import "github.com/xdb-dev/xdb/core"
+import (
+	"github.com/xdb-dev/xdb/core"
+)
 
 // GroupTuples groups a list of tuples by their ID.
 func GroupTuples(tuples ...*core.Tuple) map[string][]*core.Tuple {
@@ -81,4 +83,20 @@ func Index[T any](items []T, fn func(T) string) map[string]T {
 	}
 
 	return index
+}
+
+// Diff returns the difference between two lists.
+// Returns a list of items that are in A but not in B.
+func Diff[T any](a []T, b []T, fn func(T) string) []T {
+	diff := make([]T, 0)
+
+	bmap := Index(b, fn)
+
+	for _, item := range a {
+		if _, ok := bmap[fn(item)]; !ok {
+			diff = append(diff, item)
+		}
+	}
+
+	return diff
 }

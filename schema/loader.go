@@ -152,19 +152,19 @@ func parseType(rf *rawField) (core.Type, error) {
 	}
 
 	switch typeID {
-	case core.TypeIDBoolean:
+	case core.TIDBoolean:
 		return core.TypeBool, nil
-	case core.TypeIDInteger:
+	case core.TIDInteger:
 		return core.TypeInt, nil
-	case core.TypeIDUnsigned:
+	case core.TIDUnsigned:
 		return core.TypeUnsigned, nil
-	case core.TypeIDFloat:
+	case core.TIDFloat:
 		return core.TypeFloat, nil
-	case core.TypeIDString:
+	case core.TIDString:
 		return core.TypeString, nil
-	case core.TypeIDBytes:
+	case core.TIDBytes:
 		return core.TypeBytes, nil
-	case core.TypeIDTime:
+	case core.TIDTime:
 		return core.TypeTime, nil
 	default:
 		return core.TypeUnknown, errors.Wrap(ErrInvalidType, "type", rf.Type)

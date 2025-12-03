@@ -98,11 +98,11 @@ func (d *FSDriver) ListSchemas(ctx context.Context, ns *core.NS) ([]*schema.Def,
 }
 
 // PutSchema saves the schema definition.
-func (d *FSDriver) PutSchema(ctx context.Context, def *schema.Def) error {
+func (d *FSDriver) PutSchema(ctx context.Context, ns *core.NS, def *schema.Def) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	path := d.schemaPath("default", def.Name)
+	path := d.schemaPath(ns.String(), def.Name)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err

@@ -55,8 +55,8 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 			expected: &schema.Def{
 				Name: "Post",
 				Fields: []*schema.FieldDef{
-					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
-					{Name: "scores", Type: core.NewArrayType(core.TypeIDInteger)},
+					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
+					{Name: "scores", Type: core.NewArrayType(core.TIDInteger)},
 				},
 			},
 		},
@@ -72,8 +72,8 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 			expected: &schema.Def{
 				Name: "Config",
 				Fields: []*schema.FieldDef{
-					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
-					{Name: "counts", Type: core.NewMapType(core.TypeIDString, core.TypeIDInteger)},
+					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
+					{Name: "counts", Type: core.NewMapType(core.TIDString, core.TIDInteger)},
 				},
 			},
 		},
@@ -249,7 +249,7 @@ fields:
 			expected: &schema.Def{
 				Name: "Post",
 				Fields: []*schema.FieldDef{
-					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
+					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
 				},
 			},
 		},
@@ -266,7 +266,7 @@ fields:
 			expected: &schema.Def{
 				Name: "Config",
 				Fields: []*schema.FieldDef{
-					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
+					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
 				},
 			},
 		},

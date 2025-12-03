@@ -104,7 +104,7 @@ func AssertEqualValues(t *testing.T, expected, actual *core.Value) {
 	assert.Equal(t, expected.Type().ID(), actual.Type().ID(), "value type mismatch")
 
 	switch expected.Type().ID() {
-	case core.TypeIDArray:
+	case core.TIDArray:
 		expectedArr := expected.Unwrap().([]*core.Value)
 		actualArr := actual.Unwrap().([]*core.Value)
 
@@ -113,7 +113,7 @@ func AssertEqualValues(t *testing.T, expected, actual *core.Value) {
 		for i, expectedVal := range expectedArr {
 			AssertEqualValues(t, expectedVal, actualArr[i])
 		}
-	case core.TypeIDMap:
+	case core.TIDMap:
 		expectedMap := expected.Unwrap().(map[*core.Value]*core.Value)
 		actualMap := actual.Unwrap().(map[*core.Value]*core.Value)
 

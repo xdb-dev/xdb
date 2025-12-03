@@ -75,9 +75,9 @@ func convertFieldToRaw(field *FieldDef) (*rawField, error) {
 		Type:        field.Type.String(),
 	}
 
-	if field.Type.ID() == core.TypeIDArray {
+	if field.Type.ID() == core.TIDArray {
 		rf.ArrayOf = field.Type.ValueTypeID().String()
-	} else if field.Type.ID() == core.TypeIDMap {
+	} else if field.Type.ID() == core.TIDMap {
 		rf.MapKey = field.Type.KeyTypeID().String()
 		rf.MapValue = field.Type.ValueTypeID().String()
 	}

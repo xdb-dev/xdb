@@ -91,11 +91,11 @@ type value struct {
 
 func marshalValue(v *core.Value) ([]byte, error) {
 	if v == nil || v.IsNil() {
-		return msgpack.Marshal(value{TypeID: core.TypeIDUnknown, Data: nil})
+		return msgpack.Marshal(value{TypeID: core.TIDUnknown, Data: nil})
 	}
 
 	switch v.Type().ID() {
-	case core.TypeIDArray:
+	case core.TIDArray:
 		arr := v.Unwrap().([]*core.Value)
 		data := make([][]byte, len(arr))
 
@@ -107,8 +107,8 @@ func marshalValue(v *core.Value) ([]byte, error) {
 			data[i] = b
 		}
 
-		return msgpack.Marshal(value{TypeID: core.TypeIDArray, Data: data})
-	case core.TypeIDMap:
+		return msgpack.Marshal(value{TypeID: core.TIDArray, Data: data})
+	case core.TIDMap:
 		mp := v.Unwrap().(map[*core.Value]*core.Value)
 		data := make(map[string][]byte, len(mp))
 
@@ -126,11 +126,11 @@ func marshalValue(v *core.Value) ([]byte, error) {
 			data[string(kb)] = vb
 		}
 
-		return msgpack.Marshal(value{TypeID: core.TypeIDMap, Data: data})
-	case core.TypeIDTime:
+		return msgpack.Marshal(value{TypeID: core.TIDMap, Data: data})
+	case core.TIDTime:
 		unixtime := v.Unwrap().(time.Time).UnixMilli()
 
-		return msgpack.Marshal(value{TypeID: core.TypeIDTime, Data: unixtime})
+		return msgpack.Marshal(value{TypeID: core.TIDTime, Data: unixtime})
 	default:
 		return msgpack.Marshal(value{TypeID: v.Type().ID(), Data: v.Unwrap()})
 	}
@@ -142,12 +142,12 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 		return nil, err
 	}
 
-	if decoded.TypeID == core.TypeIDUnknown || decoded.Data == nil {
+	if decoded.TypeID == core.TIDUnknown || decoded.Data == nil {
 		return nil, nil
 	}
 
 	switch decoded.TypeID {
-	case core.TypeIDArray:
+	case core.TIDArray:
 		rawArr, ok := decoded.Data.([]any)
 		if !ok {
 			return nil, codec.ErrDecodingValue
@@ -166,7 +166,7 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 			arr[i] = v
 		}
 		return core.NewSafeValue(arr)
-	case core.TypeIDMap:
+	case core.TIDMap:
 		rawMap, ok := decoded.Data.(map[string]any)
 		if !ok {
 			// Try map[string][]byte as fallback for msgpack which might preserve types
@@ -205,7 +205,7 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 			mp[kVal] = vVal
 		}
 		return core.NewSafeValue(mp)
-	case core.TypeIDTime:
+	case core.TIDTime:
 		unixtime, ok := decoded.Data.(int64)
 		if !ok {
 			return nil, codec.ErrDecodingValue

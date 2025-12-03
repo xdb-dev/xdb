@@ -46,6 +46,8 @@ tools/vendor
 .envrc
 *.db
 
+.claude/settings.local.json
+
 # XDB config files (use xdb.yaml.example as reference)
 xdb.yaml
 xdb.yml

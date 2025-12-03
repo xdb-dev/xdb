@@ -18,32 +18,32 @@ func TestNewValue_Primitives(t *testing.T) {
 		{
 			name:     "string",
 			value:    "hello",
-			expected: core.TypeIDString,
+			expected: core.TIDString,
 		},
 		{
 			name:     "int",
 			value:    1,
-			expected: core.TypeIDInteger,
+			expected: core.TIDInteger,
 		},
 		{
 			name:     "float",
 			value:    1.0,
-			expected: core.TypeIDFloat,
+			expected: core.TIDFloat,
 		},
 		{
 			name:     "bool",
 			value:    true,
-			expected: core.TypeIDBoolean,
+			expected: core.TIDBoolean,
 		},
 		{
 			name:     "bytes",
 			value:    []byte("hello"),
-			expected: core.TypeIDBytes,
+			expected: core.TIDBytes,
 		},
 		{
 			name:     "time",
 			value:    time.Now(),
-			expected: core.TypeIDTime,
+			expected: core.TIDTime,
 		},
 	}
 
@@ -67,32 +67,32 @@ func TestNewValue_Arrays(t *testing.T) {
 		{
 			name:     "string",
 			value:    []string{"hello", "world"},
-			expected: core.TypeIDString,
+			expected: core.TIDString,
 		},
 		{
 			name:     "int",
 			value:    []int64{1, 2, 3},
-			expected: core.TypeIDInteger,
+			expected: core.TIDInteger,
 		},
 		{
 			name:     "float",
 			value:    []float64{1.0, 2.0, 3.0},
-			expected: core.TypeIDFloat,
+			expected: core.TIDFloat,
 		},
 		{
 			name:     "bool",
 			value:    []bool{true, false, true},
-			expected: core.TypeIDBoolean,
+			expected: core.TIDBoolean,
 		},
 		{
 			name:     "bytes",
 			value:    [][]byte{[]byte("hello"), []byte("world")},
-			expected: core.TypeIDBytes,
+			expected: core.TIDBytes,
 		},
 		{
 			name:     "time",
 			value:    []time.Time{time.Now(), time.Now().Add(time.Hour)},
-			expected: core.TypeIDTime,
+			expected: core.TIDTime,
 		},
 	}
 
@@ -101,7 +101,7 @@ func TestNewValue_Arrays(t *testing.T) {
 			value := core.NewValue(tc.value)
 
 			at := value.Type()
-			assert.Equal(t, core.TypeIDArray, at.ID())
+			assert.Equal(t, core.TIDArray, at.ID())
 			assert.Equal(t, tc.expected, at.ValueTypeID())
 		})
 	}
@@ -215,7 +215,7 @@ func TestValue_MixedTypes(t *testing.T) {
 		tuple := core.NewTuple(path, "attr", value)
 
 		assert.NotNil(t, tuple)
-		assert.Equal(t, core.TypeIDArray, tuple.Value().Type().ID())
+		assert.Equal(t, core.TIDArray, tuple.Value().Type().ID())
 	})
 
 	t.Run("Map with Mixed Types", func(t *testing.T) {
@@ -228,7 +228,7 @@ func TestValue_MixedTypes(t *testing.T) {
 		tuple := core.NewTuple(path, "attr", value)
 
 		assert.NotNil(t, tuple)
-		assert.Equal(t, core.TypeIDMap, tuple.Value().Type().ID())
+		assert.Equal(t, core.TIDMap, tuple.Value().Type().ID())
 	})
 }
 
@@ -258,20 +258,20 @@ func TestValue_TypeInformation(t *testing.T) {
 
 	t.Run("Boolean Type", func(t *testing.T) {
 		value := core.NewValue(true)
-		assert.Equal(t, core.TypeIDBoolean, value.Type().ID())
+		assert.Equal(t, core.TIDBoolean, value.Type().ID())
 		assert.Equal(t, "BOOLEAN", value.Type().String())
 	})
 
 	t.Run("Array Type", func(t *testing.T) {
 		value := core.NewValue([]string{"a", "b"})
-		assert.Equal(t, core.TypeIDArray, value.Type().ID())
-		assert.Equal(t, core.TypeIDString, value.Type().ValueTypeID())
+		assert.Equal(t, core.TIDArray, value.Type().ID())
+		assert.Equal(t, core.TIDString, value.Type().ValueTypeID())
 	})
 
 	t.Run("Map Type", func(t *testing.T) {
 		value := core.NewValue(map[string]int{"a": 1})
-		assert.Equal(t, core.TypeIDMap, value.Type().ID())
-		assert.Equal(t, core.TypeIDString, value.Type().KeyTypeID())
-		assert.Equal(t, core.TypeIDInteger, value.Type().ValueTypeID())
+		assert.Equal(t, core.TIDMap, value.Type().ID())
+		assert.Equal(t, core.TIDString, value.Type().KeyTypeID())
+		assert.Equal(t, core.TIDInteger, value.Type().ValueTypeID())
 	})
 }

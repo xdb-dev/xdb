@@ -38,8 +38,8 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 			schema: &schema.Def{
 				Name: "Post",
 				Fields: []*schema.FieldDef{
-					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
-					{Name: "scores", Type: core.NewArrayType(core.TypeIDInteger)},
+					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
+					{Name: "scores", Type: core.NewArrayType(core.TIDInteger)},
 				},
 			},
 			expected: `{"name":"Post","fields":[{"name":"tags","type":"ARRAY","array_of":"STRING"},{"name":"scores","type":"ARRAY","array_of":"INTEGER"}]}`,
@@ -49,8 +49,8 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 			schema: &schema.Def{
 				Name: "Config",
 				Fields: []*schema.FieldDef{
-					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
-					{Name: "counts", Type: core.NewMapType(core.TypeIDString, core.TypeIDInteger)},
+					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
+					{Name: "counts", Type: core.NewMapType(core.TIDString, core.TIDInteger)},
 				},
 			},
 			expected: `{"name":"Config","fields":[{"name":"settings","type":"MAP","map_key":"STRING","map_value":"STRING"},{"name":"counts","type":"MAP","map_key":"STRING","map_value":"INTEGER"}]}`,
@@ -120,8 +120,8 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 			schema: &schema.Def{
 				Name: "Post",
 				Fields: []*schema.FieldDef{
-					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
-					{Name: "scores", Type: core.NewArrayType(core.TypeIDInteger)},
+					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
+					{Name: "scores", Type: core.NewArrayType(core.TIDInteger)},
 				},
 			},
 		},
@@ -130,8 +130,8 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 			schema: &schema.Def{
 				Name: "Config",
 				Fields: []*schema.FieldDef{
-					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
-					{Name: "counts", Type: core.NewMapType(core.TypeIDString, core.TypeIDInteger)},
+					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
+					{Name: "counts", Type: core.NewMapType(core.TIDString, core.TIDInteger)},
 				},
 			},
 		},
@@ -242,7 +242,7 @@ func TestWriter_WriteToYAML_Valid(t *testing.T) {
 			schema: &schema.Def{
 				Name: "Post",
 				Fields: []*schema.FieldDef{
-					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
+					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
 				},
 			},
 			contains: []string{"name: Post", "type: ARRAY", "array_of: STRING"},
@@ -252,7 +252,7 @@ func TestWriter_WriteToYAML_Valid(t *testing.T) {
 			schema: &schema.Def{
 				Name: "Config",
 				Fields: []*schema.FieldDef{
-					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
+					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
 				},
 			},
 			contains: []string{"name: Config", "type: MAP", "map_key: STRING", "map_value: STRING"},
@@ -296,8 +296,8 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 			schema: &schema.Def{
 				Name: "Post",
 				Fields: []*schema.FieldDef{
-					{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
-					{Name: "scores", Type: core.NewArrayType(core.TypeIDInteger)},
+					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
+					{Name: "scores", Type: core.NewArrayType(core.TIDInteger)},
 				},
 			},
 		},
@@ -306,8 +306,8 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 			schema: &schema.Def{
 				Name: "Config",
 				Fields: []*schema.FieldDef{
-					{Name: "settings", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
-					{Name: "counts", Type: core.NewMapType(core.TypeIDString, core.TypeIDInteger)},
+					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
+					{Name: "counts", Type: core.NewMapType(core.TIDString, core.TIDInteger)},
 				},
 			},
 		},

@@ -3,6 +3,8 @@ package xdbmemory
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/xdb-dev/xdb/core"
@@ -19,14 +21,14 @@ type Config struct {
 type MemoryDriver struct {
 	mu      sync.RWMutex
 	tuples  map[string]map[string]*core.Tuple
-	schemas map[string]*schema.Def
+	schemas map[string]map[string]*schema.Def
 }
 
 // New creates a new in-memory driver.
 func New() *MemoryDriver {
 	return &MemoryDriver{
 		tuples:  make(map[string]map[string]*core.Tuple),
-		schemas: make(map[string]*schema.Def),
+		schemas: make(map[string]map[string]*schema.Def),
 	}
 }
 
@@ -35,8 +37,12 @@ func (d *MemoryDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.De
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	key := uri.Schema().String()
-	s, ok := d.schemas[key]
+	schemas, ok := d.schemas[uri.NS().String()]
+	if !ok {
+		return nil, driver.ErrNotFound
+	}
+
+	s, ok := schemas[uri.Schema().String()]
 	if !ok {
 		return nil, driver.ErrNotFound
 	}
@@ -49,20 +55,24 @@ func (d *MemoryDriver) ListSchemas(ctx context.Context, ns *core.NS) ([]*schema.
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	schemas := make([]*schema.Def, 0, len(d.schemas))
-	for _, s := range d.schemas {
-		schemas = append(schemas, s)
+	if _, ok := d.schemas[ns.String()]; !ok {
+		return nil, nil
 	}
 
-	return schemas, nil
+	return slices.Collect(maps.Values(d.schemas[ns.String()])), nil
 }
 
 // PutSchema saves the schema definition.
-func (d *MemoryDriver) PutSchema(ctx context.Context, def *schema.Def) error {
+func (d *MemoryDriver) PutSchema(ctx context.Context, ns *core.NS, def *schema.Def) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.schemas[def.Name] = def
+	if _, ok := d.schemas[ns.String()]; !ok {
+		d.schemas[ns.String()] = make(map[string]*schema.Def)
+	}
+
+	d.schemas[ns.String()][def.Name] = def
+
 	return nil
 }
 
@@ -71,8 +81,16 @@ func (d *MemoryDriver) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	key := uri.Schema().String()
-	delete(d.schemas, key)
+	schemas, ok := d.schemas[uri.NS().String()]
+	if !ok {
+		return driver.ErrNotFound
+	}
+
+	delete(schemas, uri.Schema().String())
+	if len(schemas) == 0 {
+		delete(d.schemas, uri.NS().String())
+	}
+
 	return nil
 }
 

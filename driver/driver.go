@@ -22,7 +22,7 @@ type SchemaReader interface {
 
 // SchemaWriter is an interface for writing & deleting schemas.
 type SchemaWriter interface {
-	PutSchema(ctx context.Context, def *schema.Def) error
+	PutSchema(ctx context.Context, ns *core.NS, def *schema.Def) error
 	DeleteSchema(ctx context.Context, uri *core.URI) error
 }
 

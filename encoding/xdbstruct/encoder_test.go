@@ -160,20 +160,20 @@ func TestEncoder_ArraysAndSlices(t *testing.T) {
 
 	tags := record.Get("tags")
 	assert.NotNil(t, tags)
-	assert.Equal(t, core.TypeIDArray, tags.Value().Type().ID())
-	assert.Equal(t, core.TypeIDString, tags.Value().Type().ValueTypeID())
+	assert.Equal(t, core.TIDArray, tags.Value().Type().ID())
+	assert.Equal(t, core.TIDString, tags.Value().Type().ValueTypeID())
 	assert.Equal(t, []string{"go", "rust", "python"}, tags.ToStringArray())
 
 	scores := record.Get("scores")
 	assert.NotNil(t, scores)
-	assert.Equal(t, core.TypeIDArray, scores.Value().Type().ID())
-	assert.Equal(t, core.TypeIDInteger, scores.Value().Type().ValueTypeID())
+	assert.Equal(t, core.TIDArray, scores.Value().Type().ID())
+	assert.Equal(t, core.TIDInteger, scores.Value().Type().ValueTypeID())
 	assert.Equal(t, []int64{10, 20, 30}, scores.ToIntArray())
 
 	features := record.Get("features")
 	assert.NotNil(t, features)
-	assert.Equal(t, core.TypeIDArray, features.Value().Type().ID())
-	assert.Equal(t, core.TypeIDBoolean, features.Value().Type().ValueTypeID())
+	assert.Equal(t, core.TIDArray, features.Value().Type().ID())
+	assert.Equal(t, core.TIDBoolean, features.Value().Type().ValueTypeID())
 	assert.Equal(t, []bool{true, false, true}, features.ToBoolArray())
 }
 
@@ -212,7 +212,7 @@ func TestEncoder_CustomMarshaler(t *testing.T) {
 
 	metadata := record.Get("metadata")
 	assert.NotNil(t, metadata)
-	assert.Equal(t, core.TypeIDBytes, metadata.Value().Type().ID())
+	assert.Equal(t, core.TIDBytes, metadata.Value().Type().ID())
 	assert.Equal(t, []byte(`{"role":"admin","level":5}`), metadata.ToBytes())
 }
 

@@ -19,8 +19,8 @@ func FakePostSchema() *schema.Def {
 		Fields: []*schema.FieldDef{
 			{Name: "title", Type: core.TypeString},
 			{Name: "content", Type: core.TypeString},
-			{Name: "tags", Type: core.NewArrayType(core.TypeIDString)},
-			{Name: "metadata", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
+			{Name: "tags", Type: core.NewArrayType(core.TIDString)},
+			{Name: "metadata", Type: core.NewMapType(core.TIDString, core.TIDString)},
 			{Name: "rating", Type: core.TypeFloat},
 			{Name: "published", Type: core.TypeBool},
 			{Name: "comments.count", Type: core.TypeInt},
@@ -77,8 +77,8 @@ func FakeTestSchema() *schema.Def {
 			{Name: "bool", Type: core.TypeBool},
 			{Name: "bytes", Type: core.TypeBytes},
 			{Name: "time", Type: core.TypeTime},
-			{Name: "string_array", Type: core.NewArrayType(core.TypeIDString)},
-			{Name: "metadata", Type: core.NewMapType(core.TypeIDString, core.TypeIDString)},
+			{Name: "string_array", Type: core.NewArrayType(core.TIDString)},
+			{Name: "metadata", Type: core.NewMapType(core.TIDString, core.TIDString)},
 		},
 		Required: []string{"string"},
 	}
