@@ -2,10 +2,8 @@ package core
 
 import "github.com/gojekfarm/xtools/errors"
 
-var (
-	// ErrInvalidID is returned when an invalid ID is encountered.
-	ErrInvalidID = errors.New("[xdb/core] invalid ID")
-)
+// ErrInvalidID is returned when an invalid ID is encountered.
+var ErrInvalidID = errors.New("[xdb/core] invalid ID")
 
 // ID is an unique identifier for a record.
 type ID struct {

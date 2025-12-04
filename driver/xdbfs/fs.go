@@ -18,22 +18,60 @@ import (
 
 // FSDriver is a filesystem-based driver for XDB.
 // It stores each schema as a .schema.json file and each record as a separate JSON file.
+//
+// By default, FSDriver uses restrictive permissions (0o750 for directories, 0o600 for files)
+// to minimize security risks. Use WithSharedAccess() option for more permissive settings
+// suitable for shared environments.
 type FSDriver struct {
-	root  string
-	codec codec.KVCodec
-	mu    sync.RWMutex
+	root     string
+	codec    codec.KVCodec
+	mu       sync.RWMutex
+	dirPerm  os.FileMode
+	filePerm os.FileMode
+}
+
+// Option is a functional option for configuring FSDriver.
+type Option func(*FSDriver)
+
+// WithPermissions sets custom file and directory permissions.
+// Security Note: Use restrictive permissions (e.g., 0o750/0o600) to prevent
+// unauthorized access. More permissive settings (e.g., 0o755/0o644) may be
+// appropriate for shared read access scenarios.
+func WithPermissions(dirPerm, filePerm os.FileMode) Option {
+	return func(d *FSDriver) {
+		d.dirPerm = dirPerm
+		d.filePerm = filePerm
+	}
+}
+
+// WithSharedAccess configures the driver with permissions suitable for shared
+// read access (0o755 for directories, 0o644 for files).
+// This provides backward compatibility with previous versions but may not be
+// appropriate for sensitive data.
+func WithSharedAccess() Option {
+	return WithPermissions(0o755, 0o644)
 }
 
 // New creates a new filesystem driver with the given root directory.
-func New(root string) (*FSDriver, error) {
-	if err := os.MkdirAll(root, 0755); err != nil {
+// By default, uses restrictive permissions (0o750 for directories, 0o600 for files).
+// Use functional options to customize permissions as needed.
+func New(root string, opts ...Option) (*FSDriver, error) {
+	d := &FSDriver{
+		root:     root,
+		codec:    codecjson.New(),
+		dirPerm:  0o750,
+		filePerm: 0o600,
+	}
+
+	for _, opt := range opts {
+		opt(d)
+	}
+
+	if err := os.MkdirAll(root, d.dirPerm); err != nil {
 		return nil, err
 	}
 
-	return &FSDriver{
-		root:  root,
-		codec: codecjson.New(),
-	}, nil
+	return d, nil
 }
 
 // GetSchema returns the schema definition for the given URI.
@@ -47,6 +85,7 @@ func (d *FSDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, e
 		return nil, driver.ErrNotFound
 	}
 
+	// #nosec G304 -- path is constructed internally via sanitized components
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -80,6 +119,7 @@ func (d *FSDriver) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.De
 			return nil
 		}
 
+		// #nosec G304 -- path is constructed internally via sanitized components
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -104,7 +144,7 @@ func (d *FSDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def
 
 	path := d.schemaPath(uri.NS().String(), def.Name)
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), d.dirPerm); err != nil {
 		return err
 	}
 
@@ -113,7 +153,7 @@ func (d *FSDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def
 		return err
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, d.filePerm)
 }
 
 // DeleteSchema deletes the schema definition.
@@ -331,6 +371,7 @@ func (d *FSDriver) recordPath(ns, schemaName, id string) string {
 
 // readRecord reads a record from the filesystem.
 func (d *FSDriver) readRecord(path, ns, schemaName, id string) (*core.Record, error) {
+	// #nosec G304 -- path is constructed internally via sanitized components
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -358,7 +399,7 @@ func (d *FSDriver) readRecord(path, ns, schemaName, id string) (*core.Record, er
 
 // writeRecord writes a record to the filesystem.
 func (d *FSDriver) writeRecord(path string, record *core.Record) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), d.dirPerm); err != nil {
 		return err
 	}
 
@@ -379,5 +420,5 @@ func (d *FSDriver) writeRecord(path string, record *core.Record) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, d.filePerm)
 }

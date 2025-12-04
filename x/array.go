@@ -51,7 +51,7 @@ func GroupBy[T any](items []T, fn func(T) string) map[string][]T {
 }
 
 // Map maps a list using a function.
-func Map[T any, R any](items []T, fn func(T) R) []R {
+func Map[T, R any](items []T, fn func(T) R) []R {
 	mapped := make([]R, 0, len(items))
 
 	for _, item := range items {
@@ -87,7 +87,7 @@ func Index[T any](items []T, fn func(T) string) map[string]T {
 
 // Diff returns the difference between two lists.
 // Returns a list of items that are in A but not in B.
-func Diff[T any](a []T, b []T, fn func(T) string) []T {
+func Diff[T any](a, b []T, fn func(T) string) []T {
 	diff := make([]T, 0)
 
 	bmap := Index(b, fn)

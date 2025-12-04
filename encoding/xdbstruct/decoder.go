@@ -277,6 +277,30 @@ func isConvertibleToFloat(typeID core.TID) bool {
 	}
 }
 
+func convertIntSlice[T int | int8 | int16 | int32](arr []int64) []T {
+	result := make([]T, len(arr))
+	for i, v := range arr {
+		result[i] = T(v)
+	}
+	return result
+}
+
+func convertUintSlice[T uint | uint16 | uint32](arr []uint64) []T {
+	result := make([]T, len(arr))
+	for i, v := range arr {
+		result[i] = T(v)
+	}
+	return result
+}
+
+func convertFloat32Slice(arr []float64) []float32 {
+	result := make([]float32, len(arr))
+	for i, v := range arr {
+		result[i] = float32(v)
+	}
+	return result
+}
+
 func (d *Decoder) setSliceValue(target reflect.Value, value *core.Value) error {
 	elemKind := target.Type().Elem().Kind()
 
@@ -287,68 +311,27 @@ func (d *Decoder) setSliceValue(target reflect.Value, value *core.Value) error {
 
 	switch elemKind {
 	case reflect.Bool:
-		arr := value.ToBoolArray()
-		target.Set(reflect.ValueOf(arr))
+		target.Set(reflect.ValueOf(value.ToBoolArray()))
 	case reflect.Int:
-		arr := value.ToIntArray()
-		result := make([]int, len(arr))
-		for i, v := range arr {
-			result[i] = int(v)
-		}
-		target.Set(reflect.ValueOf(result))
+		target.Set(reflect.ValueOf(convertIntSlice[int](value.ToIntArray())))
 	case reflect.Int8:
-		arr := value.ToIntArray()
-		result := make([]int8, len(arr))
-		for i, v := range arr {
-			result[i] = int8(v)
-		}
-		target.Set(reflect.ValueOf(result))
+		target.Set(reflect.ValueOf(convertIntSlice[int8](value.ToIntArray())))
 	case reflect.Int16:
-		arr := value.ToIntArray()
-		result := make([]int16, len(arr))
-		for i, v := range arr {
-			result[i] = int16(v)
-		}
-		target.Set(reflect.ValueOf(result))
+		target.Set(reflect.ValueOf(convertIntSlice[int16](value.ToIntArray())))
 	case reflect.Int32:
-		arr := value.ToIntArray()
-		result := make([]int32, len(arr))
-		for i, v := range arr {
-			result[i] = int32(v)
-		}
-		target.Set(reflect.ValueOf(result))
+		target.Set(reflect.ValueOf(convertIntSlice[int32](value.ToIntArray())))
 	case reflect.Int64:
 		target.Set(reflect.ValueOf(value.ToIntArray()))
 	case reflect.Uint:
-		arr := value.ToUintArray()
-		result := make([]uint, len(arr))
-		for i, v := range arr {
-			result[i] = uint(v)
-		}
-		target.Set(reflect.ValueOf(result))
+		target.Set(reflect.ValueOf(convertUintSlice[uint](value.ToUintArray())))
 	case reflect.Uint16:
-		arr := value.ToUintArray()
-		result := make([]uint16, len(arr))
-		for i, v := range arr {
-			result[i] = uint16(v)
-		}
-		target.Set(reflect.ValueOf(result))
+		target.Set(reflect.ValueOf(convertUintSlice[uint16](value.ToUintArray())))
 	case reflect.Uint32:
-		arr := value.ToUintArray()
-		result := make([]uint32, len(arr))
-		for i, v := range arr {
-			result[i] = uint32(v)
-		}
-		target.Set(reflect.ValueOf(result))
+		target.Set(reflect.ValueOf(convertUintSlice[uint32](value.ToUintArray())))
 	case reflect.Uint64:
 		target.Set(reflect.ValueOf(value.ToUintArray()))
 	case reflect.Float32:
-		arr := value.ToFloatArray()
-		result := make([]float32, len(arr))
-		for i, v := range arr {
-			result[i] = float32(v)
-		}
-		target.Set(reflect.ValueOf(result))
+		target.Set(reflect.ValueOf(convertFloat32Slice(value.ToFloatArray())))
 	case reflect.Float64:
 		target.Set(reflect.ValueOf(value.ToFloatArray()))
 	case reflect.String:

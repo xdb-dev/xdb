@@ -141,4 +141,4 @@ func (req *DeleteSchemaRequest) Validate() error {
 	return nil
 }
 
-type DeleteSchemaResponse struct {}
+type DeleteSchemaResponse struct{}

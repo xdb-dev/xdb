@@ -2,10 +2,8 @@ package core
 
 import "github.com/gojekfarm/xtools/errors"
 
-var (
-	// ErrInvalidAttr is returned when an invalid Attr is encountered.
-	ErrInvalidAttr = errors.New("[xdb/core] invalid Attr")
-)
+// ErrInvalidAttr is returned when an invalid Attr is encountered.
+var ErrInvalidAttr = errors.New("[xdb/core] invalid Attr")
 
 // Attr is a name of an attribute.
 type Attr struct {

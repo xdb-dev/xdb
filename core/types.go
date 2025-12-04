@@ -6,10 +6,8 @@ import (
 	"github.com/gojekfarm/xtools/errors"
 )
 
-var (
-	// ErrUnknownType is returned when an unknown type is encountered.
-	ErrUnknownType = errors.New("[xdb/core] unknown type")
-)
+// ErrUnknownType is returned when an unknown type is encountered.
+var ErrUnknownType = errors.New("[xdb/core] unknown type")
 
 // TID represents the type of a value.
 type TID int

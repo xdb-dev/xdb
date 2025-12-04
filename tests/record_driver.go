@@ -31,7 +31,7 @@ func TestRecordReaderWriter(t *testing.T, rw recordReaderWriter) {
 	t.Run("GetRecords", func(t *testing.T) {
 		got, missing, err := rw.GetRecords(ctx, uris)
 		require.NoError(t, err)
-		require.Len(t, missing, 0)
+		require.Empty(t, missing)
 		AssertEqualRecords(t, records, got)
 	})
 
@@ -56,7 +56,7 @@ func TestRecordReaderWriter(t *testing.T, rw recordReaderWriter) {
 		got, missing, err := rw.GetRecords(ctx, uris)
 		require.NoError(t, err)
 		require.NotEmpty(t, missing)
-		require.Len(t, got, 0)
+		require.Empty(t, got)
 		AssertEqualURIs(t, missing, uris)
 	})
 }

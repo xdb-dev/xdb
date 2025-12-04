@@ -15,7 +15,7 @@ import (
 func AssertEqualRecords(t *testing.T, expected, actual []*core.Record) {
 	t.Helper()
 
-	require.Equal(t, len(expected), len(actual), "record lists have different lengths")
+	require.Len(t, actual, len(expected), "record lists have different lengths")
 
 	for i, expected := range expected {
 		actual := actual[i]
@@ -30,7 +30,7 @@ func AssertEqualRecords(t *testing.T, expected, actual []*core.Record) {
 func AssertEqualRecord(t *testing.T, expected, actual *core.Record) {
 	t.Helper()
 
-	require.EqualValues(t,
+	require.Equal(t,
 		expected.URI(),
 		actual.URI(),
 		"record URI mismatch",
@@ -53,7 +53,7 @@ func AssertEqualRecord(t *testing.T, expected, actual *core.Record) {
 func AssertEqualTuples(t *testing.T, expected, actual []*core.Tuple) {
 	t.Helper()
 
-	require.Equal(t, len(expected), len(actual), "tuple lists have different lengths")
+	require.Len(t, actual, len(expected), "tuple lists have different lengths")
 
 	for i, expected := range expected {
 		actual := actual[i]
@@ -78,7 +78,7 @@ func AssertEqualTuple(t *testing.T, expected, actual *core.Tuple) {
 func AssertEqualURIs(t *testing.T, expected, actual []*core.URI) {
 	t.Helper()
 
-	require.Equal(t, len(expected), len(actual), "URI lists have different lengths")
+	require.Len(t, actual, len(expected), "URI lists have different lengths")
 
 	for i, expected := range expected {
 		actual := actual[i]
@@ -108,7 +108,7 @@ func AssertEqualValues(t *testing.T, expected, actual *core.Value) {
 		expectedArr := expected.Unwrap().([]*core.Value)
 		actualArr := actual.Unwrap().([]*core.Value)
 
-		require.Equal(t, len(expectedArr), len(actualArr), "array length mismatch")
+		require.Len(t, actualArr, len(expectedArr), "array length mismatch")
 
 		for i, expectedVal := range expectedArr {
 			AssertEqualValues(t, expectedVal, actualArr[i])
@@ -117,7 +117,7 @@ func AssertEqualValues(t *testing.T, expected, actual *core.Value) {
 		expectedMap := expected.Unwrap().(map[*core.Value]*core.Value)
 		actualMap := actual.Unwrap().(map[*core.Value]*core.Value)
 
-		require.Equal(t, len(expectedMap), len(actualMap), "map length mismatch")
+		require.Len(t, actualMap, len(expectedMap), "map length mismatch")
 
 		for expectedKey, expectedVal := range expectedMap {
 			var found bool

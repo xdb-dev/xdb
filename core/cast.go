@@ -8,11 +8,9 @@ import (
 	"github.com/spf13/cast"
 )
 
-var (
-	// ErrCastFailed is returned when a value cannot
-	// be converted to the desired type.
-	ErrCastFailed = errors.New("[xdb/core] cast failed")
-)
+// ErrCastFailed is returned when a value cannot
+// be converted to the desired type.
+var ErrCastFailed = errors.New("[xdb/core] cast failed")
 
 // ToBool returns the value as a bool.
 func (v *Value) ToBool() bool {

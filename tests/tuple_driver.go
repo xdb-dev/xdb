@@ -31,7 +31,7 @@ func TestTupleReaderWriter(t *testing.T, rw tupleReaderWriter) {
 	t.Run("GetTuples", func(t *testing.T) {
 		got, missing, err := rw.GetTuples(ctx, uris)
 		require.NoError(t, err)
-		require.Len(t, missing, 0)
+		require.Empty(t, missing)
 		AssertEqualTuples(t, tuples, got)
 	})
 
@@ -57,7 +57,7 @@ func TestTupleReaderWriter(t *testing.T, rw tupleReaderWriter) {
 		got, missing, err := rw.GetTuples(ctx, uris)
 		require.NoError(t, err)
 		require.NotEmpty(t, missing)
-		require.Len(t, got, 0)
+		require.Empty(t, got)
 		AssertEqualURIs(t, missing, uris)
 	})
 }

@@ -9,9 +9,7 @@ import (
 	"github.com/gojekfarm/xtools/errors"
 )
 
-var (
-	ErrUnsupportedType = errors.New("[xdbsqlite] unsupported type")
-)
+var ErrUnsupportedType = errors.New("[xdbsqlite] unsupported type")
 
 type Queries struct {
 	tx *sql.Tx
@@ -88,7 +86,9 @@ func (q *Queries) ListMetadata(ctx context.Context, uriPrefix string) ([]*PutMet
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	var results []*PutMetadataParams
 	for rows.Next() {

@@ -8,10 +8,8 @@ import (
 	"github.com/gojekfarm/xtools/errors"
 )
 
-var (
-	// ErrInvalidURI is returned when an invalid URI is encountered.
-	ErrInvalidURI = errors.New("[xdb/core] invalid URI")
-)
+// ErrInvalidURI is returned when an invalid URI is encountered.
+var ErrInvalidURI = errors.New("[xdb/core] invalid URI")
 
 // URI is a reference to XDB data.
 //
@@ -102,7 +100,7 @@ func (u *URI) UnmarshalJSON(data []byte) error {
 }
 
 // ParsePath parses a path string into a URI struct.
-// The path format is: NS[/SCHEMA][/ID][#ATTRIBUTE]
+// The path format is: NS[/SCHEMA][/ID][#ATTRIBUTE].
 func ParsePath(path string) (*URI, error) {
 	return ParseURI("xdb://" + path)
 }
@@ -175,10 +173,10 @@ func isValidComponent(raw string) bool {
 		return false
 	}
 	for _, ch := range raw {
-		if !((ch >= 'a' && ch <= 'z') ||
-			(ch >= 'A' && ch <= 'Z') ||
-			(ch >= '0' && ch <= '9') ||
-			ch == '.' || ch == '_' || ch == '-' || ch == '/') {
+		if (ch < 'a' || ch > 'z') &&
+			(ch < 'A' || ch > 'Z') &&
+			(ch < '0' || ch > '9') &&
+			ch != '.' && ch != '_' && ch != '-' && ch != '/' {
 			return false
 		}
 	}

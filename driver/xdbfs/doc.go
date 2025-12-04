@@ -22,6 +22,23 @@
 //
 // Schemas are stored as .schema.json files in the schema directory.
 //
+// File Permissions:
+//
+// By default, the filesystem driver uses restrictive permissions for security:
+//   - Directories: 0o750 (rwxr-x---)
+//   - Files: 0o600 (rw-------)
+//
+// These can be customized using functional options:
+//
+//	// Use default restrictive permissions
+//	driver, err := xdbfs.New("/path/to/data")
+//
+//	// Use shared access permissions (0o755/0o644)
+//	driver, err := xdbfs.New("/path/to/data", xdbfs.WithSharedAccess())
+//
+//	// Custom permissions
+//	driver, err := xdbfs.New("/path/to/data", xdbfs.WithPermissions(0o770, 0o660))
+//
 // Example Usage:
 //
 //	driver, err := xdbfs.New("/path/to/data")

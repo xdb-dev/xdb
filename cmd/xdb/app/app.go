@@ -5,7 +5,6 @@ package app
 import (
 	"context"
 	"errors"
-
 	"log/slog"
 
 	"github.com/xdb-dev/xdb/driver"
@@ -49,10 +48,6 @@ func (a *App) initStore() error {
 	}
 
 	return nil
-}
-
-func (a *App) registerCleanup(cleanup func() error) {
-	a.cleanup = append(a.cleanup, cleanup)
 }
 
 func (a *App) Shutdown(ctx context.Context) error {

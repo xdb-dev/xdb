@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gojekfarm/xtools/xapi"
-	"log/slog"
 
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/driver"
@@ -46,8 +46,9 @@ func (s *Server) Run(ctx context.Context) error {
 	slog.Info("[SERVER] Starting HTTP server", "addr", s.cfg.Addr)
 
 	server := &http.Server{
-		Addr:    s.cfg.Addr,
-		Handler: s.mux,
+		Addr:              s.cfg.Addr,
+		Handler:           s.mux,
+		ReadHeaderTimeout: 15 * time.Second,
 	}
 
 	go func(server *http.Server) {

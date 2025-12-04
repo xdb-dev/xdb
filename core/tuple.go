@@ -17,7 +17,7 @@ type Tuple struct {
 }
 
 // NewTuple creates a new Tuple.
-func NewTuple(path string, attr string, value any) *Tuple {
+func NewTuple(path, attr string, value any) *Tuple {
 	p, err := ParsePath(path)
 	if err != nil {
 		panic(err)

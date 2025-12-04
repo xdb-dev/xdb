@@ -2,10 +2,8 @@ package core
 
 import "github.com/gojekfarm/xtools/errors"
 
-var (
-	// ErrInvalidNS is returned when an invalid NS is encountered.
-	ErrInvalidNS = errors.New("[xdb/core] invalid NS")
-)
+// ErrInvalidNS is returned when an invalid NS is encountered.
+var ErrInvalidNS = errors.New("[xdb/core] invalid NS")
 
 // NS identifies the data repository.
 type NS struct {

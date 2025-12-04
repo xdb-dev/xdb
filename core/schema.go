@@ -4,10 +4,8 @@ import (
 	"github.com/gojekfarm/xtools/errors"
 )
 
-var (
-	// ErrInvalidSchema is returned when an invalid Schema is encountered.
-	ErrInvalidSchema = errors.New("[xdb/core] invalid Schema")
-)
+// ErrInvalidSchema is returned when an invalid Schema is encountered.
+var ErrInvalidSchema = errors.New("[xdb/core] invalid Schema")
 
 // Schema is a name of a schema.
 type Schema struct {

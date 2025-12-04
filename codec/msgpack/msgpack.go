@@ -33,7 +33,7 @@ func (c *Codec) EncodeTuple(tuple *core.Tuple) ([]byte, []byte, error) {
 }
 
 // DecodeTuple decodes a key-value pair to a [core.Tuple].
-func (c *Codec) DecodeTuple(key []byte, value []byte) (*core.Tuple, error) {
+func (c *Codec) DecodeTuple(key, value []byte) (*core.Tuple, error) {
 	uri, err := c.DecodeURI(key)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (c *Codec) DecodeValue(data []byte) (*core.Value, error) {
 	return unmarshalValue(data)
 }
 
-// value is the msgpack wire format for a core.Value
+// value is the msgpack wire format for a core.Value.
 type value struct {
 	TypeID core.TID `msgpack:"t"`
 	Data   any      `msgpack:"d"`
@@ -148,73 +148,88 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 
 	switch decoded.TypeID {
 	case core.TIDArray:
-		rawArr, ok := decoded.Data.([]any)
-		if !ok {
-			return nil, codec.ErrDecodingValue
-		}
-
-		arr := make([]*core.Value, len(rawArr))
-		for i, elem := range rawArr {
-			elemBytes, ok := elem.([]byte)
-			if !ok {
-				return nil, codec.ErrDecodingValue
-			}
-			v, err := unmarshalValue(elemBytes)
-			if err != nil {
-				return nil, err
-			}
-			arr[i] = v
-		}
-		return core.NewSafeValue(arr)
+		return unmarshalArray(decoded.Data)
 	case core.TIDMap:
-		rawMap, ok := decoded.Data.(map[string]any)
-		if !ok {
-			// Try map[string][]byte as fallback for msgpack which might preserve types
-			if rawMapBytes, bytesOk := decoded.Data.(map[string][]byte); bytesOk {
-				rawMap = make(map[string]any, len(rawMapBytes))
-				for k, v := range rawMapBytes {
-					rawMap[k] = v
-				}
-			} else {
-				return nil, codec.ErrDecodingValue
-			}
-		}
-		mp := make(map[*core.Value]*core.Value, len(rawMap))
-		for kStr, vAny := range rawMap {
-			kVal, err := unmarshalValue([]byte(kStr))
-			if err != nil {
-				return nil, err
-			}
-
-			var vBytes []byte
-			// Handle both []byte and other types
-			if vBytes, ok = vAny.([]byte); !ok {
-				// If not []byte, try to marshal it back to get bytes
-				// This handles cases where msgpack unmarshals to different types
-				var err error
-				vBytes, err = msgpack.Marshal(vAny)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			vVal, err := unmarshalValue(vBytes)
-			if err != nil {
-				return nil, err
-			}
-			mp[kVal] = vVal
-		}
-		return core.NewSafeValue(mp)
+		return unmarshalMap(decoded.Data)
 	case core.TIDTime:
-		unixtime, ok := decoded.Data.(int64)
-		if !ok {
-			return nil, codec.ErrDecodingValue
-		}
-
-		t := time.UnixMilli(unixtime).UTC()
-
-		return core.NewSafeValue(t)
+		return unmarshalTime(decoded.Data)
 	default:
 		return core.NewSafeValue(decoded.Data)
 	}
+}
+
+func unmarshalArray(data any) (*core.Value, error) {
+	rawArr, ok := data.([]any)
+	if !ok {
+		return nil, codec.ErrDecodingValue
+	}
+
+	arr := make([]*core.Value, len(rawArr))
+	for i, elem := range rawArr {
+		elemBytes, ok := elem.([]byte)
+		if !ok {
+			return nil, codec.ErrDecodingValue
+		}
+		v, err := unmarshalValue(elemBytes)
+		if err != nil {
+			return nil, err
+		}
+		arr[i] = v
+	}
+	return core.NewSafeValue(arr)
+}
+
+func unmarshalMap(data any) (*core.Value, error) {
+	rawMap, ok := data.(map[string]any)
+	if !ok {
+		// Try map[string][]byte as fallback for msgpack which might preserve types
+		if rawMapBytes, bytesOk := data.(map[string][]byte); bytesOk {
+			rawMap = make(map[string]any, len(rawMapBytes))
+			for k, v := range rawMapBytes {
+				rawMap[k] = v
+			}
+		} else {
+			return nil, codec.ErrDecodingValue
+		}
+	}
+
+	mp := make(map[*core.Value]*core.Value, len(rawMap))
+	for kStr, vAny := range rawMap {
+		kVal, err := unmarshalValue([]byte(kStr))
+		if err != nil {
+			return nil, err
+		}
+
+		vBytes, err := getValueBytes(vAny)
+		if err != nil {
+			return nil, err
+		}
+
+		vVal, err := unmarshalValue(vBytes)
+		if err != nil {
+			return nil, err
+		}
+		mp[kVal] = vVal
+	}
+	return core.NewSafeValue(mp)
+}
+
+func unmarshalTime(data any) (*core.Value, error) {
+	unixtime, ok := data.(int64)
+	if !ok {
+		return nil, codec.ErrDecodingValue
+	}
+
+	t := time.UnixMilli(unixtime).UTC()
+	return core.NewSafeValue(t)
+}
+
+func getValueBytes(v any) ([]byte, error) {
+	if vBytes, ok := v.([]byte); ok {
+		return vBytes, nil
+	}
+
+	// If not []byte, try to marshal it back to get bytes
+	// This handles cases where msgpack unmarshals to different types
+	return msgpack.Marshal(v)
 }

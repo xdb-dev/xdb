@@ -24,7 +24,7 @@ type KVEncoder interface {
 type KVDecoder interface {
 	DecodeURI(data []byte) (*core.URI, error)
 	DecodeValue(data []byte) (*core.Value, error)
-	DecodeTuple(key []byte, value []byte) (*core.Tuple, error)
+	DecodeTuple(key, value []byte) (*core.Tuple, error)
 }
 
 // KVCodec is an interface for encoding and decoding XDB types to key-value pairs.

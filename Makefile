@@ -44,7 +44,7 @@ report: coverage ##@tests Generates html coverage report
 
 GOLANGCI_LINT = go tool -modfile=$(TOOLS_MODULE) golangci-lint
 golangci-lint:
-	$(call go-get-tool,github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
+	$(call go-get-tool,github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.7.0)
 
 GOCOV = go tool -modfile=$(TOOLS_MODULE) gocov
 gocov:

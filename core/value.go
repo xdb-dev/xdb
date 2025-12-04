@@ -3,12 +3,12 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gojekfarm/xtools/errors"
-	"slices"
 )
 
 var (
@@ -73,68 +73,74 @@ func newValue(iv reflect.Value) (*Value, error) {
 	case reflect.String:
 		return &Value{typ: TypeString, data: iv.String()}, nil
 	case reflect.Struct:
-		// Well-known types
 		if iv.Type() == reflect.TypeOf(time.Time{}) {
 			return &Value{typ: TypeTime, data: iv.Interface().(time.Time)}, nil
 		}
 
 		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
 	case reflect.Slice, reflect.Array:
-		// Special case for []byte
-		if iv.Type().Elem().Kind() == reflect.Uint8 {
-			return &Value{typ: TypeBytes, data: iv.Bytes()}, nil
-		}
-
-		if iv.Len() == 0 {
-			return nil, nil
-		}
-
-		arr := make([]*Value, iv.Len())
-		for i := 0; i < iv.Len(); i++ {
-			v, err := NewSafeValue(iv.Index(i).Interface())
-			if err != nil {
-				return nil, err
-			}
-			arr[i] = v
-		}
-
-		arrayType := NewArrayType(arr[0].Type().ID())
-
-		return &Value{typ: arrayType, data: arr}, nil
+		return newArrayValue(iv)
 	case reflect.Map:
-		if iv.Len() == 0 {
-			return nil, nil
-		}
-
-		mp := make(map[*Value]*Value)
-		keys := iv.MapKeys()
-
-		var firstKey, firstValue *Value
-
-		for i, key := range keys {
-			k, err := NewSafeValue(key.Interface())
-			if err != nil {
-				return nil, err
-			}
-
-			v, err := NewSafeValue(iv.MapIndex(key).Interface())
-			if err != nil {
-				return nil, err
-			}
-
-			if i == 0 {
-				firstKey = k
-				firstValue = v
-			}
-
-			mp[k] = v
-		}
-
-		mapType := NewMapType(firstKey.Type().ID(), firstValue.Type().ID())
-		return &Value{typ: mapType, data: mp}, nil
+		return newMapValue(iv)
 	default:
 		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
 	}
+}
+
+func newArrayValue(iv reflect.Value) (*Value, error) {
+	if iv.Type().Elem().Kind() == reflect.Uint8 {
+		return &Value{typ: TypeBytes, data: iv.Bytes()}, nil
+	}
+
+	if iv.Len() == 0 {
+		return nil, nil
+	}
+
+	arr := make([]*Value, iv.Len())
+	for i := 0; i < iv.Len(); i++ {
+		v, err := NewSafeValue(iv.Index(i).Interface())
+		if err != nil {
+			return nil, err
+		}
+		arr[i] = v
+	}
+
+	arrayType := NewArrayType(arr[0].Type().ID())
+
+	return &Value{typ: arrayType, data: arr}, nil
+}
+
+func newMapValue(iv reflect.Value) (*Value, error) {
+	if iv.Len() == 0 {
+		return nil, nil
+	}
+
+	mp := make(map[*Value]*Value)
+	keys := iv.MapKeys()
+
+	var firstKey, firstValue *Value
+
+	for i, key := range keys {
+		k, err := NewSafeValue(key.Interface())
+		if err != nil {
+			return nil, err
+		}
+
+		v, err := NewSafeValue(iv.MapIndex(key).Interface())
+		if err != nil {
+			return nil, err
+		}
+
+		if i == 0 {
+			firstKey = k
+			firstValue = v
+		}
+
+		mp[k] = v
+	}
+
+	mapType := NewMapType(firstKey.Type().ID(), firstValue.Type().ID())
+	return &Value{typ: mapType, data: mp}, nil
 }
 
 // Type returns the type of the value.

@@ -11,8 +11,7 @@ import (
 )
 
 // Codec implements the KVCodec interface using JSON encoding.
-type Codec struct {
-}
+type Codec struct{}
 
 // New creates a new JSON codec.
 func New() *Codec {
@@ -35,7 +34,7 @@ func (c *Codec) EncodeTuple(tuple *core.Tuple) ([]byte, []byte, error) {
 }
 
 // DecodeTuple decodes a key-value pair to a [core.Tuple].
-func (c *Codec) DecodeTuple(key []byte, value []byte) (*core.Tuple, error) {
+func (c *Codec) DecodeTuple(key, value []byte) (*core.Tuple, error) {
 	uri, err := c.DecodeURI(key)
 	if err != nil {
 		return nil, err
@@ -81,7 +80,7 @@ func (c *Codec) DecodeValue(data []byte) (*core.Value, error) {
 	return unmarshalValue(data)
 }
 
-// value is the msgpack wire format for a core.Value
+// value is the msgpack wire format for a core.Value.
 type value struct {
 	TypeID core.TID `json:"t"`
 	Data   any      `json:"d"`
@@ -134,6 +133,72 @@ func marshalValue(v *core.Value) ([]byte, error) {
 	}
 }
 
+func convertToBytes(data any) ([]byte, error) {
+	if b, ok := data.([]byte); ok {
+		return b, nil
+	}
+
+	if s, ok := data.(string); ok {
+		return base64.StdEncoding.DecodeString(s)
+	}
+
+	return nil, codec.ErrDecodingValue
+}
+
+func unmarshalArray(rawArr []any) (*core.Value, error) {
+	arr := make([]*core.Value, len(rawArr))
+	for i, elem := range rawArr {
+		elemBytes, err := convertToBytes(elem)
+		if err != nil {
+			return nil, err
+		}
+
+		v, err := unmarshalValue(elemBytes)
+		if err != nil {
+			return nil, err
+		}
+		arr[i] = v
+	}
+	return core.NewSafeValue(arr)
+}
+
+func unmarshalMap(rawMap map[string]any) (*core.Value, error) {
+	mp := make(map[*core.Value]*core.Value, len(rawMap))
+	for kStr, vAny := range rawMap {
+		kVal, err := unmarshalValue([]byte(kStr))
+		if err != nil {
+			return nil, err
+		}
+
+		vBytes, err := convertToBytes(vAny)
+		if err != nil {
+			return nil, err
+		}
+
+		vVal, err := unmarshalValue(vBytes)
+		if err != nil {
+			return nil, err
+		}
+		mp[kVal] = vVal
+	}
+	return core.NewSafeValue(mp)
+}
+
+func unmarshalTime(data any) (*core.Value, error) {
+	var unixtime int64
+
+	if i, ok := data.(int64); ok {
+		unixtime = i
+	} else if f, ok := data.(float64); ok {
+		unixtime = int64(f)
+	} else {
+		return nil, codec.ErrDecodingValue
+	}
+
+	t := time.UnixMilli(unixtime).UTC()
+	return core.NewSafeValue(t)
+}
+
 func unmarshalValue(b []byte) (*core.Value, error) {
 	if len(b) == 0 {
 		return nil, nil
@@ -154,97 +219,26 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 		if !ok {
 			return nil, codec.ErrDecodingValue
 		}
-
-		arr := make([]*core.Value, len(rawArr))
-		for i, elem := range rawArr {
-			var elemBytes []byte
-			var ok bool
-
-			// Handle both []byte and base64 string cases
-			if elemBytes, ok = elem.([]byte); !ok {
-				if elemStr, strOk := elem.(string); strOk {
-					// Decode base64 string back to bytes
-					var err error
-					elemBytes, err = base64.StdEncoding.DecodeString(elemStr)
-					if err != nil {
-						return nil, err
-					}
-				} else {
-					return nil, codec.ErrDecodingValue
-				}
-			}
-
-			v, err := unmarshalValue(elemBytes)
-			if err != nil {
-				return nil, err
-			}
-			arr[i] = v
-		}
-		return core.NewSafeValue(arr)
+		return unmarshalArray(rawArr)
 	case core.TIDMap:
 		rawMap, ok := decoded.Data.(map[string]any)
 		if !ok {
 			return nil, codec.ErrDecodingValue
 		}
-		mp := make(map[*core.Value]*core.Value, len(rawMap))
-		for kStr, vAny := range rawMap {
-			kVal, err := unmarshalValue([]byte(kStr))
-			if err != nil {
-				return nil, err
-			}
-
-			var vBytes []byte
-			// Handle both []byte and base64 string cases
-			if vBytes, ok = vAny.([]byte); !ok {
-				if vStr, strOk := vAny.(string); strOk {
-					// Decode base64 string back to bytes
-					var err error
-					vBytes, err = base64.StdEncoding.DecodeString(vStr)
-					if err != nil {
-						return nil, err
-					}
-				} else {
-					return nil, codec.ErrDecodingValue
-				}
-			}
-
-			vVal, err := unmarshalValue(vBytes)
-			if err != nil {
-				return nil, err
-			}
-			mp[kVal] = vVal
-		}
-		return core.NewSafeValue(mp)
+		return unmarshalMap(rawMap)
 	case core.TIDTime:
-		var unixtime int64
-		var ok bool
-
-		// Handle both int64 and float64 cases (JSON unmarshals numbers as float64)
-		if unixtime, ok = decoded.Data.(int64); !ok {
-			if f, floatOk := decoded.Data.(float64); floatOk {
-				unixtime = int64(f)
-			} else {
-				return nil, codec.ErrDecodingValue
-			}
-		}
-
-		t := time.UnixMilli(unixtime).UTC()
-
-		return core.NewSafeValue(t)
+		return unmarshalTime(decoded.Data)
 	case core.TIDInteger:
-		// JSON unmarshals numbers as float64, so we need to convert back to int64
 		if f, ok := decoded.Data.(float64); ok {
 			return core.NewSafeValue(int64(f))
 		}
 		return core.NewSafeValue(decoded.Data)
 	case core.TIDUnsigned:
-		// JSON unmarshals numbers as float64, so we need to convert back to uint64
 		if f, ok := decoded.Data.(float64); ok {
 			return core.NewSafeValue(uint64(f))
 		}
 		return core.NewSafeValue(decoded.Data)
 	case core.TIDBytes:
-		// JSON unmarshals []byte as base64 string, so we need to decode it back
 		if s, ok := decoded.Data.(string); ok {
 			decodedBytes, err := base64.StdEncoding.DecodeString(s)
 			if err != nil {

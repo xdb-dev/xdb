@@ -9,10 +9,8 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-var (
-	// ErrNotFound is returned when a resource is not found.
-	ErrNotFound = errors.New("xdb/driver: not found")
-)
+// ErrNotFound is returned when a resource is not found.
+var ErrNotFound = errors.New("xdb/driver: not found")
 
 // SchemaReader is an interface for reading schemas.
 type SchemaReader interface {

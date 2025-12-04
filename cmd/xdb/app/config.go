@@ -3,11 +3,11 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/gojekfarm/xtools/xload"
 	"github.com/gojekfarm/xtools/xload/providers/yaml"
-	"log/slog"
 
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
 	"github.com/xdb-dev/xdb/driver/xdbsqlite"
@@ -47,7 +47,7 @@ func LoadConfig(ctx context.Context, configPath string) (*Config, error) {
 	return cfg, err
 }
 
-// createLoader creates the appropriate loader chain based on config file availability
+// createLoader creates the appropriate loader chain based on config file availability.
 func createLoader(configPath string) (xload.Loader, error) {
 	var yamlPath string
 
@@ -74,7 +74,7 @@ func createLoader(configPath string) (xload.Loader, error) {
 	return xload.SerialLoader(xload.OSLoader()), nil
 }
 
-// findDefaultConfigFile checks for default config files and returns the first one found
+// findDefaultConfigFile checks for default config files and returns the first one found.
 func findDefaultConfigFile() string {
 	candidates := []string{"xdb.yaml", "xdb.yml"}
 

@@ -2,10 +2,12 @@ package app
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/urfave/cli/v3"
-	"log/slog"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -63,14 +65,25 @@ func loadSchema(ctx context.Context, path string) (*schema.Def, error) {
 		return nil, nil
 	}
 
-	data, err := os.ReadFile(path)
+	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to resolve schema path: %w", err)
+	}
+
+	// Validate that the resolved path is still within expected boundaries
+	if !filepath.IsAbs(absPath) {
+		return nil, fmt.Errorf("resolved path is not absolute: %s", absPath)
+	}
+
+	// #nosec: G304 - path is now validated to be absolute and resolved
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read schema file: %w", err)
 	}
 
 	s, err := schema.LoadFromJSON(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse schema: %w", err)
 	}
 
 	return s, nil

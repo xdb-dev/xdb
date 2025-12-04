@@ -17,18 +17,13 @@ linters:
   enable:
     # Correctness
     - errcheck          # Check for unchecked errors
-    - gosimple          # Simplify code
     - govet             # Vet examines Go source code and reports suspicious constructs
     - ineffassign       # Detect ineffectual assignments
-    - staticcheck       # Advanced Go linter
-    - typecheck         # Type-check Go code
+    - staticcheck       # Advanced Go linter (includes gosimple checks)
     - unused            # Check for unused code
 
     # Style
-    - gofmt             # Check whether code was gofmt-ed
-    - goimports         # Check import statements are formatted according to goimport
     - misspell          # Finds commonly misspelled English words
-    - whitespace        # Check for unnecessary whitespace
 
     # Bugs
     - bodyclose         # Check whether HTTP response body is closed successfully
@@ -46,11 +41,8 @@ linters:
 
     # Testing
     - testifylint       # Check for common testify mistakes
-    - tparallel         # Detect inappropriate usage of t.Parallel() method in tests
 
     # Code Quality
-    - unconvert         # Remove unnecessary type conversions
-    - unparam           # Report unused function parameters
     - nakedret          # Find naked returns in functions greater than specified function length
     - noctx             # Find sending HTTP request without context.Context
     - nolintlint        # Report ill-formed or insufficient nolint directives

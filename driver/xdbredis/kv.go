@@ -27,7 +27,7 @@ type KVStore struct {
 	codec codec.KVCodec
 }
 
-// New creates a new Redis driver
+// New creates a new Redis driver.
 func New(c *redis.Client) *KVStore {
 	return &KVStore{db: c, codec: msgpack.New()}
 }
