@@ -13,11 +13,12 @@ import (
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
-	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 )
 
 type Storer interface {
-	driver.RepoDriver
+	driver.SchemaDriver
+	driver.TupleDriver
+	driver.RecordDriver
 }
 
 type Server struct {
@@ -65,18 +66,11 @@ func (s *Server) Run(ctx context.Context) error {
 func (s *Server) initStore() error {
 	switch {
 	case s.cfg.Store.SQLite != nil:
-		slog.Info("[SERVER] Initializing SQLite store", "dir", s.cfg.Store.SQLite.Dir)
-
-		store, err := xdbsqlite.New(*s.cfg.Store.SQLite)
-		if err != nil {
-			return err
-		}
-		s.store = store
+		slog.Info("[SERVER] Initializing SQLite store not yet fully supported, using in-memory store")
+		s.store = xdbmemory.New()
 	default:
 		slog.Info("[SERVER] Initializing in-memory store")
-
 		s.store = xdbmemory.New()
-
 	}
 
 	return nil
@@ -92,14 +86,29 @@ func (s *Server) initMiddlewares() error {
 func (s *Server) registerRoutes() error {
 	s.mux = http.NewServeMux()
 
-	repoAPI := api.NewRepoAPI(s.store)
+	schemaAPI := api.NewSchemaAPI(s.store)
 
-	makeRepo := xapi.NewEndpoint(
-		xapi.EndpointFunc[api.MakeRepoRequest, api.MakeRepoResponse](repoAPI.MakeRepo()),
+	putSchema := xapi.NewEndpoint(
+		xapi.EndpointFunc[api.PutSchemaRequest, api.PutSchemaResponse](schemaAPI.PutSchema()),
+		xapi.WithMiddleware(s.middlewares...),
+	)
+	getSchema := xapi.NewEndpoint(
+		xapi.EndpointFunc[api.GetSchemaRequest, api.GetSchemaResponse](schemaAPI.GetSchema()),
+		xapi.WithMiddleware(s.middlewares...),
+	)
+	listSchemas := xapi.NewEndpoint(
+		xapi.EndpointFunc[api.ListSchemasRequest, api.ListSchemasResponse](schemaAPI.ListSchemas()),
+		xapi.WithMiddleware(s.middlewares...),
+	)
+	deleteSchema := xapi.NewEndpoint(
+		xapi.EndpointFunc[api.DeleteSchemaRequest, api.DeleteSchemaResponse](schemaAPI.DeleteSchema()),
 		xapi.WithMiddleware(s.middlewares...),
 	)
 
-	s.mux.Handle("POST /v1/repos", makeRepo.Handler())
+	s.mux.Handle("PUT /v1/schemas", putSchema.Handler())
+	s.mux.Handle("GET /v1/schemas/{uri...}", getSchema.Handler())
+	s.mux.Handle("GET /v1/schemas", listSchemas.Handler())
+	s.mux.Handle("DELETE /v1/schemas/{uri...}", deleteSchema.Handler())
 
 	return nil
 }

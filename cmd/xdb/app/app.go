@@ -10,14 +10,15 @@ import (
 
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
-	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 )
 
 type App struct {
 	cfg     *Config
 	cleanup []func() error // cleanup functions to be called on shutdown
 
-	RepoDriver driver.RepoDriver
+	SchemaDriver driver.SchemaDriver
+	TupleDriver  driver.TupleDriver
+	RecordDriver driver.RecordDriver
 }
 
 func New(cfg *Config) (*App, error) {
@@ -33,22 +34,18 @@ func New(cfg *Config) (*App, error) {
 func (a *App) initStore() error {
 	switch {
 	case a.cfg.Store.SQLite != nil:
-		slog.Info("[APP] Initializing SQLite store", "dir", a.cfg.Store.SQLite.Dir)
-
-		store, err := xdbsqlite.New(*a.cfg.Store.SQLite)
-		if err != nil {
-			return err
-		}
-		a.RepoDriver = store
-
-		a.registerCleanup(func() error {
-			return store.Close()
-		})
+		slog.Info("[APP] SQLite store not yet fully implemented, using in-memory store")
+		store := xdbmemory.New()
+		a.SchemaDriver = store
+		a.TupleDriver = store
+		a.RecordDriver = store
 	default:
 		slog.Info("[APP] Initializing in-memory store")
 
 		store := xdbmemory.New()
-		a.RepoDriver = store
+		a.SchemaDriver = store
+		a.TupleDriver = store
+		a.RecordDriver = store
 	}
 
 	return nil

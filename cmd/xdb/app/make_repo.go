@@ -13,19 +13,29 @@ import (
 
 func MakeRepo(ctx context.Context, cmd *cli.Command) error {
 	config := cmd.String("config")
+	ns := cmd.String("ns")
 	name := cmd.String("name")
 	schemaPath := cmd.String("schema")
 
-	slog.Info("[XDB] Making repo", "name", name, "schema", schemaPath)
+	slog.Info("[XDB] Creating schema", "ns", ns, "name", name, "schema", schemaPath)
 
 	cfg, err := LoadConfig(ctx, config)
 	if err != nil {
 		return err
 	}
 
-	schema, err := loadSchema(ctx, schemaPath)
+	schemaDef, err := loadSchema(ctx, schemaPath)
 	if err != nil {
 		return err
+	}
+
+	if schemaDef == nil {
+		schemaDef = &schema.Def{
+			Name: name,
+			Mode: schema.ModeFlexible,
+		}
+	} else {
+		schemaDef.Name = name
 	}
 
 	app, err := New(cfg)
@@ -33,26 +43,22 @@ func MakeRepo(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	var repo *core.Repo
-	if schema != nil {
-		schema.Name = name
-		repo, err = core.NewRepo(schema)
-	} else {
-		repo, err = core.NewRepo(name)
-	}
+	uri, err := core.ParseURI("xdb://" + ns + "/" + name)
 	if err != nil {
 		return err
 	}
 
-	err = app.RepoDriver.MakeRepo(ctx, repo)
+	err = app.SchemaDriver.PutSchema(ctx, uri, schemaDef)
 	if err != nil {
 		return err
 	}
+
+	slog.Info("[XDB] Schema created successfully", "uri", uri.String())
 
 	return app.Shutdown(ctx)
 }
 
-func loadSchema(ctx context.Context, path string) (*core.Schema, error) {
+func loadSchema(ctx context.Context, path string) (*schema.Def, error) {
 	if path == "" {
 		return nil, nil
 	}

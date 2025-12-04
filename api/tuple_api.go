@@ -8,23 +8,18 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
-type TupleStorer interface {
-	driver.TupleReader
-	driver.TupleWriter
-}
-
 type TupleAPI struct {
-	store TupleStorer
+	store driver.TupleDriver
 }
 
-func NewTupleAPI(store TupleStorer) *TupleAPI {
+func NewTupleAPI(store driver.TupleDriver) *TupleAPI {
 	return &TupleAPI{store: store}
 }
 
 func (s *TupleAPI) PutTuples() EndpointFunc[PutTuplesRequest, PutTuplesResponse] {
 	return func(ctx context.Context, req *PutTuplesRequest) (*PutTuplesResponse, error) {
 		tuples := x.Map(*req, func(tuple *Tuple) *core.Tuple {
-			return core.NewTuple(tuple.Repo, tuple.ID, tuple.Attr, tuple.Value)
+			return core.NewTuple(tuple.ID, tuple.Attr, tuple.Value)
 		})
 
 		err := s.store.PutTuples(ctx, tuples)
@@ -38,8 +33,12 @@ func (s *TupleAPI) PutTuples() EndpointFunc[PutTuplesRequest, PutTuplesResponse]
 
 func (s *TupleAPI) GetTuples() EndpointFunc[GetTuplesRequest, GetTuplesResponse] {
 	return func(ctx context.Context, req *GetTuplesRequest) (*GetTuplesResponse, error) {
-		uris := x.Map(*req, func(uri *URI) *core.URI {
-			return core.NewURI(uri.Repo, uri.ID, uri.Attr)
+		uris := x.Map(*req, func(uriStr string) *core.URI {
+			uri, err := core.ParseURI(uriStr)
+			if err != nil {
+				panic(err)
+			}
+			return uri
 		})
 
 		tuples, missing, err := s.store.GetTuples(ctx, uris)
@@ -49,14 +48,13 @@ func (s *TupleAPI) GetTuples() EndpointFunc[GetTuplesRequest, GetTuplesResponse]
 
 		resTuples := x.Map(tuples, func(tuple *core.Tuple) *Tuple {
 			return &Tuple{
-				Repo:  tuple.Repo(),
-				ID:    tuple.ID(),
-				Attr:  tuple.Attr(),
+				ID:    tuple.URI().ID().String(),
+				Attr:  tuple.Attr().String(),
 				Value: tuple.Value().Unwrap(),
 			}
 		})
-		resMissing := x.Map(missing, func(uri *core.URI) *URI {
-			return &URI{Repo: uri.Repo(), ID: uri.ID(), Attr: uri.Attr()}
+		resMissing := x.Map(missing, func(uri *core.URI) string {
+			return uri.String()
 		})
 
 		return &GetTuplesResponse{Tuples: resTuples, Missing: resMissing}, nil
@@ -65,8 +63,12 @@ func (s *TupleAPI) GetTuples() EndpointFunc[GetTuplesRequest, GetTuplesResponse]
 
 func (s *TupleAPI) DeleteTuples() EndpointFunc[DeleteTuplesRequest, DeleteTuplesResponse] {
 	return func(ctx context.Context, req *DeleteTuplesRequest) (*DeleteTuplesResponse, error) {
-		uris := x.Map(*req, func(uri *URI) *core.URI {
-			return core.NewURI(uri.Repo, uri.ID, uri.Attr)
+		uris := x.Map(*req, func(uriStr string) *core.URI {
+			uri, err := core.ParseURI(uriStr)
+			if err != nil {
+				panic(err)
+			}
+			return uri
 		})
 
 		err := s.store.DeleteTuples(ctx, uris)
@@ -82,13 +84,13 @@ type PutTuplesRequest []*Tuple
 
 type PutTuplesResponse struct{}
 
-type GetTuplesRequest []*URI
+type GetTuplesRequest []string
 
 type GetTuplesResponse struct {
-	Tuples  []*Tuple
-	Missing []*URI
+	Tuples  []*Tuple `json:"tuples"`
+	Missing []string `json:"missing"`
 }
 
-type DeleteTuplesRequest []*URI
+type DeleteTuplesRequest []string
 
 type DeleteTuplesResponse struct{}

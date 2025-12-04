@@ -29,9 +29,8 @@ func TestTupleAPI(t *testing.T) {
 		req := &api.PutTuplesRequest{}
 		for _, tuple := range tuples {
 			*req = append(*req, &api.Tuple{
-				Repo:  tuple.Repo(),
-				ID:    tuple.ID(),
-				Attr:  tuple.Attr(),
+				ID:    tuple.URI().Path(),
+				Attr:  tuple.Attr().String(),
 				Value: tuple.Value().Unwrap(),
 			})
 		}
@@ -44,11 +43,7 @@ func TestTupleAPI(t *testing.T) {
 	t.Run("GetTuples", func(t *testing.T) {
 		req := &api.GetTuplesRequest{}
 		for _, uri := range uris {
-			*req = append(*req, &api.URI{
-				Repo: uri.Repo(),
-				ID:   uri.ID(),
-				Attr: uri.Attr(),
-			})
+			*req = append(*req, uri.String())
 		}
 
 		res, err := getEndpoint(ctx, req)
@@ -61,11 +56,7 @@ func TestTupleAPI(t *testing.T) {
 	t.Run("DeleteTuples", func(t *testing.T) {
 		req := &api.DeleteTuplesRequest{}
 		for _, uri := range uris {
-			*req = append(*req, &api.URI{
-				Repo: uri.Repo(),
-				ID:   uri.ID(),
-				Attr: uri.Attr(),
-			})
+			*req = append(*req, uri.String())
 		}
 
 		res, err := deleteEndpoint(ctx, req)
@@ -76,11 +67,7 @@ func TestTupleAPI(t *testing.T) {
 	t.Run("VerifyDeleted", func(t *testing.T) {
 		req := &api.GetTuplesRequest{}
 		for _, uri := range uris {
-			*req = append(*req, &api.URI{
-				Repo: uri.Repo(),
-				ID:   uri.ID(),
-				Attr: uri.Attr(),
-			})
+			*req = append(*req, uri.String())
 		}
 
 		res, err := getEndpoint(ctx, req)

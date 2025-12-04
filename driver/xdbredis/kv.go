@@ -69,7 +69,8 @@ func (kv *KVStore) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tup
 			return nil, nil, err
 		}
 
-		tuple := core.NewTuple(uri.Repo(), uri.ID(), uri.Attr(), val)
+		path := uri.NS().String() + "/" + uri.Schema().String() + "/" + uri.ID().String()
+		tuple := core.NewTuple(path, uri.Attr().String(), val.Unwrap())
 		tuples = append(tuples, tuple)
 	}
 
@@ -146,17 +147,15 @@ func (kv *KVStore) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Re
 			continue
 		}
 
-		repo := uri.Repo()
-		record := core.NewRecord(repo, uri.ID().String())
+		record := core.NewRecord(uri.NS().String(), uri.Schema().String(), uri.ID().String())
 
 		for attr, val := range attrs {
-			decodedAttr := core.NewAttr(attr)
 			decodedVal, err := kv.codec.DecodeValue([]byte(val))
 			if err != nil {
 				return nil, nil, err
 			}
 
-			record.Set(decodedAttr, decodedVal)
+			record.Set(attr, decodedVal)
 		}
 
 		records = append(records, record)
