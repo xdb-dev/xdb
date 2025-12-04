@@ -6,27 +6,16 @@ TOOLS_MODULE := $(PROJECT_DIR)/tools.mod
 export GOEXPERIMENT=jsonv2
 
 # DEVELOPMENT
-.PHONY: setup fmt vet lint check imports tidy
+.PHONY: setup lint check tidy
 
 setup: ##@development Setup the project and update dependencies
 	go mod tidy
 
-check: ##@development Runs formatting, vetting and linting
-check: tidy
-check: imports
-check: fmt vet lint
+check: ##@development Runs linting and formatting
+check: tidy lint
 
-fmt: ##@development Runs go fmt to format the code
-	@$(call run-go-mod-dir,go fmt ./...,"go fmt")
-
-vet: ##@development Runs go vet to check for errors
-	@$(call run-go-mod-dir,go vet ./...,"go vet")
-
-lint: revive ##@development Runs revive to lint the code
-	@$(call run-go-mod-dir,$(REVIVE) -config $(PROJECT_DIR)/revive.toml ./...,"revive")
-
-imports: gci ##@development Runs gci to format imports
-	@$(call run-go-mod-dir,$(GCI) -w -local github.com/xdb-dev/xdb ./ | { grep -v -e 'skip file .*' || true; },"gci")
+lint: golangci-lint ##@development Runs golangci-lint (includes formatting, vetting, and linting)
+	@$(call run-go-mod-dir,$(GOLANGCI_LINT) run --fix --config $(PROJECT_DIR)/.golangci.yml ./...,"golangci-lint")
 
 tidy: ##@development Runs go mod tidy to update dependencies
 	@$(call run-go-mod-dir,go mod tidy,"go mod tidy")
@@ -53,13 +42,9 @@ report: coverage ##@tests Generates html coverage report
 
 # TOOLS
 
-GCI = go tool -modfile=$(TOOLS_MODULE) gci
-gci:
-	$(call go-get-tool,github.com/daixiang0/gci@v0.2.9)
-
-REVIVE = go tool -modfile=$(TOOLS_MODULE) revive
-revive:
-	$(call go-get-tool,github.com/mgechev/revive@latest)
+GOLANGCI_LINT = go tool -modfile=$(TOOLS_MODULE) golangci-lint
+golangci-lint:
+	$(call go-get-tool,github.com/golangci/golangci-lint/cmd/golangci-lint@latest)
 
 GOCOV = go tool -modfile=$(TOOLS_MODULE) gocov
 gocov:

@@ -1,0 +1,155 @@
+version: "2"
+
+run:
+  tests: false
+  timeout: 5m
+  skip-dirs:
+    - bin
+  skip-files:
+    - ".*mock.*\\.go$"
+    - "version\\.go$"
+    - ".*_test\\.go$"
+    - "generate\\.go$"
+  modules-download-mode: readonly
+
+linters:
+  disable-all: true
+  enable:
+    # Correctness
+    - errcheck          # Check for unchecked errors
+    - gosimple          # Simplify code
+    - govet             # Vet examines Go source code and reports suspicious constructs
+    - ineffassign       # Detect ineffectual assignments
+    - staticcheck       # Advanced Go linter
+    - typecheck         # Type-check Go code
+    - unused            # Check for unused code
+
+    # Style
+    - gofmt             # Check whether code was gofmt-ed
+    - goimports         # Check import statements are formatted according to goimport
+    - misspell          # Finds commonly misspelled English words
+    - whitespace        # Check for unnecessary whitespace
+
+    # Bugs
+    - bodyclose         # Check whether HTTP response body is closed successfully
+    - errchkjson        # Check for JSON encoding/decoding errors
+    - nilerr            # Find code that returns nil even if it checks that error is not nil
+    - rowserrcheck      # Check whether Rows.Err is checked successfully
+    - sqlclosecheck     # Check that sql.Rows and sql.Stmt are closed
+
+    # Complexity
+    - gocyclo           # Check cyclomatic complexity
+    - funlen            # Check function length
+
+    # Performance
+    - prealloc          # Find slice declarations that could potentially be pre-allocated
+
+    # Testing
+    - testifylint       # Check for common testify mistakes
+    - tparallel         # Detect inappropriate usage of t.Parallel() method in tests
+
+    # Code Quality
+    - unconvert         # Remove unnecessary type conversions
+    - unparam           # Report unused function parameters
+    - nakedret          # Find naked returns in functions greater than specified function length
+    - noctx             # Find sending HTTP request without context.Context
+    - nolintlint        # Report ill-formed or insufficient nolint directives
+    - goprintffuncname  # Check that printf-like functions are named with f at the end
+    - gosec             # Inspect source code for security problems
+
+    # Documentation
+    - godot             # Check if comments end in a period
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+
+  govet:
+    enable-all: true
+    settings:
+      printf:
+        funcs:
+          - (github.com/rs/zerolog/log).Info
+          - (github.com/rs/zerolog/log).Warn
+          - (github.com/rs/zerolog/log).Error
+          - (github.com/rs/zerolog/log).Fatal
+          - (github.com/rs/zerolog/log).Debug
+      shadow:
+        strict: true
+
+  gocyclo:
+    min-complexity: 15
+
+  funlen:
+    lines: 80
+    statements: 40
+
+  misspell:
+    locale: US
+    ignore-words:
+      - initialised
+      - colour
+
+  nakedret:
+    max-func-lines: 30
+
+  staticcheck:
+    checks: ["all"]
+
+  unused:
+    check-exported: false
+
+  gosec:
+    excludes:
+      - G404  # Use of weak random number generator (math/rand instead of crypto/rand)
+
+  testifylint:
+    enable-all: true
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+
+  settings:
+    gofumpt:
+      module-path: github.com/xdb-dev/xdb
+      extra-rules: true
+    gci:
+      sections:
+        - standard
+        - default
+        - blank
+        - dot
+        - prefix(github.com/xdb-dev/xdb)
+      custom-order: true
+
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - funlen
+        - gocyclo
+        - gosec
+        - errcheck
+
+    # Ignore shadow declarations in tests
+    - path: _test\.go
+      text: 'declaration of "(err|ctx)" shadows declaration at'
+      linters:
+        - govet
+
+    # Ignore deprecation warnings
+    - text: "^SA1019:.* is deprecated:"
+      linters:
+        - staticcheck

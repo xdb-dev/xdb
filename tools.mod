@@ -4,9 +4,8 @@ go 1.24.1
 
 tool (
 	github.com/axw/gocov/gocov
-	github.com/daixiang0/gci
+	github.com/golangci/golangci-lint/cmd/golangci-lint
 	github.com/matm/gocov-html/cmd/gocov-html
-	github.com/mgechev/revive
 )
 
 require (

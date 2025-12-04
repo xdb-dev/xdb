@@ -10,10 +10,7 @@ This file provides guidance for working with code in this repository.
 
 - `make test` - Run all tests with race detection and coverage across all modules
 - `make check` - Run all code quality checks (formatting, vetting, linting)
-- `make fmt` - Format code with `go fmt`
-- `make lint` - Run revive linter
-- `make vet` - Run `go vet`
-- `make imports` - Format imports with gci
+- `make lint` - Run golangci-lint (includes formatting, vetting, and linting with auto-fix)
 - `make tidy` - Run `go mod tidy` on all modules
 - `make setup` - Initial project setup
 
@@ -126,6 +123,6 @@ Group imports with blank lines between groups:
 
 - All exported functions and types must have GoDoc comments
 - Use `context.Context` as the first parameter for functions that need it
-- Linting is enforced via `revive` with configuration in `revive.toml`
+- Linting is enforced via `golangci-lint` with configuration in `.golangci.yml`
 - Make sure to keep GoDoc comments and respective package's `doc.go` up to date
-- Development tools (gci, revive, gocov, etc.) are managed via `tools.mod` and installed using `go get -modfile=tools.mod -tool`
+- Development tools (golangci-lint, gocov, etc.) are managed via `tools.mod` and installed using `go get -modfile=tools.mod -tool`
