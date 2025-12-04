@@ -19,7 +19,6 @@ require (
 )
 
 require (
-	github.com/doug-martin/goqu/v9 v9.19.0 // indirect
 	github.com/gojekfarm/xtools/errors v0.10.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect

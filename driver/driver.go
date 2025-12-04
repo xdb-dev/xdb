@@ -17,12 +17,12 @@ var (
 // SchemaReader is an interface for reading schemas.
 type SchemaReader interface {
 	GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error)
-	ListSchemas(ctx context.Context, ns *core.NS) ([]*schema.Def, error)
+	ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error)
 }
 
 // SchemaWriter is an interface for writing & deleting schemas.
 type SchemaWriter interface {
-	PutSchema(ctx context.Context, ns *core.NS, def *schema.Def) error
+	PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error
 	DeleteSchema(ctx context.Context, uri *core.URI) error
 }
 

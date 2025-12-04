@@ -9,25 +9,29 @@ import (
 	"github.com/gojekfarm/xtools/errors"
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver"
+	"github.com/xdb-dev/xdb/driver/xdbsqlite/internal"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/x"
 )
 
 type SchemaDriverTx struct {
 	tx      *sql.Tx
-	queries *Queries
+	queries *internal.Queries
 }
 
 func NewSchemaDriverTx(tx *sql.Tx) *SchemaDriverTx {
 	return &SchemaDriverTx{
 		tx:      tx,
-		queries: NewQueries(tx),
+		queries: internal.NewQueries(tx),
 	}
 }
 
 func (d *SchemaDriverTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
 	metadata, err := d.queries.GetMetadata(ctx, uri.String())
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, driver.ErrNotFound
+		}
 		return nil, err
 	}
 
@@ -39,8 +43,22 @@ func (d *SchemaDriverTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.
 	return jsonSchema, nil
 }
 
-func (d *SchemaDriverTx) ListSchemas(ctx context.Context, ns *core.NS) ([]*schema.Def, error) {
-	return nil, nil
+func (d *SchemaDriverTx) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
+	metadataList, err := d.queries.ListMetadata(ctx, uri.String())
+	if err != nil {
+		return nil, err
+	}
+
+	schemas := make([]*schema.Def, 0, len(metadataList))
+	for _, metadata := range metadataList {
+		def, err := schema.LoadFromJSON([]byte(metadata.Schema))
+		if err != nil {
+			return nil, err
+		}
+		schemas = append(schemas, def)
+	}
+
+	return schemas, nil
 }
 
 func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
@@ -57,7 +75,7 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 			return err
 		}
 
-		if err = d.queries.AlterSQLTable(ctx, AlterSQLTableParams{
+		if err = d.queries.AlterSQLTable(ctx, internal.AlterSQLTableParams{
 			Name:        tableName,
 			AddColumns:  columnsAdded,
 			DropColumns: columnsRemoved,
@@ -70,7 +88,7 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 			return err
 		}
 
-		err = d.queries.CreateSQLTable(ctx, CreateSQLTableParams{
+		err = d.queries.CreateSQLTable(ctx, internal.CreateSQLTableParams{
 			Name:    tableName,
 			Columns: columns,
 		})
@@ -84,7 +102,7 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 		return err
 	}
 
-	return d.queries.PutMetadata(ctx, PutMetadataParams{
+	return d.queries.PutMetadata(ctx, internal.PutMetadataParams{
 		URI:       uri.String(),
 		Schema:    string(jsonSchema),
 		CreatedAt: time.Now().Unix(),
@@ -116,6 +134,8 @@ func sqliteTypeForField(field *schema.FieldDef) (string, error) {
 		return "TEXT", nil
 	case core.TIDInteger:
 		return "INTEGER", nil
+	case core.TIDUnsigned:
+		return "INTEGER", nil
 	case core.TIDBoolean:
 		return "INTEGER", nil
 	case core.TIDFloat:
@@ -129,7 +149,7 @@ func sqliteTypeForField(field *schema.FieldDef) (string, error) {
 	case core.TIDMap:
 		return "TEXT", nil
 	default:
-		return "", errors.Wrap(ErrUnsupportedType, "type", field.Type.ID().String())
+		return "", errors.Wrap(internal.ErrUnsupportedType, "type", field.Type.ID().String())
 	}
 }
 
@@ -140,17 +160,19 @@ func toSQLiteColumns(fields []*schema.FieldDef) ([][]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		columns[i] = []string{field.Name, sqlType}
+		columns[i] = []string{normalize(field.Name), sqlType}
 	}
 	return columns, nil
 }
 
-func diffFields(existing, schema *schema.Def) ([][]string, []string, error) {
-	fieldsAdded := x.Diff(schema.Fields, existing.Fields, byName)
-	fieldsRemoved := x.Diff(existing.Fields, schema.Fields, byName)
+func diffFields(existing, schemaDef *schema.Def) ([][]string, []string, error) {
+	fieldsAdded := x.Diff(schemaDef.Fields, existing.Fields, byName)
+	fieldsRemoved := x.Diff(existing.Fields, schemaDef.Fields, byName)
 
 	columnsAdded, err := toSQLiteColumns(fieldsAdded)
-	columnsRemoved := x.Map(fieldsRemoved, byName)
+	columnsRemoved := x.Map(fieldsRemoved, func(f *schema.FieldDef) string {
+		return normalize(f.Name)
+	})
 
 	return columnsAdded, columnsRemoved, err
 }

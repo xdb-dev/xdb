@@ -56,11 +56,11 @@ func (d *FSDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, e
 }
 
 // ListSchemas returns all schema definitions in the given namespace.
-func (d *FSDriver) ListSchemas(ctx context.Context, ns *core.NS) ([]*schema.Def, error) {
+func (d *FSDriver) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	nsPath := d.nsPath(ns.String())
+	nsPath := d.nsPath(uri.NS().String())
 	if _, err := os.Stat(nsPath); os.IsNotExist(err) {
 		return []*schema.Def{}, nil
 	}
@@ -98,11 +98,11 @@ func (d *FSDriver) ListSchemas(ctx context.Context, ns *core.NS) ([]*schema.Def,
 }
 
 // PutSchema saves the schema definition.
-func (d *FSDriver) PutSchema(ctx context.Context, ns *core.NS, def *schema.Def) error {
+func (d *FSDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	path := d.schemaPath(ns.String(), def.Name)
+	path := d.schemaPath(uri.NS().String(), def.Name)
 
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err

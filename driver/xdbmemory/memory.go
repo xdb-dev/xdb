@@ -51,27 +51,29 @@ func (d *MemoryDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.De
 }
 
 // ListSchemas returns all schema definitions in the given namespace.
-func (d *MemoryDriver) ListSchemas(ctx context.Context, ns *core.NS) ([]*schema.Def, error) {
+func (d *MemoryDriver) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
-	if _, ok := d.schemas[ns.String()]; !ok {
+	ns := uri.NS().String()
+	if _, ok := d.schemas[ns]; !ok {
 		return nil, nil
 	}
 
-	return slices.Collect(maps.Values(d.schemas[ns.String()])), nil
+	return slices.Collect(maps.Values(d.schemas[ns])), nil
 }
 
 // PutSchema saves the schema definition.
-func (d *MemoryDriver) PutSchema(ctx context.Context, ns *core.NS, def *schema.Def) error {
+func (d *MemoryDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if _, ok := d.schemas[ns.String()]; !ok {
-		d.schemas[ns.String()] = make(map[string]*schema.Def)
+	ns := uri.NS().String()
+	if _, ok := d.schemas[ns]; !ok {
+		d.schemas[ns] = make(map[string]*schema.Def)
 	}
 
-	d.schemas[ns.String()][def.Name] = def
+	d.schemas[ns][def.Name] = def
 
 	return nil
 }

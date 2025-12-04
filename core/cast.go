@@ -378,7 +378,7 @@ func castArray[T any](v *Value, f func(*Value) (T, error)) ([]T, error) {
 		return nil, nil
 	}
 
-	if v.Type().ID() != TypeIDArray {
+	if v.Type().ID() != TIDArray {
 		return nil, ErrCastFailed
 	}
 

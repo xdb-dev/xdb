@@ -1,4 +1,4 @@
-package xdbsqlite
+package internal
 
 import (
 	"context"
@@ -77,6 +77,33 @@ const deleteMetadataQuery = `
 func (q *Queries) DeleteMetadata(ctx context.Context, uri string) error {
 	_, err := q.tx.ExecContext(ctx, deleteMetadataQuery, uri)
 	return err
+}
+
+const listMetadataQuery = `
+	SELECT uri, schema, created_at, updated_at FROM "_xdb_metadata" WHERE uri LIKE $1
+`
+
+func (q *Queries) ListMetadata(ctx context.Context, uriPrefix string) ([]*PutMetadataParams, error) {
+	rows, err := q.tx.QueryContext(ctx, listMetadataQuery, uriPrefix+"%")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []*PutMetadataParams
+	for rows.Next() {
+		var params PutMetadataParams
+		if err := rows.Scan(&params.URI, &params.Schema, &params.CreatedAt, &params.UpdatedAt); err != nil {
+			return nil, err
+		}
+		results = append(results, &params)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
 
 const createKVTableQuery = `

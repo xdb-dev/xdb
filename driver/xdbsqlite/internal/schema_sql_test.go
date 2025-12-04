@@ -1,4 +1,4 @@
-package xdbsqlite_test
+package internal
 
 import (
 	"context"
@@ -11,15 +11,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-
-	"github.com/xdb-dev/xdb/driver/xdbsqlite"
 )
 
 type QueriesTestSuite struct {
 	suite.Suite
 	db      *sql.DB
 	tx      *sql.Tx
-	queries *xdbsqlite.Queries
+	queries *Queries
 	ctx     context.Context
 }
 
@@ -31,7 +29,7 @@ func (s *QueriesTestSuite) SetupTest() {
 	s.tx, err = s.db.Begin()
 	require.NoError(s.T(), err)
 
-	s.queries = xdbsqlite.NewQueries(s.tx)
+	s.queries = NewQueries(s.tx)
 	s.ctx = context.Background()
 }
 
@@ -71,7 +69,7 @@ func (s *QueriesTestSuite) TestPutAndGetMetadata() {
 	require.NoError(s.T(), err)
 
 	now := time.Now().Unix()
-	params := xdbsqlite.PutMetadataParams{
+	params := PutMetadataParams{
 		URI:       "xdb://com.example/test",
 		Schema:    `{"type": "object"}`,
 		CreatedAt: now,
@@ -92,7 +90,7 @@ func (s *QueriesTestSuite) TestPutMetadataUpsert() {
 	require.NoError(s.T(), err)
 
 	now := time.Now().Unix()
-	params := xdbsqlite.PutMetadataParams{
+	params := PutMetadataParams{
 		URI:       "xdb://com.example/test",
 		Schema:    `{"type": "object"}`,
 		CreatedAt: now,
@@ -103,7 +101,7 @@ func (s *QueriesTestSuite) TestPutMetadataUpsert() {
 	require.NoError(s.T(), err)
 
 	later := now + 100
-	updatedParams := xdbsqlite.PutMetadataParams{
+	updatedParams := PutMetadataParams{
 		URI:       "xdb://com.example/test",
 		Schema:    `{"type": "array"}`,
 		CreatedAt: now,
@@ -134,7 +132,7 @@ func (s *QueriesTestSuite) TestDeleteMetadata() {
 	require.NoError(s.T(), err)
 
 	now := time.Now().Unix()
-	params := xdbsqlite.PutMetadataParams{
+	params := PutMetadataParams{
 		URI:       "xdb://com.example/test",
 		Schema:    `{"type": "object"}`,
 		CreatedAt: now,
@@ -209,7 +207,7 @@ func (s *QueriesTestSuite) TestCreateKVTableIdempotent() {
 }
 
 func (s *QueriesTestSuite) TestCreateSQLTable() {
-	params := xdbsqlite.CreateSQLTableParams{
+	params := CreateSQLTableParams{
 		Name: "users",
 		Columns: [][]string{
 			{"id", "TEXT", "PRIMARY KEY"},
@@ -258,7 +256,7 @@ func (s *QueriesTestSuite) TestCreateSQLTable() {
 }
 
 func (s *QueriesTestSuite) TestCreateSQLTableIdempotent() {
-	params := xdbsqlite.CreateSQLTableParams{
+	params := CreateSQLTableParams{
 		Name: "users",
 		Columns: [][]string{
 			{"id", "TEXT", "PRIMARY KEY"},
@@ -273,7 +271,7 @@ func (s *QueriesTestSuite) TestCreateSQLTableIdempotent() {
 }
 
 func (s *QueriesTestSuite) TestAlterSQLTableAddAndDrop() {
-	createParams := xdbsqlite.CreateSQLTableParams{
+	createParams := CreateSQLTableParams{
 		Name: "users",
 		Columns: [][]string{
 			{"id", "TEXT", "PRIMARY KEY"},
@@ -284,7 +282,7 @@ func (s *QueriesTestSuite) TestAlterSQLTableAddAndDrop() {
 	err := s.queries.CreateSQLTable(s.ctx, createParams)
 	require.NoError(s.T(), err)
 
-	alterParams := xdbsqlite.AlterSQLTableParams{
+	alterParams := AlterSQLTableParams{
 		Name: "users",
 		AddColumns: [][]string{
 			{"new_field", "TEXT"},
@@ -317,7 +315,7 @@ func (s *QueriesTestSuite) TestAlterSQLTableAddAndDrop() {
 }
 
 func (s *QueriesTestSuite) TestDropTable() {
-	params := xdbsqlite.CreateSQLTableParams{
+	params := CreateSQLTableParams{
 		Name: "temp_table",
 		Columns: [][]string{
 			{"id", "TEXT", "PRIMARY KEY"},
@@ -342,7 +340,7 @@ func (s *QueriesTestSuite) TestDropTableNotFound() {
 }
 
 func (s *QueriesTestSuite) TestDropTableIdempotent() {
-	params := xdbsqlite.CreateSQLTableParams{
+	params := CreateSQLTableParams{
 		Name: "temp_table",
 		Columns: [][]string{
 			{"id", "TEXT", "PRIMARY KEY"},
