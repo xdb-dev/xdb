@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver/xdbfs"
@@ -13,13 +14,47 @@ import (
 	"github.com/xdb-dev/xdb/tests"
 )
 
-func TestFSDriver_Schema(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
-	driver, err := xdbfs.New(tmpDir, xdbfs.WithSharedAccess())
-	require.NoError(t, err)
+type FSDriverTestSuite struct {
+	suite.Suite
+	*tests.SchemaDriverTestSuite
+	tmpDir string
+}
 
-	tests.TestSchemaReaderWriter(t, driver)
+func TestFSDriverTestSuite(t *testing.T) {
+	suite.Run(t, new(FSDriverTestSuite))
+}
+
+func (s *FSDriverTestSuite) SetupTest() {
+	tmpDir := s.T().TempDir()
+	driver, err := xdbfs.New(tmpDir, xdbfs.WithSharedAccess())
+	require.NoError(s.T(), err)
+
+	s.tmpDir = tmpDir
+	s.SchemaDriverTestSuite = tests.NewSchemaDriverTestSuite(driver)
+}
+
+func (s *FSDriverTestSuite) TestBasic() {
+	s.SchemaDriverTestSuite.Basic(s.T())
+}
+
+func (s *FSDriverTestSuite) TestListSchemas() {
+	s.SchemaDriverTestSuite.ListSchemas(s.T())
+}
+
+func (s *FSDriverTestSuite) TestAddNewFields() {
+	s.SchemaDriverTestSuite.AddNewFields(s.T())
+}
+
+func (s *FSDriverTestSuite) TestDropFields() {
+	s.SchemaDriverTestSuite.DropFields(s.T())
+}
+
+func (s *FSDriverTestSuite) TestModifyFields() {
+	s.SchemaDriverTestSuite.ModifyFields(s.T())
+}
+
+func (s *FSDriverTestSuite) TestEdgeCases() {
+	s.SchemaDriverTestSuite.EdgeCases(s.T())
 }
 
 // NOTE: Tuple and Record tests are disabled for the filesystem driver due to

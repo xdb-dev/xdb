@@ -71,6 +71,10 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 	}
 
 	if existing != nil {
+		if existing.Mode != def.Mode {
+			return errors.New("[xdb/driver/xdbsqlite] cannot change schema mode")
+		}
+
 		columnsAdded, columnsRemoved, err := diffFields(existing, def)
 		if err != nil {
 			return err

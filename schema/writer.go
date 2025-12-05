@@ -41,6 +41,7 @@ func convertToRaw(schema *Def) (*rawSchema, error) {
 		Name:        schema.Name,
 		Description: schema.Description,
 		Version:     schema.Version,
+		Mode:        string(schema.Mode),
 		Required:    schema.Required,
 		Fields:      make([]rawField, 0, len(schema.Fields)),
 	}

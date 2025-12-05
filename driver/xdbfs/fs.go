@@ -142,7 +142,26 @@ func (d *FSDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	path := d.schemaPath(uri.NS().String(), def.Name)
+	path := d.schemaPath(uri.NS().String(), uri.Schema().String())
+
+	existing, err := d.readSchema(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if existing != nil {
+		if existing.Mode != def.Mode {
+			return driver.ErrSchemaModeChanged
+		}
+
+		for _, newField := range def.Fields {
+			if oldField := existing.GetField(newField.Name); oldField != nil {
+				if !oldField.Type.Equals(newField.Type) {
+					return driver.ErrFieldChangeType
+				}
+			}
+		}
+	}
 
 	if err := os.MkdirAll(filepath.Dir(path), d.dirPerm); err != nil {
 		return err
@@ -154,6 +173,17 @@ func (d *FSDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def
 	}
 
 	return os.WriteFile(path, data, d.filePerm)
+}
+
+// readSchema reads a schema from the filesystem without locking.
+func (d *FSDriver) readSchema(path string) (*schema.Def, error) {
+	// #nosec G304 -- path is constructed internally via sanitized components
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	return schema.LoadFromJSON(data)
 }
 
 // DeleteSchema deletes the schema definition.

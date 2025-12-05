@@ -9,8 +9,16 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-// ErrNotFound is returned when a resource is not found.
-var ErrNotFound = errors.New("xdb/driver: not found")
+var (
+	// ErrSchemaModeChanged is returned when a schema mode is changed.
+	ErrSchemaModeChanged = errors.New("[xdb/driver] cannot change schema mode")
+
+	// ErrFieldChangeType is returned when a field type is changed.
+	ErrFieldChangeType = errors.New("[xdb/driver] cannot change field type")
+
+	// ErrNotFound is returned when a resource is not found.
+	ErrNotFound = errors.New("[xdb/driver] requested resource not found")
+)
 
 // SchemaReader is an interface for reading schemas.
 type SchemaReader interface {

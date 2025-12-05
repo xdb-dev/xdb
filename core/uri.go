@@ -168,6 +168,15 @@ func ParseURI(uri string) (*URI, error) {
 	}, nil
 }
 
+// MustParseURI is like ParseURI but panics if the URI is invalid.
+func MustParseURI(uri string) *URI {
+	parsed, err := ParseURI(uri)
+	if err != nil {
+		panic(err)
+	}
+	return parsed
+}
+
 func isValidComponent(raw string) bool {
 	if raw == "" {
 		return false

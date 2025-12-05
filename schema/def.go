@@ -48,6 +48,7 @@ func (s *Def) Clone() *Def {
 		Name:        s.Name,
 		Description: s.Description,
 		Version:     s.Version,
+		Mode:        s.Mode,
 		Fields:      make([]*FieldDef, 0, len(s.Fields)),
 		Required:    slices.Clone(s.Required),
 	}

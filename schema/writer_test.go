@@ -107,6 +107,7 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
+				Mode:        schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
@@ -119,6 +120,7 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 			name: "Array Types",
 			schema: &schema.Def{
 				Name: "Post",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
 					{Name: "scores", Type: core.NewArrayType(core.TIDInteger)},
@@ -129,6 +131,7 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 			name: "Map Types",
 			schema: &schema.Def{
 				Name: "Config",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
 					{Name: "counts", Type: core.NewMapType(core.TIDString, core.TIDInteger)},
@@ -139,6 +142,7 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 			name: "Nested Fields",
 			schema: &schema.Def{
 				Name: "User",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "profile.bio", Type: core.TypeString},
@@ -284,6 +288,7 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
+				Mode:        schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
@@ -295,6 +300,7 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 			name: "Array Types",
 			schema: &schema.Def{
 				Name: "Post",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
 					{Name: "scores", Type: core.NewArrayType(core.TIDInteger)},
@@ -305,6 +311,7 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 			name: "Map Types",
 			schema: &schema.Def{
 				Name: "Config",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
 					{Name: "counts", Type: core.NewMapType(core.TIDString, core.TIDInteger)},

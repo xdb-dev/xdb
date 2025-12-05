@@ -7,7 +7,6 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
-	"github.com/xdb-dev/xdb/x"
 )
 
 // FakePostSchema creates a fake schema of a Post.
@@ -16,6 +15,7 @@ func FakePostSchema() *schema.Def {
 		Name:        "posts",
 		Description: "Blog post schema",
 		Version:     "1.0.0",
+		Mode:        schema.ModeStrict,
 		Fields: []*schema.FieldDef{
 			{Name: "title", Type: core.TypeString},
 			{Name: "content", Type: core.TypeString},
@@ -63,143 +63,82 @@ func FakePosts(n int) []*core.Record {
 	return records
 }
 
-// FakeTestSchema creates a fake schema covering all XDB types.
-func FakeTestSchema() *schema.Def {
+// FakeAllTypesSchema creates a fake schema covering all XDB types.
+func FakeAllTypesSchema() *schema.Def {
 	return &schema.Def{
 		Name:        "all_types",
 		Description: "Comprehensive test schema covering all types",
 		Version:     "1.0.0",
+		Mode:        schema.ModeStrict,
 		Fields: []*schema.FieldDef{
 			{Name: "string", Type: core.TypeString},
-			{Name: "int", Type: core.TypeInt},
-			{Name: "unsigned", Type: core.TypeUnsigned},
-			{Name: "float", Type: core.TypeFloat},
-			{Name: "bool", Type: core.TypeBool},
-			{Name: "bytes", Type: core.TypeBytes},
-			{Name: "time", Type: core.TypeTime},
 			{Name: "string_array", Type: core.NewArrayType(core.TIDString)},
+			{Name: "int", Type: core.TypeInt},
+			{Name: "int64", Type: core.TypeInt},
+			{Name: "int64_array", Type: core.NewArrayType(core.TIDInteger)},
+			{Name: "unsigned", Type: core.TypeUnsigned},
+			{Name: "unsigned_array", Type: core.NewArrayType(core.TIDUnsigned)},
+			{Name: "float", Type: core.TypeFloat},
+			{Name: "float_array", Type: core.NewArrayType(core.TIDFloat)},
+			{Name: "bool", Type: core.TypeBool},
+			{Name: "bool_array", Type: core.NewArrayType(core.TIDBoolean)},
+			{Name: "bytes", Type: core.TypeBytes},
+			{Name: "bytes_array", Type: core.NewArrayType(core.TIDBytes)},
+			{Name: "time", Type: core.TypeTime},
+			{Name: "time_array", Type: core.NewArrayType(core.TIDTime)},
 			{Name: "metadata", Type: core.NewMapType(core.TIDString, core.TIDString)},
 		},
 		Required: []string{"string"},
 	}
 }
 
-// FakeTestRecord creates a fake record with comprehensive type coverage.
-func FakeTestRecord() *core.Record {
+// FakeAllTypesRecord creates a fake record with comprehensive type coverage.
+func FakeAllTypesRecord() *core.Record {
 	return core.NewRecord("com.example", "all_types", gofakeit.UUID()).
 		Set("string", gofakeit.Sentence(10)).
+		Set("string_array", []string{
+			gofakeit.Sentence(10),
+			gofakeit.Sentence(10),
+		}).
 		Set("int", gofakeit.Int64()).
+		Set("int64", gofakeit.Int64()).
+		Set("int64_array", []int64{
+			gofakeit.Int64(),
+			gofakeit.Int64(),
+		}).
 		Set("unsigned", gofakeit.Uint64()).
+		Set("unsigned_array", []uint64{
+			gofakeit.Uint64(),
+			gofakeit.Uint64(),
+		}).
 		Set("float", gofakeit.Float64()).
+		Set("float_array", []float64{
+			gofakeit.Float64(),
+			gofakeit.Float64(),
+		}).
 		Set("bool", gofakeit.Bool()).
-		Set("bytes", []byte(gofakeit.Sentence(5))).
+		Set("bool_array", []bool{
+			gofakeit.Bool(),
+			gofakeit.Bool(),
+		}).
+		Set("bytes", []byte(gofakeit.Sentence(10))).
+		Set("bytes_array", [][]byte{
+			[]byte(gofakeit.Sentence(10)),
+			[]byte(gofakeit.Sentence(10)),
+		}).
 		Set("time", gofakeit.Date()).
-		Set("string_array", []string{gofakeit.Word(), gofakeit.Word()}).
+		Set("time_array", []time.Time{
+			gofakeit.Date(),
+			gofakeit.Date(),
+		}).
 		Set("metadata", map[string]string{
-			"key1": gofakeit.Word(),
-			"key2": gofakeit.Word(),
+			gofakeit.Word(): gofakeit.Sentence(5),
+			gofakeit.Word(): gofakeit.Sentence(5),
 		})
 }
 
 // FakeTuples creates a list of fake tuples covering all core types.
 func FakeTuples() []*core.Tuple {
-	return x.Join(
-		FakeStringTuples(),
-		FakeIntTuples(),
-		FakeUnsignedTuples(),
-		FakeFloatTuples(),
-		FakeBoolTuples(),
-		FakeBytesTuples(),
-		FakeTimeTuples(),
-		FakeMapTuples(),
-	)
-}
-
-var recordPath = "com.example/all_types/1"
-
-// FakeStringTuples creates fake tuples for string values.
-func FakeStringTuples() []*core.Tuple {
-	return []*core.Tuple{
-		core.NewTuple(recordPath, "string", gofakeit.Sentence(10)),
-		core.NewTuple(recordPath, "string_array", []string{
-			gofakeit.Sentence(10),
-			gofakeit.Sentence(10),
-		}),
-	}
-}
-
-// FakeIntTuples creates fake tuples for int values.
-func FakeIntTuples() []*core.Tuple {
-	return []*core.Tuple{
-		core.NewTuple(recordPath, "int64", gofakeit.Int64()),
-		core.NewTuple(recordPath, "int64_array", []int64{
-			gofakeit.Int64(),
-			gofakeit.Int64(),
-		}),
-	}
-}
-
-// FakeFloatTuples creates fake tuples for float values.
-func FakeFloatTuples() []*core.Tuple {
-	return []*core.Tuple{
-		core.NewTuple(recordPath, "float", gofakeit.Float64()),
-		core.NewTuple(recordPath, "float_array", []float64{
-			gofakeit.Float64(),
-			gofakeit.Float64(),
-		}),
-	}
-}
-
-// FakeBoolTuples creates fake tuples for bool values.
-func FakeBoolTuples() []*core.Tuple {
-	return []*core.Tuple{
-		core.NewTuple(recordPath, "bool", gofakeit.Bool()),
-		core.NewTuple(recordPath, "bool_array", []bool{
-			gofakeit.Bool(),
-			gofakeit.Bool(),
-		}),
-	}
-}
-
-// FakeBytesTuples creates fake tuples for bytes values.
-func FakeBytesTuples() []*core.Tuple {
-	return []*core.Tuple{
-		core.NewTuple(recordPath, "bytes", []byte(gofakeit.Sentence(10))),
-		core.NewTuple(recordPath, "bytes_array", [][]byte{
-			[]byte(gofakeit.Sentence(10)),
-			[]byte(gofakeit.Sentence(10)),
-		}),
-	}
-}
-
-// FakeUnsignedTuples creates fake tuples for unsigned values.
-func FakeUnsignedTuples() []*core.Tuple {
-	return []*core.Tuple{
-		core.NewTuple(recordPath, "unsigned", gofakeit.Uint64()),
-		core.NewTuple(recordPath, "unsigned_array", []uint64{
-			gofakeit.Uint64(),
-			gofakeit.Uint64(),
-		}),
-	}
-}
-
-// FakeTimeTuples creates fake tuples for time.Time.
-func FakeTimeTuples() []*core.Tuple {
-	return []*core.Tuple{
-		core.NewTuple(recordPath, "time", gofakeit.Date()),
-		core.NewTuple(recordPath, "time_array", []time.Time{
-			gofakeit.Date(),
-			gofakeit.Date(),
-		}),
-	}
-}
-
-// FakeMapTuples creates fake tuples for map values.
-func FakeMapTuples() []*core.Tuple {
-	return []*core.Tuple{
-		core.NewTuple(recordPath, "metadata", map[string]string{
-			gofakeit.Word(): gofakeit.Sentence(5),
-			gofakeit.Word(): gofakeit.Sentence(5),
-		}),
-	}
+	r := FakeAllTypesRecord()
+	return r.Tuples()
 }

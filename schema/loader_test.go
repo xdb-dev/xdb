@@ -35,6 +35,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
+				Mode:        schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
@@ -54,6 +55,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 			}`,
 			expected: &schema.Def{
 				Name: "Post",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
 					{Name: "scores", Type: core.NewArrayType(core.TIDInteger)},
@@ -71,6 +73,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 			}`,
 			expected: &schema.Def{
 				Name: "Config",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
 					{Name: "counts", Type: core.NewMapType(core.TIDString, core.TIDInteger)},
@@ -89,6 +92,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 			}`,
 			expected: &schema.Def{
 				Name: "User",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "profile.bio", Type: core.TypeString},
@@ -112,6 +116,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 			}`,
 			expected: &schema.Def{
 				Name: "Complete",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "bool_field", Type: core.TypeBool},
 					{Name: "int_field", Type: core.TypeInt},
@@ -230,6 +235,7 @@ required:
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
+				Mode:        schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
@@ -248,6 +254,7 @@ fields:
 `,
 			expected: &schema.Def{
 				Name: "Post",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
 				},
@@ -265,6 +272,7 @@ fields:
 `,
 			expected: &schema.Def{
 				Name: "Config",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
 				},
@@ -284,6 +292,7 @@ fields:
 `,
 			expected: &schema.Def{
 				Name: "User",
+				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
 					{Name: "profile.bio", Type: core.TypeString},

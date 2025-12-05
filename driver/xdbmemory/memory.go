@@ -60,7 +60,18 @@ func (d *MemoryDriver) ListSchemas(ctx context.Context, uri *core.URI) ([]*schem
 		return nil, nil
 	}
 
-	return slices.Collect(maps.Values(d.schemas[ns])), nil
+	schemas := slices.Collect(maps.Values(d.schemas[ns]))
+	slices.SortFunc(schemas, func(a, b *schema.Def) int {
+		if a.Name < b.Name {
+			return -1
+		}
+		if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
+
+	return schemas, nil
 }
 
 // PutSchema saves the schema definition.
@@ -73,7 +84,23 @@ func (d *MemoryDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema
 		d.schemas[ns] = make(map[string]*schema.Def)
 	}
 
-	d.schemas[ns][def.Name] = def
+	schemaKey := uri.Schema().String()
+	existing, exists := d.schemas[ns][schemaKey]
+	if exists {
+		if existing.Mode != def.Mode {
+			return driver.ErrSchemaModeChanged
+		}
+
+		for _, newField := range def.Fields {
+			if oldField := existing.GetField(newField.Name); oldField != nil {
+				if !oldField.Type.Equals(newField.Type) {
+					return driver.ErrFieldChangeType
+				}
+			}
+		}
+	}
+
+	d.schemas[ns][schemaKey] = def
 
 	return nil
 }
@@ -85,7 +112,7 @@ func (d *MemoryDriver) DeleteSchema(ctx context.Context, uri *core.URI) error {
 
 	schemas, ok := d.schemas[uri.NS().String()]
 	if !ok {
-		return driver.ErrNotFound
+		return nil
 	}
 
 	delete(schemas, uri.Schema().String())

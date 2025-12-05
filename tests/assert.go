@@ -142,6 +142,7 @@ func AssertDefEqual(t *testing.T, expected, actual *schema.Def) {
 	assert.Equal(t, expected.Name, actual.Name, "Def: name mismatch")
 	assert.Equal(t, expected.Description, actual.Description, "Def: description mismatch")
 	assert.Equal(t, expected.Version, actual.Version, "Def: version mismatch")
+	assert.Equal(t, expected.Mode, actual.Mode, "Def: mode mismatch")
 	assert.Equal(t, expected.Required, actual.Required, "Def: required fields mismatch")
 	require.Len(t, actual.Fields, len(expected.Fields), "Def: fields length mismatch")
 

@@ -61,10 +61,16 @@ func convert(raw *rawSchema) (*Def, error) {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "schema name is required")
 	}
 
+	mode := Mode(raw.Mode)
+	if mode == "" {
+		mode = ModeStrict
+	}
+
 	schema := &Def{
 		Name:        raw.Name,
 		Description: raw.Description,
 		Version:     raw.Version,
+		Mode:        mode,
 		Required:    raw.Required,
 		Fields:      make([]*FieldDef, 0, len(raw.Fields)),
 	}
