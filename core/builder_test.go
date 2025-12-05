@@ -19,7 +19,7 @@ func TestNewURI(t *testing.T) {
 		assert.Equal(t, "xdb://com.example", uri.String())
 	})
 
-	t.Run("Collection URI", func(t *testing.T) {
+	t.Run("Schema URI", func(t *testing.T) {
 		uri, err := core.New().NS("com.example").
 			Schema("posts").
 			URI()

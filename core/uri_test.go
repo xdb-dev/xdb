@@ -23,7 +23,7 @@ func TestParseURI(t *testing.T) {
 			want: core.New().NS("com.example").MustURI(),
 		},
 		{
-			name: "Collection URI",
+			name: "Schema URI",
 			raw:  "xdb://com.example/posts",
 			want: core.New().NS("com.example").
 				Schema("posts").

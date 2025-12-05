@@ -18,7 +18,7 @@ var ErrInvalidURI = errors.New("[xdb/core] invalid URI")
 //	xdb:// NS [ / SCHEMA ] [ / ID ] [ #ATTRIBUTE ]
 //
 // NS identifies the namespace.
-// SCHEMA is the collection name.
+// SCHEMA is the schema name.
 // ID is the record identifier.
 // ATTRIBUTE is a specific attribute of a record.
 type URI struct {

@@ -56,8 +56,8 @@ XDB is a tuple-based database abstraction library with a layered architecture.
 - **Value**: Typed container supporting basic types, arrays, and maps
 - **URI**: Resource identifiers (`xdb://NS[/SCHEMA][/ID][#ATTRIBUTE]`)
 - **Type**: Type system with scalar, array, and map types
-- **NS**: Namespace for organizing collections
-- **Schema**: Structure and validation rules
+- **NS**: Namespace for organizing schemas
+- **Schema**: Structure and validation rules for records
 
 ## Multi-Module Structure
 

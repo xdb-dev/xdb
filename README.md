@@ -8,7 +8,7 @@ Read about the motivation behind XDB in [Introducing XDB](https://raviatluri.in/
 
 ## Core Concepts
 
-The XDB data model can be visualized as a tree of **Namespaces**, **Collections**, **Records**, and **Tuples**.
+The XDB data model can be visualized as a tree of **Namespaces**, **Schemas**, **Records**, and **Tuples**.
 
 ```
 ┌─────────────────────────────────┐
@@ -16,7 +16,7 @@ The XDB data model can be visualized as a tree of **Namespaces**, **Collections*
 └────────────────┬────────────────┘
                  ↓
 ┌─────────────────────────────────┐
-│           Collection            │
+│             Schema              │
 └────────────────┬────────────────┘
                  ↓
 ┌─────────────────────────────────┐
@@ -45,17 +45,13 @@ A **Tuple** is the fundamental building block in XDB. It combines:
 
 One or more **Tuples**, with the same **ID**, make up a **Record**. Records are similar to objects, structs, or rows in a database. Records typically represent a single entity or object of domain data.
 
-### Collection
-
-A **Collection** is a collection of records with the same **Schema**. Collections are identified by their schema name and are unique within a namespace.
-
 ### Namespace
 
-A **Namespace** (NS) groups one or more **Collections**. Namespaces are typically used to organize collections by domain, application, or tenant.
+A **Namespace** (NS) groups one or more **Schemas**. Namespaces are typically used to organize schemas by domain, application, or tenant.
 
 ### Schema
 
-A **Schema** is a definition of your domain entities and their relationships. Schemas can be "strict" or "flexible". Strict schemas enforce a predefined structure on the data, while flexible schemas allow for arbitrary data.
+A **Schema** defines the structure of records and groups them together. Schemas can be "strict" or "flexible". Strict schemas enforce a predefined structure on the data, while flexible schemas allow for arbitrary data. Each schema is uniquely identified by its name within a namespace.
 
 ### URI
 
@@ -84,7 +80,7 @@ XDB URIs follow the following format:
 The components of the URI are:
 
 - **NS**: The namespace.
-- **SCHEMA**: The name of the collection.
+- **SCHEMA**: The schema name.
 - **ID**: The unique identifier of the record.
 - **ATTRIBUTE**: The name of the attribute.
 - **path**: NS, SCHEMA, and ID combined uniquely identify a record (URI without xdb://)
@@ -93,7 +89,7 @@ Valid examples:
 
 ```
 Namespace:  xdb://com.example
-Collection: xdb://com.example/posts
+Schema:     xdb://com.example/posts
 Record:     xdb://com.example/posts/123-456-789
 Attribute:  xdb://com.example/posts/123-456-789#author.id
 ```

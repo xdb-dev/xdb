@@ -10,12 +10,12 @@ import (
 type Mode string
 
 const (
-	// ModeFlexible represents schemaless collections where
-	// records can have arbitrary attributes.
+	// ModeFlexible allows records to have arbitrary attributes
+	// without predefined structure.
 	ModeFlexible Mode = "flexible"
 
-	// ModeStrict represents structured collections where
-	// records must have attributes defined in the schema.
+	// ModeStrict requires records to have attributes
+	// defined in the schema.
 	ModeStrict Mode = "strict"
 )
 

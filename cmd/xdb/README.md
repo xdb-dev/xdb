@@ -46,7 +46,7 @@ Examples:
 
 ```bash
 xdb://com.example                        # Namespace (NS)
-xdb://com.example/posts                  # Collection (NS + Schema)
+xdb://com.example/posts                  # Schema (NS + Schema)
 xdb://com.example/posts/post-123         # Record (NS + Schema + ID)
 xdb://com.example/posts/post-123#title   # Attribute (Record + Attribute)
 xdb://com.example/posts/post-123#author.name   # Nested attribute
@@ -79,17 +79,17 @@ xdb ls
 # List namespaces matching pattern
 xdb ls xdb://com.example*
 
-# List collections in namespace
+# List schemas in namespace
 xdb ls xdb://com.example
 
-# List records in collection
+# List records in schema
 xdb ls xdb://com.example/posts
 
 # List records matching pattern
 xdb ls xdb://com.example/posts/2024-*
 ```
 
-`ls` lists namespaces, collections (Schema), or records from the given URI. If no URI is provided, it lists all namespaces.
+`ls` lists namespaces, schemas, or records from the given URI. If no URI is provided, it lists all namespaces.
 
 ### Get
 
@@ -97,7 +97,7 @@ xdb ls xdb://com.example/posts/2024-*
 # Get Namespace
 xdb get xdb://com.example
 
-# Get Collection (Schema)
+# Get Schema
 xdb get xdb://com.example/posts
 
 # Get Record
@@ -107,7 +107,7 @@ xdb get xdb://com.example/posts/post-123
 xdb get xdb://com.example/posts/post-123#title
 ```
 
-`get` retrieves a Namespace, Collection (Schema), Record, or Attribute from the given URI.
+`get` retrieves a Namespace, Schema, Record, or Attribute from the given URI.
 
 ### Put
 

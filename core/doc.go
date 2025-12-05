@@ -2,14 +2,14 @@
 //
 // XDB Data Model:
 //
-// XDB models data as a tree of Namespaces, Collections, Records, and Tuples:
+// XDB models data as a tree of Namespaces, Schemas, Records, and Tuples:
 //
 //	┌─────────────────────────────────┐
 //	│            Namespace            │
 //	└────────────────┬────────────────┘
 //	                 ↓
 //	┌─────────────────────────────────┐
-//	│           Collection            │
+//	│             Schema              │
 //	└────────────────┬────────────────┘
 //	                 ↓
 //	┌─────────────────────────────────┐
@@ -29,21 +29,21 @@
 //   - Attr: An attribute name (e.g., "name", "profile.email")
 //   - Value: A typed value containing the actual data
 //
-// Record is a collection of tuples sharing the same path.
+// Record is a group of tuples sharing the same path.
 // Records are similar to objects, structs, or rows in a database.
 // Records typically represent a single entity or object of domain data.
 //
-// Collection is a collection of records with the same Schema.
-// Collections are identified by their schema name and are unique within a namespace.
+// Schema defines the structure of records and groups them together.
+// Schemas can be "strict" or "flexible" and are uniquely identified by name within a namespace.
 //
-// Namespace (NS) groups one or more Collections.
-// Namespaces are typically used to organize collections by domain, application, or tenant.
+// Namespace (NS) groups one or more Schemas.
+// Namespaces are typically used to organize schemas by domain, application, or tenant.
 //
 // Schema is a definition of your domain entities and their relationships.
 // Schemas can be "strict" or "flexible". Strict schemas enforce a predefined structure
 // on the data, while flexible schemas allow for arbitrary data.
 //
-// URI provides unique references to namespaces, collections, records, and attributes.
+// URI provides unique references to namespaces, schemas, records, and attributes.
 // The general format is:
 //
 //	xdb:// NS [ / SCHEMA ] [ / ID ] [ #ATTRIBUTE ]
@@ -51,12 +51,12 @@
 // Examples:
 //
 //	Namespace:  xdb://com.example
-//	Collection: xdb://com.example/posts
+//	Schema:     xdb://com.example/posts
 //	Record:     xdb://com.example/posts/123-456-789
 //	Attribute:  xdb://com.example/posts/123-456-789#author.id
 //
 // NS identifies the namespace.
-// SCHEMA is the collection name.
+// SCHEMA is the schema name.
 // ID is the record identifier
 // ATTRIBUTE is a specific attribute of a record (supports nesting like "profile.email").
 // Path: NS, SCHEMA, and ID combined uniquely identify a record (URI without xdb://).

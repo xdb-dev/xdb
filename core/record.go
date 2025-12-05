@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// Record is a collection of tuples that share the same ID.
+// Record is a group of tuples that share the same path (NS + SCHEMA + ID).
 // Records are mutable and thread-safe, similar to database rows.
 type Record struct {
 	path *URI
