@@ -61,7 +61,7 @@ func createLoader(configPath string) (xload.Loader, error) {
 	}
 
 	if yamlPath != "" {
-		slog.Info("[HTTP] Using YAML config file", "path", yamlPath)
+		slog.Info("Using YAML config file", "path", yamlPath)
 
 		yamlLoader, err := yaml.NewFileLoader(yamlPath, "_")
 		if err != nil {

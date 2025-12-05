@@ -8,11 +8,11 @@ Read about the motivation behind XDB in [Introducing XDB](https://raviatluri.in/
 
 ## Core Concepts
 
-The XDB data model can be visualized as a tree of **Repositories**, **Collections**, **Records**, and **Tuples**.
+The XDB data model can be visualized as a tree of **Namespaces**, **Collections**, **Records**, and **Tuples**.
 
 ```
 ┌─────────────────────────────────┐
-│           Repository            │
+│            Namespace            │
 └────────────────┬────────────────┘
                  ↓
 ┌─────────────────────────────────┐
@@ -47,11 +47,11 @@ One or more **Tuples**, with the same **ID**, make up a **Record**. Records are 
 
 ### Collection
 
-A **Collection** is a collection of records with the same **Schema**. Collections are identified by their schema name and are unique within a repository.
+A **Collection** is a collection of records with the same **Schema**. Collections are identified by their schema name and are unique within a namespace.
 
-### Repository
+### Namespace
 
-A **Repository** is a data repository holding one or more **Collections**. Repositories are typically used to group collections by domain, application, or tenant. Repositories are identified by their name (referred to as "NS" in the URI).
+A **Namespace** (NS) groups one or more **Collections**. Namespaces are typically used to organize collections by domain, application, or tenant.
 
 ### Schema
 
@@ -83,7 +83,7 @@ XDB URIs follow the following format:
 
 The components of the URI are:
 
-- **NS**: The name of the repository.
+- **NS**: The namespace.
 - **SCHEMA**: The name of the collection.
 - **ID**: The unique identifier of the record.
 - **ATTRIBUTE**: The name of the attribute.
@@ -92,7 +92,7 @@ The components of the URI are:
 Valid examples:
 
 ```
-Repository: xdb://com.example
+Namespace:  xdb://com.example
 Collection: xdb://com.example/posts
 Record:     xdb://com.example/posts/123-456-789
 Attribute:  xdb://com.example/posts/123-456-789#author.id

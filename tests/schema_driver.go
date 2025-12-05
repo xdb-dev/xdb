@@ -31,7 +31,7 @@ func TestSchemaReaderWriter(t *testing.T, rw driver.SchemaDriver) {
 		testGetSchemaReturnsNotFound(t, rw)
 	})
 
-	t.Run("ListSchemas returns all schemas in a repository", func(t *testing.T) {
+	t.Run("ListSchemas returns all schemas in a namespace", func(t *testing.T) {
 		testListSchemasReturnsAll(t, rw)
 	})
 
@@ -136,10 +136,10 @@ func testListSchemasReturnsAll(t *testing.T, rw driver.SchemaDriver) {
 	err = rw.PutSchema(ctx, testURI, testSchema)
 	require.NoError(t, err)
 
-	repoURI, err := core.ParseURI("xdb://default")
+	nsURI, err := core.ParseURI("xdb://default")
 	require.NoError(t, err)
 
-	schemas, err := rw.ListSchemas(ctx, repoURI)
+	schemas, err := rw.ListSchemas(ctx, nsURI)
 	require.NoError(t, err)
 	require.Len(t, schemas, 2)
 

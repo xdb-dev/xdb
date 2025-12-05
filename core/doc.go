@@ -2,10 +2,10 @@
 //
 // XDB Data Model:
 //
-// XDB models data as a tree of Repositories, Collections, Records, and Tuples:
+// XDB models data as a tree of Namespaces, Collections, Records, and Tuples:
 //
 //	┌─────────────────────────────────┐
-//	│           Repository            │
+//	│            Namespace            │
 //	└────────────────┬────────────────┘
 //	                 ↓
 //	┌─────────────────────────────────┐
@@ -34,29 +34,28 @@
 // Records typically represent a single entity or object of domain data.
 //
 // Collection is a collection of records with the same Schema.
-// Collections are identified by their schema name and are unique within a repository.
+// Collections are identified by their schema name and are unique within a namespace.
 //
-// Repository is a data repository holding one or more Collections.
-// Repositories are typically used to group collections by domain, application, or tenant.
-// Repositories are identified by their NS (namespace).
+// Namespace (NS) groups one or more Collections.
+// Namespaces are typically used to organize collections by domain, application, or tenant.
 //
 // Schema is a definition of your domain entities and their relationships.
 // Schemas can be "strict" or "flexible". Strict schemas enforce a predefined structure
 // on the data, while flexible schemas allow for arbitrary data.
 //
-// URI provides unique references to repositories, collections, records, and attributes.
+// URI provides unique references to namespaces, collections, records, and attributes.
 // The general format is:
 //
 //	xdb:// NS [ / SCHEMA ] [ / ID ] [ #ATTRIBUTE ]
 //
 // Examples:
 //
-//	Repository: xdb://com.example
+//	Namespace:  xdb://com.example
 //	Collection: xdb://com.example/posts
 //	Record:     xdb://com.example/posts/123-456-789
 //	Attribute:  xdb://com.example/posts/123-456-789#author.id
 //
-// NS identifies the data repository.
+// NS identifies the namespace.
 // SCHEMA is the collection name.
 // ID is the record identifier
 // ATTRIBUTE is a specific attribute of a record (supports nesting like "profile.email").

@@ -1,6 +1,6 @@
 # XDB CLI
 
-Simple, S3-like CLI for managing your XDB data repositories.
+Simple, S3-like CLI for managing your XDB data.
 
 ## Installation
 
@@ -11,102 +11,118 @@ go install github.com/xdb-dev/xdb/cmd/xdb@latest
 ## Quick Start
 
 ```bash
-# Create repository
-xdb make-repo posts
+# Create schema
+xdb make-schema xdb://com.example/posts --schema posts.json
+
+# List schemas
+xdb ls xdb://com.example
+
+# Get schema
+xdb get xdb://com.example/posts
+
+# Remove schema
+xdb rm xdb://com.example/posts
 
 # Put record
-xdb put xdb://posts/post-123 --file post.json
+xdb put xdb://com.example/posts/post-123 --file post.json
 
 # Get record
-xdb get xdb://posts/post-123
+xdb get xdb://com.example/posts/post-123
 
 # List records
-xdb ls xdb://posts
+xdb ls xdb://com.example/posts
 
 # Remove record
-xdb rm xdb://posts/post-123
+xdb rm xdb://com.example/posts/post-123
 ```
 
 ## URI Format
 
 ```
-xdb://REPOSITORY[/RECORD][#ATTRIBUTE]
+xdb://NS[/SCHEMA][/ID][#ATTRIBUTE]
 ```
 
 Examples:
 
 ```bash
-xdb://posts                        # Repository
-xdb://posts/post-123               # Record
-xdb://posts/post-123#title         # Attribute
-xdb://posts/post-123#author.name   # Nested attribute
+xdb://com.example                        # Namespace (NS)
+xdb://com.example/posts                  # Collection (NS + Schema)
+xdb://com.example/posts/post-123         # Record (NS + Schema + ID)
+xdb://com.example/posts/post-123#title   # Attribute (Record + Attribute)
+xdb://com.example/posts/post-123#author.name   # Nested attribute
 ```
 
 ## Commands
 
-### Make Repository
+### Make Schema
 
 ```bash
-# Create repository with schema
-xdb make-repo posts --schema ./posts.json
+# Create schema from definition file
+xdb make-schema xdb://com.example/posts --schema ./posts.json
 
-# Create repository without schema
-xdb make-repo users
+# Create flexible schema (no definition file)
+xdb make-schema xdb://com.example/users
 ```
 
-`make-repo` will create a new repository with the given name and schema. Once the repository is created, you can update the schema later by calling `make-repo` again with the same name and a new schema. All tuple and record operations are automatically validated against the schema.
+`make-schema` creates or updates a schema at the given URI. The URI must include both NS and Schema components (e.g., `xdb://com.example/posts`).
 
-If no schema is provided, the repository will be created without a schema. This is suitable for storing key-value/NoSQL data.
+If no schema definition file is provided, a flexible schema is created. Flexible schemas allow arbitrary data without validation. Schema definitions enforce structure and types on all Tuple and Record operations.
 
-**Note:** `make-repo` does not support switching between schema-based and key-value storage.
+**Note:** You can update a schema by calling `make-schema` again with the same URI and a new schema definition.
 
 ### List
 
 ```bash
-# List repositories
+# List namespaces
 xdb ls
 
-# List repositories with pattern
-xdb ls xdb://posts-*
+# List namespaces matching pattern
+xdb ls xdb://com.example*
 
-# List records in repository
-xdb ls xdb://posts
+# List collections in namespace
+xdb ls xdb://com.example
 
-# List records in repository with pattern
-xdb ls xdb://posts/2024-*
+# List records in collection
+xdb ls xdb://com.example/posts
+
+# List records matching pattern
+xdb ls xdb://com.example/posts/2024-*
 ```
 
-`ls` will list all records in the given repository URI. If no URI is provided, it will list all repositories.
+`ls` lists namespaces, collections (Schema), or records from the given URI. If no URI is provided, it lists all namespaces.
 
 ### Get
 
 ```bash
-# Get Repository
-xdb get xdb://posts
+# Get Namespace
+xdb get xdb://com.example
+
+# Get Collection (Schema)
+xdb get xdb://com.example/posts
 
 # Get Record
-xdb get xdb://posts/post-123
+xdb get xdb://com.example/posts/post-123
 
 # Get Attribute
-xdb get xdb://posts/post-123#title
+xdb get xdb://com.example/posts/post-123#title
 ```
 
-`get` will retrieve the repository, record or attribute from the given URI.
+`get` retrieves a Namespace, Collection (Schema), Record, or Attribute from the given URI.
 
 ### Put
 
 ```bash
 # Put Record
-xdb put xdb://posts/post-123 --data '{"title":"Hello"}'
+xdb put xdb://com.example/posts/post-123 --data '{"title":"Hello"}'
 
 # Put Record with data from file
-xdb put xdb://posts/post-123 --file post.json
+xdb put xdb://com.example/posts/post-123 --file post.json
 
 # Put Attribute
-xdb put xdb://posts/post-123#title --value "New Title"
+xdb put xdb://com.example/posts/post-123#title --value "New Title"
 ```
 
-`put` will store the record or attribute in the given URI.
+`put` stores a Record or Attribute at the given URI.
 
 ### Bulk Operations (Batch Mode)
 
@@ -117,7 +133,7 @@ xdb put xdb://posts/post-123#title --value "New Title"
 xdb ls <pattern> | xdb get --batch
 
 # Examples
-xdb ls xdb://posts | xdb get --batch
+xdb ls xdb://com.example/posts | xdb get --batch
 cat uris.txt | xdb get --batch
 ```
 
@@ -128,6 +144,6 @@ cat uris.txt | xdb get --batch
 cat data.jsonl | xdb put --batch
 
 # JSONL format (one per line)
-{"uri": "xdb://posts/post-1", "data": {"title": "First", "content": "..."}}
-{"uri": "xdb://posts/post-2", "data": {"title": "Second", "content": "..."}}
+{"uri": "xdb://com.example/posts/post-1", "data": {"title": "First", "content": "..."}}
+{"uri": "xdb://com.example/posts/post-2", "data": {"title": "Second", "content": "..."}}
 ```

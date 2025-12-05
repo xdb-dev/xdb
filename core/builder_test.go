@@ -12,7 +12,7 @@ import (
 func TestNewURI(t *testing.T) {
 	t.Parallel()
 
-	t.Run("Repository URI", func(t *testing.T) {
+	t.Run("Namespace URI", func(t *testing.T) {
 		uri, err := core.New().NS("com.example").URI()
 		require.NoError(t, err)
 		assert.Equal(t, "com.example", uri.NS().String())

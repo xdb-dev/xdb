@@ -18,7 +18,7 @@ func TestParseURI(t *testing.T) {
 		want *core.URI
 	}{
 		{
-			name: "Repo URI",
+			name: "Namespace URI",
 			raw:  "xdb://com.example",
 			want: core.New().NS("com.example").MustURI(),
 		},
@@ -106,16 +106,16 @@ func TestParseURI_Invalid(t *testing.T) {
 			uri:  "com.example/posts",
 		},
 		{
-			name: "Missing repository",
+			name: "Missing namespace",
 			uri:  "xdb://",
 		},
 		{
-			name: "Invalid repo characters",
+			name: "Invalid NS characters",
 			uri:  "xdb://invalid repo",
 		},
 		{
-			name: "Invalid repo with special chars",
-			uri:  "xdb://repo@invalid",
+			name: "Invalid NS with special chars",
+			uri:  "xdb://ns@invalid",
 		},
 		{
 			name: "Just xdb",
@@ -123,7 +123,7 @@ func TestParseURI_Invalid(t *testing.T) {
 		},
 		{
 			name: "Malformed URI",
-			uri:  "xdb:///no-repo",
+			uri:  "xdb:///no-ns",
 		},
 		{
 			name: "Wrong scheme http",

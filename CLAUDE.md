@@ -1,10 +1,8 @@
 # CLAUDE.md
 
-This file provides guidance for working with code in this repository.
+This file provides guidance for working with code in this codebase.
 
 ## Development Commands
-
-**Note:** All make commands automatically set `GOEXPERIMENT=jsonv2` and run across all modules in the repository.
 
 ### Build and Test
 
@@ -56,9 +54,9 @@ XDB is a tuple-based database abstraction library with a layered architecture.
 - **Tuple**: Fundamental building block (ID + Attribute + Value)
 - **Record**: Collection of tuples with the same ID
 - **Value**: Typed container supporting basic types, arrays, and maps
-- **URI**: Resource identifiers (`xdb://REPOSITORY[/RECORD][#ATTRIBUTE]`)
+- **URI**: Resource identifiers (`xdb://NS[/SCHEMA][/ID][#ATTRIBUTE]`)
 - **Type**: Type system with scalar, array, and map types
-- **Repo**: Repository for organizing records
+- **NS**: Namespace for organizing collections
 - **Schema**: Structure and validation rules
 
 ## Multi-Module Structure
@@ -116,7 +114,7 @@ Group imports with blank lines between groups:
 - The `tests/` package provides shared test suites for driver implementations:
   - `TupleDriverTest`: Test suite for `TupleDriver` implementations
   - `RecordDriverTest`: Test suite for `RecordDriver` implementations
-  - `RepoDriverTest`: Test suite for `RepoDriver` implementations
+  - `SchemaDriverTest`: Test suite for `SchemaDriver` implementations
 - Use these test suites to ensure consistent behavior across driver implementations
 
 ## Important Notes

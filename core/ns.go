@@ -5,7 +5,7 @@ import "github.com/gojekfarm/xtools/errors"
 // ErrInvalidNS is returned when an invalid NS is encountered.
 var ErrInvalidNS = errors.New("[xdb/core] invalid NS")
 
-// NS identifies the data repository.
+// NS identifies the namespace.
 type NS struct {
 	name string
 }

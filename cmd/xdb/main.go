@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/phsym/console-slog"
-	"github.com/rs/zerolog/log"
 	"github.com/urfave/cli/v3"
 
 	"github.com/xdb-dev/xdb/cmd/xdb/app"
@@ -29,7 +28,7 @@ func main() {
 	defer cancel()
 
 	if err := cmd.Run(ctx, os.Args); err != nil {
-		log.Error().Err(err).Msg("exit with error")
+		slog.Error("[CLI] Command failed", "error", err)
 		os.Exit(1)
 	}
 }
@@ -51,7 +50,7 @@ func buildCLI() *cli.Command {
 	}
 
 	cmd.Commands = []*cli.Command{
-		buildMakeRepoCommand(),
+		buildMakeSchemaCommand(),
 		buildGetCommand(),
 		buildPutCommand(),
 		buildListCommand(),
@@ -61,15 +60,15 @@ func buildCLI() *cli.Command {
 	return cmd
 }
 
-func buildMakeRepoCommand() *cli.Command {
+func buildMakeSchemaCommand() *cli.Command {
 	return &cli.Command{
-		Name:        "make-repo",
-		Description: "creates a new repository",
-		Usage:       "make-repo [name] [--schema <schema_path>]",
-		Aliases:     []string{"mr"},
+		Name:        "make-schema",
+		Description: "creates or updates a schema at the given URI",
+		Usage:       "make-schema uri [--schema <schema_path>]",
+		Aliases:     []string{"ms"},
 		Arguments: []cli.Argument{
 			&cli.StringArg{
-				Name: "name",
+				Name: "uri",
 			},
 		},
 		Flags: []cli.Flag{
@@ -81,10 +80,10 @@ func buildMakeRepoCommand() *cli.Command {
 			&cli.StringFlag{
 				Name:    "schema",
 				Aliases: []string{"s"},
-				Usage:   "path to schema file",
+				Usage:   "path to schema definition file (JSON)",
 			},
 		},
-		Action: app.MakeRepo,
+		Action: app.MakeSchema,
 	}
 }
 
@@ -152,7 +151,7 @@ func buildListCommand() *cli.Command {
 
 			slog.Info("[XDB] Listing resources", "pattern", pattern)
 
-			return nil // app.ListRepos(ctx, pattern)
+			return nil // TODO: implement list
 		},
 	}
 }

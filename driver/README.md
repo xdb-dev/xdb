@@ -8,7 +8,7 @@ Drivers implement capability interfaces based on their features:
 
 - **TupleDriver**: `TupleReader` and `TupleWriter` for tuple-level operations
 - **RecordDriver**: `RecordReader` and `RecordWriter` for record-level operations
-- **RepoDriver**: `RepoReader` and `RepoWriter` for repository management
+- **SchemaDriver**: `SchemaReader` and `SchemaWriter` for schema management
 
 Not all drivers need to support all interfaces. Implement only the capabilities your backend supports.
 
@@ -36,7 +36,7 @@ func TestDriver(t *testing.T) {
     driver := setupDriver(t)
     tests.TupleDriverTest(t, driver)
     tests.RecordDriverTest(t, driver)
-    tests.RepoDriverTest(t, driver)
+    tests.SchemaDriverTest(t, driver)
 }
 ```
 

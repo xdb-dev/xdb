@@ -7,7 +7,7 @@ HTTP API layer providing RESTful endpoints for XDB operations.
 ```
 api/
 ├── tuple_api.go    # Tuple CRUD endpoints
-├── repo_api.go     # Repository management
+├── schema_api.go   # Schema management
 └── types.go        # Request/response types
 ```
 
@@ -21,11 +21,14 @@ Handles tuple-level CRUD operations:
 - **PutTuples**: Store tuples
 - **DeleteTuples**: Remove tuples
 
-### RepoAPI
+### SchemaAPI
 
-Handles repository management:
+Handles schema management:
 
-- **MakeRepo**: Create repositories with optional schemas
+- **PutSchema**: Create or update schemas
+- **GetSchema**: Retrieve schema definitions
+- **ListSchemas**: List schemas in a namespace
+- **DeleteSchema**: Remove schemas
 
 ## Implementation Guide
 

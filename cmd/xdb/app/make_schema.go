@@ -13,39 +13,40 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-func MakeRepo(ctx context.Context, cmd *cli.Command) error {
+func MakeSchema(ctx context.Context, cmd *cli.Command) error {
+	uriStr := cmd.StringArg("uri")
 	config := cmd.String("config")
-	ns := cmd.String("ns")
-	name := cmd.String("name")
 	schemaPath := cmd.String("schema")
 
-	slog.Info("[XDB] Creating schema", "ns", ns, "name", name, "schema", schemaPath)
+	if uriStr == "" {
+		return fmt.Errorf("URI is required")
+	}
+
+	uri, err := core.ParseURI(uriStr)
+	if err != nil {
+		return fmt.Errorf("invalid URI: %w", err)
+	}
 
 	cfg, err := LoadConfig(ctx, config)
 	if err != nil {
 		return err
 	}
 
-	schemaDef, err := loadSchema(ctx, schemaPath)
+	schemaDef, err := loadSchema(schemaPath)
 	if err != nil {
 		return err
 	}
 
 	if schemaDef == nil {
 		schemaDef = &schema.Def{
-			Name: name,
+			Name: uri.Schema().String(),
 			Mode: schema.ModeFlexible,
 		}
-	} else {
-		schemaDef.Name = name
+	} else if schemaDef.Name == "" {
+		schemaDef.Name = uri.Schema().String()
 	}
 
 	app, err := New(cfg)
-	if err != nil {
-		return err
-	}
-
-	uri, err := core.ParseURI("xdb://" + ns + "/" + name)
 	if err != nil {
 		return err
 	}
@@ -55,12 +56,12 @@ func MakeRepo(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	slog.Info("[XDB] Schema created successfully", "uri", uri.String())
+	slog.Info("Schema created successfully", "uri", uri.String())
 
 	return app.Shutdown(ctx)
 }
 
-func loadSchema(ctx context.Context, path string) (*schema.Def, error) {
+func loadSchema(path string) (*schema.Def, error) {
 	if path == "" {
 		return nil, nil
 	}
@@ -70,7 +71,6 @@ func loadSchema(ctx context.Context, path string) (*schema.Def, error) {
 		return nil, fmt.Errorf("failed to resolve schema path: %w", err)
 	}
 
-	// Validate that the resolved path is still within expected boundaries
 	if !filepath.IsAbs(absPath) {
 		return nil, fmt.Errorf("resolved path is not absolute: %s", absPath)
 	}

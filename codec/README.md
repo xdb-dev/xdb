@@ -19,7 +19,7 @@ codec/
 
 Codecs must marshal XDB types to byte arrays:
 
-- **URIs**: Encode repository, ID, and attribute components
+- **URIs**: Encode namespace, schema, ID, and attribute components
 - **Values**: Encode typed values with type information
 - **Tuples**: Encode as key-value pairs (key = URI, value = Value)
 
