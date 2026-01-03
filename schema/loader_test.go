@@ -41,7 +41,6 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 					{Name: "age", Type: core.TypeInt},
 					{Name: "active", Type: core.TypeBool},
 				},
-				Required: []string{"name"},
 			},
 		},
 		{
@@ -125,6 +124,43 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 					{Name: "string_field", Type: core.TypeString},
 					{Name: "bytes_field", Type: core.TypeBytes},
 					{Name: "time_field", Type: core.TypeTime},
+				},
+			},
+		},
+		{
+			name: "Backward Compatibility - Ignores Required",
+			input: `{
+				"name": "User",
+				"fields": [
+					{"name": "name", "type": "STRING"},
+					{"name": "email", "type": "STRING"}
+				],
+				"required": ["name", "email"]
+			}`,
+			expected: &schema.Def{
+				Name: "User",
+				Mode: schema.ModeStrict,
+				Fields: []*schema.FieldDef{
+					{Name: "name", Type: core.TypeString},
+					{Name: "email", Type: core.TypeString},
+				},
+			},
+		},
+		{
+			name: "Backward Compatibility - Ignores Default",
+			input: `{
+				"name": "User",
+				"fields": [
+					{"name": "age", "type": "INTEGER", "default": 18},
+					{"name": "active", "type": "BOOLEAN", "default": true}
+				]
+			}`,
+			expected: &schema.Def{
+				Name: "User",
+				Mode: schema.ModeStrict,
+				Fields: []*schema.FieldDef{
+					{Name: "age", Type: core.TypeInt},
+					{Name: "active", Type: core.TypeBool},
 				},
 			},
 		},
@@ -240,7 +276,6 @@ required:
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
 				},
-				Required: []string{"name"},
 			},
 		},
 		{

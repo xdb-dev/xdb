@@ -71,7 +71,6 @@ func convert(raw *rawSchema) (*Def, error) {
 		Description: raw.Description,
 		Version:     raw.Version,
 		Mode:        mode,
-		Required:    raw.Required,
 		Fields:      make([]*FieldDef, 0, len(raw.Fields)),
 	}
 
@@ -101,10 +100,6 @@ func convertField(rf *rawField) (*FieldDef, error) {
 		Name:        rf.Name,
 		Description: rf.Description,
 		Type:        typ,
-	}
-
-	if rf.Default != nil {
-		field.Default = core.NewValue(rf.Default)
 	}
 
 	return field, nil

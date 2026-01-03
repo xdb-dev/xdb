@@ -29,9 +29,8 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 					{Name: "age", Type: core.TypeInt},
 					{Name: "active", Type: core.TypeBool},
 				},
-				Required: []string{"name"},
 			},
-			expected: `{"name":"User","description":"User schema","version":"1.0.0","fields":[{"name":"name","type":"STRING"},{"name":"age","type":"INTEGER"},{"name":"active","type":"BOOLEAN"}],"required":["name"]}`,
+			expected: `{"name":"User","description":"User schema","version":"1.0.0","fields":[{"name":"name","type":"STRING"},{"name":"age","type":"INTEGER"},{"name":"active","type":"BOOLEAN"}]}`,
 		},
 		{
 			name: "Array Types",
@@ -71,18 +70,6 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 			},
 			expected: `{"name":"Complete","fields":[{"name":"bool_field","type":"BOOLEAN"},{"name":"int_field","type":"INTEGER"},{"name":"unsigned_field","type":"UNSIGNED"},{"name":"float_field","type":"FLOAT"},{"name":"string_field","type":"STRING"},{"name":"bytes_field","type":"BYTES"},{"name":"time_field","type":"TIME"}]}`,
 		},
-		{
-			name: "With Default Values",
-			schema: &schema.Def{
-				Name: "User",
-				Fields: []*schema.FieldDef{
-					{Name: "name", Type: core.TypeString, Default: core.NewValue("John Doe")},
-					{Name: "age", Type: core.TypeInt, Default: core.NewValue(25)},
-					{Name: "active", Type: core.TypeBool, Default: core.NewValue(true)},
-				},
-			},
-			expected: `{"name":"User","fields":[{"name":"name","type":"STRING","default":"John Doe"},{"name":"age","type":"INTEGER","default":25},{"name":"active","type":"BOOLEAN","default":true}]}`,
-		},
 	}
 
 	for _, tt := range cases {
@@ -113,7 +100,6 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 					{Name: "age", Type: core.TypeInt},
 					{Name: "active", Type: core.TypeBool},
 				},
-				Required: []string{"name"},
 			},
 		},
 		{
@@ -237,9 +223,8 @@ func TestWriter_WriteToYAML_Valid(t *testing.T) {
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
 				},
-				Required: []string{"name"},
 			},
-			contains: []string{"name: User", "description: User schema", "version: 1.0.0", "type: STRING", "type: INTEGER", "required:", "- name"},
+			contains: []string{"name: User", "description: User schema", "version: 1.0.0", "type: STRING", "type: INTEGER"},
 		},
 		{
 			name: "Array Types",
@@ -293,7 +278,6 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 					{Name: "name", Type: core.TypeString},
 					{Name: "age", Type: core.TypeInt},
 				},
-				Required: []string{"name"},
 			},
 		},
 		{

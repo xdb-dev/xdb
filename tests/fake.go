@@ -27,7 +27,6 @@ func FakePostSchema() *schema.Def {
 			{Name: "thumbnail", Type: core.TypeBytes},
 			{Name: "created_at", Type: core.TypeTime},
 		},
-		Required: []string{"title", "content"},
 	}
 }
 
@@ -88,7 +87,6 @@ func FakeAllTypesSchema() *schema.Def {
 			{Name: "time_array", Type: core.NewArrayType(core.TIDTime)},
 			{Name: "metadata", Type: core.NewMapType(core.TIDString, core.TIDString)},
 		},
-		Required: []string{"string"},
 	}
 }
 

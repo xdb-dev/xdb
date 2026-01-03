@@ -143,7 +143,6 @@ func AssertDefEqual(t *testing.T, expected, actual *schema.Def) {
 	assert.Equal(t, expected.Description, actual.Description, "Def: description mismatch")
 	assert.Equal(t, expected.Version, actual.Version, "Def: version mismatch")
 	assert.Equal(t, expected.Mode, actual.Mode, "Def: mode mismatch")
-	assert.Equal(t, expected.Required, actual.Required, "Def: required fields mismatch")
 	require.Len(t, actual.Fields, len(expected.Fields), "Def: fields length mismatch")
 
 	for i, expectedField := range expected.Fields {
@@ -159,11 +158,4 @@ func AssertFieldDefEqual(t *testing.T, expected, actual *schema.FieldDef) {
 	assert.Equal(t, expected.Name, actual.Name, "FieldDef: name mismatch")
 	assert.Equal(t, expected.Description, actual.Description, "FieldDef: description mismatch")
 	assert.Equal(t, expected.Type, actual.Type, "FieldDef: type mismatch")
-
-	if expected.Default != nil {
-		assert.NotNil(t, actual.Default, "FieldDef: default mismatch")
-		AssertEqualValues(t, expected.Default, actual.Default)
-	} else {
-		assert.Nil(t, actual.Default, "FieldDef: default mismatch")
-	}
 }

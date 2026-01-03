@@ -11,8 +11,6 @@
 //   - Array types
 //   - Map types
 //   - Nested field paths
-//   - Required field validation
-//   - Default values
 //
 // Example JSON schema:
 //
@@ -31,8 +29,7 @@
 //	      "type": "ARRAY",
 //	      "array_of": "STRING"
 //	    }
-//	  ],
-//	  "required": ["name"]
+//	  ]
 //	}
 //
 // Example YAML schema:
@@ -47,6 +44,4 @@
 //	  - name: tags
 //	    type: ARRAY
 //	    array_of: STRING
-//	required:
-//	  - name
 package schema

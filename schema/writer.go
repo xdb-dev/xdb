@@ -42,7 +42,6 @@ func convertToRaw(schema *Def) (*rawSchema, error) {
 		Description: schema.Description,
 		Version:     schema.Version,
 		Mode:        string(schema.Mode),
-		Required:    schema.Required,
 		Fields:      make([]rawField, 0, len(schema.Fields)),
 	}
 
@@ -81,10 +80,6 @@ func convertFieldToRaw(field *FieldDef) (*rawField, error) {
 	} else if field.Type.ID() == core.TIDMap {
 		rf.MapKey = field.Type.KeyTypeID().String()
 		rf.MapValue = field.Type.ValueTypeID().String()
-	}
-
-	if field.Default != nil {
-		rf.Default = field.Default.Unwrap()
 	}
 
 	return rf, nil

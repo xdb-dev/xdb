@@ -1,8 +1,6 @@
 package schema
 
 import (
-	"slices"
-
 	"github.com/xdb-dev/xdb/core"
 )
 
@@ -37,9 +35,6 @@ type Def struct {
 	// Fields is a list of field schemas.
 	// Use hierarchical paths for nested fields (e.g., "profile.email").
 	Fields []*FieldDef
-
-	// Required is a list of field names that are required.
-	Required []string
 }
 
 // Clone returns a deep copy of the Def.
@@ -50,7 +45,6 @@ func (s *Def) Clone() *Def {
 		Version:     s.Version,
 		Mode:        s.Mode,
 		Fields:      make([]*FieldDef, 0, len(s.Fields)),
-		Required:    slices.Clone(s.Required),
 	}
 	for _, field := range s.Fields {
 		clone.Fields = append(clone.Fields, field.Clone())
@@ -78,9 +72,6 @@ type FieldDef struct {
 
 	// Type specifies the field's full type
 	Type core.Type
-
-	// Default specifies the default value when the field is missing.
-	Default *core.Value
 }
 
 // Equals returns true if this FieldDef is equal to the other FieldDef.
@@ -96,6 +87,5 @@ func (f *FieldDef) Clone() *FieldDef {
 		Name:        f.Name,
 		Description: f.Description,
 		Type:        f.Type,
-		Default:     f.Default,
 	}
 }
