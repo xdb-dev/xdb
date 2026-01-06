@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver/xdbmemory"
 	"github.com/xdb-dev/xdb/encoding/xdbstruct"
+	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
 type User struct {

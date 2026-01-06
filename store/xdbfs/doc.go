@@ -1,7 +1,7 @@
-// Package xdbfs provides a filesystem-based driver implementation for XDB.
+// Package xdbfs provides a filesystem-based store implementation for XDB.
 //
-// The filesystem driver stores XDB data as JSON files on the local filesystem.
-// It implements the SchemaDriver, TupleDriver, and RecordDriver interfaces.
+// The filesystem store stores XDB data as JSON files on the local filesystem.
+// It implements the SchemaStore, TupleStore, and RecordStore interfaces.
 //
 // Directory Structure:
 //
@@ -24,24 +24,24 @@
 //
 // File Permissions:
 //
-// By default, the filesystem driver uses restrictive permissions for security:
+// By default, the filesystem store uses restrictive permissions for security:
 //   - Directories: 0o750 (rwxr-x---)
 //   - Files: 0o600 (rw-------)
 //
 // These can be customized using functional options:
 //
 //	// Use default restrictive permissions
-//	driver, err := xdbfs.New("/path/to/data")
+//	store, err := xdbfs.New("/path/to/data")
 //
 //	// Use shared access permissions (0o755/0o644)
-//	driver, err := xdbfs.New("/path/to/data", xdbfs.WithSharedAccess())
+//	store, err := xdbfs.New("/path/to/data", xdbfs.WithSharedAccess())
 //
 //	// Custom permissions
-//	driver, err := xdbfs.New("/path/to/data", xdbfs.WithPermissions(0o770, 0o660))
+//	store, err := xdbfs.New("/path/to/data", xdbfs.WithPermissions(0o770, 0o660))
 //
 // Example Usage:
 //
-//	driver, err := xdbfs.New("/path/to/data")
+//	store, err := xdbfs.New("/path/to/data")
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -50,9 +50,9 @@
 //	record := core.NewRecord("default", "users", "user1")
 //	record.Set("name", "Alice")
 //	record.Set("age", int64(30))
-//	err = driver.PutRecords(ctx, []*core.Record{record})
+//	err = store.PutRecords(ctx, []*core.Record{record})
 //
 //	// Get a record
 //	uri, _ := core.ParseURI("xdb://default/users/user1")
-//	records, _, err := driver.GetRecords(ctx, []*core.URI{uri})
+//	records, _, err := store.GetRecords(ctx, []*core.URI{uri})
 package xdbfs

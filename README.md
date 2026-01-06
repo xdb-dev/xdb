@@ -108,10 +108,10 @@ Attribute:  xdb://com.example/posts/123-456-789#author.id
 
 ## Building Blocks
 
-### Drivers
-
-Drivers serve as the bridge between XDB's tuple-based model and specific database implementations. All drivers implement basic **Reader** and **Writer** capabilities, with advanced features like full-text search, aggregation, and iteration available based on the database's capabilities.
-
 ### Stores
 
-Stores provide higher-level APIs that combine multiple drivers to support common use-cases. Store implementations satisfy capability interfaces, allowing them to be used as drivers or layered together for complex scenarios.
+Stores serve as the bridge between XDB's tuple-based model and specific database implementations. All stores implement basic **Reader** and **Writer** capabilities, with advanced features like full-text search, aggregation, and iteration available based on the database's capabilities.
+
+### Drivers (Deprecated)
+
+The term "driver" has been replaced by "store" to better reflect the role of these components in XDB. Store implementations satisfy capability interfaces, allowing them to be used together or layered for complex scenarios.

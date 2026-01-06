@@ -7,17 +7,17 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/xdb-dev/xdb/driver"
-	"github.com/xdb-dev/xdb/driver/xdbmemory"
+	"github.com/xdb-dev/xdb/store"
+	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
 type App struct {
 	cfg     *Config
 	cleanup []func() error // cleanup functions to be called on shutdown
 
-	SchemaDriver driver.SchemaDriver
-	TupleDriver  driver.TupleDriver
-	RecordDriver driver.RecordDriver
+	SchemaDriver store.SchemaStore
+	TupleDriver  store.TupleStore
+	RecordDriver store.RecordStore
 }
 
 func New(cfg *Config) (*App, error) {

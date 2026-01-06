@@ -5,15 +5,15 @@ import (
 	"errors"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/store"
 )
 
 type SchemaAPI struct {
-	store driver.SchemaDriver
+	store store.SchemaStore
 }
 
-func NewSchemaAPI(store driver.SchemaDriver) *SchemaAPI {
+func NewSchemaAPI(store store.SchemaStore) *SchemaAPI {
 	return &SchemaAPI{store: store}
 }
 

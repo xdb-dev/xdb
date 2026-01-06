@@ -11,14 +11,14 @@ import (
 	"github.com/gojekfarm/xtools/xapi"
 
 	"github.com/xdb-dev/xdb/api"
-	"github.com/xdb-dev/xdb/driver"
-	"github.com/xdb-dev/xdb/driver/xdbmemory"
+	"github.com/xdb-dev/xdb/store"
+	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
 type Storer interface {
-	driver.SchemaDriver
-	driver.TupleDriver
-	driver.RecordDriver
+	store.SchemaStore
+	store.TupleStore
+	store.RecordStore
 }
 
 type Server struct {

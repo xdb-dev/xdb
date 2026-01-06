@@ -9,8 +9,8 @@ import (
 	"github.com/gojekfarm/xtools/xload"
 	"github.com/gojekfarm/xtools/xload/providers/yaml"
 
-	"github.com/xdb-dev/xdb/driver/xdbmemory"
-	"github.com/xdb-dev/xdb/driver/xdbsqlite"
+	"github.com/xdb-dev/xdb/store/xdbmemory"
+	"github.com/xdb-dev/xdb/store/xdbsqlite"
 )
 
 type Config struct {

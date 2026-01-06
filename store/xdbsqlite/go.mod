@@ -1,4 +1,4 @@
-module github.com/xdb-dev/xdb/driver/xdbsqlite
+module github.com/xdb-dev/xdb/store/xdbsqlite
 
 go 1.25.0
 

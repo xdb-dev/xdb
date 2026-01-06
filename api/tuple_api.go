@@ -4,15 +4,15 @@ import (
 	"context"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/x"
 )
 
 type TupleAPI struct {
-	store driver.TupleDriver
+	store store.TupleStore
 }
 
-func NewTupleAPI(store driver.TupleDriver) *TupleAPI {
+func NewTupleAPI(store store.TupleStore) *TupleAPI {
 	return &TupleAPI{store: store}
 }
 

@@ -6,7 +6,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/xdb-dev/xdb/driver/xdbredis"
+	"github.com/xdb-dev/xdb/store/xdbredis"
 	"github.com/xdb-dev/xdb/tests"
 )
 
@@ -34,11 +34,11 @@ func (s *KVStoreTestSuite) TearDownSuite() {
 }
 
 func (s *KVStoreTestSuite) TestTuples() {
-	tuplesSuite := tests.NewTupleDriverTestSuite(s.kv)
+	tuplesSuite := tests.NewTupleStoreTestSuite(s.kv)
 	tuplesSuite.Basic(s.T())
 }
 
 func (s *KVStoreTestSuite) TestRecords() {
-	recordsSuite := tests.NewRecordDriverTestSuite(s.kv)
+	recordsSuite := tests.NewRecordStoreTestSuite(s.kv)
 	recordsSuite.Basic(s.T())
 }

@@ -7,28 +7,28 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/x"
 )
 
-type TupleDriverTestSuite struct {
-	driver driver.TupleDriver
+type TupleStoreTestSuite struct {
+	driver store.TupleStore
 }
 
-func NewTupleDriverTestSuite(d driver.TupleDriver) *TupleDriverTestSuite {
-	return &TupleDriverTestSuite{driver: d}
+func NewTupleStoreTestSuite(d store.TupleStore) *TupleStoreTestSuite {
+	return &TupleStoreTestSuite{driver: d}
 }
 
-func (s *TupleDriverTestSuite) supportsSchemaValidation() bool {
-	_, ok := s.driver.(driver.SchemaDriver)
+func (s *TupleStoreTestSuite) supportsSchemaValidation() bool {
+	_, ok := s.driver.(store.SchemaStore)
 	return ok
 }
 
-func (s *TupleDriverTestSuite) setupSchema(t *testing.T, def *schema.Def) {
+func (s *TupleStoreTestSuite) setupSchema(t *testing.T, def *schema.Def) {
 	t.Helper()
 
-	if sd, ok := s.driver.(driver.SchemaDriver); ok {
+	if sd, ok := s.driver.(store.SchemaStore); ok {
 		ctx := context.Background()
 		schemaURI := core.New().NS("com.example").Schema(def.Name).MustURI()
 		err := sd.PutSchema(ctx, schemaURI, def)
@@ -36,7 +36,7 @@ func (s *TupleDriverTestSuite) setupSchema(t *testing.T, def *schema.Def) {
 	}
 }
 
-func (s *TupleDriverTestSuite) Basic(t *testing.T) {
+func (s *TupleStoreTestSuite) Basic(t *testing.T) {
 	t.Helper()
 
 	s.setupSchema(t, FakeAllTypesSchema())
@@ -84,7 +84,7 @@ func (s *TupleDriverTestSuite) Basic(t *testing.T) {
 	})
 }
 
-func (s *TupleDriverTestSuite) ValidationStrict(t *testing.T) {
+func (s *TupleStoreTestSuite) ValidationStrict(t *testing.T) {
 	t.Helper()
 
 	if !s.supportsSchemaValidation() {
@@ -99,7 +99,7 @@ func (s *TupleDriverTestSuite) ValidationStrict(t *testing.T) {
 		}
 
 		err := s.driver.PutTuples(ctx, tuples)
-		require.ErrorIs(t, err, driver.ErrNotFound)
+		require.ErrorIs(t, err, store.ErrNotFound)
 	})
 
 	t.Run("Rejects unknown fields", func(t *testing.T) {
@@ -139,7 +139,7 @@ func (s *TupleDriverTestSuite) ValidationStrict(t *testing.T) {
 	})
 }
 
-func (s *TupleDriverTestSuite) ValidationFlexible(t *testing.T) {
+func (s *TupleStoreTestSuite) ValidationFlexible(t *testing.T) {
 	t.Helper()
 
 	if !s.supportsSchemaValidation() {
@@ -167,7 +167,7 @@ func (s *TupleDriverTestSuite) ValidationFlexible(t *testing.T) {
 	})
 }
 
-func (s *TupleDriverTestSuite) ValidationDynamic(t *testing.T) {
+func (s *TupleStoreTestSuite) ValidationDynamic(t *testing.T) {
 	t.Helper()
 
 	if !s.supportsSchemaValidation() {
@@ -194,7 +194,7 @@ func (s *TupleDriverTestSuite) ValidationDynamic(t *testing.T) {
 		err := s.driver.PutTuples(ctx, tuples)
 		require.NoError(t, err)
 
-		sr := s.driver.(driver.SchemaReader)
+		sr := s.driver.(store.SchemaReader)
 		schemaURI := core.New().NS("com.example").Schema("dynamic_test").MustURI()
 		got, err := sr.GetSchema(ctx, schemaURI)
 		require.NoError(t, err)

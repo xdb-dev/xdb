@@ -9,29 +9,29 @@ import (
 	"github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
-	"github.com/xdb-dev/xdb/driver/xdbsqlite/internal"
+	"github.com/xdb-dev/xdb/store"
+	"github.com/xdb-dev/xdb/store/xdbsqlite/internal"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/x"
 )
 
-type SchemaDriverTx struct {
+type SchemaStoreTx struct {
 	tx      *sql.Tx
 	queries *internal.Queries
 }
 
-func NewSchemaDriverTx(tx *sql.Tx) *SchemaDriverTx {
-	return &SchemaDriverTx{
+func NewSchemaStoreTx(tx *sql.Tx) *SchemaStoreTx {
+	return &SchemaStoreTx{
 		tx:      tx,
 		queries: internal.NewQueries(tx),
 	}
 }
 
-func (d *SchemaDriverTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
+func (d *SchemaStoreTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
 	metadata, err := d.queries.GetMetadata(ctx, uri.String())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, driver.ErrNotFound
+			return nil, store.ErrNotFound
 		}
 		return nil, err
 	}
@@ -44,7 +44,7 @@ func (d *SchemaDriverTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.
 	return jsonSchema, nil
 }
 
-func (d *SchemaDriverTx) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
+func (d *SchemaStoreTx) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
 	metadataList, err := d.queries.ListMetadata(ctx, uri.String())
 	if err != nil {
 		return nil, err
@@ -62,11 +62,11 @@ func (d *SchemaDriverTx) ListSchemas(ctx context.Context, uri *core.URI) ([]*sch
 	return schemas, nil
 }
 
-func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
+func (d *SchemaStoreTx) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
 	tableName := tableName(uri)
 
 	existing, err := d.GetSchema(ctx, uri)
-	if err != nil && !errors.Is(err, driver.ErrNotFound) {
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return err
 	}
 
@@ -115,7 +115,7 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 	})
 }
 
-func (d *SchemaDriverTx) DeleteSchema(ctx context.Context, uri *core.URI) error {
+func (d *SchemaStoreTx) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	if err := d.queries.DeleteMetadata(ctx, uri.String()); err != nil {
 		return err
 	}

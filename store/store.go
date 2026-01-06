@@ -1,5 +1,5 @@
-// Package driver defines core driver interfaces for XDB database backends.
-package driver
+// Package store defines core store interfaces for XDB database backends.
+package store
 
 import (
 	"context"
@@ -11,13 +11,13 @@ import (
 
 var (
 	// ErrSchemaModeChanged is returned when a schema mode is changed.
-	ErrSchemaModeChanged = errors.New("[xdb/driver] cannot change schema mode")
+	ErrSchemaModeChanged = errors.New("[xdb/store] cannot change schema mode")
 
 	// ErrFieldChangeType is returned when a field type is changed.
-	ErrFieldChangeType = errors.New("[xdb/driver] cannot change field type")
+	ErrFieldChangeType = errors.New("[xdb/store] cannot change field type")
 
 	// ErrNotFound is returned when a resource is not found.
-	ErrNotFound = errors.New("[xdb/driver] requested resource not found")
+	ErrNotFound = errors.New("[xdb/store] requested resource not found")
 )
 
 // SchemaReader is an interface for reading schemas.
@@ -32,8 +32,8 @@ type SchemaWriter interface {
 	DeleteSchema(ctx context.Context, uri *core.URI) error
 }
 
-// SchemaDriver is an interface for managing schemas.
-type SchemaDriver interface {
+// SchemaStore is an interface for managing schemas.
+type SchemaStore interface {
 	SchemaReader
 	SchemaWriter
 }
@@ -49,8 +49,8 @@ type TupleWriter interface {
 	DeleteTuples(ctx context.Context, uris []*core.URI) error
 }
 
-// TupleDriver is an interface for managing tuples.
-type TupleDriver interface {
+// TupleStore is an interface for managing tuples.
+type TupleStore interface {
 	TupleReader
 	TupleWriter
 }
@@ -66,8 +66,8 @@ type RecordWriter interface {
 	DeleteRecords(ctx context.Context, uris []*core.URI) error
 }
 
-// RecordDriver is an interface for managing records.
-type RecordDriver interface {
+// RecordStore is an interface for managing records.
+type RecordStore interface {
 	RecordReader
 	RecordWriter
 }

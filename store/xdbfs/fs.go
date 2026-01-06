@@ -12,18 +12,18 @@ import (
 	"github.com/xdb-dev/xdb/codec"
 	codecjson "github.com/xdb-dev/xdb/codec/json"
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/x"
 )
 
-// FSDriver is a filesystem-based driver for XDB.
+// FSStore is a filesystem-based store for XDB.
 // It stores each schema as a .schema.json file and each record as a separate JSON file.
 //
-// By default, FSDriver uses restrictive permissions (0o750 for directories, 0o600 for files)
+// By default, FSStore uses restrictive permissions (0o750 for directories, 0o600 for files)
 // to minimize security risks. Use WithSharedAccess() option for more permissive settings
 // suitable for shared environments.
-type FSDriver struct {
+type FSStore struct {
 	root     string
 	codec    codec.KVCodec
 	mu       sync.RWMutex
@@ -31,15 +31,15 @@ type FSDriver struct {
 	filePerm os.FileMode
 }
 
-// Option is a functional option for configuring FSDriver.
-type Option func(*FSDriver)
+// Option is a functional option for configuring FSStore.
+type Option func(*FSStore)
 
 // WithPermissions sets custom file and directory permissions.
 // Security Note: Use restrictive permissions (e.g., 0o750/0o600) to prevent
 // unauthorized access. More permissive settings (e.g., 0o755/0o644) may be
 // appropriate for shared read access scenarios.
 func WithPermissions(dirPerm, filePerm os.FileMode) Option {
-	return func(d *FSDriver) {
+	return func(d *FSStore) {
 		d.dirPerm = dirPerm
 		d.filePerm = filePerm
 	}
@@ -53,11 +53,11 @@ func WithSharedAccess() Option {
 	return WithPermissions(0o755, 0o644)
 }
 
-// New creates a new filesystem driver with the given root directory.
+// New creates a new filesystem store with the given root directory.
 // By default, uses restrictive permissions (0o750 for directories, 0o600 for files).
 // Use functional options to customize permissions as needed.
-func New(root string, opts ...Option) (*FSDriver, error) {
-	d := &FSDriver{
+func New(root string, opts ...Option) (*FSStore, error) {
+	d := &FSStore{
 		root:     root,
 		codec:    codecjson.New(),
 		dirPerm:  0o750,
@@ -76,14 +76,14 @@ func New(root string, opts ...Option) (*FSDriver, error) {
 }
 
 // GetSchema returns the schema definition for the given URI.
-func (d *FSDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
+func (d *FSStore) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
 	path := d.schemaPath(uri.NS().String(), uri.Schema().String())
 
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return nil, driver.ErrNotFound
+		return nil, store.ErrNotFound
 	}
 
 	// #nosec G304 -- path is constructed internally via sanitized components
@@ -96,7 +96,7 @@ func (d *FSDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, e
 }
 
 // ListSchemas returns all schema definitions in the given namespace.
-func (d *FSDriver) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
+func (d *FSStore) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -139,7 +139,7 @@ func (d *FSDriver) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.De
 }
 
 // PutSchema saves the schema definition.
-func (d *FSDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
+func (d *FSStore) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -152,13 +152,13 @@ func (d *FSDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def
 
 	if existing != nil {
 		if existing.Mode != def.Mode {
-			return driver.ErrSchemaModeChanged
+			return store.ErrSchemaModeChanged
 		}
 
 		for _, newField := range def.Fields {
 			if oldField := existing.GetField(newField.Name); oldField != nil {
 				if !oldField.Type.Equals(newField.Type) {
-					return driver.ErrFieldChangeType
+					return store.ErrFieldChangeType
 				}
 			}
 		}
@@ -177,7 +177,7 @@ func (d *FSDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def
 }
 
 // readSchema reads a schema from the filesystem without locking.
-func (d *FSDriver) readSchema(path string) (*schema.Def, error) {
+func (d *FSStore) readSchema(path string) (*schema.Def, error) {
 	// #nosec G304 -- path is constructed internally via sanitized components
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -189,13 +189,13 @@ func (d *FSDriver) readSchema(path string) (*schema.Def, error) {
 
 // getSchemaLocked retrieves a schema without acquiring locks.
 // Must be called while holding at least a read lock.
-func (d *FSDriver) getSchemaLocked(uri *core.URI) (*schema.Def, error) {
+func (d *FSStore) getSchemaLocked(uri *core.URI) (*schema.Def, error) {
 	path := d.schemaPath(uri.NS().String(), uri.Schema().String())
 
 	def, err := d.readSchema(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, driver.ErrNotFound
+			return nil, store.ErrNotFound
 		}
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (d *FSDriver) getSchemaLocked(uri *core.URI) (*schema.Def, error) {
 
 // writeSchemaLocked writes a schema without acquiring locks.
 // Must be called while holding the write lock.
-func (d *FSDriver) writeSchemaLocked(uri *core.URI, def *schema.Def) error {
+func (d *FSStore) writeSchemaLocked(uri *core.URI, def *schema.Def) error {
 	path := d.schemaPath(uri.NS().String(), uri.Schema().String())
 
 	if err := os.MkdirAll(filepath.Dir(path), d.dirPerm); err != nil {
@@ -223,7 +223,7 @@ func (d *FSDriver) writeSchemaLocked(uri *core.URI, def *schema.Def) error {
 // validateTuplesLocked validates tuples against their schema.
 // For dynamic schemas, it infers and persists new fields.
 // Must be called while holding the write lock.
-func (d *FSDriver) validateTuplesLocked(schemaURI *core.URI, tuples []*core.Tuple) error {
+func (d *FSStore) validateTuplesLocked(schemaURI *core.URI, tuples []*core.Tuple) error {
 	schemaDef, err := d.getSchemaLocked(schemaURI)
 	if err != nil {
 		return err
@@ -247,7 +247,7 @@ func (d *FSDriver) validateTuplesLocked(schemaURI *core.URI, tuples []*core.Tupl
 }
 
 // DeleteSchema deletes the schema definition.
-func (d *FSDriver) DeleteSchema(ctx context.Context, uri *core.URI) error {
+func (d *FSStore) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -261,7 +261,7 @@ func (d *FSDriver) DeleteSchema(ctx context.Context, uri *core.URI) error {
 }
 
 // GetTuples returns the tuples for the given URIs.
-func (d *FSDriver) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple, []*core.URI, error) {
+func (d *FSStore) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple, []*core.URI, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -293,7 +293,7 @@ func (d *FSDriver) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tup
 }
 
 // PutTuples saves the tuples.
-func (d *FSDriver) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
+func (d *FSStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -341,7 +341,7 @@ func (d *FSDriver) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 }
 
 // DeleteTuples deletes the tuples for the given URIs.
-func (d *FSDriver) DeleteTuples(ctx context.Context, uris []*core.URI) error {
+func (d *FSStore) DeleteTuples(ctx context.Context, uris []*core.URI) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -391,7 +391,7 @@ func (d *FSDriver) DeleteTuples(ctx context.Context, uris []*core.URI) error {
 }
 
 // GetRecords returns the records for the given URIs.
-func (d *FSDriver) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Record, []*core.URI, error) {
+func (d *FSStore) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Record, []*core.URI, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -422,7 +422,7 @@ func (d *FSDriver) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Re
 }
 
 // PutRecords saves the records.
-func (d *FSDriver) PutRecords(ctx context.Context, records []*core.Record) error {
+func (d *FSStore) PutRecords(ctx context.Context, records []*core.Record) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -453,7 +453,7 @@ func (d *FSDriver) PutRecords(ctx context.Context, records []*core.Record) error
 }
 
 // DeleteRecords deletes the records for the given URIs.
-func (d *FSDriver) DeleteRecords(ctx context.Context, uris []*core.URI) error {
+func (d *FSStore) DeleteRecords(ctx context.Context, uris []*core.URI) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -469,23 +469,23 @@ func (d *FSDriver) DeleteRecords(ctx context.Context, uris []*core.URI) error {
 }
 
 // nsPath returns the directory path for a namespace.
-func (d *FSDriver) nsPath(ns string) string {
+func (d *FSStore) nsPath(ns string) string {
 	return filepath.Join(d.root, ns)
 }
 
 // schemaPath returns the file path for a schema.
-func (d *FSDriver) schemaPath(ns, schemaName string) string {
+func (d *FSStore) schemaPath(ns, schemaName string) string {
 	return filepath.Join(d.root, ns, schemaName, ".schema.json")
 }
 
 // recordPath returns the file path for a record.
-func (d *FSDriver) recordPath(ns, schemaName, id string) string {
+func (d *FSStore) recordPath(ns, schemaName, id string) string {
 	sanitized := strings.ReplaceAll(id, "/", "_")
 	return filepath.Join(d.root, ns, schemaName, fmt.Sprintf("%s.json", sanitized))
 }
 
 // readRecord reads a record from the filesystem.
-func (d *FSDriver) readRecord(path, ns, schemaName, id string) (*core.Record, error) {
+func (d *FSStore) readRecord(path, ns, schemaName, id string) (*core.Record, error) {
 	// #nosec G304 -- path is constructed internally via sanitized components
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -513,7 +513,7 @@ func (d *FSDriver) readRecord(path, ns, schemaName, id string) (*core.Record, er
 }
 
 // writeRecord writes a record to the filesystem.
-func (d *FSDriver) writeRecord(path string, record *core.Record) error {
+func (d *FSStore) writeRecord(path string, record *core.Record) error {
 	if err := os.MkdirAll(filepath.Dir(path), d.dirPerm); err != nil {
 		return err
 	}

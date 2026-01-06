@@ -38,7 +38,7 @@ xdb/
 │   └── main.go            # Entry point
 ├── codec/                 # Low-level serialization (see codec/README.md)
 ├── core/                  # Core data model
-├── driver/                # Database backends (see driver/README.md)
+├── store/                 # Database backends (see store/README.md)
 ├── encoding/              # Format conversions (see encoding/README.md)
 ├── x/                     # Utility functions
 ├── tests/                 # Shared test suites
@@ -111,11 +111,11 @@ Group imports with blank lines between groups:
 - Place test functions in `package_test` form when testing public APIs
 - Use `testify/assert` for assertions
 - Example tests must have exact `// Output:` comments
-- The `tests/` package provides shared test suites for driver implementations:
-  - `TupleDriverTest`: Test suite for `TupleDriver` implementations
-  - `RecordDriverTest`: Test suite for `RecordDriver` implementations
-  - `SchemaDriverTest`: Test suite for `SchemaDriver` implementations
-- Use these test suites to ensure consistent behavior across driver implementations
+- The `tests/` package provides shared test suites for store implementations:
+  - `TupleStoreTest`: Test suite for `TupleStore` implementations
+  - `RecordStoreTest`: Test suite for `RecordStore` implementations
+  - `SchemaStoreTest`: Test suite for `SchemaStore` implementations
+- Use these test suites to ensure consistent behavior across store implementations
 
 ## Important Notes
 

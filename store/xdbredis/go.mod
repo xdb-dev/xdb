@@ -1,4 +1,4 @@
-module github.com/xdb-dev/xdb/driver/xdbredis
+module github.com/xdb-dev/xdb/store/xdbredis
 
 go 1.25.0
 

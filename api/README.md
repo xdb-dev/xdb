@@ -52,7 +52,7 @@ Keep API types separate from core types to allow independent evolution.
 func (a *TupleAPI) PutTuples() EndpointFunc[PutTuplesRequest, PutTuplesResponse] {
     return func(ctx context.Context, req *PutTuplesRequest) (*PutTuplesResponse, error) {
         // Convert API types to core types
-        // Call driver methods
+        // Call store methods
         // Return response
     }
 }

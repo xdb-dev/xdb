@@ -7,19 +7,19 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/store"
 )
 
-type SchemaDriverTestSuite struct {
-	driver driver.SchemaDriver
+type SchemaStoreTestSuite struct {
+	driver store.SchemaStore
 }
 
-func NewSchemaDriverTestSuite(d driver.SchemaDriver) *SchemaDriverTestSuite {
-	return &SchemaDriverTestSuite{driver: d}
+func NewSchemaStoreTestSuite(d store.SchemaStore) *SchemaStoreTestSuite {
+	return &SchemaStoreTestSuite{driver: d}
 }
 
-func (s *SchemaDriverTestSuite) Basic(t *testing.T) {
+func (s *SchemaStoreTestSuite) Basic(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -50,7 +50,7 @@ func (s *SchemaDriverTestSuite) Basic(t *testing.T) {
 
 		got, err := s.driver.GetSchema(ctx, allTypesURI)
 		require.Error(t, err)
-		require.ErrorIs(t, err, driver.ErrNotFound)
+		require.ErrorIs(t, err, store.ErrNotFound)
 		require.Nil(t, got)
 	})
 
@@ -62,12 +62,12 @@ func (s *SchemaDriverTestSuite) Basic(t *testing.T) {
 	t.Run("GetSchema returns ErrNotFound for non-existent schema", func(t *testing.T) {
 		got, err := s.driver.GetSchema(ctx, allTypesURI)
 		require.Error(t, err)
-		require.ErrorIs(t, err, driver.ErrNotFound)
+		require.ErrorIs(t, err, store.ErrNotFound)
 		require.Nil(t, got)
 	})
 }
 
-func (s *SchemaDriverTestSuite) ListSchemas(t *testing.T) {
+func (s *SchemaStoreTestSuite) ListSchemas(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -92,7 +92,7 @@ func (s *SchemaDriverTestSuite) ListSchemas(t *testing.T) {
 	AssertDefEqual(t, allTypesSchema2, schemas[1])
 }
 
-func (s *SchemaDriverTestSuite) AddNewFields(t *testing.T) {
+func (s *SchemaStoreTestSuite) AddNewFields(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -116,7 +116,7 @@ func (s *SchemaDriverTestSuite) AddNewFields(t *testing.T) {
 	AssertDefEqual(t, updatedSchema, got)
 }
 
-func (s *SchemaDriverTestSuite) DropFields(t *testing.T) {
+func (s *SchemaStoreTestSuite) DropFields(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -137,7 +137,7 @@ func (s *SchemaDriverTestSuite) DropFields(t *testing.T) {
 	AssertDefEqual(t, updatedSchema, got)
 }
 
-func (s *SchemaDriverTestSuite) ModifyFields(t *testing.T) {
+func (s *SchemaStoreTestSuite) ModifyFields(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -153,10 +153,10 @@ func (s *SchemaDriverTestSuite) ModifyFields(t *testing.T) {
 
 	err = s.driver.PutSchema(ctx, allTypesURI, updatedSchema)
 	require.Error(t, err)
-	require.ErrorIs(t, err, driver.ErrFieldChangeType)
+	require.ErrorIs(t, err, store.ErrFieldChangeType)
 }
 
-func (s *SchemaDriverTestSuite) EdgeCases(t *testing.T) {
+func (s *SchemaStoreTestSuite) EdgeCases(t *testing.T) {
 	t.Helper()
 
 	ctx := context.Background()
@@ -172,7 +172,7 @@ func (s *SchemaDriverTestSuite) EdgeCases(t *testing.T) {
 		flexibleSchema.Mode = schema.ModeFlexible
 		err = s.driver.PutSchema(ctx, allTypesURI, flexibleSchema)
 		require.Error(t, err)
-		require.ErrorIs(t, err, driver.ErrSchemaModeChanged)
+		require.ErrorIs(t, err, store.ErrSchemaModeChanged)
 	})
 
 	t.Run("PutSchema prevents mode change from flexible to strict", func(t *testing.T) {
@@ -188,6 +188,6 @@ func (s *SchemaDriverTestSuite) EdgeCases(t *testing.T) {
 		strictSchema.Mode = schema.ModeStrict
 		err = s.driver.PutSchema(ctx, allTypesURI, strictSchema)
 		require.Error(t, err)
-		require.ErrorIs(t, err, driver.ErrSchemaModeChanged)
+		require.ErrorIs(t, err, store.ErrSchemaModeChanged)
 	})
 }

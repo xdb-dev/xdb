@@ -1,4 +1,4 @@
-// Package xdbmemory provides an in-memory driver implementation for XDB.
+// Package xdbmemory provides an in-memory store implementation for XDB.
 package xdbmemory
 
 import (
@@ -8,55 +8,55 @@ import (
 	"sync"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/x"
 )
 
-// Config holds the configuration for the in-memory driver.
+// Config holds the configuration for the in-memory store.
 type Config struct {
 	Enabled bool `env:"ENABLED"`
 }
 
-// MemoryDriver is an in-memory driver for XDB.
-type MemoryDriver struct {
+// MemoryStore is an in-memory store for XDB.
+type MemoryStore struct {
 	mu      sync.RWMutex
 	tuples  map[string]map[string]*core.Tuple
 	schemas map[string]map[string]*schema.Def
 }
 
-// New creates a new in-memory driver.
-func New() *MemoryDriver {
-	return &MemoryDriver{
+// New creates a new in-memory store.
+func New() *MemoryStore {
+	return &MemoryStore{
 		tuples:  make(map[string]map[string]*core.Tuple),
 		schemas: make(map[string]map[string]*schema.Def),
 	}
 }
 
 // GetSchema returns the schema definition for the given URI.
-func (d *MemoryDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
+func (d *MemoryStore) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
 	return d.getSchemaLocked(uri)
 }
 
-func (d *MemoryDriver) getSchemaLocked(uri *core.URI) (*schema.Def, error) {
+func (d *MemoryStore) getSchemaLocked(uri *core.URI) (*schema.Def, error) {
 	schemas, ok := d.schemas[uri.NS().String()]
 	if !ok {
-		return nil, driver.ErrNotFound
+		return nil, store.ErrNotFound
 	}
 
 	s, ok := schemas[uri.Schema().String()]
 	if !ok {
-		return nil, driver.ErrNotFound
+		return nil, store.ErrNotFound
 	}
 
 	return s, nil
 }
 
 // ListSchemas returns all schema definitions in the given namespace.
-func (d *MemoryDriver) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
+func (d *MemoryStore) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -80,7 +80,7 @@ func (d *MemoryDriver) ListSchemas(ctx context.Context, uri *core.URI) ([]*schem
 }
 
 // PutSchema saves the schema definition.
-func (d *MemoryDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
+func (d *MemoryStore) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -93,13 +93,13 @@ func (d *MemoryDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema
 	existing, exists := d.schemas[ns][schemaKey]
 	if exists {
 		if existing.Mode != def.Mode {
-			return driver.ErrSchemaModeChanged
+			return store.ErrSchemaModeChanged
 		}
 
 		for _, newField := range def.Fields {
 			if oldField := existing.GetField(newField.Name); oldField != nil {
 				if !oldField.Type.Equals(newField.Type) {
-					return driver.ErrFieldChangeType
+					return store.ErrFieldChangeType
 				}
 			}
 		}
@@ -111,7 +111,7 @@ func (d *MemoryDriver) PutSchema(ctx context.Context, uri *core.URI, def *schema
 }
 
 // DeleteSchema deletes the schema definition.
-func (d *MemoryDriver) DeleteSchema(ctx context.Context, uri *core.URI) error {
+func (d *MemoryStore) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -129,7 +129,7 @@ func (d *MemoryDriver) DeleteSchema(ctx context.Context, uri *core.URI) error {
 }
 
 // GetTuples returns the tuples for the given uris.
-func (d *MemoryDriver) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple, []*core.URI, error) {
+func (d *MemoryStore) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple, []*core.URI, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -158,7 +158,7 @@ func (d *MemoryDriver) GetTuples(ctx context.Context, uris []*core.URI) ([]*core
 }
 
 // PutTuples saves the tuples.
-func (d *MemoryDriver) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
+func (d *MemoryStore) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -207,7 +207,7 @@ func (d *MemoryDriver) PutTuples(ctx context.Context, tuples []*core.Tuple) erro
 }
 
 // DeleteTuples deletes the tuples for the given uris.
-func (d *MemoryDriver) DeleteTuples(ctx context.Context, uris []*core.URI) error {
+func (d *MemoryStore) DeleteTuples(ctx context.Context, uris []*core.URI) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -230,7 +230,7 @@ func (d *MemoryDriver) DeleteTuples(ctx context.Context, uris []*core.URI) error
 }
 
 // GetRecords returns the records for the given uris.
-func (d *MemoryDriver) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Record, []*core.URI, error) {
+func (d *MemoryStore) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Record, []*core.URI, error) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
@@ -263,7 +263,7 @@ func (d *MemoryDriver) GetRecords(ctx context.Context, uris []*core.URI) ([]*cor
 }
 
 // PutRecords saves the records.
-func (d *MemoryDriver) PutRecords(ctx context.Context, records []*core.Record) error {
+func (d *MemoryStore) PutRecords(ctx context.Context, records []*core.Record) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -314,7 +314,7 @@ func (d *MemoryDriver) PutRecords(ctx context.Context, records []*core.Record) e
 }
 
 // DeleteRecords deletes the records for the given uris.
-func (d *MemoryDriver) DeleteRecords(ctx context.Context, uris []*core.URI) error {
+func (d *MemoryStore) DeleteRecords(ctx context.Context, uris []*core.URI) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 

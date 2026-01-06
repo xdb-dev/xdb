@@ -9,114 +9,114 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver/xdbfs"
+	"github.com/xdb-dev/xdb/store/xdbfs"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/tests"
 )
 
-type FSDriverTestSuite struct {
+type FSStoreTestSuite struct {
 	suite.Suite
-	*tests.SchemaDriverTestSuite
+	*tests.SchemaStoreTestSuite
 	tmpDir string
 }
 
-func TestFSDriverTestSuite(t *testing.T) {
-	suite.Run(t, new(FSDriverTestSuite))
+func TestFSStoreTestSuite(t *testing.T) {
+	suite.Run(t, new(FSStoreTestSuite))
 }
 
-func (s *FSDriverTestSuite) SetupTest() {
+func (s *FSStoreTestSuite) SetupTest() {
 	tmpDir := s.T().TempDir()
 	driver, err := xdbfs.New(tmpDir, xdbfs.WithSharedAccess())
 	require.NoError(s.T(), err)
 
 	s.tmpDir = tmpDir
-	s.SchemaDriverTestSuite = tests.NewSchemaDriverTestSuite(driver)
+	s.SchemaStoreTestSuite = tests.NewSchemaStoreTestSuite(driver)
 }
 
-func (s *FSDriverTestSuite) TestBasic() {
-	s.SchemaDriverTestSuite.Basic(s.T())
+func (s *FSStoreTestSuite) TestBasic() {
+	s.SchemaStoreTestSuite.Basic(s.T())
 }
 
-func (s *FSDriverTestSuite) TestListSchemas() {
-	s.SchemaDriverTestSuite.ListSchemas(s.T())
+func (s *FSStoreTestSuite) TestListSchemas() {
+	s.SchemaStoreTestSuite.ListSchemas(s.T())
 }
 
-func (s *FSDriverTestSuite) TestAddNewFields() {
-	s.SchemaDriverTestSuite.AddNewFields(s.T())
+func (s *FSStoreTestSuite) TestAddNewFields() {
+	s.SchemaStoreTestSuite.AddNewFields(s.T())
 }
 
-func (s *FSDriverTestSuite) TestDropFields() {
-	s.SchemaDriverTestSuite.DropFields(s.T())
+func (s *FSStoreTestSuite) TestDropFields() {
+	s.SchemaStoreTestSuite.DropFields(s.T())
 }
 
-func (s *FSDriverTestSuite) TestModifyFields() {
-	s.SchemaDriverTestSuite.ModifyFields(s.T())
+func (s *FSStoreTestSuite) TestModifyFields() {
+	s.SchemaStoreTestSuite.ModifyFields(s.T())
 }
 
-func (s *FSDriverTestSuite) TestEdgeCases() {
-	s.SchemaDriverTestSuite.EdgeCases(s.T())
+func (s *FSStoreTestSuite) TestEdgeCases() {
+	s.SchemaStoreTestSuite.EdgeCases(s.T())
 }
 
-type TupleDriverTestSuite struct {
+type TupleStoreTestSuite struct {
 	suite.Suite
-	*tests.TupleDriverTestSuite
+	*tests.TupleStoreTestSuite
 	tmpDir string
 }
 
-func TestTupleDriverTestSuite(t *testing.T) {
-	suite.Run(t, new(TupleDriverTestSuite))
+func TestTupleStoreTestSuite(t *testing.T) {
+	suite.Run(t, new(TupleStoreTestSuite))
 }
 
-func (s *TupleDriverTestSuite) SetupTest() {
+func (s *TupleStoreTestSuite) SetupTest() {
 	tmpDir := s.T().TempDir()
 	driver, err := xdbfs.New(tmpDir, xdbfs.WithSharedAccess())
 	require.NoError(s.T(), err)
 
 	s.tmpDir = tmpDir
-	s.TupleDriverTestSuite = tests.NewTupleDriverTestSuite(driver)
+	s.TupleStoreTestSuite = tests.NewTupleStoreTestSuite(driver)
 }
 
-func (s *TupleDriverTestSuite) TestValidationStrict() {
-	s.TupleDriverTestSuite.ValidationStrict(s.T())
+func (s *TupleStoreTestSuite) TestValidationStrict() {
+	s.TupleStoreTestSuite.ValidationStrict(s.T())
 }
 
-func (s *TupleDriverTestSuite) TestValidationFlexible() {
-	s.TupleDriverTestSuite.ValidationFlexible(s.T())
+func (s *TupleStoreTestSuite) TestValidationFlexible() {
+	s.TupleStoreTestSuite.ValidationFlexible(s.T())
 }
 
-func (s *TupleDriverTestSuite) TestValidationDynamic() {
-	s.TupleDriverTestSuite.ValidationDynamic(s.T())
+func (s *TupleStoreTestSuite) TestValidationDynamic() {
+	s.TupleStoreTestSuite.ValidationDynamic(s.T())
 }
 
-type RecordDriverTestSuite struct {
+type RecordStoreTestSuite struct {
 	suite.Suite
-	*tests.RecordDriverTestSuite
+	*tests.RecordStoreTestSuite
 	tmpDir string
 }
 
-func TestRecordDriverTestSuite(t *testing.T) {
-	suite.Run(t, new(RecordDriverTestSuite))
+func TestRecordStoreTestSuite(t *testing.T) {
+	suite.Run(t, new(RecordStoreTestSuite))
 }
 
-func (s *RecordDriverTestSuite) SetupTest() {
+func (s *RecordStoreTestSuite) SetupTest() {
 	tmpDir := s.T().TempDir()
 	driver, err := xdbfs.New(tmpDir, xdbfs.WithSharedAccess())
 	require.NoError(s.T(), err)
 
 	s.tmpDir = tmpDir
-	s.RecordDriverTestSuite = tests.NewRecordDriverTestSuite(driver)
+	s.RecordStoreTestSuite = tests.NewRecordStoreTestSuite(driver)
 }
 
-func (s *RecordDriverTestSuite) TestValidationStrict() {
-	s.RecordDriverTestSuite.ValidationStrict(s.T())
+func (s *RecordStoreTestSuite) TestValidationStrict() {
+	s.RecordStoreTestSuite.ValidationStrict(s.T())
 }
 
-func (s *RecordDriverTestSuite) TestValidationFlexible() {
-	s.RecordDriverTestSuite.ValidationFlexible(s.T())
+func (s *RecordStoreTestSuite) TestValidationFlexible() {
+	s.RecordStoreTestSuite.ValidationFlexible(s.T())
 }
 
-func (s *RecordDriverTestSuite) TestValidationDynamic() {
-	s.RecordDriverTestSuite.ValidationDynamic(s.T())
+func (s *RecordStoreTestSuite) TestValidationDynamic() {
+	s.RecordStoreTestSuite.ValidationDynamic(s.T())
 }
 
 func TestFSDriver_Permissions(t *testing.T) {

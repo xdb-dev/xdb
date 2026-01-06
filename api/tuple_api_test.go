@@ -8,7 +8,7 @@ import (
 
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver/xdbmemory"
+	"github.com/xdb-dev/xdb/store/xdbmemory"
 	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/x"
 )

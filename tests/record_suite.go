@@ -7,28 +7,28 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/x"
 )
 
-type RecordDriverTestSuite struct {
-	driver driver.RecordDriver
+type RecordStoreTestSuite struct {
+	driver store.RecordStore
 }
 
-func NewRecordDriverTestSuite(d driver.RecordDriver) *RecordDriverTestSuite {
-	return &RecordDriverTestSuite{driver: d}
+func NewRecordStoreTestSuite(d store.RecordStore) *RecordStoreTestSuite {
+	return &RecordStoreTestSuite{driver: d}
 }
 
-func (s *RecordDriverTestSuite) supportsSchemaValidation() bool {
-	_, ok := s.driver.(driver.SchemaDriver)
+func (s *RecordStoreTestSuite) supportsSchemaValidation() bool {
+	_, ok := s.driver.(store.SchemaStore)
 	return ok
 }
 
-func (s *RecordDriverTestSuite) setupSchema(t *testing.T, def *schema.Def) {
+func (s *RecordStoreTestSuite) setupSchema(t *testing.T, def *schema.Def) {
 	t.Helper()
 
-	if sd, ok := s.driver.(driver.SchemaDriver); ok {
+	if sd, ok := s.driver.(store.SchemaStore); ok {
 		ctx := context.Background()
 		schemaURI := core.New().NS("com.example").Schema(def.Name).MustURI()
 		err := sd.PutSchema(ctx, schemaURI, def)
@@ -36,7 +36,7 @@ func (s *RecordDriverTestSuite) setupSchema(t *testing.T, def *schema.Def) {
 	}
 }
 
-func (s *RecordDriverTestSuite) Basic(t *testing.T) {
+func (s *RecordStoreTestSuite) Basic(t *testing.T) {
 	t.Helper()
 
 	s.setupSchema(t, FakePostSchema())
@@ -83,7 +83,7 @@ func (s *RecordDriverTestSuite) Basic(t *testing.T) {
 	})
 }
 
-func (s *RecordDriverTestSuite) ValidationStrict(t *testing.T) {
+func (s *RecordStoreTestSuite) ValidationStrict(t *testing.T) {
 	t.Helper()
 
 	if !s.supportsSchemaValidation() {
@@ -98,7 +98,7 @@ func (s *RecordDriverTestSuite) ValidationStrict(t *testing.T) {
 		}
 
 		err := s.driver.PutRecords(ctx, records)
-		require.ErrorIs(t, err, driver.ErrNotFound)
+		require.ErrorIs(t, err, store.ErrNotFound)
 	})
 
 	t.Run("Rejects unknown fields", func(t *testing.T) {
@@ -138,7 +138,7 @@ func (s *RecordDriverTestSuite) ValidationStrict(t *testing.T) {
 	})
 }
 
-func (s *RecordDriverTestSuite) ValidationFlexible(t *testing.T) {
+func (s *RecordStoreTestSuite) ValidationFlexible(t *testing.T) {
 	t.Helper()
 
 	if !s.supportsSchemaValidation() {
@@ -166,7 +166,7 @@ func (s *RecordDriverTestSuite) ValidationFlexible(t *testing.T) {
 	})
 }
 
-func (s *RecordDriverTestSuite) ValidationDynamic(t *testing.T) {
+func (s *RecordStoreTestSuite) ValidationDynamic(t *testing.T) {
 	t.Helper()
 
 	if !s.supportsSchemaValidation() {
@@ -194,7 +194,7 @@ func (s *RecordDriverTestSuite) ValidationDynamic(t *testing.T) {
 		err := s.driver.PutRecords(ctx, records)
 		require.NoError(t, err)
 
-		sr := s.driver.(driver.SchemaReader)
+		sr := s.driver.(store.SchemaReader)
 		schemaURI := core.New().NS("com.example").Schema("dynamic_record_test").MustURI()
 		got, err := sr.GetSchema(ctx, schemaURI)
 		require.NoError(t, err)

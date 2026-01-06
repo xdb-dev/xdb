@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/xdb-dev/xdb/driver/xdbsqlite"
-	"github.com/xdb-dev/xdb/driver/xdbsqlite/internal"
+	"github.com/xdb-dev/xdb/store/xdbsqlite"
+	"github.com/xdb-dev/xdb/store/xdbsqlite/internal"
 	"github.com/xdb-dev/xdb/tests"
 )
 
@@ -39,7 +39,7 @@ func (s *SQLiteDriverTestSuite) SetupTest() {
 
 	s.db = db
 	s.tx = tx
-	s.SchemaDriverTestSuite = tests.NewSchemaDriverTestSuite(xdbsqlite.NewSchemaDriverTx(tx))
+	s.SchemaDriverTestSuite = tests.NewSchemaDriverTestSuite(xdbsqlite.NewSchemaStoreTx(tx))
 }
 
 func (s *SQLiteDriverTestSuite) TearDownTest() {

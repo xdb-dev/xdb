@@ -1,4 +1,4 @@
-// Package xdbredis provides a Redis-backed driver for XDB.
+// Package xdbredis provides a Redis-backed store for XDB.
 package xdbredis
 
 import (
@@ -10,14 +10,14 @@ import (
 	"github.com/xdb-dev/xdb/codec"
 	"github.com/xdb-dev/xdb/codec/msgpack"
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/driver"
+	"github.com/xdb-dev/xdb/store"
 )
 
 var (
-	_ driver.TupleReader  = (*KVStore)(nil)
-	_ driver.TupleWriter  = (*KVStore)(nil)
-	_ driver.RecordReader = (*KVStore)(nil)
-	_ driver.RecordWriter = (*KVStore)(nil)
+	_ store.TupleReader  = (*KVStore)(nil)
+	_ store.TupleWriter  = (*KVStore)(nil)
+	_ store.RecordReader = (*KVStore)(nil)
+	_ store.RecordWriter = (*KVStore)(nil)
 )
 
 // KVStore is a key-value store for Redis.
