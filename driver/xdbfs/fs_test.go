@@ -57,12 +57,67 @@ func (s *FSDriverTestSuite) TestEdgeCases() {
 	s.SchemaDriverTestSuite.EdgeCases(s.T())
 }
 
-// NOTE: Tuple and Record tests are disabled for the filesystem driver due to
-// inherent JSON precision loss:
-// - Float64 values lose precision in JSON number representation
-// - Time values are stored with millisecond precision, losing nanoseconds
-// - Large uint64 values may lose precision in JSON encoding
-// The schema tests above verify the core functionality of the driver.
+type TupleDriverTestSuite struct {
+	suite.Suite
+	*tests.TupleDriverTestSuite
+	tmpDir string
+}
+
+func TestTupleDriverTestSuite(t *testing.T) {
+	suite.Run(t, new(TupleDriverTestSuite))
+}
+
+func (s *TupleDriverTestSuite) SetupTest() {
+	tmpDir := s.T().TempDir()
+	driver, err := xdbfs.New(tmpDir, xdbfs.WithSharedAccess())
+	require.NoError(s.T(), err)
+
+	s.tmpDir = tmpDir
+	s.TupleDriverTestSuite = tests.NewTupleDriverTestSuite(driver)
+}
+
+func (s *TupleDriverTestSuite) TestValidationStrict() {
+	s.TupleDriverTestSuite.ValidationStrict(s.T())
+}
+
+func (s *TupleDriverTestSuite) TestValidationFlexible() {
+	s.TupleDriverTestSuite.ValidationFlexible(s.T())
+}
+
+func (s *TupleDriverTestSuite) TestValidationDynamic() {
+	s.TupleDriverTestSuite.ValidationDynamic(s.T())
+}
+
+type RecordDriverTestSuite struct {
+	suite.Suite
+	*tests.RecordDriverTestSuite
+	tmpDir string
+}
+
+func TestRecordDriverTestSuite(t *testing.T) {
+	suite.Run(t, new(RecordDriverTestSuite))
+}
+
+func (s *RecordDriverTestSuite) SetupTest() {
+	tmpDir := s.T().TempDir()
+	driver, err := xdbfs.New(tmpDir, xdbfs.WithSharedAccess())
+	require.NoError(s.T(), err)
+
+	s.tmpDir = tmpDir
+	s.RecordDriverTestSuite = tests.NewRecordDriverTestSuite(driver)
+}
+
+func (s *RecordDriverTestSuite) TestValidationStrict() {
+	s.RecordDriverTestSuite.ValidationStrict(s.T())
+}
+
+func (s *RecordDriverTestSuite) TestValidationFlexible() {
+	s.RecordDriverTestSuite.ValidationFlexible(s.T())
+}
+
+func (s *RecordDriverTestSuite) TestValidationDynamic() {
+	s.RecordDriverTestSuite.ValidationDynamic(s.T())
+}
 
 func TestFSDriver_Permissions(t *testing.T) {
 	t.Parallel()

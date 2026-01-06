@@ -34,9 +34,11 @@ func (s *KVStoreTestSuite) TearDownSuite() {
 }
 
 func (s *KVStoreTestSuite) TestTuples() {
-	tests.TestTupleReaderWriter(s.T(), s.kv)
+	tuplesSuite := tests.NewTupleDriverTestSuite(s.kv)
+	tuplesSuite.Basic(s.T())
 }
 
 func (s *KVStoreTestSuite) TestRecords() {
-	tests.TestRecordReaderWriter(s.T(), s.kv)
+	recordsSuite := tests.NewRecordDriverTestSuite(s.kv)
+	recordsSuite.Basic(s.T())
 }

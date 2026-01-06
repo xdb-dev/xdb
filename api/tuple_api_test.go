@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver/xdbmemory"
 	"github.com/xdb-dev/xdb/tests"
 	"github.com/xdb-dev/xdb/x"
@@ -15,6 +16,10 @@ import (
 func TestTupleAPI(t *testing.T) {
 	ctx := context.Background()
 	driver := xdbmemory.New()
+
+	schemaURI := core.New().NS("com.example").Schema("all_types").MustURI()
+	err := driver.PutSchema(ctx, schemaURI, tests.FakeAllTypesSchema())
+	require.NoError(t, err)
 
 	store := api.NewTupleAPI(driver)
 

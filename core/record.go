@@ -39,6 +39,14 @@ func (r *Record) ID() *ID { return r.path.ID() }
 // URI returns a URI that references this Record.
 func (r *Record) URI() *URI { return r.path }
 
+// SchemaURI returns the schema URI of the record.
+func (r *Record) SchemaURI() *URI {
+	return &URI{
+		ns:     r.path.NS(),
+		schema: r.path.Schema(),
+	}
+}
+
 // GoString returns Go syntax of the Record.
 func (r *Record) GoString() string {
 	return fmt.Sprintf("Record(%s)", r.path.String())

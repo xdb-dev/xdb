@@ -47,6 +47,14 @@ func (t *Tuple) Schema() *Schema {
 	return t.path.Schema()
 }
 
+// SchemaURI returns the schema URI of the tuple.
+func (t *Tuple) SchemaURI() *URI {
+	return &URI{
+		ns:     t.path.NS(),
+		schema: t.path.Schema(),
+	}
+}
+
 // ID returns the record ID of the tuple.
 func (t *Tuple) ID() *ID {
 	return t.path.ID()

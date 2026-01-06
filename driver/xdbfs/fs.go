@@ -14,6 +14,7 @@ import (
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/x"
 )
 
 // FSDriver is a filesystem-based driver for XDB.
@@ -186,6 +187,65 @@ func (d *FSDriver) readSchema(path string) (*schema.Def, error) {
 	return schema.LoadFromJSON(data)
 }
 
+// getSchemaLocked retrieves a schema without acquiring locks.
+// Must be called while holding at least a read lock.
+func (d *FSDriver) getSchemaLocked(uri *core.URI) (*schema.Def, error) {
+	path := d.schemaPath(uri.NS().String(), uri.Schema().String())
+
+	def, err := d.readSchema(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, driver.ErrNotFound
+		}
+		return nil, err
+	}
+
+	return def, nil
+}
+
+// writeSchemaLocked writes a schema without acquiring locks.
+// Must be called while holding the write lock.
+func (d *FSDriver) writeSchemaLocked(uri *core.URI, def *schema.Def) error {
+	path := d.schemaPath(uri.NS().String(), uri.Schema().String())
+
+	if err := os.MkdirAll(filepath.Dir(path), d.dirPerm); err != nil {
+		return err
+	}
+
+	data, err := schema.WriteToJSON(def)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, d.filePerm)
+}
+
+// validateTuplesLocked validates tuples against their schema.
+// For dynamic schemas, it infers and persists new fields.
+// Must be called while holding the write lock.
+func (d *FSDriver) validateTuplesLocked(schemaURI *core.URI, tuples []*core.Tuple) error {
+	schemaDef, err := d.getSchemaLocked(schemaURI)
+	if err != nil {
+		return err
+	}
+
+	if schemaDef.Mode == schema.ModeDynamic {
+		newFields, err := schema.InferFields(schemaDef, tuples)
+		if err != nil {
+			return err
+		}
+
+		if len(newFields) > 0 {
+			schemaDef.AddFields(newFields...)
+			if err := d.writeSchemaLocked(schemaURI, schemaDef); err != nil {
+				return err
+			}
+		}
+	}
+
+	return schema.ValidateTuples(schemaDef, tuples)
+}
+
 // DeleteSchema deletes the schema definition.
 func (d *FSDriver) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	d.mu.Lock()
@@ -237,23 +297,33 @@ func (d *FSDriver) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	grouped := x.GroupBy(tuples, func(t *core.Tuple) string {
+		return t.SchemaURI().String()
+	})
+
+	for _, tuples := range grouped {
+		if err := d.validateTuplesLocked(tuples[0].SchemaURI(), tuples); err != nil {
+			return err
+		}
+	}
+
 	recordMap := make(map[string]*core.Record)
 
 	for _, tuple := range tuples {
 		id := tuple.ID().String()
 		ns := tuple.NS().String()
-		schema := tuple.Schema().String()
-		recordPath := d.recordPath(ns, schema, id)
+		schemaName := tuple.Schema().String()
+		recordPath := d.recordPath(ns, schemaName, id)
 
 		record, ok := recordMap[recordPath]
 		if !ok {
 			var err error
-			record, err = d.readRecord(recordPath, ns, schema, id)
+			record, err = d.readRecord(recordPath, ns, schemaName, id)
 			if err != nil && !os.IsNotExist(err) {
 				return err
 			}
 			if record == nil {
-				record = core.NewRecord(ns, schema, id)
+				record = core.NewRecord(ns, schemaName, id)
 			}
 			recordMap[recordPath] = record
 		}
@@ -355,6 +425,21 @@ func (d *FSDriver) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Re
 func (d *FSDriver) PutRecords(ctx context.Context, records []*core.Record) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	grouped := x.GroupBy(records, func(r *core.Record) string {
+		return r.SchemaURI().String()
+	})
+
+	for _, records := range grouped {
+		var allTuples []*core.Tuple
+		for _, record := range records {
+			allTuples = append(allTuples, record.Tuples()...)
+		}
+
+		if err := d.validateTuplesLocked(records[0].SchemaURI(), allTuples); err != nil {
+			return err
+		}
+	}
 
 	for _, record := range records {
 		recordPath := d.recordPath(record.NS().String(), record.Schema().String(), record.ID().String())

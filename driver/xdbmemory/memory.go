@@ -10,6 +10,7 @@ import (
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/driver"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/x"
 )
 
 // Config holds the configuration for the in-memory driver.
@@ -37,6 +38,10 @@ func (d *MemoryDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.De
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
+	return d.getSchemaLocked(uri)
+}
+
+func (d *MemoryDriver) getSchemaLocked(uri *core.URI) (*schema.Def, error) {
 	schemas, ok := d.schemas[uri.NS().String()]
 	if !ok {
 		return nil, driver.ErrNotFound
@@ -157,6 +162,36 @@ func (d *MemoryDriver) PutTuples(ctx context.Context, tuples []*core.Tuple) erro
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	// Group by schema uri
+	grouped := x.GroupBy(tuples, func(t *core.Tuple) string {
+		return t.SchemaURI().String()
+	})
+
+	for _, tuples := range grouped {
+		schemaDef, err := d.getSchemaLocked(tuples[0].SchemaURI())
+		if err != nil {
+			return err
+		}
+
+		// create new fields if dynamic mode is enabled
+		if schemaDef.Mode == schema.ModeDynamic {
+			newFields, err := schema.InferFields(schemaDef, tuples)
+			if err != nil {
+				return err
+			}
+
+			if len(newFields) > 0 {
+				schemaDef.AddFields(newFields...)
+			}
+		}
+
+		// validate the tuples against the schema
+		err = schema.ValidateTuples(schemaDef, tuples)
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, tuple := range tuples {
 		id := tuple.ID().String()
 		attr := tuple.Attr().String()
@@ -232,6 +267,37 @@ func (d *MemoryDriver) PutRecords(ctx context.Context, records []*core.Record) e
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
+	grouped := x.GroupBy(records, func(r *core.Record) string {
+		return r.SchemaURI().String()
+	})
+
+	for _, records := range grouped {
+		schemaDef, err := d.getSchemaLocked(records[0].SchemaURI())
+		if err != nil {
+			return err
+		}
+
+		var allTuples []*core.Tuple
+		for _, record := range records {
+			allTuples = append(allTuples, record.Tuples()...)
+		}
+
+		if schemaDef.Mode == schema.ModeDynamic {
+			newFields, err := schema.InferFields(schemaDef, allTuples)
+			if err != nil {
+				return err
+			}
+			if len(newFields) > 0 {
+				schemaDef.AddFields(newFields...)
+			}
+		}
+
+		err = schema.ValidateTuples(schemaDef, allTuples)
+		if err != nil {
+			return err
+		}
+	}
+
 	for _, record := range records {
 		id := record.ID().String()
 
@@ -240,9 +306,7 @@ func (d *MemoryDriver) PutRecords(ctx context.Context, records []*core.Record) e
 		}
 
 		for _, tuple := range record.Tuples() {
-			attr := tuple.Attr().String()
-
-			d.tuples[id][attr] = tuple
+			d.tuples[id][tuple.Attr().String()] = tuple
 		}
 	}
 

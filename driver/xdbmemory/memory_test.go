@@ -46,16 +46,62 @@ func (s *MemoryDriverTestSuite) TestEdgeCases() {
 	s.SchemaDriverTestSuite.EdgeCases(s.T())
 }
 
-func TestMemoryDriver_Tuples(t *testing.T) {
-	t.Parallel()
-	driver := New()
-
-	tests.TestTupleReaderWriter(t, driver)
+type TupleDriverTestSuite struct {
+	suite.Suite
+	*tests.TupleDriverTestSuite
 }
 
-func TestMemoryDriver_Records(t *testing.T) {
-	t.Parallel()
+func TestTupleDriverTestSuite(t *testing.T) {
+	suite.Run(t, new(TupleDriverTestSuite))
+}
 
+func (s *TupleDriverTestSuite) SetupTest() {
 	driver := New()
-	tests.TestRecordReaderWriter(t, driver)
+	s.TupleDriverTestSuite = tests.NewTupleDriverTestSuite(driver)
+}
+
+func (s *TupleDriverTestSuite) TestBasic() {
+	s.TupleDriverTestSuite.Basic(s.T())
+}
+
+func (s *TupleDriverTestSuite) TestValidationStrict() {
+	s.TupleDriverTestSuite.ValidationStrict(s.T())
+}
+
+func (s *TupleDriverTestSuite) TestValidationFlexible() {
+	s.TupleDriverTestSuite.ValidationFlexible(s.T())
+}
+
+func (s *TupleDriverTestSuite) TestValidationDynamic() {
+	s.TupleDriverTestSuite.ValidationDynamic(s.T())
+}
+
+type RecordDriverTestSuite struct {
+	suite.Suite
+	*tests.RecordDriverTestSuite
+}
+
+func TestRecordDriverTestSuite(t *testing.T) {
+	suite.Run(t, new(RecordDriverTestSuite))
+}
+
+func (s *RecordDriverTestSuite) SetupTest() {
+	driver := New()
+	s.RecordDriverTestSuite = tests.NewRecordDriverTestSuite(driver)
+}
+
+func (s *RecordDriverTestSuite) TestBasic() {
+	s.RecordDriverTestSuite.Basic(s.T())
+}
+
+func (s *RecordDriverTestSuite) TestValidationStrict() {
+	s.RecordDriverTestSuite.ValidationStrict(s.T())
+}
+
+func (s *RecordDriverTestSuite) TestValidationFlexible() {
+	s.RecordDriverTestSuite.ValidationFlexible(s.T())
+}
+
+func (s *RecordDriverTestSuite) TestValidationDynamic() {
+	s.RecordDriverTestSuite.ValidationDynamic(s.T())
 }

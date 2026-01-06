@@ -15,6 +15,9 @@ const (
 	// ModeStrict requires records to have attributes
 	// defined in the schema.
 	ModeStrict Mode = "strict"
+
+	// ModeDynamic automatically infers and adds new fields.
+	ModeDynamic Mode = "dynamic"
 )
 
 // Def defines the structure and validation rules for records.
@@ -60,6 +63,15 @@ func (s *Def) GetField(path string) *FieldDef {
 		}
 	}
 	return nil
+}
+
+// AddFields adds field definitions to the schema, skipping duplicates.
+func (s *Def) AddFields(fields ...*FieldDef) {
+	for _, field := range fields {
+		if s.GetField(field.Name) == nil {
+			s.Fields = append(s.Fields, field)
+		}
+	}
 }
 
 // FieldDef defines the definition for a single field.
