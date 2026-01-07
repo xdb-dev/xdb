@@ -8,6 +8,72 @@ Simple, S3-like CLI for managing your XDB data.
 go install github.com/xdb-dev/xdb/cmd/xdb@latest
 ```
 
+### Check Version
+
+```bash
+xdb --version
+```
+
+## Global Flags
+
+These flags are available for all commands:
+
+- `--output`, `-o`: Output format (json, table, yaml). Auto-detected by default (table for TTY, JSON for pipes)
+- `--config`, `-c`: Path to config file (defaults to xdb.yaml or xdb.yml). Can also be set via `XDB_CONFIG` environment variable
+- `--verbose`, `-v`: Enable verbose logging (INFO level)
+- `--debug`: Enable debug logging with source locations
+
+### Examples
+
+```bash
+# Use table format (default for terminal)
+xdb ls xdb://com.example
+
+# Force JSON output
+xdb get xdb://com.example/posts/post-123 --output json
+
+# Get JSON and pipe to jq
+xdb get xdb://com.example/posts/post-123 | jq '.title'
+
+# Enable verbose logging
+xdb -v ls xdb://com.example
+
+# Use a specific config file
+xdb --config prod.yaml server
+```
+
+## Output Formats
+
+XDB supports multiple output formats for displaying results:
+
+### Automatic Format Selection
+
+By default, XDB automatically selects the appropriate format:
+- **Table format**: When output is a terminal (TTY) - human-readable tables
+- **JSON format**: When output is piped or redirected - machine-parseable
+
+### Available Formats
+
+- `json`: Indented JSON output (machine-readable)
+- `table`: Human-readable tables with borders
+- `yaml`: YAML output
+
+### Examples
+
+```bash
+# Uses table format (interactive terminal)
+xdb get xdb://com.example/users/123
+
+# Uses JSON format (piped to jq)
+xdb get xdb://com.example/users/123 | jq '.name'
+
+# Force JSON output even in terminal
+xdb get xdb://com.example/users/123 --output json
+
+# Force table output even when piping
+xdb ls xdb://com.example/users --output table
+```
+
 ## Quick Start
 
 ```bash
@@ -73,23 +139,22 @@ If no schema definition file is provided, a flexible schema is created. Flexible
 ### List
 
 ```bash
-# List namespaces
-xdb ls
-
-# List namespaces matching pattern
-xdb ls xdb://com.example*
-
 # List schemas in namespace
 xdb ls xdb://com.example
 
-# List records in schema
-xdb ls xdb://com.example/posts
+# List with pagination
+xdb ls xdb://com.example/users --limit 10
+xdb ls xdb://com.example/users --limit 10 --offset 20
 
-# List records matching pattern
-xdb ls xdb://com.example/posts/2024-*
+# List all (default limit is 100)
+xdb ls xdb://com.example
 ```
 
-`ls` lists namespaces, schemas, or records from the given URI. If no URI is provided, it lists all namespaces.
+`ls` lists schemas in the given namespace. If no URI is provided, it lists all namespaces.
+
+**Flags:**
+- `--limit N`: Maximum number of results to return (default: 100)
+- `--offset N`: Number of results to skip (default: 0)
 
 ### Get
 
@@ -112,38 +177,58 @@ xdb get xdb://com.example/posts/post-123#title
 ### Put
 
 ```bash
-# Put Record
-xdb put xdb://com.example/posts/post-123 --data '{"title":"Hello"}'
-
-# Put Record with data from file
+# Put Record from JSON file
 xdb put xdb://com.example/posts/post-123 --file post.json
 
-# Put Attribute
-xdb put xdb://com.example/posts/post-123#title --value "New Title"
+# Put Record from stdin (JSON)
+echo '{"title":"Hello","content":"World"}' | xdb put xdb://com.example/posts/post-123
+
+# Put Record from YAML file
+xdb put xdb://com.example/posts/post-123 --file post.yaml --format yaml
+
+# Put with explicit format
+echo 'title: Hello
+content: World' | xdb put xdb://com.example/posts/post-123 --format yaml
 ```
 
-`put` stores a Record or Attribute at the given URI.
+`put` creates or updates a Record at the given URI from a JSON or YAML file, or from stdin.
 
-### Bulk Operations (Batch Mode)
+**Flags:**
+- `--file`, `-f`: Path to file (reads from stdin if omitted)
+- `--format`: Input format: json (default) or yaml
 
-**Get (URIs from stdin):**
+### Remove
 
 ```bash
-# Basic pattern
-xdb ls <pattern> | xdb get --batch
+# Remove record (with confirmation prompt)
+xdb remove xdb://com.example/posts/post-123
 
-# Examples
-xdb ls xdb://com.example/posts | xdb get --batch
-cat uris.txt | xdb get --batch
+# Remove without confirmation
+xdb rm xdb://com.example/posts/post-123 --force
+
+# Remove schema
+xdb rm xdb://com.example/posts --force
 ```
 
-**Put (JSONL from stdin):**
+`remove` (aliases: `rm`, `delete`) deletes a Record, Attribute, or Schema at the given URI.
+
+**Flags:**
+- `--force`, `-f`: Skip confirmation prompt
+
+## Piping and Automation
+
+XDB commands work well with Unix pipes:
 
 ```bash
-# Basic pattern
-cat data.jsonl | xdb put --batch
+# Get record and pipe to jq
+xdb get xdb://com.example/posts/post-123 | jq '.title'
 
-# JSONL format (one per line)
-{"uri": "xdb://com.example/posts/post-1", "data": {"title": "First", "content": "..."}}
-{"uri": "xdb://com.example/posts/post-2", "data": {"title": "Second", "content": "..."}}
+# List schemas and count them
+xdb ls xdb://com.example | jq '. | length'
+
+# Export records to file
+xdb get xdb://com.example/posts/post-123 --output json > backup.json
+
+# Import from file
+cat backup.json | xdb put xdb://com.example/posts/post-123
 ```

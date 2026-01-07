@@ -47,6 +47,8 @@ tools/vendor
 *.db
 
 .claude/settings.local.json
+docs/research/
+docs/plans/
 
 # XDB config files (use xdb.yaml.example as reference)
 xdb.yaml

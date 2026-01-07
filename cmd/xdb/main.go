@@ -13,8 +13,15 @@ import (
 	"github.com/xdb-dev/xdb/cmd/xdb/app"
 )
 
+var (
+	// Build information (set via ldflags).
+	Version   = "dev"
+	GitCommit = "unknown"
+	BuildDate = "unknown"
+)
+
 func main() {
-	setupLogger()
+	setupLogger(slog.LevelWarn) // Default to warn level
 
 	cmd := buildCLI()
 
@@ -33,11 +40,11 @@ func main() {
 	}
 }
 
-func setupLogger() {
+func setupLogger(level slog.Level) {
 	logger := slog.New(
 		console.NewHandler(os.Stderr, &console.HandlerOptions{
-			Level:     slog.LevelDebug,
-			AddSource: true,
+			Level:     level,
+			AddSource: false, // Disable by default, enable with --debug
 		}),
 	)
 	slog.SetDefault(logger)
@@ -45,8 +52,43 @@ func setupLogger() {
 
 func buildCLI() *cli.Command {
 	cmd := &cli.Command{
-		Name:        "XDB",
+		Name:        "xdb",
 		Description: "Your Personal Data Store",
+		Version:     formatVersion(),
+
+		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+			if cmd.Bool("debug") {
+				setupLogger(slog.LevelDebug)
+			} else if cmd.Bool("verbose") {
+				setupLogger(slog.LevelInfo)
+			}
+			return ctx, nil
+		},
+
+		// Global flags available to all commands
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "output",
+				Aliases: []string{"o"},
+				Usage:   "output format: json, table, yaml (auto-detected by default)",
+				Sources: cli.EnvVars("XDB_OUTPUT"),
+			},
+			&cli.StringFlag{
+				Name:    "config",
+				Aliases: []string{"c"},
+				Usage:   "path to config file (defaults to xdb.yaml or xdb.yml)",
+				Sources: cli.EnvVars("XDB_CONFIG"),
+			},
+			&cli.BoolFlag{
+				Name:    "verbose",
+				Aliases: []string{"v"},
+				Usage:   "enable verbose logging",
+			},
+			&cli.BoolFlag{
+				Name:  "debug",
+				Usage: "enable debug logging with source locations",
+			},
+		},
 	}
 
 	cmd.Commands = []*cli.Command{
@@ -54,29 +96,33 @@ func buildCLI() *cli.Command {
 		buildGetCommand(),
 		buildPutCommand(),
 		buildListCommand(),
+		buildRemoveCommand(),
 		buildServerCommand(),
 	}
 
 	return cmd
 }
 
+func formatVersion() string {
+	return Version + " (commit: " + GitCommit + ", built: " + BuildDate + ")"
+}
+
 func buildMakeSchemaCommand() *cli.Command {
 	return &cli.Command{
 		Name:        "make-schema",
+		Category:    "Schema Management",
 		Description: "creates or updates a schema at the given URI",
-		Usage:       "make-schema uri [--schema <schema_path>]",
-		Aliases:     []string{"ms"},
+		UsageText: "xdb make-schema <uri> [--schema <file>]\n\n" +
+			"Examples:\n" +
+			"  xdb make-schema xdb://com.example/users --schema users.json\n" +
+			"  xdb make-schema xdb://com.example/posts -s posts.json",
+		Aliases: []string{"ms"},
 		Arguments: []cli.Argument{
 			&cli.StringArg{
 				Name: "uri",
 			},
 		},
 		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "config",
-				Aliases: []string{"c"},
-				Usage:   "path to config file (defaults to xdb.yaml or xdb.yml in current directory)",
-			},
 			&cli.StringFlag{
 				Name:    "schema",
 				Aliases: []string{"s"},
@@ -90,28 +136,32 @@ func buildMakeSchemaCommand() *cli.Command {
 func buildGetCommand() *cli.Command {
 	return &cli.Command{
 		Name:        "get",
-		Description: "gets a resource by its URI",
-		Usage:       "get [uri]",
+		Category:    "Data Operations",
+		Description: "retrieves a resource by its URI",
+		UsageText: "xdb get <uri>\n\n" +
+			"Examples:\n" +
+			"  xdb get xdb://com.example/users/123\n" +
+			"  xdb get xdb://com.example/users/123#name\n" +
+			"  xdb get xdb://com.example/users --output json",
 		Arguments: []cli.Argument{
 			&cli.StringArg{
 				Name: "uri",
 			},
 		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			uri := cmd.String("uri")
-
-			slog.Info("[XDB] Getting resource", "uri", uri)
-
-			return nil // app.GetResource(ctx, uri)
-		},
+		Action: app.Get,
 	}
 }
 
 func buildPutCommand() *cli.Command {
 	return &cli.Command{
 		Name:        "put",
-		Description: "puts a resource by its URI",
-		Usage:       "put [uri] [--file <file_path>]",
+		Category:    "Data Operations",
+		Description: "creates or updates a record",
+		UsageText: "xdb put <uri> [--file <path>] [--format json|yaml]\n\n" +
+			"Examples:\n" +
+			"  xdb put xdb://com.example/users/123 --file user.json\n" +
+			"  echo '{\"name\":\"Alice\"}' | xdb put xdb://com.example/users/123\n" +
+			"  xdb put xdb://com.example/users/123 -f user.yaml --format yaml",
 		Arguments: []cli.Argument{
 			&cli.StringArg{
 				Name: "uri",
@@ -121,53 +171,86 @@ func buildPutCommand() *cli.Command {
 			&cli.StringFlag{
 				Name:    "file",
 				Aliases: []string{"f"},
-				Usage:   "path to file to put",
+				Usage:   "path to file (reads from stdin if omitted)",
+			},
+			&cli.StringFlag{
+				Name:  "format",
+				Usage: "input format: json (default) or yaml",
+				Value: "json",
 			},
 		},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			uri := cmd.String("uri")
-			file := cmd.String("file")
-
-			slog.Info("[XDB] Putting resource", "uri", uri, "file", file)
-
-			return nil // app.PutResource(ctx, uri, file)
-		},
+		Action: app.Put,
 	}
 }
 
 func buildListCommand() *cli.Command {
 	return &cli.Command{
 		Name:        "list",
-		Description: "lists all resources matching the given URI pattern",
-		Usage:       "list [pattern]",
+		Category:    "Data Operations",
+		Description: "lists resources matching the URI pattern",
+		UsageText: "xdb list <pattern> [--limit N] [--offset N]\n\n" +
+			"Examples:\n" +
+			"  xdb list xdb://com.example/users\n" +
+			"  xdb ls xdb://com.example --limit 10\n" +
+			"  xdb ls xdb://com.example --limit 10 --offset 20",
+		Aliases: []string{"ls"},
 		Arguments: []cli.Argument{
 			&cli.StringArg{
-				Name: "uri_pattern",
+				Name: "pattern",
 			},
 		},
-		Aliases: []string{"ls"},
-		Action: func(ctx context.Context, cmd *cli.Command) error {
-			pattern := cmd.String("pattern")
-
-			slog.Info("[XDB] Listing resources", "pattern", pattern)
-
-			return nil // TODO: implement list
+		Flags: []cli.Flag{
+			&cli.IntFlag{
+				Name:  "limit",
+				Usage: "maximum number of results to return",
+				Value: 100,
+			},
+			&cli.IntFlag{
+				Name:  "offset",
+				Usage: "number of results to skip",
+				Value: 0,
+			},
 		},
+		Action: app.List,
+	}
+}
+
+func buildRemoveCommand() *cli.Command {
+	return &cli.Command{
+		Name:        "remove",
+		Category:    "Data Operations",
+		Description: "deletes a resource by its URI",
+		UsageText: "xdb remove <uri> [--force]\n\n" +
+			"Examples:\n" +
+			"  xdb remove xdb://com.example/users/123\n" +
+			"  xdb rm xdb://com.example/users/123 --force",
+		Aliases: []string{"rm", "delete"},
+		Arguments: []cli.Argument{
+			&cli.StringArg{
+				Name: "uri",
+			},
+		},
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "force",
+				Aliases: []string{"f"},
+				Usage:   "skip confirmation prompt",
+			},
+		},
+		Action: app.Remove,
 	}
 }
 
 func buildServerCommand() *cli.Command {
 	return &cli.Command{
 		Name:        "server",
-		Description: "starts XDB server",
-		Usage:       "server [command]",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "config",
-				Aliases: []string{"c"},
-				Usage:   "path to config file (defaults to xdb.yaml or xdb.yml in current directory)",
-			},
-		},
+		Category:    "Server",
+		Description: "starts the XDB HTTP server",
+		UsageText: "xdb server [--config <file>]\n\n" +
+			"Examples:\n" +
+			"  xdb server\n" +
+			"  xdb server -c prod.yaml\n" +
+			"  XDB_CONFIG=prod.yaml xdb server",
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			cfg, err := app.LoadConfig(ctx, cmd.String("config"))
 			if err != nil {

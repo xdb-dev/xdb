@@ -9,9 +9,9 @@ import (
 	"github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbsqlite/internal"
-	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/x"
 )
 
