@@ -49,6 +49,7 @@ XDB supports multiple output formats for displaying results:
 ### Automatic Format Selection
 
 By default, XDB automatically selects the appropriate format:
+
 - **Table format**: When output is a terminal (TTY) - human-readable tables
 - **JSON format**: When output is piped or redirected - machine-parseable
 
@@ -153,6 +154,7 @@ xdb ls xdb://com.example
 `ls` lists schemas in the given namespace. If no URI is provided, it lists all namespaces.
 
 **Flags:**
+
 - `--limit N`: Maximum number of results to return (default: 100)
 - `--offset N`: Number of results to skip (default: 0)
 
@@ -194,6 +196,7 @@ content: World' | xdb put xdb://com.example/posts/post-123 --format yaml
 `put` creates or updates a Record at the given URI from a JSON or YAML file, or from stdin.
 
 **Flags:**
+
 - `--file`, `-f`: Path to file (reads from stdin if omitted)
 - `--format`: Input format: json (default) or yaml
 
@@ -213,6 +216,7 @@ xdb rm xdb://com.example/posts --force
 `remove` (aliases: `rm`, `delete`) deletes a Record, Attribute, or Schema at the given URI.
 
 **Flags:**
+
 - `--force`, `-f`: Skip confirmation prompt
 
 ## Piping and Automation
