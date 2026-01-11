@@ -27,7 +27,7 @@ func MakeSchema(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("invalid URI: %w", err)
 	}
 
-	cfg, err := LoadConfig(ctx, config)
+	cfg, err := LoadConfig(config)
 	if err != nil {
 		return err
 	}

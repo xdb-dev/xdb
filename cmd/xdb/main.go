@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -97,6 +98,7 @@ func buildCLI() *cli.Command {
 		buildPutCommand(),
 		buildListCommand(),
 		buildRemoveCommand(),
+		buildDaemonCommand(),
 		buildServerCommand(),
 	}
 
@@ -241,28 +243,127 @@ func buildRemoveCommand() *cli.Command {
 	}
 }
 
+func buildDaemonCommand() *cli.Command {
+	return &cli.Command{
+		Name:        "daemon",
+		Category:    "Daemon",
+		Description: "manage the XDB daemon process",
+		UsageText: "xdb daemon <action>\n\n" +
+			"Actions:\n" +
+			"  start     Start the daemon in background\n" +
+			"  stop      Stop the running daemon\n" +
+			"  status    Show daemon status and health\n" +
+			"  restart   Restart the daemon\n" +
+			"  logs      View daemon logs",
+		Commands: []*cli.Command{
+			buildDaemonStartCommand(),
+			buildDaemonStopCommand(),
+			buildDaemonStatusCommand(),
+			buildDaemonRestartCommand(),
+			buildDaemonLogsCommand(),
+		},
+	}
+}
+
+func buildDaemonStartCommand() *cli.Command {
+	return &cli.Command{
+		Name:        "start",
+		Description: "start the daemon in background",
+		UsageText: "xdb daemon start\n\n" +
+			"Examples:\n" +
+			"  xdb daemon start",
+		Action: app.DaemonStart,
+	}
+}
+
+func buildDaemonStopCommand() *cli.Command {
+	return &cli.Command{
+		Name:        "stop",
+		Description: "stop the running daemon",
+		UsageText: "xdb daemon stop [--force]\n\n" +
+			"Examples:\n" +
+			"  xdb daemon stop\n" +
+			"  xdb daemon stop --force",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "force",
+				Usage: "force kill if graceful shutdown fails",
+			},
+		},
+		Action: app.DaemonStop,
+	}
+}
+
+func buildDaemonStatusCommand() *cli.Command {
+	return &cli.Command{
+		Name:        "status",
+		Description: "show daemon status and health",
+		UsageText: "xdb daemon status [--json]\n\n" +
+			"Examples:\n" +
+			"  xdb daemon status\n" +
+			"  xdb daemon status --json",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "json",
+				Usage: "output status as JSON",
+			},
+		},
+		Action: app.DaemonStatus,
+	}
+}
+
+func buildDaemonRestartCommand() *cli.Command {
+	return &cli.Command{
+		Name:        "restart",
+		Description: "restart the daemon",
+		UsageText: "xdb daemon restart [--force]\n\n" +
+			"Examples:\n" +
+			"  xdb daemon restart\n" +
+			"  xdb daemon restart --force",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:  "force",
+				Usage: "force kill if graceful shutdown fails",
+			},
+		},
+		Action: app.DaemonRestart,
+	}
+}
+
+func buildDaemonLogsCommand() *cli.Command {
+	return &cli.Command{
+		Name:        "logs",
+		Description: "view daemon logs",
+		UsageText: "xdb daemon logs [-f] [-n <lines>]\n\n" +
+			"Examples:\n" +
+			"  xdb daemon logs\n" +
+			"  xdb daemon logs -f\n" +
+			"  xdb daemon logs -n 50",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{
+				Name:    "follow",
+				Aliases: []string{"f"},
+				Usage:   "follow log output (like tail -f)",
+			},
+			&cli.IntFlag{
+				Name:    "lines",
+				Aliases: []string{"n"},
+				Usage:   "number of lines to show",
+				Value:   100,
+			},
+		},
+		Action: app.DaemonLogs,
+	}
+}
+
 func buildServerCommand() *cli.Command {
 	return &cli.Command{
 		Name:        "server",
-		Category:    "Server",
-		Description: "starts the XDB HTTP server",
-		UsageText: "xdb server [--config <file>]\n\n" +
-			"Examples:\n" +
-			"  xdb server\n" +
-			"  xdb server -c prod.yaml\n" +
-			"  XDB_CONFIG=prod.yaml xdb server",
+		Category:    "Daemon",
+		Description: "deprecated: use 'xdb daemon start' instead",
+		Hidden:      true,
 		Action: func(ctx context.Context, cmd *cli.Command) error {
-			cfg, err := app.LoadConfig(ctx, cmd.String("config"))
-			if err != nil {
-				return err
-			}
-
-			server, err := app.NewServer(cfg)
-			if err != nil {
-				return err
-			}
-
-			return server.Run(ctx)
+			return fmt.Errorf("the 'server' command has been removed; use 'xdb daemon start' instead")
 		},
 	}
 }

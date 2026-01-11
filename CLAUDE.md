@@ -93,10 +93,28 @@ Group imports with blank lines between groups:
 ### Error Handling
 
 - Return errors as the last return value
-- Use `errors.Wrap` for error wrapping with context
+- Use `errors.Wrap` for error wrapping with context using key-value pairs
 - Only add context that callers need to know about
 - Return early on errors using `if` statements
 - Do not use generic error names; be descriptive
+
+Example pattern:
+
+```go
+import "github.com/gojekfarm/xtools/errors"
+
+if field == nil {
+    return errors.Wrap(ErrUnknownField, "field", attr)
+}
+
+if !field.Type.Equals(tuple.Value().Type()) {
+    return errors.Wrap(ErrTypeMismatch,
+        "field", attr,
+        "expected", field.Type.String(),
+        "got", tuple.Value().Type().String(),
+    )
+}
+```
 
 ### Naming Conventions
 

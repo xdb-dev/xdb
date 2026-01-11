@@ -1,88 +1,192 @@
 package app
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
-	"log/slog"
+	"net"
 	"os"
-
-	"github.com/gojekfarm/xtools/xload"
-	"github.com/gojekfarm/xtools/xload/providers/yaml"
-
-	"github.com/xdb-dev/xdb/store/xdbmemory"
-	"github.com/xdb-dev/xdb/store/xdbsqlite"
+	"path/filepath"
+	"strings"
 )
 
+const (
+	defaultConfigDir    = "~/.xdb"
+	defaultConfigFile   = "config.json"
+	defaultDaemonAddr   = "localhost:8147"
+	defaultDaemonSocket = "xdb.sock"
+	defaultLogLevel     = "info"
+)
+
+// DaemonConfig holds the daemon-specific configuration.
+type DaemonConfig struct {
+	Addr   string `json:"addr"`
+	Socket string `json:"socket"`
+}
+
+// Config holds the XDB application configuration.
 type Config struct {
-	// Address to bind the HTTP server to.
-	// Default: :8080
-	Addr string `env:"ADDR"`
-
-	// Store configuration.
-	// Only one of the following stores can be configured.
-	Store struct {
-		SQLite *xdbsqlite.Config `env:",prefix=SQLITE_"`
-		Memory *xdbmemory.Config `env:",prefix=MEMORY_"`
-	} `env:",prefix=STORE_"`
+	Dir      string       `json:"dir"`
+	Daemon   DaemonConfig `json:"daemon"`
+	LogLevel string       `json:"log_level"`
 }
 
+// PIDFile returns the path to the PID file.
+func (c *Config) PIDFile() string {
+	return filepath.Join(c.expandedDir(), "xdb.pid")
+}
+
+// LogFile returns the path to the log file.
+func (c *Config) LogFile() string {
+	return filepath.Join(c.expandedDir(), "xdb.log")
+}
+
+// SocketPath returns the path to the Unix socket.
+func (c *Config) SocketPath() string {
+	return filepath.Join(c.expandedDir(), c.Daemon.Socket)
+}
+
+// DataDir returns the path to the data directory.
+func (c *Config) DataDir() string {
+	return filepath.Join(c.expandedDir(), "data")
+}
+
+// Addr returns the daemon address for backward compatibility.
+func (c *Config) Addr() string {
+	return c.Daemon.Addr
+}
+
+func (c *Config) expandedDir() string {
+	return expandTilde(c.Dir)
+}
+
+// NewDefaultConfig creates a new Config with default values.
 func NewDefaultConfig() *Config {
-	cfg := &Config{}
-
-	cfg.Addr = ":8080"
-
-	return cfg
+	return &Config{
+		Dir: defaultConfigDir,
+		Daemon: DaemonConfig{
+			Addr:   defaultDaemonAddr,
+			Socket: defaultDaemonSocket,
+		},
+		LogLevel: defaultLogLevel,
+	}
 }
 
-func LoadConfig(ctx context.Context, configPath string) (*Config, error) {
+// ConfigPath returns the default config file path.
+func ConfigPath() string {
+	return filepath.Join(expandTilde(defaultConfigDir), defaultConfigFile)
+}
+
+// EnsureConfig checks if the config file exists and creates it with defaults if not.
+// Returns true if a new config was created.
+func EnsureConfig() (bool, error) {
+	configPath := ConfigPath()
+	configDir := filepath.Dir(configPath)
+
+	if _, err := os.Stat(configPath); err == nil {
+		return false, nil
+	}
+
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
+		return false, fmt.Errorf("failed to create config directory: %w", err)
+	}
+
 	cfg := NewDefaultConfig()
-
-	loader, err := createLoader(configPath)
+	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return cfg, err
+		return false, fmt.Errorf("failed to marshal default config: %w", err)
 	}
 
-	err = xload.Load(ctx, cfg, xload.WithLoader(loader))
+	if err := os.WriteFile(configPath, data, 0o600); err != nil {
+		return false, fmt.Errorf("failed to write config file: %w", err)
+	}
 
-	return cfg, err
+	fmt.Printf("Created config: %s\n", configPath)
+	return true, nil
 }
 
-// createLoader creates the appropriate loader chain based on config file availability.
-func createLoader(configPath string) (xload.Loader, error) {
-	var yamlPath string
-
-	if configPath != "" {
-		if _, err := os.Stat(configPath); os.IsNotExist(err) {
-			return nil, fmt.Errorf("config file not found: %s", configPath)
+// LoadConfig loads the configuration from the JSON file.
+// If configPath is empty, it uses the default path (~/.xdb/config.json).
+// It will create the config with defaults if it doesn't exist.
+func LoadConfig(configPath string) (*Config, error) {
+	if configPath == "" {
+		if _, err := EnsureConfig(); err != nil {
+			return nil, err
 		}
-		yamlPath = configPath
-	} else {
-		yamlPath = findDefaultConfigFile()
+		configPath = ConfigPath()
 	}
 
-	if yamlPath != "" {
-		slog.Info("Using YAML config file", "path", yamlPath)
-
-		yamlLoader, err := yaml.NewFileLoader(yamlPath, "_")
-		if err != nil {
-			return nil, fmt.Errorf("failed to create YAML loader: %w", err)
-		}
-
-		return xload.SerialLoader(yamlLoader, xload.OSLoader()), nil
+	data, err := os.ReadFile(configPath) // #nosec G304 - configPath is from trusted CLI flag or hardcoded default
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	return xload.SerialLoader(xload.OSLoader()), nil
+	cfg := NewDefaultConfig()
+	if err := json.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
+
+	return cfg, nil
 }
 
-// findDefaultConfigFile checks for default config files and returns the first one found.
-func findDefaultConfigFile() string {
-	candidates := []string{"xdb.yaml", "xdb.yml"}
+// Validate checks that the config values are valid.
+func (c *Config) Validate() error {
+	configPath := ConfigPath()
 
-	for _, candidate := range candidates {
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
+	if c.Dir == "" {
+		return fmt.Errorf("dir cannot be empty\nEdit %s to fix", configPath)
 	}
 
-	return ""
+	expandedDir := expandTilde(c.Dir)
+	if !filepath.IsAbs(expandedDir) && !strings.HasPrefix(c.Dir, "~") {
+		return fmt.Errorf("dir must be an absolute path or start with ~\nEdit %s to fix", configPath)
+	}
+
+	if c.Daemon.Addr == "" {
+		return fmt.Errorf("daemon.addr cannot be empty\nEdit %s to fix", configPath)
+	}
+
+	if _, _, err := net.SplitHostPort(c.Daemon.Addr); err != nil {
+		return fmt.Errorf("daemon.addr must be a valid host:port format (e.g., localhost:8147)\nEdit %s to fix", configPath)
+	}
+
+	if c.Daemon.Socket == "" {
+		return fmt.Errorf("daemon.socket cannot be empty\nEdit %s to fix", configPath)
+	}
+
+	if strings.ContainsAny(c.Daemon.Socket, "/\\") {
+		return fmt.Errorf("daemon.socket must be a filename, not a path\nEdit %s to fix", configPath)
+	}
+
+	switch c.LogLevel {
+	case "debug", "info", "warn", "error":
+	default:
+		return fmt.Errorf("log_level must be one of: debug, info, warn, error\nEdit %s to fix", configPath)
+	}
+
+	return nil
+}
+
+func expandTilde(path string) string {
+	if !strings.HasPrefix(path, "~") {
+		return path
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+
+	if path == "~" {
+		return home
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(home, path[2:])
+	}
+
+	return path
 }

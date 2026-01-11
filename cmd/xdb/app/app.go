@@ -33,21 +33,12 @@ func New(cfg *Config) (*App, error) {
 }
 
 func (a *App) initStore() error {
-	switch {
-	case a.cfg.Store.SQLite != nil:
-		slog.Info("SQLite store not yet fully implemented, using in-memory store")
-		store := xdbmemory.New()
-		a.SchemaDriver = store
-		a.TupleDriver = store
-		a.RecordDriver = store
-	default:
-		slog.Info("Initializing in-memory store")
+	slog.Info("Initializing in-memory store")
 
-		store := xdbmemory.New()
-		a.SchemaDriver = store
-		a.TupleDriver = store
-		a.RecordDriver = store
-	}
+	st := xdbmemory.New()
+	a.SchemaDriver = st
+	a.TupleDriver = st
+	a.RecordDriver = st
 
 	return nil
 }

@@ -43,10 +43,10 @@ func NewServer(cfg *Config) (*Server, error) {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	slog.Info("[SERVER] Starting HTTP server", "addr", s.cfg.Addr)
+	slog.Info("[SERVER] Starting HTTP server", "addr", s.cfg.Daemon.Addr)
 
 	server := &http.Server{
-		Addr:              s.cfg.Addr,
+		Addr:              s.cfg.Daemon.Addr,
 		Handler:           s.mux,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
@@ -65,14 +65,8 @@ func (s *Server) Run(ctx context.Context) error {
 }
 
 func (s *Server) initStore() error {
-	switch {
-	case s.cfg.Store.SQLite != nil:
-		slog.Info("[SERVER] Initializing SQLite store not yet fully supported, using in-memory store")
-		s.store = xdbmemory.New()
-	default:
-		slog.Info("[SERVER] Initializing in-memory store")
-		s.store = xdbmemory.New()
-	}
+	slog.Info("[SERVER] Initializing in-memory store")
+	s.store = xdbmemory.New()
 
 	return nil
 }

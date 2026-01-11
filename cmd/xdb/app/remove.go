@@ -28,7 +28,7 @@ func Remove(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	// 2. Initialize app
-	cfg, err := LoadConfig(ctx, cmd.String("config"))
+	cfg, err := LoadConfig(cmd.String("config"))
 	if err != nil {
 		return err
 	}
