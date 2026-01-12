@@ -29,7 +29,7 @@ func TestHealthEndpointIntegration(t *testing.T) {
 		require.NoError(t, err, "failed to create server")
 
 		// Start test HTTP server
-		testServer := httptest.NewServer(server.mux)
+		testServer := httptest.NewServer(server.Handler())
 		defer testServer.Close()
 
 		// Act: Make HTTP GET request to health endpoint with empty JSON body
@@ -96,7 +96,7 @@ func TestHealthEndpointIntegration(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		rr := httptest.NewRecorder()
 
-		server.mux.ServeHTTP(rr, req)
+		server.Handler().ServeHTTP(rr, req)
 
 		// Assert: Verify response
 		assert.Equal(t, http.StatusOK, rr.Code, "expected 200 OK status")

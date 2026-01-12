@@ -51,9 +51,6 @@ var (
 	// ErrLogFileNotFound is returned when a log file is not found.
 	ErrLogFileNotFound = errors.New("[xdb/app] log file not found")
 
-	// ErrInvalidSocketFile is returned when a socket file is invalid.
-	ErrInvalidSocketFile = errors.New("[xdb/app] invalid socket file")
-
 	// ErrConfigDirEmpty is returned when the config directory is empty.
 	ErrConfigDirEmpty = errors.New("[xdb/app] config dir cannot be empty")
 
