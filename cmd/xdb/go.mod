@@ -8,6 +8,7 @@ replace (
 )
 
 require (
+	github.com/gojekfarm/xtools/errors v0.10.0
 	github.com/gojekfarm/xtools/xapi v0.11.0-alpha.1
 	github.com/jedib0t/go-pretty/v6 v6.7.8
 	github.com/phsym/console-slog v0.3.1
@@ -20,7 +21,6 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/gojekfarm/xtools/errors v0.10.0 // indirect
 	github.com/mattn/go-runewidth v0.0.16 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect

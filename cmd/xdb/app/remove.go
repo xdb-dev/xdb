@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gojekfarm/xtools/errors"
 	"github.com/urfave/cli/v3"
 
 	"github.com/xdb-dev/xdb/core"
@@ -19,12 +20,12 @@ func Remove(ctx context.Context, cmd *cli.Command) error {
 	// 1. Parse arguments
 	uriStr := cmd.Args().First()
 	if uriStr == "" {
-		return fmt.Errorf("URI argument required")
+		return ErrURIRequired
 	}
 
 	uri, err := core.ParseURI(uriStr)
 	if err != nil {
-		return fmt.Errorf("invalid URI: %w", err)
+		return errors.Wrap(ErrInvalidURI, "uri", uriStr)
 	}
 
 	// 2. Initialize app
@@ -50,7 +51,7 @@ func Remove(ctx context.Context, cmd *cli.Command) error {
 		response, _ := reader.ReadString('\n')
 		response = strings.TrimSpace(response)
 		if response != "y" && response != "Y" {
-			return fmt.Errorf("deletion cancelled")
+			return ErrDeletionCancelled
 		}
 	}
 

@@ -3,12 +3,12 @@ package app
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 
+	"github.com/gojekfarm/xtools/errors"
 	"github.com/urfave/cli/v3"
 	"gopkg.in/yaml.v3"
 
@@ -21,16 +21,16 @@ func Put(ctx context.Context, cmd *cli.Command) error {
 	// 1. Parse arguments
 	uriStr := cmd.Args().First()
 	if uriStr == "" {
-		return fmt.Errorf("URI argument required")
+		return ErrURIRequired
 	}
 
 	uri, err := core.ParseURI(uriStr)
 	if err != nil {
-		return fmt.Errorf("invalid URI: %w", err)
+		return errors.Wrap(ErrInvalidURI, "uri", uriStr)
 	}
 
 	if uri.ID() == nil {
-		return fmt.Errorf("URI must include record ID")
+		return errors.Wrap(ErrRecordIDRequired, "uri", uri.String())
 	}
 
 	// 2. Initialize app
@@ -82,7 +82,7 @@ func readInputData(cmd *cli.Command) ([]byte, error) {
 	if filePath != "" {
 		cleanPath, err := filepath.Abs(filePath)
 		if err != nil {
-			return nil, fmt.Errorf("invalid file path: %w", err)
+			return nil, errors.Wrap(err, "path", filePath)
 		}
 		return os.ReadFile(cleanPath) // #nosec G304 - path is cleaned via filepath.Abs
 	}
@@ -98,15 +98,15 @@ func parseRecord(uri *core.URI, data []byte, format string) (*core.Record, error
 	case "yaml":
 		err := yaml.Unmarshal(data, &attrs)
 		if err != nil {
-			return nil, fmt.Errorf("invalid YAML: %w", err)
+			return nil, err
 		}
 	case "json", "":
 		err := json.Unmarshal(data, &attrs)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON: %w", err)
+			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("unsupported format: %s", format)
+		return nil, errors.Wrap(ErrUnsupportedFormat, "format", format)
 	}
 
 	record := core.NewRecord(

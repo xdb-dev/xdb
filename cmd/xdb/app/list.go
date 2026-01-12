@@ -2,10 +2,10 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 
+	"github.com/gojekfarm/xtools/errors"
 	"github.com/urfave/cli/v3"
 
 	"github.com/xdb-dev/xdb/core"
@@ -17,12 +17,12 @@ func List(ctx context.Context, cmd *cli.Command) error {
 	// 1. Parse arguments
 	patternStr := cmd.Args().First()
 	if patternStr == "" {
-		return fmt.Errorf("URI pattern required")
+		return ErrURIRequired
 	}
 
 	uri, err := core.ParseURI(patternStr)
 	if err != nil {
-		return fmt.Errorf("invalid URI pattern: %w", err)
+		return errors.Wrap(ErrInvalidURI, "uri", patternStr)
 	}
 
 	// 2. Initialize app

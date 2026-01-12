@@ -2,11 +2,11 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 
+	"github.com/gojekfarm/xtools/errors"
 	"github.com/urfave/cli/v3"
 
 	"github.com/xdb-dev/xdb/core"
@@ -19,12 +19,12 @@ func MakeSchema(ctx context.Context, cmd *cli.Command) error {
 	schemaPath := cmd.String("schema")
 
 	if uriStr == "" {
-		return fmt.Errorf("URI is required")
+		return ErrURIRequired
 	}
 
 	uri, err := core.ParseURI(uriStr)
 	if err != nil {
-		return fmt.Errorf("invalid URI: %w", err)
+		return errors.Wrap(ErrInvalidURI, "uri", uriStr)
 	}
 
 	cfg, err := LoadConfig(config)
@@ -68,22 +68,22 @@ func loadSchema(path string) (*schema.Def, error) {
 
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve schema path: %w", err)
+		return nil, errors.Wrap(err, "path", path)
 	}
 
 	if !filepath.IsAbs(absPath) {
-		return nil, fmt.Errorf("resolved path is not absolute: %s", absPath)
+		return nil, errors.Wrap(ErrPathNotAbsolute, "path", path, "resolved", absPath)
 	}
 
 	// #nosec: G304 - path is now validated to be absolute and resolved
 	data, err := os.ReadFile(absPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read schema file: %w", err)
+		return nil, errors.Wrap(err, "path", absPath)
 	}
 
 	s, err := schema.LoadFromJSON(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse schema: %w", err)
+		return nil, err
 	}
 
 	return s, nil

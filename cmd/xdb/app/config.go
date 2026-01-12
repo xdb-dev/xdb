@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/gojekfarm/xtools/errors"
 )
 
 const (
@@ -87,17 +89,17 @@ func EnsureConfig() (bool, error) {
 	}
 
 	if err := os.MkdirAll(configDir, 0o700); err != nil {
-		return false, fmt.Errorf("failed to create config directory: %w", err)
+		return false, errors.Wrap(err, "path", configDir)
 	}
 
 	cfg := NewDefaultConfig()
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	if err != nil {
-		return false, fmt.Errorf("failed to marshal default config: %w", err)
+		return false, err
 	}
 
 	if err := os.WriteFile(configPath, data, 0o600); err != nil {
-		return false, fmt.Errorf("failed to write config file: %w", err)
+		return false, errors.Wrap(err, "path", configPath)
 	}
 
 	fmt.Printf("Created config: %s\n", configPath)
@@ -117,16 +119,16 @@ func LoadConfig(configPath string) (*Config, error) {
 
 	data, err := os.ReadFile(configPath) // #nosec G304 - configPath is from trusted CLI flag or hardcoded default
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
+		return nil, errors.Wrap(err, "path", configPath)
 	}
 
 	cfg := NewDefaultConfig()
 	if err := json.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %w", err)
+		return nil, errors.Wrap(err, "path", configPath)
 	}
 
 	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid config: %w", err)
+		return nil, err
 	}
 
 	return cfg, nil
@@ -137,34 +139,34 @@ func (c *Config) Validate() error {
 	configPath := ConfigPath()
 
 	if c.Dir == "" {
-		return fmt.Errorf("dir cannot be empty\nEdit %s to fix", configPath)
+		return errors.Wrap(ErrConfigDirEmpty, "path", configPath)
 	}
 
 	expandedDir := expandTilde(c.Dir)
 	if !filepath.IsAbs(expandedDir) && !strings.HasPrefix(c.Dir, "~") {
-		return fmt.Errorf("dir must be an absolute path or start with ~\nEdit %s to fix", configPath)
+		return errors.Wrap(ErrConfigDirNotAbsolute, "path", configPath, "dir", c.Dir)
 	}
 
-	if c.Daemon.Addr == "" {
-		return fmt.Errorf("daemon.addr cannot be empty\nEdit %s to fix", configPath)
+	if c.Daemon.Addr == "" && c.Daemon.Socket == "" {
+		return errors.Wrap(ErrNoListenerConfigured, "path", configPath)
 	}
 
-	if _, _, err := net.SplitHostPort(c.Daemon.Addr); err != nil {
-		return fmt.Errorf("daemon.addr must be a valid host:port format (e.g., localhost:8147)\nEdit %s to fix", configPath)
+	if c.Daemon.Addr != "" {
+		if _, _, err := net.SplitHostPort(c.Daemon.Addr); err != nil {
+			return errors.Wrap(ErrInvalidDaemonAddr, "addr", c.Daemon.Addr, "path", configPath)
+		}
 	}
 
-	if c.Daemon.Socket == "" {
-		return fmt.Errorf("daemon.socket cannot be empty\nEdit %s to fix", configPath)
-	}
-
-	if strings.ContainsAny(c.Daemon.Socket, "/\\") {
-		return fmt.Errorf("daemon.socket must be a filename, not a path\nEdit %s to fix", configPath)
+	if c.Daemon.Socket != "" {
+		if strings.ContainsAny(c.Daemon.Socket, "/\\") {
+			return errors.Wrap(ErrInvalidSocketPath, "socket", c.Daemon.Socket, "path", configPath)
+		}
 	}
 
 	switch c.LogLevel {
 	case "debug", "info", "warn", "error":
 	default:
-		return fmt.Errorf("log_level must be one of: debug, info, warn, error\nEdit %s to fix", configPath)
+		return errors.Wrap(ErrInvalidLogLevel, "level", c.LogLevel, "path", configPath)
 	}
 
 	return nil

@@ -2,12 +2,15 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
+	"os"
+	"sync"
 	"time"
 
+	"github.com/gojekfarm/xtools/errors"
 	"github.com/gojekfarm/xtools/xapi"
 
 	"github.com/xdb-dev/xdb/api"
@@ -43,25 +46,76 @@ func NewServer(cfg *Config) (*Server, error) {
 }
 
 func (s *Server) Run(ctx context.Context) error {
-	slog.Info("[SERVER] Starting HTTP server", "addr", s.cfg.Daemon.Addr)
+	listeners, err := s.createListeners(ctx)
+	if err != nil {
+		return err
+	}
 
 	server := &http.Server{
-		Addr:              s.cfg.Daemon.Addr,
 		Handler:           s.mux,
 		ReadHeaderTimeout: 15 * time.Second,
 	}
 
-	go func(server *http.Server) {
-		err := server.ListenAndServe()
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			panic(err)
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(listeners))
+
+	for _, listener := range listeners {
+		wg.Add(1)
+		go func(l net.Listener) {
+			defer wg.Done()
+			err := server.Serve(l)
+			if err != nil && !errors.Is(err, http.ErrServerClosed) {
+				errChan <- err
+			}
+		}(listener)
+	}
+
+	select {
+	case <-ctx.Done():
+		slog.Info("[SERVER] Shutting down HTTP server")
+	case err := <-errChan:
+		slog.Error("[SERVER] Listener error, shutting down", "error", err)
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	shutdownErr := server.Shutdown(shutdownCtx)
+
+	if s.cfg.Daemon.Socket != "" {
+		removeSocketFile(s.cfg.SocketPath())
+	}
+
+	wg.Wait()
+	return shutdownErr
+}
+
+func (s *Server) createListeners(ctx context.Context) ([]net.Listener, error) {
+	var listeners []net.Listener
+
+	if s.cfg.Daemon.Addr != "" {
+		l, err := createTCPListener(ctx, s.cfg.Daemon.Addr)
+		if err != nil {
+			return nil, err
 		}
-	}(server)
+		listeners = append(listeners, l)
+		slog.Info("[SERVER] Starting TCP listener", "addr", s.cfg.Daemon.Addr)
+	}
 
-	<-ctx.Done()
+	if s.cfg.Daemon.Socket != "" {
+		socketPath := s.cfg.SocketPath()
+		l, err := createUnixListener(ctx, socketPath)
+		if err != nil {
+			for _, listener := range listeners {
+				_ = listener.Close()
+			}
+			return nil, err
+		}
+		listeners = append(listeners, l)
+		slog.Info("[SERVER] Starting Unix socket listener", "path", socketPath)
+	}
 
-	slog.Info("[SERVER] Shutting down HTTP server")
-	return server.Shutdown(ctx)
+	return listeners, nil
 }
 
 func (s *Server) initStore() error {
@@ -119,4 +173,59 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 
 		slog.Info(path, "duration", duration)
 	})
+}
+
+func createTCPListener(ctx context.Context, addr string) (net.Listener, error) {
+	lc := &net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "tcp", addr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TCP listener on %s: %w", addr, err)
+	}
+	return listener, nil
+}
+
+func createUnixListener(ctx context.Context, socketPath string) (net.Listener, error) {
+	info, err := os.Stat(socketPath)
+	if err == nil {
+		if info.Mode()&os.ModeSocket != 0 {
+			slog.Warn("[SERVER] Removing existing socket file", "path", socketPath)
+			if err := os.Remove(socketPath); err != nil {
+				return nil, errors.Wrap(err, "path", socketPath)
+			}
+		} else {
+			return nil, errors.Wrap(ErrInvalidSocketFile, "path", socketPath)
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, errors.Wrap(err, "path", socketPath)
+	}
+
+	lc := &net.ListenConfig{}
+	listener, err := lc.Listen(ctx, "unix", socketPath)
+	if err != nil {
+		return nil, errors.Wrap(err, "path", socketPath)
+	}
+
+	if err := os.Chmod(socketPath, 0o600); err != nil {
+		_ = listener.Close()
+		return nil, errors.Wrap(err, "path", socketPath)
+	}
+
+	return listener, nil
+}
+
+func removeSocketFile(socketPath string) {
+	info, err := os.Stat(socketPath)
+	if os.IsNotExist(err) {
+		return
+	}
+	if err != nil {
+		slog.Warn("[SERVER] Failed to check socket file for cleanup", "path", socketPath, "error", err)
+		return
+	}
+
+	if info.Mode()&os.ModeSocket != 0 {
+		if err := os.Remove(socketPath); err != nil {
+			slog.Warn("[SERVER] Failed to remove socket file", "path", socketPath, "error", err)
+		}
+	}
 }

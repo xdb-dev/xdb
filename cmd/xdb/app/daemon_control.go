@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/gojekfarm/xtools/errors"
 )
 
 const (
@@ -39,11 +41,12 @@ func NewDaemon(cfg *Config) *Daemon {
 
 // DaemonStatusInfo holds information about the daemon status.
 type DaemonStatusInfo struct {
-	Status         string `json:"status"`
-	PID            int    `json:"pid,omitempty"`
-	Address        string `json:"address,omitempty"`
-	Healthy        bool   `json:"healthy"`
-	ResponseTimeMs int64  `json:"response_time_ms,omitempty"`
+	Status         string   `json:"status"`
+	PID            int      `json:"pid,omitempty"`
+	Address        string   `json:"address,omitempty"`
+	Addresses      []string `json:"addresses,omitempty"`
+	Healthy        bool     `json:"healthy"`
+	ResponseTimeMs int64    `json:"response_time_ms,omitempty"`
 }
 
 func (d *Daemon) readPID() (int, error) {
@@ -53,12 +56,12 @@ func (d *Daemon) readPID() (int, error) {
 		return 0, nil
 	}
 	if err != nil {
-		return 0, fmt.Errorf("failed to read PID file: %w", err)
+		return 0, errors.Wrap(err, "path", pidPath)
 	}
 
 	pid, err := strconv.Atoi(string(data))
 	if err != nil {
-		return 0, fmt.Errorf("invalid PID in file: %w", err)
+		return 0, errors.Wrap(err, "path", pidPath, "value", string(data))
 	}
 
 	return pid, nil
@@ -69,11 +72,11 @@ func (d *Daemon) writePID(pid int) error {
 	pidDir := filepath.Dir(pidPath)
 
 	if err := os.MkdirAll(pidDir, 0o700); err != nil {
-		return fmt.Errorf("failed to create PID directory: %w", err)
+		return errors.Wrap(err, "path", pidDir)
 	}
 
 	if err := os.WriteFile(pidPath, []byte(strconv.Itoa(pid)), 0o600); err != nil {
-		return fmt.Errorf("failed to write PID file: %w", err)
+		return errors.Wrap(err, "path", pidPath)
 	}
 
 	return nil
@@ -82,7 +85,7 @@ func (d *Daemon) writePID(pid int) error {
 func (d *Daemon) removePID() error {
 	pidPath := d.Config.PIDFile()
 	if err := os.Remove(pidPath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to remove PID file: %w", err)
+		return errors.Wrap(err, "path", pidPath)
 	}
 	return nil
 }
@@ -117,14 +120,14 @@ func (d *Daemon) spawnParent() error {
 	}
 
 	if pid > 0 && IsProcessRunning(pid) {
-		return fmt.Errorf("daemon is already running (PID: %d)\nUse 'xdb daemon restart' to restart the daemon", pid)
+		return errors.Wrap(ErrDaemonAlreadyRunning, "pid", strconv.Itoa(pid))
 	}
 
 	if pid > 0 {
 		fmt.Printf("Warning: Found stale PID file (process %d not running)\n", pid)
 		fmt.Println("Cleaning up and starting daemon...")
 		if err := d.removePID(); err != nil {
-			return fmt.Errorf("failed to clean up stale PID file: %w", err)
+			return errors.Wrap(err, "path", d.Config.PIDFile())
 		}
 	} else {
 		fmt.Println("Starting XDB daemon...")
@@ -132,18 +135,18 @@ func (d *Daemon) spawnParent() error {
 
 	logDir := filepath.Dir(d.Config.LogFile())
 	if err := os.MkdirAll(logDir, 0o700); err != nil {
-		return fmt.Errorf("failed to create log directory: %w", err)
+		return errors.Wrap(err, "path", logDir)
 	}
 
 	logFile, err := os.OpenFile(d.Config.LogFile(), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) // #nosec G304 - path from trusted config
 	if err != nil {
-		return fmt.Errorf("failed to open log file: %w", err)
+		return errors.Wrap(err, "path", d.Config.LogFile())
 	}
 
 	executable, err := os.Executable()
 	if err != nil {
 		_ = logFile.Close()
-		return fmt.Errorf("failed to get executable path: %w", err)
+		return err
 	}
 
 	cmd := exec.CommandContext(context.Background(), executable, "daemon", "start") // #nosec G204 - executable is from os.Executable()
@@ -154,31 +157,41 @@ func (d *Daemon) spawnParent() error {
 
 	if err := cmd.Start(); err != nil {
 		_ = logFile.Close()
-		return fmt.Errorf("failed to start daemon: %w", err)
+		return err
 	}
 
 	_ = logFile.Close()
 
 	if err := d.waitForHealthy(context.Background(), healthCheckTimeout); err != nil {
-		return fmt.Errorf("daemon started but health check failed: %w", err)
+		newPID, _ := d.readPID()
+		return errors.Wrap(err, "pid", strconv.Itoa(newPID))
 	}
 
 	newPID, _ := d.readPID()
 	fmt.Printf("Daemon started successfully (PID: %d)\n", newPID)
-	fmt.Printf("Server listening on %s\n", d.Config.Daemon.Addr)
-
+	d.printListeningAddresses()
 	return nil
+}
+
+func (d *Daemon) printListeningAddresses() {
+	if d.Config.Daemon.Addr != "" && d.Config.Daemon.Socket != "" {
+		fmt.Printf("Server listening on %s and %s\n", d.Config.Daemon.Addr, d.Config.SocketPath())
+	} else if d.Config.Daemon.Addr != "" {
+		fmt.Printf("Server listening on %s\n", d.Config.Daemon.Addr)
+	} else {
+		fmt.Printf("Server listening on %s\n", d.Config.SocketPath())
+	}
 }
 
 func (d *Daemon) runChild() error {
 	if err := d.writePID(os.Getpid()); err != nil {
-		return fmt.Errorf("failed to write PID file: %w", err)
+		return errors.Wrap(err, "path", d.Config.PIDFile())
 	}
 
 	server, err := NewServer(d.Config)
 	if err != nil {
 		_ = d.removePID()
-		return fmt.Errorf("failed to create server: %w", err)
+		return err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -193,7 +206,7 @@ func (d *Daemon) runChild() error {
 
 	if err := server.Run(ctx); err != nil {
 		_ = d.removePID()
-		return fmt.Errorf("server error: %w", err)
+		return err
 	}
 
 	_ = d.removePID()
@@ -201,6 +214,10 @@ func (d *Daemon) runChild() error {
 }
 
 func (d *Daemon) waitForHealthy(ctx context.Context, timeout time.Duration) error {
+	if d.Config.Daemon.Addr == "" {
+		return nil
+	}
+
 	deadline := time.Now().Add(timeout)
 	healthURL := fmt.Sprintf("http://%s/v1/schemas", d.Config.Daemon.Addr)
 
@@ -209,7 +226,7 @@ func (d *Daemon) waitForHealthy(ctx context.Context, timeout time.Duration) erro
 	for time.Now().Before(deadline) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
 		if err != nil {
-			return fmt.Errorf("failed to create request: %w", err)
+			return errors.Wrap(err, "url", healthURL)
 		}
 
 		resp, err := client.Do(req)
@@ -220,7 +237,7 @@ func (d *Daemon) waitForHealthy(ctx context.Context, timeout time.Duration) erro
 		time.Sleep(healthCheckPollDelay)
 	}
 
-	return fmt.Errorf("timeout waiting for daemon to become healthy")
+	return errors.Wrap(ErrHealthCheckTimeout, "timeout", timeout.String())
 }
 
 // Stop stops the running daemon.
@@ -237,7 +254,7 @@ func (d *Daemon) Stop(force bool) error {
 
 	if !IsProcessRunning(pid) {
 		if err := d.removePID(); err != nil {
-			return fmt.Errorf("failed to clean up stale PID file: %w", err)
+			return errors.Wrap(err, "path", d.Config.PIDFile())
 		}
 		fmt.Println("Daemon is not running (cleaned up stale PID file)")
 		return nil
@@ -247,11 +264,11 @@ func (d *Daemon) Stop(force bool) error {
 
 	process, err := os.FindProcess(pid)
 	if err != nil {
-		return fmt.Errorf("failed to find process: %w", err)
+		return errors.Wrap(err, "pid", strconv.Itoa(pid))
 	}
 
 	if err := process.Signal(syscall.SIGTERM); err != nil {
-		return fmt.Errorf("failed to send SIGTERM: %w", err)
+		return errors.Wrap(err, "pid", strconv.Itoa(pid))
 	}
 
 	stopped := waitForProcessStop(pid, stopTimeout)
@@ -259,16 +276,16 @@ func (d *Daemon) Stop(force bool) error {
 	if !stopped {
 		if force {
 			if err := process.Signal(syscall.SIGKILL); err != nil {
-				return fmt.Errorf("failed to send SIGKILL: %w", err)
+				return errors.Wrap(err, "pid", strconv.Itoa(pid))
 			}
 			waitForProcessStop(pid, 5*time.Second)
 		} else {
-			return fmt.Errorf("daemon did not stop within %v\nUse '--force' to force kill", stopTimeout)
+			return errors.Wrap(ErrStopTimeout, "timeout", stopTimeout.String(), "pid", strconv.Itoa(pid))
 		}
 	}
 
 	if err := d.removePID(); err != nil {
-		return fmt.Errorf("failed to remove PID file: %w", err)
+		return errors.Wrap(err, "path", d.Config.PIDFile())
 	}
 
 	fmt.Println("Daemon stopped successfully")
@@ -294,6 +311,14 @@ func (d *Daemon) GetStatus(ctx context.Context) (*DaemonStatusInfo, error) {
 		Address: d.Config.Daemon.Addr,
 	}
 
+	info.Addresses = []string{}
+	if d.Config.Daemon.Addr != "" {
+		info.Addresses = append(info.Addresses, fmt.Sprintf("tcp://%s", d.Config.Daemon.Addr))
+	}
+	if d.Config.Daemon.Socket != "" {
+		info.Addresses = append(info.Addresses, fmt.Sprintf("unix://%s", d.Config.SocketPath()))
+	}
+
 	pid, err := d.readPID()
 	if err != nil {
 		return nil, err
@@ -307,20 +332,22 @@ func (d *Daemon) GetStatus(ctx context.Context) (*DaemonStatusInfo, error) {
 	info.PID = pid
 	info.Status = "running"
 
-	healthURL := fmt.Sprintf("http://%s/v1/schemas", d.Config.Daemon.Addr)
-	client := &http.Client{Timeout: 5 * time.Second}
+	if d.Config.Daemon.Addr != "" {
+		healthURL := fmt.Sprintf("http://%s/v1/schemas", d.Config.Daemon.Addr)
+		client := &http.Client{Timeout: 5 * time.Second}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
-	if err != nil {
-		return info, err
-	}
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
+		if err != nil {
+			return info, err
+		}
 
-	start := time.Now()
-	resp, err := client.Do(req)
-	if err == nil {
-		_ = resp.Body.Close()
-		info.ResponseTimeMs = time.Since(start).Milliseconds()
-		info.Healthy = resp.StatusCode < http.StatusInternalServerError
+		start := time.Now()
+		resp, err := client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+			info.ResponseTimeMs = time.Since(start).Milliseconds()
+			info.Healthy = resp.StatusCode < http.StatusInternalServerError
+		}
 	}
 
 	return info, nil
@@ -331,7 +358,7 @@ func PrintDaemonStatus(info *DaemonStatusInfo, asJSON bool) error {
 	if asJSON {
 		data, err := json.MarshalIndent(info, "", "  ")
 		if err != nil {
-			return fmt.Errorf("failed to marshal status: %w", err)
+			return err
 		}
 		fmt.Println(string(data))
 		return nil
@@ -344,7 +371,15 @@ func PrintDaemonStatus(info *DaemonStatusInfo, asJSON bool) error {
 
 	fmt.Println("Status:  Running")
 	fmt.Printf("PID:     %d\n", info.PID)
-	fmt.Printf("Address: %s\n", info.Address)
+
+	if len(info.Addresses) > 0 {
+		fmt.Println("Listening on:")
+		for _, addr := range info.Addresses {
+			fmt.Printf("  - %s\n", addr)
+		}
+	} else {
+		fmt.Printf("Address: %s\n", info.Address)
+	}
 
 	if info.Healthy {
 		fmt.Printf("Health:  Healthy (%dms)\n", info.ResponseTimeMs)
@@ -383,12 +418,12 @@ func (d *Daemon) TailLogs(lines int) error {
 	logPath := d.Config.LogFile()
 
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
-		return fmt.Errorf("log file not found: %s\nIs the daemon running? Check with 'xdb daemon status'", logPath)
+		return errors.Wrap(ErrLogFileNotFound, "path", logPath)
 	}
 
 	file, err := os.Open(logPath) // #nosec G304 - path from trusted config
 	if err != nil {
-		return fmt.Errorf("failed to open log file: %w", err)
+		return errors.Wrap(err, "path", logPath)
 	}
 	defer func() { _ = file.Close() }()
 
@@ -406,12 +441,12 @@ func (d *Daemon) FollowLogs(ctx context.Context, initialLines int) error {
 	logPath := d.Config.LogFile()
 
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
-		return fmt.Errorf("log file not found: %s\nIs the daemon running? Check with 'xdb daemon status'", logPath)
+		return errors.Wrap(ErrLogFileNotFound, "path", logPath)
 	}
 
 	file, err := os.Open(logPath) // #nosec G304 - path from trusted config
 	if err != nil {
-		return fmt.Errorf("failed to open log file: %w", err)
+		return errors.Wrap(err, "path", logPath)
 	}
 	defer func() { _ = file.Close() }()
 
@@ -424,7 +459,7 @@ func (d *Daemon) FollowLogs(ctx context.Context, initialLines int) error {
 
 	currentPos, err := file.Seek(0, io.SeekEnd)
 	if err != nil {
-		return fmt.Errorf("failed to seek to end of file: %w", err)
+		return errors.Wrap(err, "path", logPath)
 	}
 
 	for {
@@ -436,12 +471,12 @@ func (d *Daemon) FollowLogs(ctx context.Context, initialLines int) error {
 
 		stat, err := file.Stat()
 		if err != nil {
-			return fmt.Errorf("failed to stat log file: %w", err)
+			return errors.Wrap(err, "path", logPath)
 		}
 
 		if stat.Size() > currentPos {
 			if _, err := file.Seek(currentPos, io.SeekStart); err != nil {
-				return fmt.Errorf("failed to seek in log file: %w", err)
+				return errors.Wrap(err, "path", logPath)
 			}
 			scanner := bufio.NewScanner(file)
 			for scanner.Scan() {
@@ -461,7 +496,7 @@ func readAllLines(file *os.File) ([]string, error) {
 		lines = append(lines, scanner.Text())
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to read log file: %w", err)
+		return nil, err
 	}
 	return lines, nil
 }

@@ -4,9 +4,9 @@ package app
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
+
+	"github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/store"
@@ -65,13 +65,13 @@ func (a *App) GetByURI(ctx context.Context, uri *core.URI) (any, error) {
 		// Fetch specific tuple
 		tuples, notFound, err := a.TupleDriver.GetTuples(ctx, []*core.URI{uri})
 		if err != nil {
-			return nil, fmt.Errorf("failed to get tuple: %w", err)
+			return nil, errors.Wrap(err, "uri", uri.String())
 		}
 		if len(notFound) > 0 {
-			return nil, fmt.Errorf("tuple not found: %s", uri.String())
+			return nil, errors.Wrap(ErrTupleNotFound, "uri", uri.String())
 		}
 		if len(tuples) == 0 {
-			return nil, fmt.Errorf("no tuples returned")
+			return nil, errors.Wrap(ErrNoTuplesReturned, "uri", uri.String())
 		}
 		return tuples[0], nil
 
@@ -79,13 +79,13 @@ func (a *App) GetByURI(ctx context.Context, uri *core.URI) (any, error) {
 		// Fetch record
 		records, notFound, err := a.RecordDriver.GetRecords(ctx, []*core.URI{uri})
 		if err != nil {
-			return nil, fmt.Errorf("failed to get record: %w", err)
+			return nil, errors.Wrap(err, "uri", uri.String())
 		}
 		if len(notFound) > 0 {
-			return nil, fmt.Errorf("record not found: %s", uri.String())
+			return nil, errors.Wrap(ErrRecordNotFound, "uri", uri.String())
 		}
 		if len(records) == 0 {
-			return nil, fmt.Errorf("no records returned")
+			return nil, errors.Wrap(ErrNoRecordsReturned, "uri", uri.String())
 		}
 		return records[0], nil
 
@@ -93,12 +93,12 @@ func (a *App) GetByURI(ctx context.Context, uri *core.URI) (any, error) {
 		// Fetch schema
 		schema, err := a.SchemaDriver.GetSchema(ctx, uri)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get schema: %w", err)
+			return nil, errors.Wrap(err, "uri", uri.String())
 		}
 		return schema, nil
 
 	default:
-		return nil, fmt.Errorf("URI must specify at least a schema")
+		return nil, errors.Wrap(ErrURIMustSpecifySchema, "uri", uri.String())
 	}
 }
 
@@ -108,7 +108,7 @@ func (a *App) PutRecord(ctx context.Context, record *core.Record) error {
 
 	err := a.RecordDriver.PutRecords(ctx, []*core.Record{record})
 	if err != nil {
-		return fmt.Errorf("failed to put record: %w", err)
+		return errors.Wrap(err, "uri", record.URI().String())
 	}
 	return nil
 }
@@ -119,13 +119,13 @@ func (a *App) ListByURI(ctx context.Context, uri *core.URI, opts ListOptions) (a
 		// List schemas in namespace
 		schemas, err := a.SchemaDriver.ListSchemas(ctx, uri)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list schemas: %w", err)
+			return nil, errors.Wrap(err, "uri", uri.String())
 		}
 		return paginate(schemas, opts.Limit, opts.Offset), nil
 	}
 
 	// List records in schema - not yet supported by store layer
-	return nil, fmt.Errorf("listing records not yet implemented in store layer")
+	return nil, ErrListingRecordsNotImplemented
 }
 
 // RemoveByURI deletes a resource (tuple, record, or schema) by URI.
@@ -135,7 +135,7 @@ func (a *App) RemoveByURI(ctx context.Context, uri *core.URI) error {
 		// Delete tuple
 		err := a.TupleDriver.DeleteTuples(ctx, []*core.URI{uri})
 		if err != nil {
-			return fmt.Errorf("failed to delete tuple: %w", err)
+			return errors.Wrap(err, "uri", uri.String())
 		}
 		return nil
 
@@ -143,7 +143,7 @@ func (a *App) RemoveByURI(ctx context.Context, uri *core.URI) error {
 		// Delete record
 		err := a.RecordDriver.DeleteRecords(ctx, []*core.URI{uri})
 		if err != nil {
-			return fmt.Errorf("failed to delete record: %w", err)
+			return errors.Wrap(err, "uri", uri.String())
 		}
 		return nil
 
@@ -151,12 +151,12 @@ func (a *App) RemoveByURI(ctx context.Context, uri *core.URI) error {
 		// Delete schema
 		err := a.SchemaDriver.DeleteSchema(ctx, uri)
 		if err != nil {
-			return fmt.Errorf("failed to delete schema: %w", err)
+			return errors.Wrap(err, "uri", uri.String())
 		}
 		return nil
 
 	default:
-		return fmt.Errorf("URI must specify at least a schema")
+		return errors.Wrap(ErrURIMustSpecifySchema, "uri", uri.String())
 	}
 }
 
