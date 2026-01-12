@@ -71,3 +71,12 @@ type RecordStore interface {
 	RecordReader
 	RecordWriter
 }
+
+// HealthChecker is an optional interface that stores can implement
+// to provide health check capabilities. Stores that do not implement
+// this interface are assumed to be healthy.
+type HealthChecker interface {
+	// Health returns nil if the store is healthy, or an error describing
+	// the health issue. This method should complete quickly (< 1 second).
+	Health(ctx context.Context) error
+}

@@ -1,8 +1,10 @@
 package xdbmemory
 
 import (
+	"context"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/xdb-dev/xdb/tests"
@@ -104,4 +106,18 @@ func (s *RecordStoreTestSuite) TestValidationFlexible() {
 
 func (s *RecordStoreTestSuite) TestValidationDynamic() {
 	s.RecordStoreTestSuite.ValidationDynamic(s.T())
+}
+
+func TestHealth(t *testing.T) {
+	store := New()
+	ctx := context.Background()
+
+	err := store.Health(ctx)
+	require.NoError(t, err)
+
+	err = store.Health(ctx)
+	require.NoError(t, err)
+
+	err = store.Health(ctx)
+	require.NoError(t, err)
 }

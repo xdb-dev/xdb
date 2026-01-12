@@ -2,6 +2,8 @@ module github.com/xdb-dev/xdb
 
 go 1.25.0
 
+replace github.com/xdb-dev/xdb/store/xdbsqlite => ./store/xdbsqlite
+
 require (
 	github.com/brianvoe/gofakeit/v7 v7.2.1
 	github.com/gojekfarm/xtools/errors v0.10.0

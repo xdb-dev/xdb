@@ -13,6 +13,8 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
+var _ store.HealthChecker = (*MemoryStore)(nil)
+
 // Config holds the configuration for the in-memory store.
 type Config struct {
 	Enabled bool `env:"ENABLED"`
@@ -328,5 +330,10 @@ func (d *MemoryStore) DeleteRecords(ctx context.Context, uris []*core.URI) error
 		delete(d.tuples, id)
 	}
 
+	return nil
+}
+
+// Health always returns nil for in-memory store as it has no external dependencies.
+func (m *MemoryStore) Health(ctx context.Context) error {
 	return nil
 }

@@ -27,13 +27,15 @@ type Storer interface {
 type Server struct {
 	cfg         *Config
 	store       Storer
+	startTime   time.Time
 	middlewares xapi.MiddlewareStack
 	mux         *http.ServeMux
 }
 
 func NewServer(cfg *Config) (*Server, error) {
 	server := &Server{
-		cfg: cfg,
+		cfg:       cfg,
+		startTime: time.Now(),
 	}
 
 	err := errors.Join(
@@ -134,6 +136,13 @@ func (s *Server) initMiddlewares() error {
 
 func (s *Server) registerRoutes() error {
 	s.mux = http.NewServeMux()
+
+	// Health endpoint (no middleware for fast response)
+	healthAPI := api.NewHealthAPI(s.store, s.startTime)
+	health := xapi.NewEndpoint(
+		xapi.EndpointFunc[api.HealthRequest, api.HealthResponse](healthAPI.GetHealth()),
+	)
+	s.mux.Handle("GET /v1/health", health.Handler())
 
 	schemaAPI := api.NewSchemaAPI(s.store)
 
