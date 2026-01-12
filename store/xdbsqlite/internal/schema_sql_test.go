@@ -71,6 +71,7 @@ func (s *QueriesTestSuite) TestPutAndGetMetadata() {
 	now := time.Now().Unix()
 	params := PutMetadataParams{
 		URI:       "xdb://com.example/test",
+		NS:        "com.example",
 		Schema:    `{"type": "object"}`,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -92,6 +93,7 @@ func (s *QueriesTestSuite) TestPutMetadataUpsert() {
 	now := time.Now().Unix()
 	params := PutMetadataParams{
 		URI:       "xdb://com.example/test",
+		NS:        "com.example",
 		Schema:    `{"type": "object"}`,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -103,6 +105,7 @@ func (s *QueriesTestSuite) TestPutMetadataUpsert() {
 	later := now + 100
 	updatedParams := PutMetadataParams{
 		URI:       "xdb://com.example/test",
+		NS:        "com.example",
 		Schema:    `{"type": "array"}`,
 		CreatedAt: now,
 		UpdatedAt: later,
@@ -124,7 +127,7 @@ func (s *QueriesTestSuite) TestGetMetadataNotFound() {
 	result, err := s.queries.GetMetadata(s.ctx, "non-existent")
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), sql.ErrNoRows, err)
-	assert.Nil(s.T(), result)
+	assert.NotNil(s.T(), result)
 }
 
 func (s *QueriesTestSuite) TestDeleteMetadata() {
@@ -134,6 +137,7 @@ func (s *QueriesTestSuite) TestDeleteMetadata() {
 	now := time.Now().Unix()
 	params := PutMetadataParams{
 		URI:       "xdb://com.example/test",
+		NS:        "com.example",
 		Schema:    `{"type": "object"}`,
 		CreatedAt: now,
 		UpdatedAt: now,

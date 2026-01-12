@@ -62,6 +62,24 @@ func (d *SchemaDriverTx) ListSchemas(ctx context.Context, uri *core.URI) ([]*sch
 	return schemas, nil
 }
 
+func (d *SchemaDriverTx) ListNamespaces(ctx context.Context) ([]*core.NS, error) {
+	nsStrings, err := d.queries.ListNamespaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	namespaces := make([]*core.NS, 0, len(nsStrings))
+	for _, nsStr := range nsStrings {
+		ns, err := core.ParseNS(nsStr)
+		if err != nil {
+			return nil, err
+		}
+		namespaces = append(namespaces, ns)
+	}
+
+	return namespaces, nil
+}
+
 func validateSchemaURI(uri *core.URI, def *schema.Def) error {
 	if def.NS == nil {
 		return errors.New("schema namespace is required")
@@ -126,6 +144,7 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 
 	return d.queries.PutMetadata(ctx, internal.PutMetadataParams{
 		URI:       uri.String(),
+		NS:        uri.NS().String(),
 		Schema:    string(jsonSchema),
 		CreatedAt: time.Now().Unix(),
 		UpdatedAt: time.Now().Unix(),

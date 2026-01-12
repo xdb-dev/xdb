@@ -5,6 +5,7 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/gojekfarm/xtools/errors"
@@ -81,6 +82,29 @@ func (d *MemoryStore) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema
 	})
 
 	return schemas, nil
+}
+
+// ListNamespaces returns all unique namespaces in the store.
+func (d *MemoryStore) ListNamespaces(ctx context.Context) ([]*core.NS, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	nsStrings := slices.Collect(maps.Keys(d.schemas))
+
+	namespaces := make([]*core.NS, 0, len(nsStrings))
+	for _, nsStr := range nsStrings {
+		ns, err := core.ParseNS(nsStr)
+		if err != nil {
+			return nil, err
+		}
+		namespaces = append(namespaces, ns)
+	}
+
+	slices.SortFunc(namespaces, func(a, b *core.NS) int {
+		return strings.Compare(a.String(), b.String())
+	})
+
+	return namespaces, nil
 }
 
 // PutSchema saves the schema definition.

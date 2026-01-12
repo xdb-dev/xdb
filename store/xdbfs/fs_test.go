@@ -41,6 +41,10 @@ func (s *FSStoreTestSuite) TestListSchemas() {
 	s.SchemaStoreTestSuite.ListSchemas(s.T())
 }
 
+func (s *FSStoreTestSuite) TestListNamespaces() {
+	s.SchemaStoreTestSuite.ListNamespaces(s.T())
+}
+
 func (s *FSStoreTestSuite) TestAddNewFields() {
 	s.SchemaStoreTestSuite.AddNewFields(s.T())
 }

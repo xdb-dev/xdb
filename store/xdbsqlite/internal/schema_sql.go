@@ -23,6 +23,7 @@ func NewQueries(tx *sql.Tx) *Queries {
 const createMetadataTableQuery = `
 	CREATE TABLE IF NOT EXISTS "_xdb_metadata" (
 		uri TEXT PRIMARY KEY,
+		ns TEXT NOT NULL,
 		schema TEXT,
 		created_at INTEGER,
 		updated_at INTEGER
@@ -36,15 +37,17 @@ func (q *Queries) CreateMetadataTable(ctx context.Context) error {
 
 const putMetadataQuery = `
 	INSERT INTO "_xdb_metadata"
-	(uri, schema, created_at, updated_at)
-	VALUES ($1, $2, $3, $4)
+	(uri, ns, schema, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5)
 	ON CONFLICT (uri) DO UPDATE SET
-		schema = $2,
-		updated_at = $4
+		ns = $2,
+		schema = $3,
+		updated_at = $5
 `
 
 type PutMetadataParams struct {
 	URI       string
+	NS        string
 	Schema    string
 	CreatedAt int64
 	UpdatedAt int64
@@ -52,19 +55,19 @@ type PutMetadataParams struct {
 
 func (q *Queries) PutMetadata(ctx context.Context, args PutMetadataParams) error {
 	_, err := q.tx.ExecContext(ctx, putMetadataQuery,
-		args.URI, args.Schema, args.CreatedAt, args.UpdatedAt,
+		args.URI, args.NS, args.Schema, args.CreatedAt, args.UpdatedAt,
 	)
 	return err
 }
 
 const getMetadataQuery = `
-	SELECT uri, schema, created_at, updated_at FROM "_xdb_metadata" WHERE uri = $1
+	SELECT uri, ns, schema, created_at, updated_at FROM "_xdb_metadata" WHERE uri = $1
 `
 
 func (q *Queries) GetMetadata(ctx context.Context, uri string) (*PutMetadataParams, error) {
 	row := q.tx.QueryRowContext(ctx, getMetadataQuery, uri)
 	var params PutMetadataParams
-	err := row.Scan(&params.URI, &params.Schema, &params.CreatedAt, &params.UpdatedAt)
+	err := row.Scan(&params.URI, &params.NS, &params.Schema, &params.CreatedAt, &params.UpdatedAt)
 	return &params, err
 }
 
@@ -78,7 +81,7 @@ func (q *Queries) DeleteMetadata(ctx context.Context, uri string) error {
 }
 
 const listMetadataQuery = `
-	SELECT uri, schema, created_at, updated_at FROM "_xdb_metadata" WHERE uri LIKE $1
+	SELECT uri, ns, schema, created_at, updated_at FROM "_xdb_metadata" WHERE uri LIKE $1
 `
 
 func (q *Queries) ListMetadata(ctx context.Context, uriPrefix string) ([]*PutMetadataParams, error) {
@@ -93,7 +96,7 @@ func (q *Queries) ListMetadata(ctx context.Context, uriPrefix string) ([]*PutMet
 	var results []*PutMetadataParams
 	for rows.Next() {
 		var params PutMetadataParams
-		if err := rows.Scan(&params.URI, &params.Schema, &params.CreatedAt, &params.UpdatedAt); err != nil {
+		if err := rows.Scan(&params.URI, &params.NS, &params.Schema, &params.CreatedAt, &params.UpdatedAt); err != nil {
 			return nil, err
 		}
 		results = append(results, &params)
@@ -104,6 +107,35 @@ func (q *Queries) ListMetadata(ctx context.Context, uriPrefix string) ([]*PutMet
 	}
 
 	return results, nil
+}
+
+const listNamespacesQuery = `
+	SELECT DISTINCT ns FROM "_xdb_metadata" ORDER BY ns
+`
+
+func (q *Queries) ListNamespaces(ctx context.Context) ([]string, error) {
+	rows, err := q.tx.QueryContext(ctx, listNamespacesQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	var namespaces []string
+	for rows.Next() {
+		var ns string
+		if err := rows.Scan(&ns); err != nil {
+			return nil, err
+		}
+		namespaces = append(namespaces, ns)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return namespaces, nil
 }
 
 const createKVTableQuery = `

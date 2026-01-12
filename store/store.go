@@ -24,6 +24,7 @@ var (
 type SchemaReader interface {
 	GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error)
 	ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error)
+	ListNamespaces(ctx context.Context) ([]*core.NS, error)
 }
 
 // SchemaWriter is an interface for writing & deleting schemas.

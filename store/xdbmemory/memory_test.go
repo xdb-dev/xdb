@@ -32,6 +32,10 @@ func (s *MemoryStoreTestSuite) TestListSchemas() {
 	s.SchemaStoreTestSuite.ListSchemas(s.T())
 }
 
+func (s *MemoryStoreTestSuite) TestListNamespaces() {
+	s.SchemaStoreTestSuite.ListNamespaces(s.T())
+}
+
 func (s *MemoryStoreTestSuite) TestAddNewFields() {
 	s.SchemaStoreTestSuite.AddNewFields(s.T())
 }

@@ -93,6 +93,59 @@ func (s *SchemaStoreTestSuite) ListSchemas(t *testing.T) {
 	AssertDefEqual(t, allTypesSchema2, schemas[1])
 }
 
+func (s *SchemaStoreTestSuite) ListNamespaces(t *testing.T) {
+	t.Helper()
+
+	ctx := context.Background()
+
+	t.Run("ListNamespaces returns empty slice when no schemas exist", func(t *testing.T) {
+		namespaces, err := s.driver.ListNamespaces(ctx)
+		require.NoError(t, err)
+		require.NotNil(t, namespaces)
+		require.Len(t, namespaces, 0)
+	})
+
+	t.Run("ListNamespaces returns unique namespaces sorted alphabetically", func(t *testing.T) {
+		schema1 := FakeAllTypesSchema()
+		schema1.NS = core.NewNS("com.example")
+		schema1.Name = "users"
+
+		schema2 := FakeAllTypesSchema()
+		schema2.NS = core.NewNS("com.example")
+		schema2.Name = "posts"
+
+		schema3 := FakeAllTypesSchema()
+		schema3.NS = core.NewNS("org.test")
+		schema3.Name = "products"
+
+		err := s.driver.PutSchema(ctx, core.MustParseURI("xdb://com.example/users"), schema1)
+		require.NoError(t, err)
+
+		err = s.driver.PutSchema(ctx, core.MustParseURI("xdb://com.example/posts"), schema2)
+		require.NoError(t, err)
+
+		err = s.driver.PutSchema(ctx, core.MustParseURI("xdb://org.test/products"), schema3)
+		require.NoError(t, err)
+
+		namespaces, err := s.driver.ListNamespaces(ctx)
+		require.NoError(t, err)
+		require.Len(t, namespaces, 2)
+
+		require.Equal(t, "com.example", namespaces[0].String())
+		require.Equal(t, "org.test", namespaces[1].String())
+	})
+
+	t.Run("ListNamespaces returns one namespace after deletion", func(t *testing.T) {
+		err := s.driver.DeleteSchema(ctx, core.MustParseURI("xdb://org.test/products"))
+		require.NoError(t, err)
+
+		namespaces, err := s.driver.ListNamespaces(ctx)
+		require.NoError(t, err)
+		require.Len(t, namespaces, 1)
+		require.Equal(t, "com.example", namespaces[0].String())
+	})
+}
+
 func (s *SchemaStoreTestSuite) AddNewFields(t *testing.T) {
 	t.Helper()
 

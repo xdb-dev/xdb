@@ -52,5 +52,8 @@ tools/vendor
 xdb.yaml
 xdb.yml
 
+# binaries
+xdb
+
 # Git worktrees
 .worktrees/

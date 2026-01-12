@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 
@@ -138,6 +139,80 @@ func (d *FSStore) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def
 	})
 
 	return schemas, err
+}
+
+// ListNamespaces returns all unique namespaces in the store.
+func (d *FSStore) ListNamespaces(ctx context.Context) ([]*core.NS, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	entries, err := os.ReadDir(d.root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []*core.NS{}, nil
+		}
+		return nil, err
+	}
+
+	namespaces := make([]*core.NS, 0)
+	seen := make(map[string]bool)
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		nsStr := entry.Name()
+		if seen[nsStr] {
+			continue
+		}
+
+		ns, err := core.ParseNS(nsStr)
+		if err != nil {
+			continue
+		}
+
+		hasSchemas, err := d.hasSchemas(nsStr)
+		if err != nil {
+			return nil, err
+		}
+		if !hasSchemas {
+			continue
+		}
+
+		namespaces = append(namespaces, ns)
+		seen[nsStr] = true
+	}
+
+	slices.SortFunc(namespaces, func(a, b *core.NS) int {
+		return strings.Compare(a.String(), b.String())
+	})
+
+	return namespaces, nil
+}
+
+func (d *FSStore) hasSchemas(ns string) (bool, error) {
+	nsPath := d.nsPath(ns)
+	entries, err := os.ReadDir(nsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		schemaPath := filepath.Join(nsPath, entry.Name(), ".schema.json")
+		if _, err := os.Stat(schemaPath); err == nil {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // PutSchema saves the schema definition.
