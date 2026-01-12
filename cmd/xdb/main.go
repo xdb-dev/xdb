@@ -54,7 +54,8 @@ func setupLogger(level slog.Level) {
 func buildCLI() *cli.Command {
 	cmd := &cli.Command{
 		Name:        "xdb",
-		Description: "Your Personal Data Store",
+		Usage:       "A tuple-based database CLI for managing schemas and records",
+		Description: "XDB is a personal data store that provides a simple interface for storing and querying structured data using tuples and records.",
 		Version:     formatVersion(),
 
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {

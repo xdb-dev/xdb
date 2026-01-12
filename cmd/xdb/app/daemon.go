@@ -8,18 +8,18 @@ import (
 
 // DaemonStart starts the daemon in the background.
 func DaemonStart(ctx context.Context, cmd *cli.Command) error {
-	cfg, err := LoadConfig("")
+	cfg, err := LoadConfig(cmd.String("config"))
 	if err != nil {
 		return err
 	}
 
 	daemon := NewDaemon(cfg)
-	return daemon.Start()
+	return daemon.Start(cmd.String("config"))
 }
 
 // DaemonStop stops the running daemon.
 func DaemonStop(ctx context.Context, cmd *cli.Command) error {
-	cfg, err := LoadConfig("")
+	cfg, err := LoadConfig(cmd.String("config"))
 	if err != nil {
 		return err
 	}
@@ -31,7 +31,7 @@ func DaemonStop(ctx context.Context, cmd *cli.Command) error {
 
 // DaemonStatus shows daemon status and health.
 func DaemonStatus(ctx context.Context, cmd *cli.Command) error {
-	cfg, err := LoadConfig("")
+	cfg, err := LoadConfig(cmd.String("config"))
 	if err != nil {
 		return err
 	}
@@ -56,19 +56,19 @@ func DaemonStatus(ctx context.Context, cmd *cli.Command) error {
 
 // DaemonRestart restarts the daemon.
 func DaemonRestart(ctx context.Context, cmd *cli.Command) error {
-	cfg, err := LoadConfig("")
+	cfg, err := LoadConfig(cmd.String("config"))
 	if err != nil {
 		return err
 	}
 
 	force := cmd.Bool("force")
 	daemon := NewDaemon(cfg)
-	return daemon.Restart(force)
+	return daemon.Restart(force, cmd.String("config"))
 }
 
 // DaemonLogs shows daemon logs.
 func DaemonLogs(ctx context.Context, cmd *cli.Command) error {
-	cfg, err := LoadConfig("")
+	cfg, err := LoadConfig(cmd.String("config"))
 	if err != nil {
 		return err
 	}

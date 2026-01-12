@@ -6,10 +6,13 @@ TOOLS_MODULE := $(PROJECT_DIR)/tools.mod
 export GOEXPERIMENT=jsonv2
 
 # DEVELOPMENT
-.PHONY: setup lint check tidy
+.PHONY: setup install lint check tidy
 
 setup: ##@development Setup the project and update dependencies
 	go mod tidy
+
+install: ##@development Install the xdb CLI binary to GOPATH/bin
+	cd cmd/xdb && go install .
 
 check: ##@development Runs linting and formatting
 check: tidy lint

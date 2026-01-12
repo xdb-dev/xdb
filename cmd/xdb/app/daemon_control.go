@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -106,14 +107,14 @@ func IsProcessRunning(pid int) bool {
 }
 
 // Start starts the daemon process.
-func (d *Daemon) Start() error {
+func (d *Daemon) Start(configPath string) error {
 	if os.Getenv(daemonChildEnvVar) == "1" {
 		return d.runChild()
 	}
-	return d.spawnParent()
+	return d.spawnParent(configPath)
 }
 
-func (d *Daemon) spawnParent() error {
+func (d *Daemon) spawnParent(configPath string) error {
 	pid, err := d.readPID()
 	if err != nil {
 		return err
@@ -149,11 +150,16 @@ func (d *Daemon) spawnParent() error {
 		return err
 	}
 
-	cmd := exec.CommandContext(context.Background(), executable, "daemon", "start") // #nosec G204 - executable is from os.Executable()
+	args := []string{"daemon", "start"}
+	if configPath != "" {
+		args = append([]string{"--config", configPath}, args...)
+	}
+
+	cmd := exec.CommandContext(context.Background(), executable, args...) // #nosec G204 - executable is from os.Executable()
 	cmd.Env = append(os.Environ(), daemonChildEnvVar+"=1")
 	cmd.Stdout = logFile
 	cmd.Stderr = logFile
-	cmd.Dir = "/"
+	cmd.Dir = d.Config.expandedDir()
 
 	if err := cmd.Start(); err != nil {
 		_ = logFile.Close()
@@ -214,13 +220,29 @@ func (d *Daemon) runChild() error {
 }
 
 func (d *Daemon) waitForHealthy(ctx context.Context, timeout time.Duration) error {
-	if d.Config.Daemon.Addr == "" {
+	if d.Config.Daemon.Addr == "" && d.Config.Daemon.Socket == "" {
 		return nil
 	}
 
 	deadline := time.Now().Add(timeout)
-	healthURL := fmt.Sprintf("http://%s/v1/schemas", d.Config.Daemon.Addr)
 
+	if d.Config.Daemon.Addr != "" {
+		if err := d.checkTCPHealth(ctx, deadline); err != nil {
+			return err
+		}
+	}
+
+	if d.Config.Daemon.Socket != "" {
+		if err := d.checkUnixHealth(ctx, deadline); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (d *Daemon) checkTCPHealth(ctx context.Context, deadline time.Time) error {
+	healthURL := fmt.Sprintf("http://%s/v1/schemas", d.Config.Daemon.Addr)
 	client := &http.Client{Timeout: 1 * time.Second}
 
 	for time.Now().Before(deadline) {
@@ -237,7 +259,39 @@ func (d *Daemon) waitForHealthy(ctx context.Context, timeout time.Duration) erro
 		time.Sleep(healthCheckPollDelay)
 	}
 
-	return errors.Wrap(ErrHealthCheckTimeout, "timeout", timeout.String())
+	return errors.Wrap(ErrHealthCheckTimeout, "listener", "tcp", "addr", d.Config.Daemon.Addr)
+}
+
+func (d *Daemon) checkUnixHealth(ctx context.Context, deadline time.Time) error {
+	socketPath := d.Config.SocketPath()
+	healthURL := "http://localhost/v1/schemas"
+
+	dialer := &net.Dialer{}
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return dialer.DialContext(ctx, "unix", socketPath)
+		},
+	}
+	client := &http.Client{
+		Timeout:   1 * time.Second,
+		Transport: transport,
+	}
+
+	for time.Now().Before(deadline) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, healthURL, nil)
+		if err != nil {
+			return errors.Wrap(err, "url", healthURL, "socket", socketPath)
+		}
+
+		resp, err := client.Do(req)
+		if err == nil {
+			_ = resp.Body.Close()
+			return nil
+		}
+		time.Sleep(healthCheckPollDelay)
+	}
+
+	return errors.Wrap(ErrHealthCheckTimeout, "listener", "unix", "socket", socketPath)
 }
 
 // Stop stops the running daemon.
@@ -402,7 +456,7 @@ func StatusExitCode(info *DaemonStatusInfo) int {
 }
 
 // Restart restarts the daemon.
-func (d *Daemon) Restart(force bool) error {
+func (d *Daemon) Restart(force bool, configPath string) error {
 	pid, _ := d.readPID()
 	if pid > 0 && IsProcessRunning(pid) {
 		if err := d.Stop(force); err != nil {
@@ -410,7 +464,7 @@ func (d *Daemon) Restart(force bool) error {
 		}
 	}
 
-	return d.Start()
+	return d.Start(configPath)
 }
 
 // TailLogs reads the last N lines from the log file.
