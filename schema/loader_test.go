@@ -21,6 +21,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 		{
 			name: "Scalar Types",
 			input: `{
+				"ns": "com.example",
 				"name": "User",
 				"description": "User schema",
 				"version": "1.0.0",
@@ -32,6 +33,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 				"required": ["name"]
 			}`,
 			expected: &schema.Def{
+				NS:          core.NewNS("com.example"),
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
@@ -46,6 +48,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 		{
 			name: "Array Types",
 			input: `{
+				"ns": "com.example",
 				"name": "Post",
 				"fields": [
 					{"name": "tags", "type": "ARRAY", "array_of": "STRING"},
@@ -53,6 +56,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 				]
 			}`,
 			expected: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Post",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -64,6 +68,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 		{
 			name: "Map Types",
 			input: `{
+				"ns": "com.example",
 				"name": "Config",
 				"fields": [
 					{"name": "settings", "type": "MAP", "map_key": "STRING", "map_value": "STRING"},
@@ -71,6 +76,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 				]
 			}`,
 			expected: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Config",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -82,6 +88,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 		{
 			name: "Nested Fields",
 			input: `{
+				"ns": "com.example",
 				"name": "User",
 				"fields": [
 					{"name": "name", "type": "STRING"},
@@ -90,6 +97,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 				]
 			}`,
 			expected: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "User",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -102,6 +110,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 		{
 			name: "All Scalar Types",
 			input: `{
+				"ns": "com.example",
 				"name": "Complete",
 				"fields": [
 					{"name": "bool_field", "type": "BOOLEAN"},
@@ -114,6 +123,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 				]
 			}`,
 			expected: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Complete",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -130,6 +140,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 		{
 			name: "Backward Compatibility - Ignores Required",
 			input: `{
+				"ns": "com.example",
 				"name": "User",
 				"fields": [
 					{"name": "name", "type": "STRING"},
@@ -138,6 +149,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 				"required": ["name", "email"]
 			}`,
 			expected: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "User",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -149,6 +161,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 		{
 			name: "Backward Compatibility - Ignores Default",
 			input: `{
+				"ns": "com.example",
 				"name": "User",
 				"fields": [
 					{"name": "age", "type": "INTEGER", "default": 18},
@@ -156,6 +169,7 @@ func TestLoader_LoadFromJSON_Valid(t *testing.T) {
 				]
 			}`,
 			expected: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "User",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -189,48 +203,53 @@ func TestLoader_LoadFromJSON_Errors(t *testing.T) {
 			expectedErr: schema.ErrInvalidSchema,
 		},
 		{
+			name:        "Missing Namespace",
+			input:       `{"name": "Test", "fields": [{"name": "field1", "type": "STRING"}]}`,
+			expectedErr: schema.ErrInvalidSchema,
+		},
+		{
 			name:        "Missing Schema Name",
-			input:       `{"fields": [{"name": "field1", "type": "STRING"}]}`,
+			input:       `{"ns": "com.example", "fields": [{"name": "field1", "type": "STRING"}]}`,
 			expectedErr: schema.ErrInvalidSchema,
 		},
 		{
 			name:        "Missing Field Name",
-			input:       `{"name": "Test", "fields": [{"type": "STRING"}]}`,
+			input:       `{"ns": "com.example", "name": "Test", "fields": [{"type": "STRING"}]}`,
 			expectedErr: schema.ErrInvalidSchema,
 		},
 		{
 			name:        "Missing Field Type",
-			input:       `{"name": "Test", "fields": [{"name": "field1"}]}`,
+			input:       `{"ns": "com.example", "name": "Test", "fields": [{"name": "field1"}]}`,
 			expectedErr: schema.ErrInvalidType,
 		},
 		{
 			name:        "Invalid Type Name",
-			input:       `{"name": "Test", "fields": [{"name": "field1", "type": "INVALID_TYPE"}]}`,
+			input:       `{"ns": "com.example", "name": "Test", "fields": [{"name": "field1", "type": "INVALID_TYPE"}]}`,
 			expectedErr: core.ErrUnknownType,
 		},
 		{
 			name:        "Array Without array_of",
-			input:       `{"name": "Test", "fields": [{"name": "tags", "type": "ARRAY"}]}`,
+			input:       `{"ns": "com.example", "name": "Test", "fields": [{"name": "tags", "type": "ARRAY"}]}`,
 			expectedErr: schema.ErrInvalidType,
 		},
 		{
 			name:        "Map Without map_key",
-			input:       `{"name": "Test", "fields": [{"name": "settings", "type": "MAP", "map_value": "STRING"}]}`,
+			input:       `{"ns": "com.example", "name": "Test", "fields": [{"name": "settings", "type": "MAP", "map_value": "STRING"}]}`,
 			expectedErr: schema.ErrInvalidType,
 		},
 		{
 			name:        "Map Without map_value",
-			input:       `{"name": "Test", "fields": [{"name": "settings", "type": "MAP", "map_key": "STRING"}]}`,
+			input:       `{"ns": "com.example", "name": "Test", "fields": [{"name": "settings", "type": "MAP", "map_key": "STRING"}]}`,
 			expectedErr: schema.ErrInvalidType,
 		},
 		{
 			name:        "Invalid Array Element Type",
-			input:       `{"name": "Test", "fields": [{"name": "tags", "type": "ARRAY", "array_of": "INVALID"}]}`,
+			input:       `{"ns": "com.example", "name": "Test", "fields": [{"name": "tags", "type": "ARRAY", "array_of": "INVALID"}]}`,
 			expectedErr: core.ErrUnknownType,
 		},
 		{
 			name:        "Invalid Map Key Type",
-			input:       `{"name": "Test", "fields": [{"name": "settings", "type": "MAP", "map_key": "INVALID", "map_value": "STRING"}]}`,
+			input:       `{"ns": "com.example", "name": "Test", "fields": [{"name": "settings", "type": "MAP", "map_key": "INVALID", "map_value": "STRING"}]}`,
 			expectedErr: core.ErrUnknownType,
 		},
 	}
@@ -256,6 +275,7 @@ func TestLoader_LoadFromYAML_Valid(t *testing.T) {
 		{
 			name: "Scalar Types",
 			input: `
+ns: com.example
 name: User
 description: User schema
 version: 1.0.0
@@ -268,6 +288,7 @@ required:
   - name
 `,
 			expected: &schema.Def{
+				NS:          core.NewNS("com.example"),
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
@@ -281,6 +302,7 @@ required:
 		{
 			name: "Array Types",
 			input: `
+ns: com.example
 name: Post
 fields:
   - name: tags
@@ -288,6 +310,7 @@ fields:
     array_of: STRING
 `,
 			expected: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Post",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -298,6 +321,7 @@ fields:
 		{
 			name: "Map Types",
 			input: `
+ns: com.example
 name: Config
 fields:
   - name: settings
@@ -306,6 +330,7 @@ fields:
     map_value: STRING
 `,
 			expected: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Config",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -316,6 +341,7 @@ fields:
 		{
 			name: "Nested Fields",
 			input: `
+ns: com.example
 name: User
 fields:
   - name: name
@@ -326,6 +352,7 @@ fields:
     type: BOOLEAN
 `,
 			expected: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "User",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -357,6 +384,7 @@ func TestLoader_LoadFromYAML_Errors(t *testing.T) {
 		{
 			name: "Invalid YAML",
 			input: `
+ns: com.example
 name: Test
 fields:
   - name: field1
@@ -368,6 +396,7 @@ fields:
 		{
 			name: "Missing Schema Name",
 			input: `
+ns: com.example
 fields:
   - name: field1
     type: STRING

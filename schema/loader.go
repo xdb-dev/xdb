@@ -36,29 +36,37 @@ func LoadFromYAML(data []byte) (*Def, error) {
 
 // rawSchema represents the intermediate schema format for unmarshaling.
 type rawSchema struct {
+	NS          string     `json:"ns" yaml:"ns"`
 	Name        string     `json:"name" yaml:"name"`
 	Description string     `json:"description,omitempty" yaml:"description,omitempty"`
 	Version     string     `json:"version,omitempty" yaml:"version,omitempty"`
 	Mode        string     `json:"mode,omitempty" yaml:"mode,omitempty"`
 	Fields      []rawField `json:"fields" yaml:"fields"`
-	Required    []string   `json:"required,omitempty" yaml:"required,omitempty"`
 }
 
 // rawField represents the intermediate field format for unmarshaling.
 type rawField struct {
-	Name        string      `json:"name" yaml:"name"`
-	Description string      `json:"description,omitempty" yaml:"description,omitempty"`
-	Type        string      `json:"type" yaml:"type"`
-	ArrayOf     string      `json:"array_of,omitempty" yaml:"array_of,omitempty"`
-	MapKey      string      `json:"map_key,omitempty" yaml:"map_key,omitempty"`
-	MapValue    string      `json:"map_value,omitempty" yaml:"map_value,omitempty"`
-	Default     interface{} `json:"default,omitempty" yaml:"default,omitempty"`
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty"`
+	Type        string `json:"type" yaml:"type"`
+	ArrayOf     string `json:"array_of,omitempty" yaml:"array_of,omitempty"`
+	MapKey      string `json:"map_key,omitempty" yaml:"map_key,omitempty"`
+	MapValue    string `json:"map_value,omitempty" yaml:"map_value,omitempty"`
 }
 
 // convert converts a rawSchema to a Def.
 func convert(raw *rawSchema) (*Def, error) {
+	if raw.NS == "" {
+		return nil, errors.Wrap(ErrInvalidSchema, "reason", "namespace is required")
+	}
+
 	if raw.Name == "" {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "schema name is required")
+	}
+
+	ns, err := core.ParseNS(raw.NS)
+	if err != nil {
+		return nil, errors.Wrap(err, "reason", "invalid namespace")
 	}
 
 	mode := Mode(raw.Mode)
@@ -67,6 +75,7 @@ func convert(raw *rawSchema) (*Def, error) {
 	}
 
 	schema := &Def{
+		NS:          ns,
 		Name:        raw.Name,
 		Description: raw.Description,
 		Version:     raw.Version,

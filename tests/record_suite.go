@@ -103,6 +103,7 @@ func (s *RecordStoreTestSuite) ValidationStrict(t *testing.T) {
 
 	t.Run("Rejects unknown fields", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "strict_record_test",
 			Mode: schema.ModeStrict,
 			Fields: []*schema.FieldDef{
@@ -121,6 +122,7 @@ func (s *RecordStoreTestSuite) ValidationStrict(t *testing.T) {
 
 	t.Run("Rejects type mismatch", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "strict_record_type_test",
 			Mode: schema.ModeStrict,
 			Fields: []*schema.FieldDef{
@@ -149,6 +151,7 @@ func (s *RecordStoreTestSuite) ValidationFlexible(t *testing.T) {
 
 	t.Run("Accepts unknown fields", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "flexible_record_test",
 			Mode: schema.ModeFlexible,
 			Fields: []*schema.FieldDef{
@@ -177,6 +180,7 @@ func (s *RecordStoreTestSuite) ValidationDynamic(t *testing.T) {
 
 	t.Run("Infers new fields", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "dynamic_record_test",
 			Mode: schema.ModeDynamic,
 			Fields: []*schema.FieldDef{
@@ -204,6 +208,7 @@ func (s *RecordStoreTestSuite) ValidationDynamic(t *testing.T) {
 
 	t.Run("Rejects type mismatch on existing fields", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "dynamic_record_type_test",
 			Mode: schema.ModeDynamic,
 			Fields: []*schema.FieldDef{

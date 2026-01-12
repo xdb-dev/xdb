@@ -39,11 +39,17 @@ func MakeSchema(ctx context.Context, cmd *cli.Command) error {
 
 	if schemaDef == nil {
 		schemaDef = &schema.Def{
+			NS:   uri.NS(),
 			Name: uri.Schema().String(),
 			Mode: schema.ModeFlexible,
 		}
-	} else if schemaDef.Name == "" {
-		schemaDef.Name = uri.Schema().String()
+	} else {
+		if schemaDef.NS == nil {
+			schemaDef.NS = uri.NS()
+		}
+		if schemaDef.Name == "" {
+			schemaDef.Name = uri.Schema().String()
+		}
 	}
 
 	app, err := New(cfg)

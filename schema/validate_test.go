@@ -13,6 +13,7 @@ func TestInferFields(t *testing.T) {
 	t.Parallel()
 
 	def := &schema.Def{
+		NS:   core.NewNS("com.example"),
 		Name: "users",
 		Mode: schema.ModeDynamic,
 		Fields: []*schema.FieldDef{
@@ -38,6 +39,7 @@ func TestInferFields_NoDuplicates(t *testing.T) {
 	t.Parallel()
 
 	def := &schema.Def{
+		NS:     core.NewNS("com.example"),
 		Name:   "users",
 		Mode:   schema.ModeDynamic,
 		Fields: []*schema.FieldDef{},
@@ -59,6 +61,7 @@ func TestValidateTuples_Strict_UnknownField(t *testing.T) {
 	t.Parallel()
 
 	def := &schema.Def{
+		NS:   core.NewNS("com.example"),
 		Name: "users",
 		Mode: schema.ModeStrict,
 		Fields: []*schema.FieldDef{
@@ -79,6 +82,7 @@ func TestValidateTuples_Flexible_UnknownField(t *testing.T) {
 	t.Parallel()
 
 	def := &schema.Def{
+		NS:   core.NewNS("com.example"),
 		Name: "users",
 		Mode: schema.ModeFlexible,
 		Fields: []*schema.FieldDef{
@@ -99,6 +103,7 @@ func TestValidateTuples_TypeMismatch(t *testing.T) {
 	t.Parallel()
 
 	def := &schema.Def{
+		NS:   core.NewNS("com.example"),
 		Name: "users",
 		Mode: schema.ModeStrict,
 		Fields: []*schema.FieldDef{
@@ -119,6 +124,7 @@ func TestValidateTuples_Valid(t *testing.T) {
 	t.Parallel()
 
 	def := &schema.Def{
+		NS:   core.NewNS("com.example"),
 		Name: "users",
 		Mode: schema.ModeStrict,
 		Fields: []*schema.FieldDef{

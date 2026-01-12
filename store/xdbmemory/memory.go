@@ -7,6 +7,8 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/gojekfarm/xtools/errors"
+
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
@@ -85,6 +87,16 @@ func (d *MemoryStore) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema
 func (d *MemoryStore) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	if def.NS == nil {
+		return errors.New("schema namespace is required")
+	}
+	if !def.NS.Equals(uri.NS()) {
+		return errors.New("schema NS does not match URI NS")
+	}
+	if def.Name != uri.Schema().String() {
+		return errors.New("schema name does not match URI schema")
+	}
 
 	ns := uri.NS().String()
 	if _, ok := d.schemas[ns]; !ok {

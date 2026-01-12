@@ -104,6 +104,7 @@ func (s *TupleStoreTestSuite) ValidationStrict(t *testing.T) {
 
 	t.Run("Rejects unknown fields", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "strict_test",
 			Mode: schema.ModeStrict,
 			Fields: []*schema.FieldDef{
@@ -122,6 +123,7 @@ func (s *TupleStoreTestSuite) ValidationStrict(t *testing.T) {
 
 	t.Run("Rejects type mismatch", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "strict_type_test",
 			Mode: schema.ModeStrict,
 			Fields: []*schema.FieldDef{
@@ -150,6 +152,7 @@ func (s *TupleStoreTestSuite) ValidationFlexible(t *testing.T) {
 
 	t.Run("Accepts unknown fields", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "flexible_test",
 			Mode: schema.ModeFlexible,
 			Fields: []*schema.FieldDef{
@@ -178,6 +181,7 @@ func (s *TupleStoreTestSuite) ValidationDynamic(t *testing.T) {
 
 	t.Run("Infers new fields", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "dynamic_test",
 			Mode: schema.ModeDynamic,
 			Fields: []*schema.FieldDef{
@@ -204,6 +208,7 @@ func (s *TupleStoreTestSuite) ValidationDynamic(t *testing.T) {
 
 	t.Run("Rejects type mismatch on existing fields", func(t *testing.T) {
 		def := &schema.Def{
+			NS:   core.NewNS("com.example"),
 			Name: "dynamic_type_test",
 			Mode: schema.ModeDynamic,
 			Fields: []*schema.FieldDef{

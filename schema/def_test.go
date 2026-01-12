@@ -14,6 +14,7 @@ func TestDef(t *testing.T) {
 	t.Parallel()
 
 	s := &schema.Def{
+		NS:          core.NewNS("com.example"),
 		Name:        "users",
 		Description: "User schema",
 		Version:     "1.0.0",

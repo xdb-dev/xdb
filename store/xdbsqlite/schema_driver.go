@@ -15,19 +15,19 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
-type SchemaStoreTx struct {
+type SchemaDriverTx struct {
 	tx      *sql.Tx
 	queries *internal.Queries
 }
 
-func NewSchemaStoreTx(tx *sql.Tx) *SchemaStoreTx {
-	return &SchemaStoreTx{
+func NewSchemaStoreTx(tx *sql.Tx) *SchemaDriverTx {
+	return &SchemaDriverTx{
 		tx:      tx,
 		queries: internal.NewQueries(tx),
 	}
 }
 
-func (d *SchemaStoreTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
+func (d *SchemaDriverTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
 	metadata, err := d.queries.GetMetadata(ctx, uri.String())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -44,7 +44,7 @@ func (d *SchemaStoreTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.D
 	return jsonSchema, nil
 }
 
-func (d *SchemaStoreTx) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
+func (d *SchemaDriverTx) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
 	metadataList, err := d.queries.ListMetadata(ctx, uri.String())
 	if err != nil {
 		return nil, err
@@ -62,7 +62,24 @@ func (d *SchemaStoreTx) ListSchemas(ctx context.Context, uri *core.URI) ([]*sche
 	return schemas, nil
 }
 
-func (d *SchemaStoreTx) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
+func validateSchemaURI(uri *core.URI, def *schema.Def) error {
+	if def.NS == nil {
+		return errors.New("schema namespace is required")
+	}
+	if !def.NS.Equals(uri.NS()) {
+		return errors.New("schema NS does not match URI NS")
+	}
+	if def.Name != uri.Schema().String() {
+		return errors.New("schema name does not match URI schema")
+	}
+	return nil
+}
+
+func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
+	if err := validateSchemaURI(uri, def); err != nil {
+		return err
+	}
+
 	tableName := tableName(uri)
 
 	existing, err := d.GetSchema(ctx, uri)
@@ -115,7 +132,7 @@ func (d *SchemaStoreTx) PutSchema(ctx context.Context, uri *core.URI, def *schem
 	})
 }
 
-func (d *SchemaStoreTx) DeleteSchema(ctx context.Context, uri *core.URI) error {
+func (d *SchemaDriverTx) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	if err := d.queries.DeleteMetadata(ctx, uri.String()); err != nil {
 		return err
 	}

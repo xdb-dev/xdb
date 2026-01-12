@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gojekfarm/xtools/errors"
+
 	"github.com/xdb-dev/xdb/codec"
 	codecjson "github.com/xdb-dev/xdb/codec/json"
 	"github.com/xdb-dev/xdb/core"
@@ -142,6 +144,18 @@ func (d *FSStore) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def
 func (d *FSStore) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+
+	if def.NS == nil {
+		return errors.New("schema namespace is required")
+	}
+
+	if !def.NS.Equals(uri.NS()) {
+		return errors.New("schema NS does not match URI NS")
+	}
+
+	if def.Name != uri.Schema().String() {
+		return errors.New("schema name does not match URI schema")
+	}
 
 	path := d.schemaPath(uri.NS().String(), uri.Schema().String())
 

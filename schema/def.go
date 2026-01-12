@@ -23,6 +23,9 @@ const (
 // Def defines the structure and validation rules for records.
 // It provides metadata, field definitions, and record-level constraints.
 type Def struct {
+	// NS is the namespace this schema belongs to.
+	NS *core.NS
+
 	// Name is the schema name.
 	Name string
 
@@ -43,6 +46,7 @@ type Def struct {
 // Clone returns a deep copy of the Def.
 func (s *Def) Clone() *Def {
 	clone := &Def{
+		NS:          s.NS,
 		Name:        s.Name,
 		Description: s.Description,
 		Version:     s.Version,

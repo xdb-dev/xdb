@@ -24,7 +24,7 @@ func (s *SchemaStoreTestSuite) Basic(t *testing.T) {
 
 	ctx := context.Background()
 	allTypesSchema := FakeAllTypesSchema()
-	allTypesURI := core.MustParseURI("xdb://default/all_types")
+	allTypesURI := core.MustParseURI("xdb://com.example/all_types")
 
 	t.Run("PutSchema creates a new schema", func(t *testing.T) {
 		err := s.driver.PutSchema(ctx, allTypesURI, allTypesSchema)
@@ -73,11 +73,12 @@ func (s *SchemaStoreTestSuite) ListSchemas(t *testing.T) {
 	ctx := context.Background()
 
 	allTypesSchema1 := FakeAllTypesSchema()
+	allTypesSchema1.Name = "all_types_1"
 	allTypesSchema2 := FakeAllTypesSchema()
 	allTypesSchema2.Name = "all_types_2"
 
-	allTypesURI1 := core.MustParseURI("xdb://default/all_types_1")
-	allTypesURI2 := core.MustParseURI("xdb://default/all_types_2")
+	allTypesURI1 := core.MustParseURI("xdb://com.example/all_types_1")
+	allTypesURI2 := core.MustParseURI("xdb://com.example/all_types_2")
 
 	err := s.driver.PutSchema(ctx, allTypesURI1, allTypesSchema1)
 	require.NoError(t, err)
@@ -85,7 +86,7 @@ func (s *SchemaStoreTestSuite) ListSchemas(t *testing.T) {
 	err = s.driver.PutSchema(ctx, allTypesURI2, allTypesSchema2)
 	require.NoError(t, err)
 
-	schemas, err := s.driver.ListSchemas(ctx, core.MustParseURI("xdb://default"))
+	schemas, err := s.driver.ListSchemas(ctx, core.MustParseURI("xdb://com.example"))
 	require.NoError(t, err)
 	require.Len(t, schemas, 2)
 	AssertDefEqual(t, allTypesSchema1, schemas[0])
@@ -98,7 +99,7 @@ func (s *SchemaStoreTestSuite) AddNewFields(t *testing.T) {
 	ctx := context.Background()
 
 	allTypesSchema := FakeAllTypesSchema()
-	allTypesURI := core.MustParseURI("xdb://default/all_types")
+	allTypesURI := core.MustParseURI("xdb://com.example/all_types")
 
 	err := s.driver.PutSchema(ctx, allTypesURI, allTypesSchema)
 	require.NoError(t, err)
@@ -122,7 +123,7 @@ func (s *SchemaStoreTestSuite) DropFields(t *testing.T) {
 	ctx := context.Background()
 
 	allTypesSchema := FakeAllTypesSchema()
-	allTypesURI := core.MustParseURI("xdb://default/all_types")
+	allTypesURI := core.MustParseURI("xdb://com.example/all_types")
 
 	err := s.driver.PutSchema(ctx, allTypesURI, allTypesSchema)
 	require.NoError(t, err)
@@ -143,7 +144,7 @@ func (s *SchemaStoreTestSuite) ModifyFields(t *testing.T) {
 	ctx := context.Background()
 
 	allTypesSchema := FakeAllTypesSchema()
-	allTypesURI := core.MustParseURI("xdb://default/all_types")
+	allTypesURI := core.MustParseURI("xdb://com.example/all_types")
 
 	err := s.driver.PutSchema(ctx, allTypesURI, allTypesSchema)
 	require.NoError(t, err)
@@ -163,7 +164,7 @@ func (s *SchemaStoreTestSuite) EdgeCases(t *testing.T) {
 
 	t.Run("PutSchema prevents mode change from strict to flexible", func(t *testing.T) {
 		allTypesSchema := FakeAllTypesSchema()
-		allTypesURI := core.MustParseURI("xdb://default/all_types")
+		allTypesURI := core.MustParseURI("xdb://com.example/all_types")
 
 		err := s.driver.PutSchema(ctx, allTypesURI, allTypesSchema)
 		require.NoError(t, err)
@@ -177,9 +178,10 @@ func (s *SchemaStoreTestSuite) EdgeCases(t *testing.T) {
 
 	t.Run("PutSchema prevents mode change from flexible to strict", func(t *testing.T) {
 		allTypesSchema := FakeAllTypesSchema()
+		allTypesSchema.Name = "all_types_flexible"
 		allTypesSchema.Mode = schema.ModeFlexible
 
-		allTypesURI := core.MustParseURI("xdb://default/all_types_flexible")
+		allTypesURI := core.MustParseURI("xdb://com.example/all_types_flexible")
 
 		err := s.driver.PutSchema(ctx, allTypesURI, allTypesSchema)
 		require.NoError(t, err)

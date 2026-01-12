@@ -21,6 +21,7 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 		{
 			name: "Scalar Types",
 			schema: &schema.Def{
+				NS:          core.NewNS("com.example"),
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
@@ -30,33 +31,36 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 					{Name: "active", Type: core.TypeBool},
 				},
 			},
-			expected: `{"name":"User","description":"User schema","version":"1.0.0","fields":[{"name":"name","type":"STRING"},{"name":"age","type":"INTEGER"},{"name":"active","type":"BOOLEAN"}]}`,
+			expected: `{"ns":"com.example","name":"User","description":"User schema","version":"1.0.0","fields":[{"name":"name","type":"STRING"},{"name":"age","type":"INTEGER"},{"name":"active","type":"BOOLEAN"}]}`,
 		},
 		{
 			name: "Array Types",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Post",
 				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
 					{Name: "scores", Type: core.NewArrayType(core.TIDInteger)},
 				},
 			},
-			expected: `{"name":"Post","fields":[{"name":"tags","type":"ARRAY","array_of":"STRING"},{"name":"scores","type":"ARRAY","array_of":"INTEGER"}]}`,
+			expected: `{"ns":"com.example","name":"Post","fields":[{"name":"tags","type":"ARRAY","array_of":"STRING"},{"name":"scores","type":"ARRAY","array_of":"INTEGER"}]}`,
 		},
 		{
 			name: "Map Types",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Config",
 				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
 					{Name: "counts", Type: core.NewMapType(core.TIDString, core.TIDInteger)},
 				},
 			},
-			expected: `{"name":"Config","fields":[{"name":"settings","type":"MAP","map_key":"STRING","map_value":"STRING"},{"name":"counts","type":"MAP","map_key":"STRING","map_value":"INTEGER"}]}`,
+			expected: `{"ns":"com.example","name":"Config","fields":[{"name":"settings","type":"MAP","map_key":"STRING","map_value":"STRING"},{"name":"counts","type":"MAP","map_key":"STRING","map_value":"INTEGER"}]}`,
 		},
 		{
 			name: "All Scalar Types",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Complete",
 				Fields: []*schema.FieldDef{
 					{Name: "bool_field", Type: core.TypeBool},
@@ -68,7 +72,7 @@ func TestWriter_WriteToJSON_Valid(t *testing.T) {
 					{Name: "time_field", Type: core.TypeTime},
 				},
 			},
-			expected: `{"name":"Complete","fields":[{"name":"bool_field","type":"BOOLEAN"},{"name":"int_field","type":"INTEGER"},{"name":"unsigned_field","type":"UNSIGNED"},{"name":"float_field","type":"FLOAT"},{"name":"string_field","type":"STRING"},{"name":"bytes_field","type":"BYTES"},{"name":"time_field","type":"TIME"}]}`,
+			expected: `{"ns":"com.example","name":"Complete","fields":[{"name":"bool_field","type":"BOOLEAN"},{"name":"int_field","type":"INTEGER"},{"name":"unsigned_field","type":"UNSIGNED"},{"name":"float_field","type":"FLOAT"},{"name":"string_field","type":"STRING"},{"name":"bytes_field","type":"BYTES"},{"name":"time_field","type":"TIME"}]}`,
 		},
 	}
 
@@ -91,6 +95,7 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 		{
 			name: "Scalar Types",
 			schema: &schema.Def{
+				NS:          core.NewNS("com.example"),
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
@@ -105,6 +110,7 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 		{
 			name: "Array Types",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Post",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -116,6 +122,7 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 		{
 			name: "Map Types",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Config",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -127,6 +134,7 @@ func TestWriter_WriteToJSON_RoundTrip(t *testing.T) {
 		{
 			name: "Nested Fields",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "User",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -164,8 +172,20 @@ func TestWriter_WriteToJSON_Errors(t *testing.T) {
 			expectedErr: schema.ErrInvalidSchema,
 		},
 		{
+			name: "Nil Namespace",
+			schema: &schema.Def{
+				NS:   nil,
+				Name: "Test",
+				Fields: []*schema.FieldDef{
+					{Name: "field1", Type: core.TypeString},
+				},
+			},
+			expectedErr: schema.ErrInvalidSchema,
+		},
+		{
 			name: "Empty Schema Name",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "",
 				Fields: []*schema.FieldDef{
 					{Name: "field1", Type: core.TypeString},
@@ -176,6 +196,7 @@ func TestWriter_WriteToJSON_Errors(t *testing.T) {
 		{
 			name: "Nil Field",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Test",
 				Fields: []*schema.FieldDef{
 					nil,
@@ -186,6 +207,7 @@ func TestWriter_WriteToJSON_Errors(t *testing.T) {
 		{
 			name: "Empty Field Name",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Test",
 				Fields: []*schema.FieldDef{
 					{Name: "", Type: core.TypeString},
@@ -216,6 +238,7 @@ func TestWriter_WriteToYAML_Valid(t *testing.T) {
 		{
 			name: "Scalar Types",
 			schema: &schema.Def{
+				NS:          core.NewNS("com.example"),
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
@@ -224,27 +247,29 @@ func TestWriter_WriteToYAML_Valid(t *testing.T) {
 					{Name: "age", Type: core.TypeInt},
 				},
 			},
-			contains: []string{"name: User", "description: User schema", "version: 1.0.0", "type: STRING", "type: INTEGER"},
+			contains: []string{"ns: com.example", "name: User", "description: User schema", "version: 1.0.0", "type: STRING", "type: INTEGER"},
 		},
 		{
 			name: "Array Types",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Post",
 				Fields: []*schema.FieldDef{
 					{Name: "tags", Type: core.NewArrayType(core.TIDString)},
 				},
 			},
-			contains: []string{"name: Post", "type: ARRAY", "array_of: STRING"},
+			contains: []string{"ns: com.example", "name: Post", "type: ARRAY", "array_of: STRING"},
 		},
 		{
 			name: "Map Types",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Config",
 				Fields: []*schema.FieldDef{
 					{Name: "settings", Type: core.NewMapType(core.TIDString, core.TIDString)},
 				},
 			},
-			contains: []string{"name: Config", "type: MAP", "map_key: STRING", "map_value: STRING"},
+			contains: []string{"ns: com.example", "name: Config", "type: MAP", "map_key: STRING", "map_value: STRING"},
 		},
 	}
 
@@ -270,6 +295,7 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 		{
 			name: "Scalar Types",
 			schema: &schema.Def{
+				NS:          core.NewNS("com.example"),
 				Name:        "User",
 				Description: "User schema",
 				Version:     "1.0.0",
@@ -283,6 +309,7 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 		{
 			name: "Array Types",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Post",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -294,6 +321,7 @@ func TestWriter_WriteToYAML_RoundTrip(t *testing.T) {
 		{
 			name: "Map Types",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "Config",
 				Mode: schema.ModeStrict,
 				Fields: []*schema.FieldDef{
@@ -330,8 +358,20 @@ func TestWriter_WriteToYAML_Errors(t *testing.T) {
 			expectedErr: schema.ErrInvalidSchema,
 		},
 		{
+			name: "Nil Namespace",
+			schema: &schema.Def{
+				NS:   nil,
+				Name: "Test",
+				Fields: []*schema.FieldDef{
+					{Name: "field1", Type: core.TypeString},
+				},
+			},
+			expectedErr: schema.ErrInvalidSchema,
+		},
+		{
 			name: "Empty Schema Name",
 			schema: &schema.Def{
+				NS:   core.NewNS("com.example"),
 				Name: "",
 				Fields: []*schema.FieldDef{
 					{Name: "field1", Type: core.TypeString},

@@ -139,6 +139,12 @@ func AssertEqualValues(t *testing.T, expected, actual *core.Value) {
 func AssertDefEqual(t *testing.T, expected, actual *schema.Def) {
 	t.Helper()
 
+	if expected.NS == nil {
+		assert.Nil(t, actual.NS, "Def: NS should be nil")
+	} else {
+		require.NotNil(t, actual.NS, "Def: NS should not be nil")
+		assert.True(t, expected.NS.Equals(actual.NS), "Def: NS mismatch")
+	}
 	assert.Equal(t, expected.Name, actual.Name, "Def: name mismatch")
 	assert.Equal(t, expected.Description, actual.Description, "Def: description mismatch")
 	assert.Equal(t, expected.Version, actual.Version, "Def: version mismatch")

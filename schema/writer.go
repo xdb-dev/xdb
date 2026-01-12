@@ -33,11 +33,16 @@ func convertToRaw(schema *Def) (*rawSchema, error) {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "schema is nil")
 	}
 
+	if schema.NS == nil {
+		return nil, errors.Wrap(ErrInvalidSchema, "reason", "namespace is required")
+	}
+
 	if schema.Name == "" {
 		return nil, errors.Wrap(ErrInvalidSchema, "reason", "schema name is required")
 	}
 
 	raw := &rawSchema{
+		NS:          schema.NS.String(),
 		Name:        schema.Name,
 		Description: schema.Description,
 		Version:     schema.Version,

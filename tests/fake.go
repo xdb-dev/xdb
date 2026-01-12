@@ -12,6 +12,7 @@ import (
 // FakePostSchema creates a fake schema of a Post.
 func FakePostSchema() *schema.Def {
 	return &schema.Def{
+		NS:          core.NewNS("com.example"),
 		Name:        "posts",
 		Description: "Blog post schema",
 		Version:     "1.0.0",
@@ -65,6 +66,7 @@ func FakePosts(n int) []*core.Record {
 // FakeAllTypesSchema creates a fake schema covering all XDB types.
 func FakeAllTypesSchema() *schema.Def {
 	return &schema.Def{
+		NS:          core.NewNS("com.example"),
 		Name:        "all_types",
 		Description: "Comprehensive test schema covering all types",
 		Version:     "1.0.0",

@@ -152,6 +152,7 @@ func TestFSDriver_Permissions(t *testing.T) {
 			require.NoError(t, err)
 
 			def := &schema.Def{
+				NS:   uri.NS(),
 				Name: "users",
 				Fields: []*schema.FieldDef{
 					{Name: "name", Type: core.TypeString},
