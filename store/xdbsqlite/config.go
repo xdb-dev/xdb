@@ -28,8 +28,8 @@ func DefaultConfig() Config {
 
 func (cfg *Config) DSN() string {
 	if cfg.InMemory {
-		return ":memory:"
+		return "file::memory:?mode=memory&cache=shared"
 	}
 
-	return filepath.Join(cfg.Dir, cfg.Name)
+	return "file:" + filepath.Join(cfg.Dir, cfg.Name)
 }

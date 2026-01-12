@@ -102,7 +102,7 @@ func (s *SchemaStoreTestSuite) ListNamespaces(t *testing.T) {
 		namespaces, err := s.driver.ListNamespaces(ctx)
 		require.NoError(t, err)
 		require.NotNil(t, namespaces)
-		require.Len(t, namespaces, 0)
+		require.Empty(t, namespaces)
 	})
 
 	t.Run("ListNamespaces returns unique namespaces sorted alphabetically", func(t *testing.T) {

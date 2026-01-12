@@ -107,7 +107,12 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 
 	if existing != nil {
 		if existing.Mode != def.Mode {
-			return errors.New("[xdb/driver/xdbsqlite] cannot change schema mode")
+			return store.ErrSchemaModeChanged
+		}
+
+		// Check for field type changes
+		if err := validateFieldChanges(existing, def); err != nil {
+			return err
 		}
 
 		columnsAdded, columnsRemoved, err := diffFields(existing, def)
@@ -206,6 +211,23 @@ func toSQLiteColumns(fields []*schema.FieldDef) ([][]string, error) {
 	return columns, nil
 }
 
+func validateFieldChanges(existing, updated *schema.Def) error {
+	existingFields := make(map[string]*schema.FieldDef)
+	for _, field := range existing.Fields {
+		existingFields[field.Name] = field
+	}
+
+	for _, field := range updated.Fields {
+		if existingField, ok := existingFields[field.Name]; ok {
+			if !existingField.Type.Equals(field.Type) {
+				return store.ErrFieldChangeType
+			}
+		}
+	}
+
+	return nil
+}
+
 func diffFields(existing, schemaDef *schema.Def) ([][]string, []string, error) {
 	fieldsAdded := x.Diff(schemaDef.Fields, existing.Fields, byName)
 	fieldsRemoved := x.Diff(existing.Fields, schemaDef.Fields, byName)
@@ -220,4 +242,8 @@ func diffFields(existing, schemaDef *schema.Def) ([][]string, []string, error) {
 
 func byName(f *schema.FieldDef) string {
 	return f.Name
+}
+
+func (d *SchemaDriverTx) Migrate(ctx context.Context) error {
+	return d.queries.CreateMetadataTable(ctx)
 }
