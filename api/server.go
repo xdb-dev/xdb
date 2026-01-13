@@ -45,9 +45,10 @@ func (c *ServerConfig) shutdownTimeout() time.Duration {
 
 // ServerBuilder constructs a Server with optional store handlers.
 type ServerBuilder struct {
-	cfg         *ServerConfig
-	startTime   time.Time
-	middlewares xapi.MiddlewareStack
+	cfg          *ServerConfig
+	startTime    time.Time
+	middlewares  xapi.MiddlewareStack
+	errorHandler xapi.ErrorHandler
 
 	schemaStore store.SchemaStore
 	tupleStore  store.TupleStore
@@ -58,8 +59,9 @@ type ServerBuilder struct {
 // NewServerBuilder creates a new ServerBuilder with the given configuration.
 func NewServerBuilder(cfg *ServerConfig) *ServerBuilder {
 	return &ServerBuilder{
-		cfg:       cfg,
-		startTime: time.Now(),
+		cfg:          cfg,
+		startTime:    time.Now(),
+		errorHandler: &StoreErrorHandler{},
 	}
 }
 
@@ -122,6 +124,7 @@ func (b *ServerBuilder) registerHealthRoutes(mux *http.ServeMux) {
 	healthAPI := NewHealthAPI(b.healthStore, b.startTime)
 	health := xapi.NewEndpoint(
 		xapi.EndpointFunc[HealthRequest, HealthResponse](healthAPI.GetHealth()),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 	mux.Handle("GET /v1/health", health.Handler())
 }
@@ -136,18 +139,22 @@ func (b *ServerBuilder) registerSchemaRoutes(mux *http.ServeMux) {
 	putSchema := xapi.NewEndpoint(
 		xapi.EndpointFunc[PutSchemaRequest, PutSchemaResponse](schemaAPI.PutSchema()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 	getSchema := xapi.NewEndpoint(
 		xapi.EndpointFunc[GetSchemaRequest, GetSchemaResponse](schemaAPI.GetSchema()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 	listSchemas := xapi.NewEndpoint(
 		xapi.EndpointFunc[ListSchemasRequest, ListSchemasResponse](schemaAPI.ListSchemas()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 	deleteSchema := xapi.NewEndpoint(
 		xapi.EndpointFunc[DeleteSchemaRequest, DeleteSchemaResponse](schemaAPI.DeleteSchema()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 
 	mux.Handle("PUT /v1/schemas", putSchema.Handler())
@@ -166,14 +173,17 @@ func (b *ServerBuilder) registerTupleRoutes(mux *http.ServeMux) {
 	putTuples := xapi.NewEndpoint(
 		xapi.EndpointFunc[PutTuplesRequest, PutTuplesResponse](tupleAPI.PutTuples()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 	getTuples := xapi.NewEndpoint(
 		xapi.EndpointFunc[GetTuplesRequest, GetTuplesResponse](tupleAPI.GetTuples()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 	deleteTuples := xapi.NewEndpoint(
 		xapi.EndpointFunc[DeleteTuplesRequest, DeleteTuplesResponse](tupleAPI.DeleteTuples()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 
 	mux.Handle("PUT /v1/tuples", putTuples.Handler())
@@ -191,14 +201,17 @@ func (b *ServerBuilder) registerRecordRoutes(mux *http.ServeMux) {
 	putRecords := xapi.NewEndpoint(
 		xapi.EndpointFunc[PutRecordsRequest, PutRecordsResponse](recordAPI.PutRecords()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 	getRecords := xapi.NewEndpoint(
 		xapi.EndpointFunc[GetRecordsRequest, GetRecordsResponse](recordAPI.GetRecords()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 	deleteRecords := xapi.NewEndpoint(
 		xapi.EndpointFunc[DeleteRecordsRequest, DeleteRecordsResponse](recordAPI.DeleteRecords()),
 		xapi.WithMiddleware(b.middlewares...),
+		xapi.WithErrorHandler(b.errorHandler),
 	)
 
 	mux.Handle("PUT /v1/records", putRecords.Handler())

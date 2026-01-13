@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
@@ -116,3 +117,57 @@ var (
 	TypeBytes    = newType(TIDBytes)
 	TypeTime     = newType(TIDTime)
 )
+
+type jsonType struct {
+	ID       string `json:"id"`
+	KeyType  string `json:"key_type,omitempty"`
+	ElemType string `json:"elem_type,omitempty"`
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (t Type) MarshalJSON() ([]byte, error) {
+	jt := jsonType{
+		ID: t.id.String(),
+	}
+	switch t.id {
+	case TIDMap:
+		jt.KeyType = t.keyTypeID.String()
+		jt.ElemType = t.valueTypeID.String()
+	case TIDArray:
+		jt.ElemType = t.valueTypeID.String()
+	}
+	return json.Marshal(jt)
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (t *Type) UnmarshalJSON(data []byte) error {
+	var jt jsonType
+	if err := json.Unmarshal(data, &jt); err != nil {
+		return err
+	}
+
+	tid, err := ParseType(jt.ID)
+	if err != nil {
+		return err
+	}
+
+	t.id = tid
+
+	if jt.KeyType != "" {
+		keyTID, err := ParseType(jt.KeyType)
+		if err != nil {
+			return err
+		}
+		t.keyTypeID = keyTID
+	}
+
+	if jt.ElemType != "" {
+		elemTID, err := ParseType(jt.ElemType)
+		if err != nil {
+			return err
+		}
+		t.valueTypeID = elemTID
+	}
+
+	return nil
+}

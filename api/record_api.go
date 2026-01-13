@@ -31,9 +31,28 @@ type GetRecordsResponse struct {
 // GetRecords retrieves records by URIs.
 func (a *RecordAPI) GetRecords() EndpointFunc[GetRecordsRequest, GetRecordsResponse] {
 	return func(ctx context.Context, req *GetRecordsRequest) (*GetRecordsResponse, error) {
-		// TODO: Implement in future iteration
+		uris := make([]*core.URI, len(req.URIs))
+		for i, uriStr := range req.URIs {
+			uri, err := core.ParseURI(uriStr)
+			if err != nil {
+				return nil, err
+			}
+			uris[i] = uri
+		}
+
+		records, missing, err := a.store.GetRecords(ctx, uris)
+		if err != nil {
+			return nil, err
+		}
+
+		notFound := make([]string, len(missing))
+		for i, uri := range missing {
+			notFound[i] = uri.String()
+		}
+
 		return &GetRecordsResponse{
-			Records: []*core.Record{},
+			Records:  records,
+			NotFound: notFound,
 		}, nil
 	}
 }
@@ -52,9 +71,18 @@ type PutRecordsResponse struct {
 // PutRecords creates or updates records.
 func (a *RecordAPI) PutRecords() EndpointFunc[PutRecordsRequest, PutRecordsResponse] {
 	return func(ctx context.Context, req *PutRecordsRequest) (*PutRecordsResponse, error) {
-		// TODO: Implement in future iteration
+		err := a.store.PutRecords(ctx, req.Records)
+		if err != nil {
+			return nil, err
+		}
+
+		uris := make([]string, len(req.Records))
+		for i, record := range req.Records {
+			uris[i] = record.URI().String()
+		}
+
 		return &PutRecordsResponse{
-			Created: []string{},
+			Created: uris,
 		}, nil
 	}
 }
@@ -72,9 +100,22 @@ type DeleteRecordsResponse struct {
 // DeleteRecords deletes records by URIs.
 func (a *RecordAPI) DeleteRecords() EndpointFunc[DeleteRecordsRequest, DeleteRecordsResponse] {
 	return func(ctx context.Context, req *DeleteRecordsRequest) (*DeleteRecordsResponse, error) {
-		// TODO: Implement in future iteration
+		uris := make([]*core.URI, len(req.URIs))
+		for i, uriStr := range req.URIs {
+			uri, err := core.ParseURI(uriStr)
+			if err != nil {
+				return nil, err
+			}
+			uris[i] = uri
+		}
+
+		err := a.store.DeleteRecords(ctx, uris)
+		if err != nil {
+			return nil, err
+		}
+
 		return &DeleteRecordsResponse{
-			Deleted: []string{},
+			Deleted: req.URIs,
 		}, nil
 	}
 }

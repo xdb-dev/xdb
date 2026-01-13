@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -104,6 +105,11 @@ type GetSchemaRequest struct {
 	URI string `json:"uri"`
 }
 
+func (req *GetSchemaRequest) Extract(r *http.Request) error {
+	req.URI = "xdb://" + r.PathValue("uri")
+	return nil
+}
+
 func (req *GetSchemaRequest) Validate() error {
 	if req.URI == "" {
 		return errors.New("uri is required")
@@ -134,6 +140,11 @@ type DeleteSchemaRequest struct {
 	URI string `json:"uri"`
 }
 
+func (req *DeleteSchemaRequest) Extract(r *http.Request) error {
+	req.URI = "xdb://" + r.PathValue("uri")
+	return nil
+}
+
 func (req *DeleteSchemaRequest) Validate() error {
 	if req.URI == "" {
 		return errors.New("uri is required")
@@ -142,3 +153,8 @@ func (req *DeleteSchemaRequest) Validate() error {
 }
 
 type DeleteSchemaResponse struct{}
+
+// ListNamespacesResponse is the response for ListNamespaces endpoint.
+type ListNamespacesResponse struct {
+	Namespaces []*core.NS `json:"namespaces"`
+}

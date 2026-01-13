@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"runtime"
 	"time"
@@ -64,6 +65,11 @@ func (a *HealthAPI) GetHealth() EndpointFunc[HealthRequest, HealthResponse] {
 
 // HealthRequest is the request type for the health endpoint.
 type HealthRequest struct{}
+
+// Extract implements the xapi.Extracter interface to skip body parsing.
+func (req *HealthRequest) Extract(r *http.Request) error {
+	return nil
+}
 
 // HealthResponse contains the health status of the server and store.
 type HealthResponse struct {
