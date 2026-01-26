@@ -1,5 +1,7 @@
 package xdbjson
 
+import "github.com/xdb-dev/xdb/schema"
+
 // Options configures the Encoder and Decoder behavior.
 type Options struct {
 	// NS is the default namespace for records.
@@ -27,6 +29,11 @@ type Options struct {
 
 	// IncludeSchema controls whether the encoder includes the schema in JSON output.
 	IncludeSchema bool
+
+	// Def is the schema definition used for type-aware decoding.
+	// When provided, JSON values are converted according to field types.
+	// When nil, default JSON type inference is used.
+	Def *schema.Def
 }
 
 // DefaultOptions returns the default options.

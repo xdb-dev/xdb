@@ -2,12 +2,14 @@ package xdbjson_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 var defaultDecoder = xdbjson.NewDefaultDecoder("com.example", "users")
@@ -382,4 +384,89 @@ func TestDecoder_ErrorToExistingRecordInvalidJSON(t *testing.T) {
 	err := defaultDecoder.ToExistingRecord([]byte(`not json`), record)
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, xdbjson.ErrInvalidJSON)
+}
+
+func TestDecoder_WithSchema_AllTypes(t *testing.T) {
+	def := &schema.Def{
+		NS:   core.NewNS("com.example"),
+		Name: "test",
+		Fields: []*schema.FieldDef{
+			{Name: "timestamp", Type: core.TypeTime},
+			{Name: "count", Type: core.TypeInt},
+			{Name: "size", Type: core.TypeUnsigned},
+			{Name: "data", Type: core.TypeBytes},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		json     string
+		attr     string
+		expected core.TID
+	}{
+		{"time", `{"_id":"1","timestamp":"2025-01-26T10:00:00Z"}`, "timestamp", core.TIDTime},
+		{"integer", `{"_id":"1","count":42}`, "count", core.TIDInteger},
+		{"unsigned", `{"_id":"1","size":100}`, "size", core.TIDUnsigned},
+		{"bytes", `{"_id":"1","data":"SGVsbG8="}`, "data", core.TIDBytes},
+	}
+
+	decoder := xdbjson.NewDecoder(xdbjson.Options{
+		NS: "com.example", Schema: "test", Def: def,
+	})
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			record, err := decoder.ToRecord([]byte(tt.json))
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, record.Get(tt.attr).Value().Type().ID())
+		})
+	}
+}
+
+func TestDecoder_WithSchema_RoundTrip(t *testing.T) {
+	def := &schema.Def{
+		NS:   core.NewNS("com.example"),
+		Name: "test",
+		Fields: []*schema.FieldDef{
+			{Name: "created_at", Type: core.TypeTime},
+			{Name: "count", Type: core.TypeInt},
+			{Name: "data", Type: core.TypeBytes},
+		},
+	}
+
+	original := core.NewRecord("com.example", "test", "123").
+		Set("created_at", time.Date(2025, 1, 26, 10, 0, 0, 0, time.UTC)).
+		Set("count", int64(42)).
+		Set("data", []byte("Hello"))
+
+	encoder := xdbjson.NewEncoder(xdbjson.Options{
+		IncludeNS:     true,
+		IncludeSchema: true,
+	})
+	data, err := encoder.FromRecord(original)
+	require.NoError(t, err)
+
+	decoder := xdbjson.NewDecoder(xdbjson.Options{
+		Def: def,
+	})
+	decoded, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	assert.Equal(t, core.TIDTime, decoded.Get("created_at").Value().Type().ID())
+	assert.Equal(t, core.TIDInteger, decoded.Get("count").Value().Type().ID())
+	assert.Equal(t, core.TIDBytes, decoded.Get("data").Value().Type().ID())
+
+	assert.Equal(t, original.Get("created_at").Value().ToTime(), decoded.Get("created_at").Value().ToTime())
+	assert.Equal(t, original.Get("count").Value().ToInt(), decoded.Get("count").Value().ToInt())
+	assert.Equal(t, original.Get("data").Value().ToBytes(), decoded.Get("data").Value().ToBytes())
+}
+
+func TestDecoder_WithoutSchema_NoConversion(t *testing.T) {
+	decoder := xdbjson.NewDefaultDecoder("com.example", "events")
+
+	data := []byte(`{"_id": "123", "created_at": "2025-01-26T10:00:00Z"}`)
+	record, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	assert.Equal(t, core.TIDString, record.Get("created_at").Value().Type().ID())
 }

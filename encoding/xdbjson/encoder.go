@@ -1,6 +1,7 @@
 package xdbjson
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"sort"
 	"strings"
@@ -103,7 +104,7 @@ func convertValue(v *core.Value) any {
 	case core.TIDString:
 		return v.ToString()
 	case core.TIDBytes:
-		return v.ToBytes()
+		return base64.StdEncoding.EncodeToString(v.ToBytes())
 	case core.TIDTime:
 		return v.ToTime().Format(time.RFC3339)
 	case core.TIDArray:

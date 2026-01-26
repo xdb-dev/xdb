@@ -1,8 +1,10 @@
 package xdbjson
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/xdb-dev/xdb/core"
 )
@@ -115,9 +117,40 @@ func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
 			continue
 		}
 		if value != nil {
+			if d.opts.Def != nil {
+				if field := d.opts.Def.GetField(attr); field != nil {
+					value = convertToType(value, field.Type)
+				}
+			}
 			record.Set(attr, value)
 		}
 	}
+}
+
+func convertToType(value any, fieldType core.Type) any {
+	switch fieldType.ID() {
+	case core.TIDTime:
+		if s, ok := value.(string); ok {
+			if t, err := time.Parse(time.RFC3339, s); err == nil {
+				return t
+			}
+		}
+	case core.TIDInteger:
+		if f, ok := value.(float64); ok {
+			return int64(f)
+		}
+	case core.TIDUnsigned:
+		if f, ok := value.(float64); ok {
+			return uint64(f)
+		}
+	case core.TIDBytes:
+		if s, ok := value.(string); ok {
+			if b, err := base64.StdEncoding.DecodeString(s); err == nil {
+				return b
+			}
+		}
+	}
+	return value
 }
 
 func (d *Decoder) isMetadataField(attr string) bool {
