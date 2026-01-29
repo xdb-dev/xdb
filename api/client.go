@@ -380,8 +380,13 @@ func (c *Client) PutRecords(ctx context.Context, records []*core.Record) error {
 		return ErrRecordStoreNotConfigured
 	}
 
+	jsonRecords := make([]*RecordJSON, len(records))
+	for i, r := range records {
+		jsonRecords[i] = NewRecordJSON(r)
+	}
+
 	req := &PutRecordsRequest{
-		Records: records,
+		Records: jsonRecords,
 	}
 
 	var result PutRecordsResponse
@@ -406,11 +411,16 @@ func (c *Client) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Reco
 		return nil, nil, err
 	}
 
+	records := make([]*core.Record, len(result.Records))
+	for i, r := range result.Records {
+		records[i] = r.Record()
+	}
+
 	missing := x.Map(result.NotFound, func(s string) *core.URI {
 		return core.MustParseURI(s)
 	})
 
-	return result.Records, missing, nil
+	return records, missing, nil
 }
 
 // DeleteRecords deletes records by URIs.

@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
 	"sync"
 )
@@ -97,50 +96,4 @@ func (r *Record) Tuples() []*Tuple {
 		tuples = append(tuples, tuple)
 	}
 	return tuples
-}
-
-type jsonRecord struct {
-	URI    string         `json:"uri"`
-	Tuples map[string]any `json:"tuples"`
-}
-
-// MarshalJSON implements the json.Marshaler interface.
-func (r *Record) MarshalJSON() ([]byte, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	tuples := make(map[string]any)
-	for attr, t := range r.tuples {
-		if t.Value() != nil {
-			tuples[attr] = t.Value().Unwrap()
-		}
-	}
-
-	return json.Marshal(jsonRecord{
-		URI:    r.path.String(),
-		Tuples: tuples,
-	})
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (r *Record) UnmarshalJSON(data []byte) error {
-	var jr jsonRecord
-	if err := json.Unmarshal(data, &jr); err != nil {
-		return err
-	}
-
-	uri, err := ParseURI(jr.URI)
-	if err != nil {
-		return err
-	}
-
-	r.path = uri
-	r.tuples = make(map[string]*Tuple)
-
-	for attr, value := range jr.Tuples {
-		t := newTuple(r.path, &Attr{name: attr}, value)
-		r.tuples[attr] = t
-	}
-
-	return nil
 }

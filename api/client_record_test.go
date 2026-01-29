@@ -131,7 +131,7 @@ func TestClient_GetRecords_StubSuccess(t *testing.T) {
 		assert.Equal(t, "/v1/records", r.URL.Path)
 
 		resp := &api.GetRecordsResponse{
-			Records:  []*core.Record{},
+			Records:  []*api.RecordJSON{},
 			NotFound: []string{},
 		}
 		w.Header().Set("Content-Type", "application/json")
