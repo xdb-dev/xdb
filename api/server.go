@@ -53,7 +53,7 @@ type ServerBuilder struct {
 	schemaStore store.SchemaStore
 	tupleStore  store.TupleStore
 	recordStore store.RecordStore
-	healthStore any
+	healthStore store.HealthChecker
 }
 
 // NewServerBuilder creates a new ServerBuilder with the given configuration.
@@ -84,8 +84,7 @@ func (b *ServerBuilder) WithRecordStore(s store.RecordStore) *ServerBuilder {
 }
 
 // WithHealthStore configures the server to handle health endpoints.
-// The store can be any type; if it implements store.HealthChecker, health checks will be performed.
-func (b *ServerBuilder) WithHealthStore(s any) *ServerBuilder {
+func (b *ServerBuilder) WithHealthStore(s store.HealthChecker) *ServerBuilder {
 	b.healthStore = s
 	return b
 }

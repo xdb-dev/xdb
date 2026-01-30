@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
@@ -46,14 +47,14 @@ func TestHealthAPI_GetHealth_UptimeTracking(t *testing.T) {
 func TestHealthAPI_GetHealth(t *testing.T) {
 	tests := []struct {
 		name               string
-		setupStore         func(t *testing.T) (store any, cleanup func())
+		setupStore         func(t *testing.T) (store.HealthChecker, func())
 		expectedStatus     string
 		expectedStoreError bool
 		verifyStoreError   func(t *testing.T, errMsg string)
 	}{
 		{
 			name: "memory store without HealthChecker",
-			setupStore: func(t *testing.T) (any, func()) {
+			setupStore: func(t *testing.T) (store.HealthChecker, func()) {
 				return xdbmemory.New(), func() {}
 			},
 			expectedStatus:     "healthy",
@@ -61,7 +62,7 @@ func TestHealthAPI_GetHealth(t *testing.T) {
 		},
 		{
 			name: "store with HealthChecker - healthy",
-			setupStore: func(t *testing.T) (any, func()) {
+			setupStore: func(t *testing.T) (store.HealthChecker, func()) {
 				return xdbmemory.New(), func() {}
 			},
 			expectedStatus:     "healthy",
@@ -69,11 +70,11 @@ func TestHealthAPI_GetHealth(t *testing.T) {
 		},
 		{
 			name: "store with HealthChecker - unhealthy",
-			setupStore: func(t *testing.T) (any, func()) {
-				store := &mockUnhealthyStore{
+			setupStore: func(t *testing.T) (store.HealthChecker, func()) {
+				s := &mockUnhealthyStore{
 					MemoryStore: xdbmemory.New(),
 				}
-				return store, func() {}
+				return s, func() {}
 			},
 			expectedStatus:     "unhealthy",
 			expectedStoreError: true,
@@ -87,10 +88,10 @@ func TestHealthAPI_GetHealth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			store, cleanup := tt.setupStore(t)
+			s, cleanup := tt.setupStore(t)
 			defer cleanup()
 
-			healthAPI := api.NewHealthAPI(store, time.Now())
+			healthAPI := api.NewHealthAPI(s, time.Now())
 			endpoint := healthAPI.GetHealth()
 			req := &api.HealthRequest{}
 

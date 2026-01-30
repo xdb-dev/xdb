@@ -12,14 +12,14 @@ import (
 
 // HealthAPI provides health check endpoints for the XDB server.
 type HealthAPI struct {
-	store     any
+	store     store.HealthChecker
 	startTime time.Time
 }
 
 // NewHealthAPI creates a new HealthAPI instance with the given store and start time.
 // The store can be any type; if it implements store.HealthChecker, health checks will be performed.
 // The startTime is used to calculate server uptime.
-func NewHealthAPI(store any, startTime time.Time) *HealthAPI {
+func NewHealthAPI(store store.HealthChecker, startTime time.Time) *HealthAPI {
 	return &HealthAPI{
 		store:     store,
 		startTime: startTime,
@@ -45,11 +45,11 @@ func (a *HealthAPI) GetHealth() EndpointFunc[HealthRequest, HealthResponse] {
 			Status: "healthy",
 		}
 
-		if healthChecker, ok := a.store.(store.HealthChecker); ok {
+		if a.store != nil {
 			checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 
-			if err := healthChecker.Health(checkCtx); err != nil {
+			if err := a.store.Health(checkCtx); err != nil {
 				storeHealth.Status = "unhealthy"
 				errMsg := err.Error()
 				storeHealth.Error = &errMsg
