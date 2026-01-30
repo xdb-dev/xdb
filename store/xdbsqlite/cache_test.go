@@ -18,7 +18,7 @@ func createTestStore(t *testing.T) *Store {
 		Name:     "test.db",
 		InMemory: true,
 	}
-	store, err := New(cfg, "test")
+	store, err := New(cfg)
 	require.NoError(t, err)
 	return store
 }

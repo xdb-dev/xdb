@@ -23,7 +23,7 @@ func TestStoreHealth(t *testing.T) {
 				cfg := xdbsqlite.Config{
 					InMemory: true,
 				}
-				store, err := xdbsqlite.New(cfg, "test")
+				store, err := xdbsqlite.New(cfg)
 				require.NoError(t, err)
 				return store
 			},
@@ -35,7 +35,7 @@ func TestStoreHealth(t *testing.T) {
 				cfg := xdbsqlite.Config{
 					InMemory: true,
 				}
-				store, err := xdbsqlite.New(cfg, "test")
+				store, err := xdbsqlite.New(cfg)
 				require.NoError(t, err)
 				err = store.Close()
 				require.NoError(t, err)

@@ -31,7 +31,7 @@ type Store struct {
 	schemas map[string]map[string]*schema.Def
 }
 
-func New(cfg Config, ns string) (*Store, error) {
+func New(cfg Config) (*Store, error) {
 	ctx := context.Background()
 
 	s := &Store{cfg: cfg}

@@ -32,7 +32,7 @@ func (s *SchemaStoreTestSuite) SetupTest() {
 		InMemory: true,
 	}
 
-	store, err := xdbsqlite.New(cfg, "test")
+	store, err := xdbsqlite.New(cfg)
 	require.NoError(s.T(), err)
 
 	s.T().Cleanup(func() {
@@ -82,7 +82,7 @@ func TestSchemaCache(t *testing.T) {
 
 		ctx := context.Background()
 
-		store1, err := xdbsqlite.New(cfg, "test")
+		store1, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 
 		testSchema := &schema.Def{
@@ -108,7 +108,7 @@ func TestSchemaCache(t *testing.T) {
 
 		require.FileExists(t, dbPath)
 
-		store2, err := xdbsqlite.New(cfg, "test")
+		store2, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 		defer store2.Close()
 
@@ -122,7 +122,7 @@ func TestSchemaCache(t *testing.T) {
 			InMemory: true,
 		}
 
-		store, err := xdbsqlite.New(cfg, "test")
+		store, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 		defer store.Close()
 
@@ -166,7 +166,7 @@ func TestSchemaCache(t *testing.T) {
 			InMemory: true,
 		}
 
-		store, err := xdbsqlite.New(cfg, "test")
+		store, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 		defer store.Close()
 
@@ -210,7 +210,7 @@ func TestSchemaCache(t *testing.T) {
 			InMemory: true,
 		}
 
-		store, err := xdbsqlite.New(cfg, "test")
+		store, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 		defer store.Close()
 
@@ -274,7 +274,7 @@ func TestSchemaCache(t *testing.T) {
 			InMemory: true,
 		}
 
-		store, err := xdbsqlite.New(cfg, "test")
+		store, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 		defer store.Close()
 
@@ -310,7 +310,7 @@ func TestSchemaCache(t *testing.T) {
 			InMemory: true,
 		}
 
-		store, err := xdbsqlite.New(cfg, "test")
+		store, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 		defer store.Close()
 
@@ -348,7 +348,7 @@ func TestSchemaCache(t *testing.T) {
 			InMemory: true,
 		}
 
-		store, err := xdbsqlite.New(cfg, "test")
+		store, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 		defer store.Close()
 
@@ -379,11 +379,11 @@ func TestSchemaCache(t *testing.T) {
 
 		ctx := context.Background()
 
-		store1, err := xdbsqlite.New(cfg1, "test")
+		store1, err := xdbsqlite.New(cfg1)
 		require.NoError(t, err)
 		defer store1.Close()
 
-		store2, err := xdbsqlite.New(cfg2, "test")
+		store2, err := xdbsqlite.New(cfg2)
 		require.NoError(t, err)
 		defer store2.Close()
 
@@ -436,7 +436,7 @@ func TestSchemaStoreBasics(t *testing.T) {
 			InMemory: true,
 		}
 
-		store, err := xdbsqlite.New(cfg, "test")
+		store, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
@@ -453,7 +453,7 @@ func TestSchemaStoreBasics(t *testing.T) {
 			Name: "test.db",
 		}
 
-		store, err := xdbsqlite.New(cfg, "test")
+		store, err := xdbsqlite.New(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, store)
 
