@@ -1,4 +1,4 @@
-package api_test
+package client_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/client"
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
@@ -50,12 +51,12 @@ func TestClient_PutSchema_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
-	err = client.PutSchema(context.Background(), uri, schemaDef)
+	err = c.PutSchema(context.Background(), uri, schemaDef)
 	assert.NoError(t, err)
 }
 
@@ -67,7 +68,7 @@ func TestClient_PutSchema_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
@@ -75,8 +76,8 @@ func TestClient_PutSchema_StoreNotConfigured(t *testing.T) {
 	uri := core.New().NS("com.example").Schema("users").MustURI()
 	schemaDef := &schema.Def{Name: "users"}
 
-	err = client.PutSchema(context.Background(), uri, schemaDef)
-	assert.ErrorIs(t, err, api.ErrSchemaStoreNotConfigured)
+	err = c.PutSchema(context.Background(), uri, schemaDef)
+	assert.ErrorIs(t, err, client.ErrSchemaStoreNotConfigured)
 }
 
 func TestClient_PutSchema_URISerialization(t *testing.T) {
@@ -98,13 +99,13 @@ func TestClient_PutSchema_URISerialization(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
 	schemaDef := &schema.Def{Name: "users"}
-	err = client.PutSchema(context.Background(), uri, schemaDef)
+	err = c.PutSchema(context.Background(), uri, schemaDef)
 	require.NoError(t, err)
 
 	assert.Equal(t, expectedURIString, capturedURI)
@@ -139,12 +140,12 @@ func TestClient_PutSchema_SchemaSerialization(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
-	err = client.PutSchema(context.Background(), uri, schemaDef)
+	err = c.PutSchema(context.Background(), uri, schemaDef)
 	require.NoError(t, err)
 
 	require.NotNil(t, capturedSchema)
@@ -170,7 +171,7 @@ func TestClient_PutSchema_ErrorHandling(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
@@ -178,7 +179,7 @@ func TestClient_PutSchema_ErrorHandling(t *testing.T) {
 	uri := core.New().NS("com.example").Schema("users").MustURI()
 	schemaDef := &schema.Def{Name: "users"}
 
-	err = client.PutSchema(context.Background(), uri, schemaDef)
+	err = c.PutSchema(context.Background(), uri, schemaDef)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid schema definition")
 }
@@ -209,12 +210,12 @@ func TestClient_GetSchema_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
-	result, err := client.GetSchema(context.Background(), uri)
+	result, err := c.GetSchema(context.Background(), uri)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -237,14 +238,14 @@ func TestClient_GetSchema_NotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
 	uri := core.New().NS("com.example").Schema("nonexistent").MustURI()
 
-	result, err := client.GetSchema(context.Background(), uri)
+	result, err := c.GetSchema(context.Background(), uri)
 	assert.Nil(t, result)
 	assert.ErrorIs(t, err, store.ErrNotFound)
 }
@@ -257,16 +258,16 @@ func TestClient_GetSchema_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
 	uri := core.New().NS("com.example").Schema("users").MustURI()
 
-	result, err := client.GetSchema(context.Background(), uri)
+	result, err := c.GetSchema(context.Background(), uri)
 	assert.Nil(t, result)
-	assert.ErrorIs(t, err, api.ErrSchemaStoreNotConfigured)
+	assert.ErrorIs(t, err, client.ErrSchemaStoreNotConfigured)
 }
 
 func TestClient_GetSchema_ResponseDeserialization(t *testing.T) {
@@ -295,12 +296,12 @@ func TestClient_GetSchema_ResponseDeserialization(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
-	result, err := client.GetSchema(context.Background(), uri)
+	result, err := c.GetSchema(context.Background(), uri)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -353,12 +354,12 @@ func TestClient_ListSchemas_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
-	results, err := client.ListSchemas(context.Background(), uri)
+	results, err := c.ListSchemas(context.Background(), uri)
 	require.NoError(t, err)
 	require.Len(t, results, 3)
 
@@ -379,12 +380,12 @@ func TestClient_ListSchemas_EmptyResult(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
-	results, err := client.ListSchemas(context.Background(), uri)
+	results, err := c.ListSchemas(context.Background(), uri)
 	require.NoError(t, err)
 	assert.Empty(t, results)
 	assert.NotNil(t, results)
@@ -398,16 +399,16 @@ func TestClient_ListSchemas_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
 	uri := core.New().NS("com.example").MustURI()
 
-	results, err := client.ListSchemas(context.Background(), uri)
+	results, err := c.ListSchemas(context.Background(), uri)
 	assert.Nil(t, results)
-	assert.ErrorIs(t, err, api.ErrSchemaStoreNotConfigured)
+	assert.ErrorIs(t, err, client.ErrSchemaStoreNotConfigured)
 }
 
 func TestClient_DeleteSchema_Success(t *testing.T) {
@@ -425,12 +426,12 @@ func TestClient_DeleteSchema_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
-	err = client.DeleteSchema(context.Background(), uri)
+	err = c.DeleteSchema(context.Background(), uri)
 	assert.NoError(t, err)
 }
 
@@ -447,14 +448,14 @@ func TestClient_DeleteSchema_NotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
 	uri := core.New().NS("com.example").Schema("nonexistent").MustURI()
 
-	err = client.DeleteSchema(context.Background(), uri)
+	err = c.DeleteSchema(context.Background(), uri)
 	assert.ErrorIs(t, err, store.ErrNotFound)
 }
 
@@ -466,15 +467,15 @@ func TestClient_DeleteSchema_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
 	uri := core.New().NS("com.example").Schema("users").MustURI()
 
-	err = client.DeleteSchema(context.Background(), uri)
-	assert.ErrorIs(t, err, api.ErrSchemaStoreNotConfigured)
+	err = c.DeleteSchema(context.Background(), uri)
+	assert.ErrorIs(t, err, client.ErrSchemaStoreNotConfigured)
 }
 
 func TestClient_ListNamespaces_Success(t *testing.T) {
@@ -496,12 +497,12 @@ func TestClient_ListNamespaces_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
-	results, err := client.ListNamespaces(context.Background())
+	results, err := c.ListNamespaces(context.Background())
 	require.NoError(t, err)
 	require.Len(t, results, 3)
 
@@ -518,12 +519,12 @@ func TestClient_ListNamespaces_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
-	results, err := client.ListNamespaces(context.Background())
+	results, err := c.ListNamespaces(context.Background())
 	assert.Nil(t, results)
-	assert.ErrorIs(t, err, api.ErrSchemaStoreNotConfigured)
+	assert.ErrorIs(t, err, client.ErrSchemaStoreNotConfigured)
 }

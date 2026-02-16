@@ -43,6 +43,14 @@ type Def struct {
 	Fields []*FieldDef
 }
 
+// URI returns the URI of the schema.
+func (d *Def) URI() *core.URI {
+	return core.New().
+		NS(d.NS.String()).
+		Schema(d.Name).
+		MustURI()
+}
+
 // Clone returns a deep copy of the Def.
 func (s *Def) Clone() *Def {
 	clone := &Def{

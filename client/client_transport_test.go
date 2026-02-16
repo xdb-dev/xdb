@@ -1,4 +1,4 @@
-package api_test
+package client_test
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/client"
 )
 
 func TestTransport_TCPConnection(t *testing.T) {
@@ -28,18 +28,18 @@ func TestTransport_TCPConnection(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr: server.Listener.Addr().String(),
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 	require.NoError(t, err)
-	require.NotNil(t, client)
+	require.NotNil(t, c)
 
-	err = client.Ping(context.Background())
+	err = c.Ping(context.Background())
 	assert.NoError(t, err, "Client should connect successfully via TCP")
 }
 
@@ -66,18 +66,18 @@ func TestTransport_UnixSocketConnection(t *testing.T) {
 	}()
 	defer server.Close()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		SocketPath: socketPath,
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 	require.NoError(t, err)
-	require.NotNil(t, client)
+	require.NotNil(t, c)
 
-	err = client.Ping(context.Background())
+	err = c.Ping(context.Background())
 	assert.NoError(t, err, "Client should connect successfully via Unix socket")
 }
 
@@ -92,19 +92,19 @@ func TestTransport_RequestTimeoutEnforcement(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 100 * time.Millisecond,
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 	require.NoError(t, err)
-	require.NotNil(t, client)
+	require.NotNil(t, c)
 
-	err = client.Ping(context.Background())
+	err = c.Ping(context.Background())
 	require.Error(t, err, "Request should timeout")
 	assert.True(t, os.IsTimeout(err) || isTimeoutError(err), "Error should be a timeout error")
 }
@@ -123,23 +123,23 @@ func TestTransport_ContextCancellation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 30 * time.Second,
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 	require.NoError(t, err)
-	require.NotNil(t, client)
+	require.NotNil(t, c)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	done := make(chan error, 1)
 	go func() {
-		done <- client.Ping(ctx)
+		done <- c.Ping(ctx)
 	}()
 
 	<-requestStarted
@@ -157,36 +157,36 @@ func TestTransport_ContextCancellation(t *testing.T) {
 func TestTransport_ConnectionRefused(t *testing.T) {
 	t.Parallel()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr: "localhost:59999",
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 	require.NoError(t, err)
-	require.NotNil(t, client)
+	require.NotNil(t, c)
 
-	err = client.Ping(context.Background())
+	err = c.Ping(context.Background())
 	require.Error(t, err, "Connection should be refused")
 }
 
 func TestTransport_UnixSocketNotFound(t *testing.T) {
 	t.Parallel()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		SocketPath: "/tmp/nonexistent-socket-path-12345.sock",
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 	require.NoError(t, err)
-	require.NotNil(t, client)
+	require.NotNil(t, c)
 
-	err = client.Ping(context.Background())
+	err = c.Ping(context.Background())
 	require.Error(t, err, "Connection should fail for nonexistent socket")
 }
 
@@ -204,19 +204,19 @@ func TestTransport_CustomHTTPClient(t *testing.T) {
 		Timeout: 5 * time.Second,
 	}
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr: server.Listener.Addr().String(),
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithHTTPClient(customClient).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 	require.NoError(t, err)
-	require.NotNil(t, client)
+	require.NotNil(t, c)
 
-	err = client.Ping(context.Background())
+	err = c.Ping(context.Background())
 	assert.NoError(t, err, "Client should work with custom HTTP client")
 }
 

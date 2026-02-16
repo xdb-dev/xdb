@@ -1,4 +1,4 @@
-package api
+package client
 
 import (
 	"bytes"
@@ -12,49 +12,54 @@ import (
 
 	"github.com/gojekfarm/xtools/errors"
 
+	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/x"
 )
 
-const defaultClientTimeout = 30 * time.Second
+const defaultTimeout = 30 * time.Second
 
-// ClientConfig holds configuration for the HTTP client.
-type ClientConfig struct {
+// Config holds configuration for the HTTP client.
+type Config struct {
 	Addr       string
 	SocketPath string
 	Timeout    time.Duration
 }
 
-func (c *ClientConfig) Validate() error {
+// Validate checks that the configuration is valid.
+func (c *Config) Validate() error {
 	if c.Addr == "" && c.SocketPath == "" {
 		return ErrNoAddressConfigured
 	}
 	return nil
 }
 
-func (c *ClientConfig) EffectiveAddress() string {
+// EffectiveAddress returns the configured address, preferring Unix socket.
+func (c *Config) EffectiveAddress() string {
 	if c.SocketPath != "" {
 		return c.SocketPath
 	}
 	return c.Addr
 }
 
-func (c *ClientConfig) EffectiveTimeout() time.Duration {
+// EffectiveTimeout returns the configured timeout or the default.
+func (c *Config) EffectiveTimeout() time.Duration {
 	if c.Timeout == 0 {
-		return defaultClientTimeout
+		return defaultTimeout
 	}
 	return c.Timeout
 }
 
-func (c *ClientConfig) UsesUnixSocket() bool {
+// UsesUnixSocket returns true if the client is configured to use a Unix socket.
+func (c *Config) UsesUnixSocket() bool {
 	return c.SocketPath != ""
 }
 
-// ClientBuilder constructs a Client with optional store capabilities.
-type ClientBuilder struct {
-	cfg        *ClientConfig
+// Builder constructs a Client with optional store capabilities.
+type Builder struct {
+	cfg        *Config
 	httpClient *http.Client
 
 	schemaEnabled bool
@@ -63,45 +68,45 @@ type ClientBuilder struct {
 	healthEnabled bool
 }
 
-// NewClientBuilder creates a new ClientBuilder with the given configuration.
-func NewClientBuilder(cfg *ClientConfig) *ClientBuilder {
-	return &ClientBuilder{
+// NewBuilder creates a new Builder with the given configuration.
+func NewBuilder(cfg *Config) *Builder {
+	return &Builder{
 		cfg: cfg,
 	}
 }
 
 // WithSchemaStore enables schema store operations on the client.
-func (b *ClientBuilder) WithSchemaStore() *ClientBuilder {
+func (b *Builder) WithSchemaStore() *Builder {
 	b.schemaEnabled = true
 	return b
 }
 
 // WithTupleStore enables tuple store operations on the client.
-func (b *ClientBuilder) WithTupleStore() *ClientBuilder {
+func (b *Builder) WithTupleStore() *Builder {
 	b.tupleEnabled = true
 	return b
 }
 
 // WithRecordStore enables record store operations on the client.
-func (b *ClientBuilder) WithRecordStore() *ClientBuilder {
+func (b *Builder) WithRecordStore() *Builder {
 	b.recordEnabled = true
 	return b
 }
 
 // WithHealthStore enables health check operations on the client.
-func (b *ClientBuilder) WithHealthStore() *ClientBuilder {
+func (b *Builder) WithHealthStore() *Builder {
 	b.healthEnabled = true
 	return b
 }
 
 // WithHTTPClient sets a custom HTTP client.
-func (b *ClientBuilder) WithHTTPClient(client *http.Client) *ClientBuilder {
+func (b *Builder) WithHTTPClient(client *http.Client) *Builder {
 	b.httpClient = client
 	return b
 }
 
 // Build creates the Client with all configured options.
-func (b *ClientBuilder) Build() (*Client, error) {
+func (b *Builder) Build() (*Client, error) {
 	if b.cfg == nil {
 		return nil, ErrNoAddressConfigured
 	}
@@ -132,7 +137,7 @@ func (b *ClientBuilder) Build() (*Client, error) {
 	}, nil
 }
 
-func (b *ClientBuilder) createHTTPClient() *http.Client {
+func (b *Builder) createHTTPClient() *http.Client {
 	var transport http.RoundTripper
 
 	if b.cfg.UsesUnixSocket() {
@@ -152,7 +157,7 @@ func (b *ClientBuilder) createHTTPClient() *http.Client {
 	}
 }
 
-func (b *ClientBuilder) buildBaseURL() string {
+func (b *Builder) buildBaseURL() string {
 	if b.cfg.UsesUnixSocket() {
 		return "http://unix"
 	}
@@ -161,7 +166,7 @@ func (b *ClientBuilder) buildBaseURL() string {
 
 // Client is the XDB HTTP client.
 type Client struct {
-	cfg        *ClientConfig
+	cfg        *Config
 	httpClient *http.Client
 	baseURL    string
 
@@ -225,7 +230,7 @@ func (c *Client) Health(ctx context.Context) error {
 		return ErrHealthStoreNotConfigured
 	}
 
-	var result HealthResponse
+	var result api.HealthResponse
 	err := c.doRequest(ctx, http.MethodGet, "/v1/health", nil, &result)
 	if err != nil {
 		return err
@@ -247,12 +252,12 @@ func (c *Client) PutSchema(ctx context.Context, uri *core.URI, def *schema.Def) 
 		return ErrSchemaStoreNotConfigured
 	}
 
-	req := &PutSchemaRequest{
+	req := &api.PutSchemaRequest{
 		URI:    uri.String(),
 		Schema: def,
 	}
 
-	var result PutSchemaResponse
+	var result api.PutSchemaResponse
 	return c.doRequest(ctx, http.MethodPut, "/v1/schemas", req, &result)
 }
 
@@ -263,7 +268,7 @@ func (c *Client) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, err
 	}
 
 	path := "/v1/schemas/" + uri.Path()
-	var result GetSchemaResponse
+	var result api.GetSchemaResponse
 	err := c.doRequest(ctx, http.MethodGet, path, nil, &result)
 	if err != nil {
 		return nil, err
@@ -278,8 +283,8 @@ func (c *Client) ListSchemas(ctx context.Context, uri *core.URI) ([]*schema.Def,
 		return nil, ErrSchemaStoreNotConfigured
 	}
 
-	var result ListSchemasResponse
-	err := c.doRequest(ctx, http.MethodGet, "/v1/schemas", &ListSchemasRequest{URI: uri.String()}, &result)
+	var result api.ListSchemasResponse
+	err := c.doRequest(ctx, http.MethodGet, "/v1/schemas", &api.ListSchemasRequest{URI: uri.String()}, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +298,7 @@ func (c *Client) ListNamespaces(ctx context.Context) ([]*core.NS, error) {
 		return nil, ErrSchemaStoreNotConfigured
 	}
 
-	var result ListNamespacesResponse
+	var result api.ListNamespacesResponse
 	err := c.doRequest(ctx, http.MethodGet, "/v1/namespaces", nil, &result)
 	if err != nil {
 		return nil, err
@@ -309,7 +314,7 @@ func (c *Client) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	}
 
 	path := "/v1/schemas/" + uri.Path()
-	var result DeleteSchemaResponse
+	var result api.DeleteSchemaResponse
 	return c.doRequest(ctx, http.MethodDelete, path, nil, &result)
 }
 
@@ -319,17 +324,17 @@ func (c *Client) PutTuples(ctx context.Context, tuples []*core.Tuple) error {
 		return ErrTupleStoreNotConfigured
 	}
 
-	req := x.Map(tuples, func(t *core.Tuple) *Tuple {
+	req := x.Map(tuples, func(t *core.Tuple) *api.Tuple {
 		uri := t.URI()
 		path := uri.NS().String() + "/" + uri.Schema().String() + "/" + uri.ID().String()
-		return &Tuple{
+		return &api.Tuple{
 			ID:    path,
 			Attr:  t.Attr().String(),
 			Value: valueToJSON(t.Value()),
 		}
 	})
 
-	var result PutTuplesResponse
+	var result api.PutTuplesResponse
 	return c.doRequest(ctx, http.MethodPut, "/v1/tuples", req, &result)
 }
 
@@ -343,13 +348,13 @@ func (c *Client) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple
 		return uri.String()
 	})
 
-	var result GetTuplesResponse
+	var result api.GetTuplesResponse
 	err := c.doRequest(ctx, http.MethodGet, "/v1/tuples", req, &result)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	tuples := x.Map(result.Tuples, func(t *Tuple) *core.Tuple {
+	tuples := x.Map(result.Tuples, func(t *api.Tuple) *core.Tuple {
 		return core.NewTuple(t.ID, t.Attr, t.Value)
 	})
 
@@ -370,7 +375,7 @@ func (c *Client) DeleteTuples(ctx context.Context, uris []*core.URI) error {
 		return uri.String()
 	})
 
-	var result DeleteTuplesResponse
+	var result api.DeleteTuplesResponse
 	return c.doRequest(ctx, http.MethodDelete, "/v1/tuples", req, &result)
 }
 
@@ -380,16 +385,16 @@ func (c *Client) PutRecords(ctx context.Context, records []*core.Record) error {
 		return ErrRecordStoreNotConfigured
 	}
 
-	jsonRecords := make([]*RecordJSON, len(records))
+	jsonRecords := make([]*api.RecordJSON, len(records))
 	for i, r := range records {
-		jsonRecords[i] = NewRecordJSON(r)
+		jsonRecords[i] = api.NewRecordJSON(r)
 	}
 
-	req := &PutRecordsRequest{
+	req := &api.PutRecordsRequest{
 		Records: jsonRecords,
 	}
 
-	var result PutRecordsResponse
+	var result api.PutRecordsResponse
 	return c.doRequest(ctx, http.MethodPut, "/v1/records", req, &result)
 }
 
@@ -399,13 +404,13 @@ func (c *Client) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Reco
 		return nil, nil, ErrRecordStoreNotConfigured
 	}
 
-	req := &GetRecordsRequest{
+	req := &api.GetRecordsRequest{
 		URIs: x.Map(uris, func(uri *core.URI) string {
 			return uri.String()
 		}),
 	}
 
-	var result GetRecordsResponse
+	var result api.GetRecordsResponse
 	err := c.doRequest(ctx, http.MethodGet, "/v1/records", req, &result)
 	if err != nil {
 		return nil, nil, err
@@ -429,13 +434,13 @@ func (c *Client) DeleteRecords(ctx context.Context, uris []*core.URI) error {
 		return ErrRecordStoreNotConfigured
 	}
 
-	req := &DeleteRecordsRequest{
+	req := &api.DeleteRecordsRequest{
 		URIs: x.Map(uris, func(uri *core.URI) string {
 			return uri.String()
 		}),
 	}
 
-	var result DeleteRecordsResponse
+	var result api.DeleteRecordsResponse
 	return c.doRequest(ctx, http.MethodDelete, "/v1/records", req, &result)
 }
 
@@ -486,7 +491,7 @@ func (c *Client) parseErrorResponse(resp *http.Response) error {
 		return fmt.Errorf("HTTP %d: failed to read response body", resp.StatusCode)
 	}
 
-	var errResp ErrorResponse
+	var errResp api.ErrorResponse
 	if err := json.Unmarshal(bodyBytes, &errResp); err != nil {
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(bodyBytes))
 	}

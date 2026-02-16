@@ -1,4 +1,4 @@
-package api_test
+package client_test
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/client"
 	"github.com/xdb-dev/xdb/core"
 )
 
@@ -22,7 +23,7 @@ func TestClient_PutRecords_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
@@ -33,9 +34,9 @@ func TestClient_PutRecords_StoreNotConfigured(t *testing.T) {
 			Set("content", "Hello World"),
 	}
 
-	err = client.PutRecords(context.Background(), records)
+	err = c.PutRecords(context.Background(), records)
 
-	assert.ErrorIs(t, err, api.ErrRecordStoreNotConfigured)
+	assert.ErrorIs(t, err, client.ErrRecordStoreNotConfigured)
 }
 
 func TestClient_GetRecords_StoreNotConfigured(t *testing.T) {
@@ -46,7 +47,7 @@ func TestClient_GetRecords_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
@@ -56,9 +57,9 @@ func TestClient_GetRecords_StoreNotConfigured(t *testing.T) {
 		core.MustParseURI("xdb://com.example/posts/post-2"),
 	}
 
-	records, notFound, err := client.GetRecords(context.Background(), uris)
+	records, notFound, err := c.GetRecords(context.Background(), uris)
 
-	assert.ErrorIs(t, err, api.ErrRecordStoreNotConfigured)
+	assert.ErrorIs(t, err, client.ErrRecordStoreNotConfigured)
 	assert.Nil(t, records)
 	assert.Nil(t, notFound)
 }
@@ -71,7 +72,7 @@ func TestClient_DeleteRecords_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
@@ -81,9 +82,9 @@ func TestClient_DeleteRecords_StoreNotConfigured(t *testing.T) {
 		core.MustParseURI("xdb://com.example/posts/post-2"),
 	}
 
-	err = client.DeleteRecords(context.Background(), uris)
+	err = c.DeleteRecords(context.Background(), uris)
 
-	assert.ErrorIs(t, err, api.ErrRecordStoreNotConfigured)
+	assert.ErrorIs(t, err, client.ErrRecordStoreNotConfigured)
 }
 
 func TestClient_PutRecords_StubSuccess(t *testing.T) {
@@ -104,7 +105,7 @@ func TestClient_PutRecords_StubSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithRecordStore().Build()
 	require.NoError(t, err)
@@ -118,7 +119,7 @@ func TestClient_PutRecords_StubSuccess(t *testing.T) {
 			Set("content", "Another post"),
 	}
 
-	err = client.PutRecords(context.Background(), records)
+	err = c.PutRecords(context.Background(), records)
 
 	assert.NoError(t, err)
 }
@@ -140,7 +141,7 @@ func TestClient_GetRecords_StubSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithRecordStore().Build()
 	require.NoError(t, err)
@@ -150,7 +151,7 @@ func TestClient_GetRecords_StubSuccess(t *testing.T) {
 		core.MustParseURI("xdb://com.example/posts/post-2"),
 	}
 
-	records, notFound, err := client.GetRecords(context.Background(), uris)
+	records, notFound, err := c.GetRecords(context.Background(), uris)
 
 	assert.NoError(t, err)
 	assert.Empty(t, records)
@@ -173,7 +174,7 @@ func TestClient_DeleteRecords_StubSuccess(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithRecordStore().Build()
 	require.NoError(t, err)
@@ -183,7 +184,7 @@ func TestClient_DeleteRecords_StubSuccess(t *testing.T) {
 		core.MustParseURI("xdb://com.example/posts/post-2"),
 	}
 
-	err = client.DeleteRecords(context.Background(), uris)
+	err = c.DeleteRecords(context.Background(), uris)
 
 	assert.NoError(t, err)
 }

@@ -1,4 +1,4 @@
-package api_test
+package client_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/client"
 )
 
 func TestClient_Health_Success(t *testing.T) {
@@ -40,13 +41,13 @@ func TestClient_Health_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 5 * time.Second,
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
-	err = client.Health(context.Background())
+	err = c.Health(context.Background())
 
 	assert.NoError(t, err)
 }
@@ -76,13 +77,13 @@ func TestClient_Health_UnhealthyStore(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 5 * time.Second,
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
-	err = client.Health(context.Background())
+	err = c.Health(context.Background())
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "database connection failed")
@@ -96,16 +97,16 @@ func TestClient_Health_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 5 * time.Second,
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
 
-	err = client.Health(context.Background())
+	err = c.Health(context.Background())
 
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, api.ErrHealthStoreNotConfigured)
+	assert.ErrorIs(t, err, client.ErrHealthStoreNotConfigured)
 }
 
 func TestClient_Health_Timeout(t *testing.T) {
@@ -133,13 +134,13 @@ func TestClient_Health_Timeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 50 * time.Millisecond,
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
-	err = client.Health(context.Background())
+	err = c.Health(context.Background())
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "deadline exceeded")
@@ -173,13 +174,13 @@ func TestClient_Health_ResponseDeserialization(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 5 * time.Second,
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
-	err = client.Health(context.Background())
+	err = c.Health(context.Background())
 
 	assert.NoError(t, err)
 }
@@ -208,13 +209,13 @@ func TestClient_Health_UnhealthyWithoutErrorMessage(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 5 * time.Second,
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
-	err = client.Health(context.Background())
+	err = c.Health(context.Background())
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unhealthy")
@@ -229,13 +230,13 @@ func TestClient_Health_ServerError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 5 * time.Second,
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
-	err = client.Health(context.Background())
+	err = c.Health(context.Background())
 
 	assert.Error(t, err)
 }
@@ -250,13 +251,13 @@ func TestClient_Health_InvalidJSONResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 5 * time.Second,
 	}).WithHealthStore().Build()
 	require.NoError(t, err)
 
-	err = client.Health(context.Background())
+	err = c.Health(context.Background())
 
 	assert.Error(t, err)
 }
@@ -271,7 +272,7 @@ func TestClient_Health_ContextCancellation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    server.Listener.Addr().String(),
 		Timeout: 10 * time.Second,
 	}).WithHealthStore().Build()
@@ -281,7 +282,7 @@ func TestClient_Health_ContextCancellation(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- client.Health(ctx)
+		done <- c.Health(ctx)
 	}()
 
 	<-requestReceived

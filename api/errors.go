@@ -10,13 +10,8 @@ import (
 )
 
 var (
-	ErrInvalidSocketFile        = errors.New("[xdb/api] invalid socket file")
-	ErrNoStoresConfigured       = errors.New("[xdb/api] at least one store must be configured")
-	ErrNoAddressConfigured      = errors.New("[xdb/api] address or socket path must be configured")
-	ErrSchemaStoreNotConfigured = errors.New("[xdb/api] schema store not configured")
-	ErrTupleStoreNotConfigured  = errors.New("[xdb/api] tuple store not configured")
-	ErrRecordStoreNotConfigured = errors.New("[xdb/api] record store not configured")
-	ErrHealthStoreNotConfigured = errors.New("[xdb/api] health store not configured")
+	ErrInvalidSocketFile  = errors.New("[xdb/api] invalid socket file")
+	ErrNoStoresConfigured = errors.New("[xdb/api] at least one store must be configured")
 )
 
 // ErrorResponse represents a structured error response for the API.

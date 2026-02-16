@@ -40,6 +40,11 @@ func (u *URI) ID() *ID { return u.id }
 // Attr returns the attribute part of the URI.
 func (u *URI) Attr() *Attr { return u.attr }
 
+// SchemaURI returns a new URI containing only the namespace and schema components.
+func (u *URI) SchemaURI() *URI {
+	return &URI{ns: u.ns, schema: u.schema}
+}
+
 // Equals returns true if this URI is equal to the other URI.
 func (u *URI) Equals(other *URI) bool {
 	return u.ns.Equals(other.ns) &&

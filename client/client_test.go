@@ -1,4 +1,4 @@
-package api_test
+package client_test
 
 import (
 	"context"
@@ -14,35 +14,36 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/client"
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/store"
 )
 
-func TestClientConfig_Validation(t *testing.T) {
+func TestConfig_Validation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name        string
-		config      api.ClientConfig
+		config      client.Config
 		expectError bool
 	}{
 		{
 			name: "valid TCP address",
-			config: api.ClientConfig{
+			config: client.Config{
 				Addr: "localhost:8080",
 			},
 			expectError: false,
 		},
 		{
 			name: "valid TCP address with IP",
-			config: api.ClientConfig{
+			config: client.Config{
 				Addr: "127.0.0.1:8080",
 			},
 			expectError: false,
 		},
 		{
 			name:        "empty config",
-			config:      api.ClientConfig{},
+			config:      client.Config{},
 			expectError: true,
 		},
 	}
@@ -62,10 +63,10 @@ func TestClientConfig_Validation(t *testing.T) {
 	}
 }
 
-func TestClientConfig_UnixSocketPreference(t *testing.T) {
+func TestConfig_UnixSocketPreference(t *testing.T) {
 	t.Parallel()
 
-	config := api.ClientConfig{
+	config := client.Config{
 		Addr:       "localhost:8080",
 		SocketPath: "/tmp/xdb.sock",
 	}
@@ -76,17 +77,17 @@ func TestClientConfig_UnixSocketPreference(t *testing.T) {
 	assert.True(t, config.UsesUnixSocket(), "UsesUnixSocket should return true when socket path is set")
 }
 
-func TestClientConfig_TimeoutDefaults(t *testing.T) {
+func TestConfig_TimeoutDefaults(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name            string
-		config          api.ClientConfig
+		config          client.Config
 		expectedTimeout time.Duration
 	}{
 		{
 			name: "zero timeout defaults to 30s",
-			config: api.ClientConfig{
+			config: client.Config{
 				Addr:    "localhost:8080",
 				Timeout: 0,
 			},
@@ -94,7 +95,7 @@ func TestClientConfig_TimeoutDefaults(t *testing.T) {
 		},
 		{
 			name: "custom timeout is preserved",
-			config: api.ClientConfig{
+			config: client.Config{
 				Addr:    "localhost:8080",
 				Timeout: 10 * time.Second,
 			},
@@ -113,132 +114,132 @@ func TestClientConfig_TimeoutDefaults(t *testing.T) {
 	}
 }
 
-func TestClientBuilder_RequiresAtLeastOneStore(t *testing.T) {
+func TestBuilder_RequiresAtLeastOneStore(t *testing.T) {
 	t.Parallel()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr: "localhost:8080",
 	}
 
-	builder := api.NewClientBuilder(config)
-	client, err := builder.Build()
+	builder := client.NewBuilder(config)
+	c, err := builder.Build()
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, api.ErrNoStoresConfigured)
-	assert.Nil(t, client)
+	assert.ErrorIs(t, err, client.ErrNoStoresConfigured)
+	assert.Nil(t, c)
 }
 
-func TestClientBuilder_RequiresAddressConfiguration(t *testing.T) {
+func TestBuilder_RequiresAddressConfiguration(t *testing.T) {
 	t.Parallel()
 
-	config := &api.ClientConfig{}
+	config := &client.Config{}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, api.ErrNoAddressConfigured)
-	assert.Nil(t, client)
+	assert.ErrorIs(t, err, client.ErrNoAddressConfigured)
+	assert.Nil(t, c)
 }
 
-func TestClientBuilder_WithSchemaStoreOnly(t *testing.T) {
+func TestBuilder_WithSchemaStoreOnly(t *testing.T) {
 	t.Parallel()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr: "localhost:8080",
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 
 	require.NoError(t, err)
-	require.NotNil(t, client)
-	assert.NotNil(t, client.Schemas(), "SchemaStore should be available")
+	require.NotNil(t, c)
+	assert.NotNil(t, c.Schemas(), "SchemaStore should be available")
 }
 
-func TestClientBuilder_WithMultipleStores(t *testing.T) {
+func TestBuilder_WithMultipleStores(t *testing.T) {
 	t.Parallel()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr: "localhost:8080",
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore().
 		WithTupleStore().
 		WithRecordStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 
 	require.NoError(t, err)
-	require.NotNil(t, client)
-	assert.NotNil(t, client.Schemas(), "SchemaStore should be available")
-	assert.NotNil(t, client.Tuples(), "TupleStore should be available")
-	assert.NotNil(t, client.Records(), "RecordStore should be available")
+	require.NotNil(t, c)
+	assert.NotNil(t, c.Schemas(), "SchemaStore should be available")
+	assert.NotNil(t, c.Tuples(), "TupleStore should be available")
+	assert.NotNil(t, c.Records(), "RecordStore should be available")
 }
 
-func TestClientBuilder_WithTupleStoreOnly(t *testing.T) {
+func TestBuilder_WithTupleStoreOnly(t *testing.T) {
 	t.Parallel()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr: "localhost:8080",
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithTupleStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 
 	require.NoError(t, err)
-	require.NotNil(t, client)
-	assert.NotNil(t, client.Tuples(), "TupleStore should be available")
+	require.NotNil(t, c)
+	assert.NotNil(t, c.Tuples(), "TupleStore should be available")
 }
 
-func TestClientBuilder_WithRecordStoreOnly(t *testing.T) {
+func TestBuilder_WithRecordStoreOnly(t *testing.T) {
 	t.Parallel()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		Addr: "localhost:8080",
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithRecordStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 
 	require.NoError(t, err)
-	require.NotNil(t, client)
-	assert.NotNil(t, client.Records(), "RecordStore should be available")
+	require.NotNil(t, c)
+	assert.NotNil(t, c.Records(), "RecordStore should be available")
 }
 
-func TestClientBuilder_WithUnixSocket(t *testing.T) {
+func TestBuilder_WithUnixSocket(t *testing.T) {
 	t.Parallel()
 
-	config := &api.ClientConfig{
+	config := &client.Config{
 		SocketPath: "/tmp/xdb.sock",
 	}
 
-	builder := api.NewClientBuilder(config).
+	builder := client.NewBuilder(config).
 		WithSchemaStore()
 
-	client, err := builder.Build()
+	c, err := builder.Build()
 
 	require.NoError(t, err)
-	require.NotNil(t, client)
+	require.NotNil(t, c)
 }
 
-func TestClientBuilder_NilConfig(t *testing.T) {
+func TestBuilder_NilConfig(t *testing.T) {
 	t.Parallel()
 
-	builder := api.NewClientBuilder(nil)
-	client, err := builder.Build()
+	builder := client.NewBuilder(nil)
+	c, err := builder.Build()
 
 	require.Error(t, err)
-	assert.Nil(t, client)
+	assert.Nil(t, c)
 }
 
 func TestClient_ErrorMapping_NotFound(t *testing.T) {
@@ -255,7 +256,7 @@ func TestClient_ErrorMapping_NotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithRecordStore().Build()
 	require.NoError(t, err)
@@ -263,7 +264,7 @@ func TestClient_ErrorMapping_NotFound(t *testing.T) {
 	ctx := context.Background()
 	uri := core.MustParseURI("xdb://test/example/123")
 
-	_, _, err = client.GetRecords(ctx, []*core.URI{uri})
+	_, _, err = c.GetRecords(ctx, []*core.URI{uri})
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, store.ErrNotFound), "expected error to wrap store.ErrNotFound, got: %v", err)
@@ -283,7 +284,7 @@ func TestClient_ErrorMapping_SchemaModeChanged(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
@@ -291,7 +292,7 @@ func TestClient_ErrorMapping_SchemaModeChanged(t *testing.T) {
 	ctx := context.Background()
 	uri := core.MustParseURI("xdb://test/example")
 
-	err = client.PutSchema(ctx, uri, nil)
+	err = c.PutSchema(ctx, uri, nil)
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, store.ErrSchemaModeChanged), "expected error to wrap store.ErrSchemaModeChanged, got: %v", err)
@@ -311,7 +312,7 @@ func TestClient_ErrorMapping_FieldChangeType(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
@@ -319,7 +320,7 @@ func TestClient_ErrorMapping_FieldChangeType(t *testing.T) {
 	ctx := context.Background()
 	uri := core.MustParseURI("xdb://test/example")
 
-	err = client.PutSchema(ctx, uri, nil)
+	err = c.PutSchema(ctx, uri, nil)
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, store.ErrFieldChangeType), "expected error to wrap store.ErrFieldChangeType, got: %v", err)
@@ -381,7 +382,7 @@ func TestClient_ErrorMapping_GenericHTTPError(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client, err := api.NewClientBuilder(&api.ClientConfig{
+			c, err := client.NewBuilder(&client.Config{
 				Addr: server.Listener.Addr().String(),
 			}).WithRecordStore().Build()
 			require.NoError(t, err)
@@ -389,7 +390,7 @@ func TestClient_ErrorMapping_GenericHTTPError(t *testing.T) {
 			ctx := context.Background()
 			uri := core.MustParseURI("xdb://test/example/123")
 
-			_, _, err = client.GetRecords(ctx, []*core.URI{uri})
+			_, _, err = c.GetRecords(ctx, []*core.URI{uri})
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.errorMsg)
@@ -405,7 +406,7 @@ func TestClient_ErrorMapping_NetworkError(t *testing.T) {
 	addr := listener.Addr().String()
 	listener.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: addr,
 	}).WithRecordStore().Build()
 	require.NoError(t, err)
@@ -413,7 +414,7 @@ func TestClient_ErrorMapping_NetworkError(t *testing.T) {
 	ctx := context.Background()
 	uri := core.MustParseURI("xdb://test/example/123")
 
-	_, _, err = client.GetRecords(ctx, []*core.URI{uri})
+	_, _, err = c.GetRecords(ctx, []*core.URI{uri})
 
 	require.Error(t, err)
 
@@ -430,7 +431,7 @@ func TestClient_ErrorMapping_ContextCanceled(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithRecordStore().Build()
 	require.NoError(t, err)
@@ -440,7 +441,7 @@ func TestClient_ErrorMapping_ContextCanceled(t *testing.T) {
 
 	uri := core.MustParseURI("xdb://test/example/123")
 
-	_, _, err = client.GetRecords(ctx, []*core.URI{uri})
+	_, _, err = c.GetRecords(ctx, []*core.URI{uri})
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, context.Canceled), "expected context.Canceled error, got: %v", err)
@@ -456,7 +457,7 @@ func TestClient_ErrorMapping_MalformedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithRecordStore().Build()
 	require.NoError(t, err)
@@ -464,7 +465,7 @@ func TestClient_ErrorMapping_MalformedResponse(t *testing.T) {
 	ctx := context.Background()
 	uri := core.MustParseURI("xdb://test/example/123")
 
-	_, _, err = client.GetRecords(ctx, []*core.URI{uri})
+	_, _, err = c.GetRecords(ctx, []*core.URI{uri})
 
 	require.Error(t, err)
 }
@@ -479,7 +480,7 @@ func TestClient_ErrorMapping_EmptyErrorResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithRecordStore().Build()
 	require.NoError(t, err)
@@ -487,7 +488,7 @@ func TestClient_ErrorMapping_EmptyErrorResponse(t *testing.T) {
 	ctx := context.Background()
 	uri := core.MustParseURI("xdb://test/example/123")
 
-	_, _, err = client.GetRecords(ctx, []*core.URI{uri})
+	_, _, err = c.GetRecords(ctx, []*core.URI{uri})
 
 	require.Error(t, err)
 }

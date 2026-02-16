@@ -14,12 +14,14 @@ import (
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
+	"github.com/xdb-dev/xdb/x"
 )
 
 var (
 	_ store.HealthChecker = (*Store)(nil)
 	_ store.SchemaStore   = (*Store)(nil)
 	_ store.SchemaReader  = (*Store)(nil)
+	_ store.RecordStore   = (*Store)(nil)
 )
 
 type Store struct {
@@ -145,24 +147,37 @@ func (s *Store) loadSchemas(ctx context.Context) error {
 // Reads from in-memory cache first, falls back to database on cache miss.
 // Uses SchemaDriverTx for database queries - never queries directly.
 func (s *Store) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
-	s.mu.RLock()
-	ns := uri.NS().String()
-	schemaKey := uri.Schema().String()
-
-	if nsSchemas, ok := s.schemas[ns]; ok {
-		if def, ok := nsSchemas[schemaKey]; ok {
-			s.mu.RUnlock()
-			return def, nil
-		}
+	if def, err := s.getSchemaFromCache(uri); err == nil {
+		return def, nil
 	}
-
-	s.mu.RUnlock()
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
+
+	return s.getSchemaWithTx(ctx, tx, uri)
+}
+
+func (s *Store) getSchemaFromCache(uri *core.URI) (*schema.Def, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	ns := uri.NS().String()
+	schemaKey := uri.Schema().String()
+
+	if nsSchemas, ok := s.schemas[ns]; ok {
+		if def, ok := nsSchemas[schemaKey]; ok {
+			return def, nil
+		}
+	}
+	return nil, store.ErrNotFound
+}
+
+func (s *Store) getSchemaWithTx(ctx context.Context, tx *sql.Tx, uri *core.URI) (*schema.Def, error) {
+	ns := uri.NS().String()
+	schemaKey := uri.Schema().String()
 
 	driverTx := NewSchemaStoreTx(tx)
 	def, err := driverTx.GetSchema(ctx, uri)
@@ -305,5 +320,218 @@ func (s *Store) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	}
 	s.mu.Unlock()
 
+	return nil
+}
+
+// GetRecords retrieves records by URIs.
+func (s *Store) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Record, []*core.URI, error) {
+	if len(uris) == 0 {
+		return nil, nil, nil
+	}
+
+	grouped := x.GroupBy(uris, func(uri *core.URI) string {
+		return uri.NS().String() + "/" + uri.Schema().String()
+	})
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var allRecords []*core.Record
+	var allMissed []*core.URI
+
+	for _, schemaURIs := range grouped {
+		schemaURI := schemaURIs[0].SchemaURI()
+
+		schemaDef, err := s.getSchemaFromCache(schemaURI)
+		if err != nil {
+			allMissed = append(allMissed, schemaURIs...)
+			continue
+		}
+
+		ids := x.Map(schemaURIs, func(uri *core.URI) string {
+			return uri.ID().String()
+		})
+
+		var records []*core.Record
+		var missed []*core.URI
+
+		switch schemaDef.Mode {
+		case schema.ModeFlexible:
+			driver := NewKVDriverTx(tx, schemaDef)
+			records, missed, err = driver.GetRecords(ctx, schemaURI, ids)
+			if err != nil {
+				return nil, nil, err
+			}
+		case schema.ModeStrict, schema.ModeDynamic:
+			driver := NewSQLDriverTx(tx, schemaDef)
+			records, missed, err = driver.GetRecords(ctx, schemaURI, schemaDef, ids)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		allRecords = append(allRecords, records...)
+		allMissed = append(allMissed, missed...)
+	}
+
+	return allRecords, allMissed, nil
+}
+
+// PutRecords saves records to the store.
+func (s *Store) PutRecords(ctx context.Context, records []*core.Record) error {
+	if len(records) == 0 {
+		return nil
+	}
+
+	grouped := x.GroupBy(records, func(r *core.Record) string {
+		return r.SchemaURI().String()
+	})
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, schemaRecords := range grouped {
+		schemaURI := schemaRecords[0].SchemaURI()
+
+		schemaDef, err := s.getSchemaFromCache(schemaURI)
+		if err != nil {
+			return err
+		}
+
+		switch schemaDef.Mode {
+		case schema.ModeFlexible:
+			err = schema.ValidateRecords(schemaDef, schemaRecords)
+			if err != nil {
+				return err
+			}
+			driver := NewKVDriverTx(tx, schemaDef)
+			if err := driver.PutRecords(ctx, schemaRecords); err != nil {
+				return err
+			}
+		case schema.ModeStrict:
+			err = schema.ValidateRecords(schemaDef, schemaRecords)
+			if err != nil {
+				return err
+			}
+			driver := NewSQLDriverTx(tx, schemaDef)
+			if err := driver.PutRecords(ctx, schemaRecords); err != nil {
+				return err
+			}
+		case schema.ModeDynamic:
+			driver := NewSQLDriverTx(tx, schemaDef)
+			schemaDef, err = driver.AddDynamicFields(ctx, schemaRecords)
+			if err != nil {
+				return err
+			}
+
+			s.mu.Lock()
+			s.schemas[schemaURI.NS().String()][schemaURI.Schema().String()] = schemaDef
+			s.mu.Unlock()
+
+			err = schema.ValidateRecords(schemaDef, schemaRecords)
+			if err != nil {
+				return err
+			}
+
+			if err := driver.PutRecords(ctx, schemaRecords); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return s.refreshSchemaCache(ctx, records)
+}
+
+// DeleteRecords removes records from the store.
+func (s *Store) DeleteRecords(ctx context.Context, uris []*core.URI) error {
+	if len(uris) == 0 {
+		return nil
+	}
+
+	grouped := x.GroupBy(uris, func(uri *core.URI) string {
+		return uri.NS().String() + "/" + uri.Schema().String()
+	})
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, schemaURIs := range grouped {
+		schemaURI := schemaURIs[0].SchemaURI()
+
+		schemaDef, err := s.getSchemaFromCache(schemaURI)
+		if err != nil {
+			continue
+		}
+
+		ids := x.Map(schemaURIs, func(uri *core.URI) string {
+			return uri.ID().String()
+		})
+
+		switch schemaDef.Mode {
+		case schema.ModeFlexible:
+			driver := NewKVDriverTx(tx, schemaDef)
+			if err := driver.DeleteRecords(ctx, ids); err != nil {
+				return err
+			}
+		case schema.ModeStrict, schema.ModeDynamic:
+			driver := NewSQLDriverTx(tx, schemaDef)
+			if err := driver.DeleteRecords(ctx, ids); err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (s *Store) refreshSchemaCache(ctx context.Context, records []*core.Record) error {
+	seen := make(map[string]bool)
+	for _, record := range records {
+		key := record.NS().String() + "/" + record.Schema().String()
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+
+		schemaURI := record.SchemaURI()
+
+		tx, err := s.db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+
+		driverTx := NewSchemaStoreTx(tx)
+		def, err := driverTx.GetSchema(ctx, schemaURI)
+		_ = tx.Rollback()
+
+		if err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				continue
+			}
+			return err
+		}
+
+		ns := record.NS().String()
+		schemaKey := record.Schema().String()
+		s.mu.Lock()
+		if s.schemas[ns] == nil {
+			s.schemas[ns] = make(map[string]*schema.Def)
+		}
+		s.schemas[ns][schemaKey] = def
+		s.mu.Unlock()
+	}
 	return nil
 }

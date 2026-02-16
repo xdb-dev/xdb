@@ -1,4 +1,4 @@
-package api_test
+package client_test
 
 import (
 	"context"
@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/client"
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
@@ -36,7 +37,7 @@ func TestIntegration_FullLifecycleWithMemoryStore(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	defer ts.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: ts.Listener.Addr().String(),
 	}).
 		WithSchemaStore().
@@ -49,7 +50,7 @@ func TestIntegration_FullLifecycleWithMemoryStore(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("health check succeeds", func(t *testing.T) {
-		err := client.Health(ctx)
+		err := c.Health(ctx)
 		require.NoError(t, err)
 	})
 
@@ -67,14 +68,14 @@ func TestIntegration_FullLifecycleWithMemoryStore(t *testing.T) {
 			},
 		}
 
-		err := client.PutSchema(ctx, schemaURI, schemaDef)
+		err := c.PutSchema(ctx, schemaURI, schemaDef)
 		require.NoError(t, err)
 	})
 
 	t.Run("get schema", func(t *testing.T) {
 		schemaURI := core.MustParseURI("xdb://testns/users")
 
-		def, err := client.GetSchema(ctx, schemaURI)
+		def, err := c.GetSchema(ctx, schemaURI)
 		require.NoError(t, err)
 		require.NotNil(t, def)
 		assert.Equal(t, "users", def.Name)
@@ -91,7 +92,7 @@ func TestIntegration_FullLifecycleWithMemoryStore(t *testing.T) {
 			core.NewTuple("testns/users/user2", "age", float64(25)),
 		}
 
-		err := client.PutTuples(ctx, tuples)
+		err := c.PutTuples(ctx, tuples)
 		require.NoError(t, err)
 	})
 
@@ -102,7 +103,7 @@ func TestIntegration_FullLifecycleWithMemoryStore(t *testing.T) {
 			core.MustParseURI("xdb://testns/users/user2#name"),
 		}
 
-		tuples, missing, err := client.GetTuples(ctx, uris)
+		tuples, missing, err := c.GetTuples(ctx, uris)
 		require.NoError(t, err)
 		assert.Len(t, tuples, 3)
 		assert.Empty(t, missing)
@@ -114,7 +115,7 @@ func TestIntegration_FullLifecycleWithMemoryStore(t *testing.T) {
 			core.MustParseURI("xdb://testns/users/nonexistent#name"),
 		}
 
-		tuples, missing, err := client.GetTuples(ctx, uris)
+		tuples, missing, err := c.GetTuples(ctx, uris)
 		require.NoError(t, err)
 		assert.Len(t, tuples, 1)
 		assert.Len(t, missing, 1)
@@ -126,10 +127,10 @@ func TestIntegration_FullLifecycleWithMemoryStore(t *testing.T) {
 			core.MustParseURI("xdb://testns/users/user2#age"),
 		}
 
-		err := client.DeleteTuples(ctx, uris)
+		err := c.DeleteTuples(ctx, uris)
 		require.NoError(t, err)
 
-		tuples, missing, err := client.GetTuples(ctx, uris)
+		tuples, missing, err := c.GetTuples(ctx, uris)
 		require.NoError(t, err)
 		assert.Empty(t, tuples)
 		assert.Len(t, missing, 2)
@@ -138,10 +139,10 @@ func TestIntegration_FullLifecycleWithMemoryStore(t *testing.T) {
 	t.Run("delete schema", func(t *testing.T) {
 		schemaURI := core.MustParseURI("xdb://testns/users")
 
-		err := client.DeleteSchema(ctx, schemaURI)
+		err := c.DeleteSchema(ctx, schemaURI)
 		require.NoError(t, err)
 
-		_, err = client.GetSchema(ctx, schemaURI)
+		_, err = c.GetSchema(ctx, schemaURI)
 		require.Error(t, err)
 	})
 }
@@ -162,7 +163,7 @@ func TestIntegration_ClientServerCompatibility(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	defer ts.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: ts.Listener.Addr().String(),
 	}).
 		WithSchemaStore().
@@ -186,16 +187,16 @@ func TestIntegration_ClientServerCompatibility(t *testing.T) {
 		},
 	}
 
-	err = client.PutSchema(ctx, schemaURI, schemaDef)
+	err = c.PutSchema(ctx, schemaURI, schemaDef)
 	require.NoError(t, err)
 
 	t.Run("schema operations", func(t *testing.T) {
-		def, err := client.GetSchema(ctx, schemaURI)
+		def, err := c.GetSchema(ctx, schemaURI)
 		require.NoError(t, err)
 		assert.Equal(t, "products", def.Name)
 
 		listURI := core.MustParseURI("xdb://compat")
-		schemas, err := client.ListSchemas(ctx, listURI)
+		schemas, err := c.ListSchemas(ctx, listURI)
 		require.NoError(t, err)
 		assert.Len(t, schemas, 1)
 	})
@@ -206,7 +207,7 @@ func TestIntegration_ClientServerCompatibility(t *testing.T) {
 			core.NewTuple("compat/products/prod1", "price", 9.99),
 		}
 
-		err := client.PutTuples(ctx, tuples)
+		err := c.PutTuples(ctx, tuples)
 		require.NoError(t, err)
 
 		uris := []*core.URI{
@@ -214,12 +215,12 @@ func TestIntegration_ClientServerCompatibility(t *testing.T) {
 			core.MustParseURI("xdb://compat/products/prod1#price"),
 		}
 
-		retrievedTuples, missing, err := client.GetTuples(ctx, uris)
+		retrievedTuples, missing, err := c.GetTuples(ctx, uris)
 		require.NoError(t, err)
 		assert.Len(t, retrievedTuples, 2)
 		assert.Empty(t, missing)
 
-		err = client.DeleteTuples(ctx, uris[:1])
+		err = c.DeleteTuples(ctx, uris[:1])
 		require.NoError(t, err)
 	})
 
@@ -228,29 +229,29 @@ func TestIntegration_ClientServerCompatibility(t *testing.T) {
 			Set("title", "Gadget").
 			Set("price", 19.99)
 
-		err := client.PutRecords(ctx, []*core.Record{record})
+		err := c.PutRecords(ctx, []*core.Record{record})
 		require.NoError(t, err)
 
 		recordURI := core.MustParseURI("xdb://compat/products/prod2")
-		records, missing, err := client.GetRecords(ctx, []*core.URI{recordURI})
+		records, missing, err := c.GetRecords(ctx, []*core.URI{recordURI})
 		require.NoError(t, err)
 		assert.Len(t, records, 1)
 		assert.Empty(t, missing)
 
-		err = client.DeleteRecords(ctx, []*core.URI{recordURI})
+		err = c.DeleteRecords(ctx, []*core.URI{recordURI})
 		require.NoError(t, err)
 
-		records, missing, err = client.GetRecords(ctx, []*core.URI{recordURI})
+		records, missing, err = c.GetRecords(ctx, []*core.URI{recordURI})
 		require.NoError(t, err)
 		assert.Empty(t, records)
 		assert.Len(t, missing, 1)
 	})
 
 	t.Run("health operations", func(t *testing.T) {
-		err := client.Health(ctx)
+		err := c.Health(ctx)
 		require.NoError(t, err)
 
-		err = client.Ping(ctx)
+		err = c.Ping(ctx)
 		require.NoError(t, err)
 	})
 }
@@ -285,7 +286,7 @@ func TestIntegration_UnixSocketTransport(t *testing.T) {
 
 	time.Sleep(50 * time.Millisecond)
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		SocketPath: socketPath,
 	}).
 		WithSchemaStore().
@@ -296,10 +297,10 @@ func TestIntegration_UnixSocketTransport(t *testing.T) {
 
 	ctx := context.Background()
 
-	err = client.Ping(ctx)
+	err = c.Ping(ctx)
 	require.NoError(t, err)
 
-	err = client.Health(ctx)
+	err = c.Health(ctx)
 	require.NoError(t, err)
 
 	schemaURI := core.MustParseURI("xdb://sockettest/items")
@@ -313,10 +314,10 @@ func TestIntegration_UnixSocketTransport(t *testing.T) {
 		},
 	}
 
-	err = client.PutSchema(ctx, schemaURI, schemaDef)
+	err = c.PutSchema(ctx, schemaURI, schemaDef)
 	require.NoError(t, err)
 
-	def, err := client.GetSchema(ctx, schemaURI)
+	def, err := c.GetSchema(ctx, schemaURI)
 	require.NoError(t, err)
 	assert.Equal(t, "items", def.Name)
 }
@@ -336,7 +337,7 @@ func TestIntegration_TCPTransport(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	defer ts.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: ts.Listener.Addr().String(),
 	}).
 		WithSchemaStore().
@@ -347,10 +348,10 @@ func TestIntegration_TCPTransport(t *testing.T) {
 
 	ctx := context.Background()
 
-	err = client.Ping(ctx)
+	err = c.Ping(ctx)
 	require.NoError(t, err)
 
-	err = client.Health(ctx)
+	err = c.Health(ctx)
 	require.NoError(t, err)
 
 	schemaURI := core.MustParseURI("xdb://tcptest/data")
@@ -364,10 +365,10 @@ func TestIntegration_TCPTransport(t *testing.T) {
 		},
 	}
 
-	err = client.PutSchema(ctx, schemaURI, schemaDef)
+	err = c.PutSchema(ctx, schemaURI, schemaDef)
 	require.NoError(t, err)
 
-	def, err := client.GetSchema(ctx, schemaURI)
+	def, err := c.GetSchema(ctx, schemaURI)
 	require.NoError(t, err)
 	assert.Equal(t, "data", def.Name)
 
@@ -375,14 +376,14 @@ func TestIntegration_TCPTransport(t *testing.T) {
 		core.NewTuple("tcptest/data/item1", "content", "test value"),
 	}
 
-	err = client.PutTuples(ctx, tuples)
+	err = c.PutTuples(ctx, tuples)
 	require.NoError(t, err)
 
 	uris := []*core.URI{
 		core.MustParseURI("xdb://tcptest/data/item1#content"),
 	}
 
-	retrievedTuples, missing, err := client.GetTuples(ctx, uris)
+	retrievedTuples, missing, err := c.GetTuples(ctx, uris)
 	require.NoError(t, err)
 	assert.Len(t, retrievedTuples, 1)
 	assert.Empty(t, missing)
@@ -403,7 +404,7 @@ func TestIntegration_MixedStoreConfiguration(t *testing.T) {
 	defer ts.Close()
 
 	t.Run("client with matching configuration", func(t *testing.T) {
-		client, err := api.NewClientBuilder(&api.ClientConfig{
+		c, err := client.NewBuilder(&client.Config{
 			Addr: ts.Listener.Addr().String(),
 		}).
 			WithSchemaStore().
@@ -424,10 +425,10 @@ func TestIntegration_MixedStoreConfiguration(t *testing.T) {
 			},
 		}
 
-		err = client.PutSchema(ctx, schemaURI, schemaDef)
+		err = c.PutSchema(ctx, schemaURI, schemaDef)
 		require.NoError(t, err)
 
-		def, err := client.GetSchema(ctx, schemaURI)
+		def, err := c.GetSchema(ctx, schemaURI)
 		require.NoError(t, err)
 		assert.Equal(t, "config", def.Name)
 
@@ -435,12 +436,12 @@ func TestIntegration_MixedStoreConfiguration(t *testing.T) {
 			core.NewTuple("mixed/config/entry1", "key", "value1"),
 		}
 
-		err = client.PutTuples(ctx, tuples)
+		err = c.PutTuples(ctx, tuples)
 		require.NoError(t, err)
 	})
 
 	t.Run("client with disabled stores returns proper errors", func(t *testing.T) {
-		client, err := api.NewClientBuilder(&api.ClientConfig{
+		c, err := client.NewBuilder(&client.Config{
 			Addr: ts.Listener.Addr().String(),
 		}).
 			WithSchemaStore().
@@ -455,15 +456,15 @@ func TestIntegration_MixedStoreConfiguration(t *testing.T) {
 		record := core.NewRecord("mixed", "config", "rec1").
 			Set("key", "value")
 
-		err = client.PutRecords(ctx, []*core.Record{record})
+		err = c.PutRecords(ctx, []*core.Record{record})
 		require.Error(t, err, "Server does not have record store enabled, should fail")
 
-		err = client.Health(ctx)
+		err = c.Health(ctx)
 		require.Error(t, err, "Server does not have health store enabled, should fail")
 	})
 
 	t.Run("client without store returns configuration error", func(t *testing.T) {
-		client, err := api.NewClientBuilder(&api.ClientConfig{
+		c, err := client.NewBuilder(&client.Config{
 			Addr: ts.Listener.Addr().String(),
 		}).
 			WithSchemaStore().
@@ -476,19 +477,19 @@ func TestIntegration_MixedStoreConfiguration(t *testing.T) {
 			core.NewTuple("mixed/config/entry1", "key", "value1"),
 		}
 
-		err = client.PutTuples(ctx, tuples)
+		err = c.PutTuples(ctx, tuples)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, api.ErrTupleStoreNotConfigured)
+		assert.ErrorIs(t, err, client.ErrTupleStoreNotConfigured)
 
 		record := core.NewRecord("mixed", "config", "rec1").
 			Set("key", "value")
-		err = client.PutRecords(ctx, []*core.Record{record})
+		err = c.PutRecords(ctx, []*core.Record{record})
 		require.Error(t, err)
-		assert.ErrorIs(t, err, api.ErrRecordStoreNotConfigured)
+		assert.ErrorIs(t, err, client.ErrRecordStoreNotConfigured)
 
-		err = client.Health(ctx)
+		err = c.Health(ctx)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, api.ErrHealthStoreNotConfigured)
+		assert.ErrorIs(t, err, client.ErrHealthStoreNotConfigured)
 	})
 }
 
@@ -508,7 +509,7 @@ func TestIntegration_ConcurrentOperations(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	defer ts.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: ts.Listener.Addr().String(),
 	}).
 		WithSchemaStore().
@@ -531,7 +532,7 @@ func TestIntegration_ConcurrentOperations(t *testing.T) {
 		},
 	}
 
-	err = client.PutSchema(ctx, schemaURI, schemaDef)
+	err = c.PutSchema(ctx, schemaURI, schemaDef)
 	require.NoError(t, err)
 
 	const numGoroutines = 10
@@ -550,13 +551,13 @@ func TestIntegration_ConcurrentOperations(t *testing.T) {
 					core.NewTuple(tupleID, "value", float64(workerID*100+j)),
 				}
 
-				if putErr := client.PutTuples(ctx, tuples); putErr != nil {
+				if putErr := c.PutTuples(ctx, tuples); putErr != nil {
 					errChan <- putErr
 					continue
 				}
 
 				uri := core.MustParseURI(fmt.Sprintf("xdb://%s#value", tupleID))
-				_, _, getErr := client.GetTuples(ctx, []*core.URI{uri})
+				_, _, getErr := c.GetTuples(ctx, []*core.URI{uri})
 				if getErr != nil {
 					errChan <- getErr
 				}
@@ -593,7 +594,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	defer ts.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: ts.Listener.Addr().String(),
 	}).
 		WithSchemaStore().
@@ -608,7 +609,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 	t.Run("get nonexistent schema returns not found", func(t *testing.T) {
 		schemaURI := core.MustParseURI("xdb://nonexistent/schema")
 
-		_, err := client.GetSchema(ctx, schemaURI)
+		_, err := c.GetSchema(ctx, schemaURI)
 		require.Error(t, err)
 	})
 
@@ -617,7 +618,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 			core.NewTuple("noschema/data/item1", "value", "test"),
 		}
 
-		err := client.PutTuples(ctx, tuples)
+		err := c.PutTuples(ctx, tuples)
 		require.Error(t, err)
 	})
 
@@ -625,7 +626,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 		record := core.NewRecord("noschema", "data", "item1").
 			Set("value", "test")
 
-		err := client.PutRecords(ctx, []*core.Record{record})
+		err := c.PutRecords(ctx, []*core.Record{record})
 		require.Error(t, err)
 	})
 }
@@ -646,7 +647,7 @@ func TestIntegration_LargePayloads(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	defer ts.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: ts.Listener.Addr().String(),
 	}).
 		WithSchemaStore().
@@ -669,7 +670,7 @@ func TestIntegration_LargePayloads(t *testing.T) {
 		},
 	}
 
-	err = client.PutSchema(ctx, schemaURI, schemaDef)
+	err = c.PutSchema(ctx, schemaURI, schemaDef)
 	require.NoError(t, err)
 
 	t.Run("many tuples in single request", func(t *testing.T) {
@@ -680,7 +681,7 @@ func TestIntegration_LargePayloads(t *testing.T) {
 			tuples[i] = core.NewTuple(fmt.Sprintf("large/data/item%d", i), "content", fmt.Sprintf("value-%d", i))
 		}
 
-		err := client.PutTuples(ctx, tuples)
+		err := c.PutTuples(ctx, tuples)
 		require.NoError(t, err)
 
 		uris := make([]*core.URI, numTuples)
@@ -688,7 +689,7 @@ func TestIntegration_LargePayloads(t *testing.T) {
 			uris[i] = core.MustParseURI(fmt.Sprintf("xdb://large/data/item%d#content", i))
 		}
 
-		retrievedTuples, missing, err := client.GetTuples(ctx, uris)
+		retrievedTuples, missing, err := c.GetTuples(ctx, uris)
 		require.NoError(t, err)
 		assert.Len(t, retrievedTuples, numTuples)
 		assert.Empty(t, missing)
@@ -704,14 +705,14 @@ func TestIntegration_LargePayloads(t *testing.T) {
 			core.NewTuple("large/data/bigcontent", "content", string(largeContent)),
 		}
 
-		err := client.PutTuples(ctx, tuples)
+		err := c.PutTuples(ctx, tuples)
 		require.NoError(t, err)
 
 		uris := []*core.URI{
 			core.MustParseURI("xdb://large/data/bigcontent#content"),
 		}
 
-		retrievedTuples, _, err := client.GetTuples(ctx, uris)
+		retrievedTuples, _, err := c.GetTuples(ctx, uris)
 		require.NoError(t, err)
 		require.Len(t, retrievedTuples, 1)
 	})
@@ -731,7 +732,7 @@ func TestIntegration_ContextTimeout(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	defer ts.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr:    ts.Listener.Addr().String(),
 		Timeout: 100 * time.Millisecond,
 	}).
@@ -742,7 +743,7 @@ func TestIntegration_ContextTimeout(t *testing.T) {
 
 	ctx := context.Background()
 
-	err = client.Ping(ctx)
+	err = c.Ping(ctx)
 	require.NoError(t, err)
 }
 
@@ -761,7 +762,7 @@ func TestIntegration_MultipleSchemas(t *testing.T) {
 	ts := httptest.NewServer(server.Handler())
 	defer ts.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: ts.Listener.Addr().String(),
 	}).
 		WithSchemaStore().
@@ -793,18 +794,18 @@ func TestIntegration_MultipleSchemas(t *testing.T) {
 			},
 		}
 
-		err := client.PutSchema(ctx, schemaURI, schemaDef)
+		err := c.PutSchema(ctx, schemaURI, schemaDef)
 		require.NoError(t, err)
 	}
 
 	listURI := core.MustParseURI("xdb://multins")
-	schemaList, err := client.ListSchemas(ctx, listURI)
+	schemaList, err := c.ListSchemas(ctx, listURI)
 	require.NoError(t, err)
 	assert.Len(t, schemaList, 3)
 
 	for _, s := range schemas {
 		schemaURI := core.MustParseURI(s.uri)
-		def, err := client.GetSchema(ctx, schemaURI)
+		def, err := c.GetSchema(ctx, schemaURI)
 		require.NoError(t, err)
 		assert.Equal(t, s.name, def.Name)
 	}

@@ -1,4 +1,4 @@
-package api_test
+package client_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/client"
 	"github.com/xdb-dev/xdb/core"
 )
 
@@ -26,7 +27,7 @@ func TestClient_PutTuples_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithTupleStore().Build()
 	require.NoError(t, err)
@@ -36,7 +37,7 @@ func TestClient_PutTuples_Success(t *testing.T) {
 		core.NewTuple("com.example/users/user-1", "age", int64(30)),
 	}
 
-	err = client.PutTuples(context.Background(), tuples)
+	err = c.PutTuples(context.Background(), tuples)
 	assert.NoError(t, err)
 }
 
@@ -46,7 +47,7 @@ func TestClient_PutTuples_StoreNotConfigured(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithSchemaStore().Build()
 	require.NoError(t, err)
@@ -55,8 +56,8 @@ func TestClient_PutTuples_StoreNotConfigured(t *testing.T) {
 		core.NewTuple("com.example/users/user-1", "name", "Alice"),
 	}
 
-	err = client.PutTuples(context.Background(), tuples)
-	assert.ErrorIs(t, err, api.ErrTupleStoreNotConfigured)
+	err = c.PutTuples(context.Background(), tuples)
+	assert.ErrorIs(t, err, client.ErrTupleStoreNotConfigured)
 }
 
 func TestClient_PutTuples_TupleSerialization(t *testing.T) {
@@ -72,7 +73,7 @@ func TestClient_PutTuples_TupleSerialization(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithTupleStore().Build()
 	require.NoError(t, err)
@@ -82,7 +83,7 @@ func TestClient_PutTuples_TupleSerialization(t *testing.T) {
 		core.NewTuple("com.example/users/user-1", "active", true),
 	}
 
-	err = client.PutTuples(context.Background(), tuples)
+	err = c.PutTuples(context.Background(), tuples)
 	require.NoError(t, err)
 
 	var request []map[string]any
@@ -115,7 +116,7 @@ func TestClient_PutTuples_ValueTypePreservation(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithTupleStore().Build()
 	require.NoError(t, err)
@@ -128,7 +129,7 @@ func TestClient_PutTuples_ValueTypePreservation(t *testing.T) {
 		core.NewTuple("com.example/test/t1", "map_val", map[string]string{"key": "value"}),
 	}
 
-	err = client.PutTuples(context.Background(), tuples)
+	err = c.PutTuples(context.Background(), tuples)
 	require.NoError(t, err)
 
 	var request []map[string]any
@@ -174,7 +175,7 @@ func TestClient_GetTuples_SuccessAllFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithTupleStore().Build()
 	require.NoError(t, err)
@@ -184,7 +185,7 @@ func TestClient_GetTuples_SuccessAllFound(t *testing.T) {
 		core.MustParseURI("xdb://com.example/users/user-1#age"),
 	}
 
-	tuples, missing, err := client.GetTuples(context.Background(), uris)
+	tuples, missing, err := c.GetTuples(context.Background(), uris)
 	assert.NoError(t, err)
 	assert.Len(t, tuples, 2)
 	assert.Empty(t, missing)
@@ -205,7 +206,7 @@ func TestClient_GetTuples_SomeMissing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithTupleStore().Build()
 	require.NoError(t, err)
@@ -215,7 +216,7 @@ func TestClient_GetTuples_SomeMissing(t *testing.T) {
 		core.MustParseURI("xdb://com.example/users/user-1#email"),
 	}
 
-	tuples, missing, err := client.GetTuples(context.Background(), uris)
+	tuples, missing, err := c.GetTuples(context.Background(), uris)
 	assert.NoError(t, err)
 	assert.Len(t, tuples, 1)
 	assert.Len(t, missing, 1)
@@ -238,7 +239,7 @@ func TestClient_GetTuples_AllMissing(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithTupleStore().Build()
 	require.NoError(t, err)
@@ -248,7 +249,7 @@ func TestClient_GetTuples_AllMissing(t *testing.T) {
 		core.MustParseURI("xdb://com.example/users/user-1#age"),
 	}
 
-	tuples, missing, err := client.GetTuples(context.Background(), uris)
+	tuples, missing, err := c.GetTuples(context.Background(), uris)
 	assert.NoError(t, err)
 	assert.Empty(t, tuples)
 	assert.Len(t, missing, 2)
@@ -273,7 +274,7 @@ func TestClient_GetTuples_TupleDeserialization(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithTupleStore().Build()
 	require.NoError(t, err)
@@ -286,7 +287,7 @@ func TestClient_GetTuples_TupleDeserialization(t *testing.T) {
 		core.MustParseURI("xdb://com.example/test/t1#map_val"),
 	}
 
-	tuples, _, err := client.GetTuples(context.Background(), uris)
+	tuples, _, err := c.GetTuples(context.Background(), uris)
 	require.NoError(t, err)
 	require.Len(t, tuples, 5)
 
@@ -313,7 +314,7 @@ func TestClient_DeleteTuples_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithTupleStore().Build()
 	require.NoError(t, err)
@@ -323,7 +324,7 @@ func TestClient_DeleteTuples_Success(t *testing.T) {
 		core.MustParseURI("xdb://com.example/users/user-1#age"),
 	}
 
-	err = client.DeleteTuples(context.Background(), uris)
+	err = c.DeleteTuples(context.Background(), uris)
 	assert.NoError(t, err)
 }
 
@@ -340,7 +341,7 @@ func TestClient_DeleteTuples_URISerialization(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client, err := api.NewClientBuilder(&api.ClientConfig{
+	c, err := client.NewBuilder(&client.Config{
 		Addr: server.Listener.Addr().String(),
 	}).WithTupleStore().Build()
 	require.NoError(t, err)
@@ -350,7 +351,7 @@ func TestClient_DeleteTuples_URISerialization(t *testing.T) {
 		core.MustParseURI("xdb://com.example/users/user-2#email"),
 	}
 
-	err = client.DeleteTuples(context.Background(), uris)
+	err = c.DeleteTuples(context.Background(), uris)
 	require.NoError(t, err)
 
 	var request []string

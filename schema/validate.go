@@ -38,6 +38,15 @@ func InferFields(def *Def, tuples []*core.Tuple) ([]*FieldDef, error) {
 	return slices.Collect(maps.Values(found)), nil
 }
 
+// ValidateRecords validates all tuples in the given records against the schema definition.
+func ValidateRecords(def *Def, records []*core.Record) error {
+	var tuples []*core.Tuple
+	for _, record := range records {
+		tuples = append(tuples, record.Tuples()...)
+	}
+	return ValidateTuples(def, tuples)
+}
+
 // ValidateTuples validates tuples against the schema definition.
 func ValidateTuples(def *Def, tuples []*core.Tuple) error {
 	if def.Mode == ModeFlexible {

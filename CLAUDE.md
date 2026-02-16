@@ -128,7 +128,6 @@ if !field.Type.Equals(tuple.Value().Type()) {
 - Use table-driven tests for functions with multiple cases
 - Place test functions in `package_test` form when testing public APIs
 - Use `testify/assert` for assertions
-- Example tests must have exact `// Output:` comments
 - The `tests/` package provides shared test suites for store implementations:
   - `TupleStoreTest`: Test suite for `TupleStore` implementations
   - `RecordStoreTest`: Test suite for `RecordStore` implementations

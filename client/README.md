@@ -30,7 +30,7 @@ The client wraps an `http.Client` and provides typed methods for each store oper
 
 ## Configuration
 
-### ClientConfig
+### Config
 
 | Field        | Type            | Default | Description             |
 | ------------ | --------------- | ------- | ----------------------- |
@@ -43,7 +43,7 @@ Either `Addr` or `SocketPath` must be set. If both are set, Unix socket takes pr
 ### TCP Connection
 
 ```go
-cfg := &api.ClientConfig{
+cfg := &client.Config{
     Addr:    "localhost:8080",
     Timeout: 30 * time.Second,
 }
@@ -52,7 +52,7 @@ cfg := &api.ClientConfig{
 ### Unix Socket Connection
 
 ```go
-cfg := &api.ClientConfig{
+cfg := &client.Config{
     SocketPath: "/var/run/xdb.sock",
     Timeout:    30 * time.Second,
 }
@@ -60,12 +60,12 @@ cfg := &api.ClientConfig{
 
 ## Builder Pattern
 
-The `ClientBuilder` constructs clients with specific store capabilities. This pattern ensures type safety and prevents calling methods on disabled stores.
+The `Builder` constructs clients with specific store capabilities. This pattern ensures type safety and prevents calling methods on disabled stores.
 
 ### Basic Usage
 
 ```go
-client, err := api.NewClientBuilder(cfg).
+c, err := client.NewBuilder(cfg).
     WithSchemaStore().
     WithTupleStore().
     WithRecordStore().
@@ -217,7 +217,7 @@ Unix sockets provide:
 The client applies the configured timeout to each request:
 
 ```go
-cfg := &api.ClientConfig{
+cfg := &client.Config{
     Addr:    "localhost:8080",
     Timeout: 30 * time.Second, // Applied to each request
 }
@@ -258,7 +258,7 @@ The `Client` is safe for concurrent use from multiple goroutines. The underlying
 ### Concurrent Usage Example
 
 ```go
-client, _ := api.NewClientBuilder(cfg).
+c, _ := client.NewBuilder(cfg).
     WithSchemaStore().
     Build()
 
@@ -268,7 +268,7 @@ for i := 0; i < 100; i++ {
     go func(id int) {
         defer wg.Done()
         uri := core.MustParseURI(fmt.Sprintf("xdb://ns/schema%d", id))
-        _, _ = client.GetSchema(ctx, uri)
+        _, _ = c.GetSchema(ctx, uri)
     }(i)
 }
 wg.Wait()
@@ -290,7 +290,7 @@ httpClient := &http.Client{
     Timeout:   30 * time.Second,
 }
 
-client, _ := api.NewClientBuilder(cfg).
+c, _ := client.NewBuilder(cfg).
     WithHTTPClient(httpClient).
     WithSchemaStore().
     Build()
@@ -325,19 +325,19 @@ import (
     "log"
     "time"
 
-    "github.com/xdb-dev/xdb/api"
+    "github.com/xdb-dev/xdb/client"
     "github.com/xdb-dev/xdb/core"
     "github.com/xdb-dev/xdb/schema"
 )
 
 func main() {
     // Create client with TCP connection
-    cfg := &api.ClientConfig{
+    cfg := &client.Config{
         Addr:    "localhost:8080",
         Timeout: 30 * time.Second,
     }
 
-    client, err := api.NewClientBuilder(cfg).
+    c, err := client.NewBuilder(cfg).
         WithSchemaStore().
         WithTupleStore().
         WithHealthStore().
@@ -349,7 +349,7 @@ func main() {
     ctx := context.Background()
 
     // Check server health
-    if err := client.Health(ctx); err != nil {
+    if err := c.Health(ctx); err != nil {
         log.Fatal("Server unhealthy:", err)
     }
 
@@ -365,7 +365,7 @@ func main() {
     }
 
     uri := core.MustParseURI("xdb://com.example/users")
-    if err := client.PutSchema(ctx, uri, userSchema); err != nil {
+    if err := c.PutSchema(ctx, uri, userSchema); err != nil {
         log.Fatal("Failed to create schema:", err)
     }
 
@@ -375,7 +375,7 @@ func main() {
         core.NewTuple("user-1", "email", "alice@example.com"),
     }
 
-    if err := client.PutTuples(ctx, tuples); err != nil {
+    if err := c.PutTuples(ctx, tuples); err != nil {
         log.Fatal("Failed to store tuples:", err)
     }
 

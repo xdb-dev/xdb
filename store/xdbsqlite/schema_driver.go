@@ -98,7 +98,7 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 		return err
 	}
 
-	tableName := tableName(uri)
+	tbl := d.tableName(def.URI())
 
 	existing, err := d.GetSchema(ctx, uri)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
@@ -106,38 +106,11 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 	}
 
 	if existing != nil {
-		if existing.Mode != def.Mode {
-			return store.ErrSchemaModeChanged
-		}
-
-		// Check for field type changes
-		if err := validateFieldChanges(existing, def); err != nil {
-			return err
-		}
-
-		columnsAdded, columnsRemoved, err := diffFields(existing, def)
-		if err != nil {
-			return err
-		}
-
-		if err = d.queries.AlterSQLTable(ctx, internal.AlterSQLTableParams{
-			Name:        tableName,
-			AddColumns:  columnsAdded,
-			DropColumns: columnsRemoved,
-		}); err != nil {
+		if err = d.updateSchemaTable(ctx, tbl, existing, def); err != nil {
 			return err
 		}
 	} else {
-		columns, err := toSQLiteColumns(def.Fields)
-		if err != nil {
-			return err
-		}
-
-		err = d.queries.CreateSQLTable(ctx, internal.CreateSQLTableParams{
-			Name:    tableName,
-			Columns: columns,
-		})
-		if err != nil {
+		if err = d.createSchemaTable(ctx, tbl, def); err != nil {
 			return err
 		}
 	}
@@ -156,16 +129,64 @@ func (d *SchemaDriverTx) PutSchema(ctx context.Context, uri *core.URI, def *sche
 	})
 }
 
+func (d *SchemaDriverTx) tableName(uri *core.URI) string {
+	return normalize(uri.NS().String() + "__" + uri.Schema().String())
+}
+
+func (d *SchemaDriverTx) updateSchemaTable(
+	ctx context.Context,
+	tbl string,
+	existing, def *schema.Def,
+) error {
+	if existing.Mode != def.Mode {
+		return store.ErrSchemaModeChanged
+	}
+
+	if err := validateFieldChanges(existing, def); err != nil {
+		return err
+	}
+
+	if def.Mode == schema.ModeFlexible {
+		return nil
+	}
+
+	columnsAdded, columnsRemoved, err := diffFields(existing, def)
+	if err != nil {
+		return err
+	}
+
+	return d.queries.AlterSQLTable(ctx, internal.AlterSQLTableParams{
+		Name:        tbl,
+		AddColumns:  columnsAdded,
+		DropColumns: columnsRemoved,
+	})
+}
+
+func (d *SchemaDriverTx) createSchemaTable(ctx context.Context, tbl string, def *schema.Def) error {
+	if def.Mode == schema.ModeFlexible {
+		return d.queries.CreateKVTable(ctx, tbl)
+	}
+
+	columns, err := toSQLiteColumns(def.Fields)
+	if err != nil {
+		return err
+	}
+
+	allColumns := [][]string{{"_id", "TEXT PRIMARY KEY"}}
+	allColumns = append(allColumns, columns...)
+
+	return d.queries.CreateSQLTable(ctx, internal.CreateSQLTableParams{
+		Name:    tbl,
+		Columns: allColumns,
+	})
+}
+
 func (d *SchemaDriverTx) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	if err := d.queries.DeleteMetadata(ctx, uri.String()); err != nil {
 		return err
 	}
 
-	return d.queries.DropTable(ctx, tableName(uri))
-}
-
-func tableName(uri *core.URI) string {
-	return normalize(uri.NS().String() + "__" + uri.Schema().String())
+	return d.queries.DropTable(ctx, d.tableName(uri))
 }
 
 var normalizeRegex = regexp.MustCompile(`[^a-zA-Z0-9_]`)

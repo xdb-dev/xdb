@@ -111,7 +111,3 @@ Attribute:  xdb://com.example/posts/123-456-789#author.id
 ### Stores
 
 Stores serve as the bridge between XDB's tuple-based model and specific database implementations. All stores implement basic **Reader** and **Writer** capabilities, with advanced features like full-text search, aggregation, and iteration available based on the database's capabilities.
-
-### Drivers (Deprecated)
-
-The term "driver" has been replaced by "store" to better reflect the role of these components in XDB. Store implementations satisfy capability interfaces, allowing them to be used together or layered for complex scenarios.
