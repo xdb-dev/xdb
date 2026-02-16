@@ -90,6 +90,64 @@ type DeleteKVTuplesParams struct {
 	IDs   []string
 }
 
+// SelectKVTuplesByKeysParams contains parameters for selecting tuples by keys from a KV table.
+type SelectKVTuplesByKeysParams struct {
+	Table string
+	Keys  []string
+}
+
+// SelectKVTuplesByKeys retrieves tuples by their composite keys from a KV table.
+// The caller is responsible for closing the returned rows.
+func (q *Queries) SelectKVTuplesByKeys(ctx context.Context, args SelectKVTuplesByKeysParams) (*sql.Rows, error) {
+	if len(args.Keys) == 0 {
+		return nil, errors.New("[xdbsqlite] no keys provided")
+	}
+
+	var query strings.Builder
+
+	fmt.Fprintf(&query, `SELECT key, id, attr, value, updated_at FROM "%s" WHERE key IN (`, args.Table)
+
+	placeholders := make([]string, len(args.Keys))
+	values := make([]any, len(args.Keys))
+	for i, key := range args.Keys {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		values[i] = key
+	}
+	query.WriteString(strings.Join(placeholders, ", "))
+	query.WriteString(") ORDER BY id, attr")
+
+	return q.tx.QueryContext(ctx, query.String(), values...)
+}
+
+// DeleteKVTuplesByKeysParams contains parameters for deleting tuples by keys from a KV table.
+type DeleteKVTuplesByKeysParams struct {
+	Table string
+	Keys  []string
+}
+
+// DeleteKVTuplesByKeys deletes tuples by their composite keys from a KV table.
+func (q *Queries) DeleteKVTuplesByKeys(ctx context.Context, args DeleteKVTuplesByKeysParams) error {
+	if len(args.Keys) == 0 {
+		return nil
+	}
+
+	var query strings.Builder
+
+	fmt.Fprintf(&query, `DELETE FROM "%s" WHERE key IN (`, args.Table)
+
+	placeholders := make([]string, len(args.Keys))
+	values := make([]any, len(args.Keys))
+	for i, key := range args.Keys {
+		placeholders[i] = fmt.Sprintf("$%d", i+1)
+		values[i] = key
+	}
+	query.WriteString(strings.Join(placeholders, ", "))
+	query.WriteString(")")
+
+	_, err := q.tx.ExecContext(ctx, query.String(), values...)
+	return err
+}
+
 // DeleteKVTuples deletes tuples by record IDs from a KV table.
 func (q *Queries) DeleteKVTuples(ctx context.Context, args DeleteKVTuplesParams) error {
 	if len(args.IDs) == 0 {

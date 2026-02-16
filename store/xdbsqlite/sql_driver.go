@@ -32,11 +32,9 @@ func (d *SQLDriverTx) tableName() string {
 // GetRecords retrieves records by IDs from the SQL table.
 func (d *SQLDriverTx) GetRecords(
 	ctx context.Context,
-	schemaURI *core.URI,
-	schemaDef *schema.Def,
 	ids []string,
 ) ([]*core.Record, []*core.URI, error) {
-	columns := buildSQLColumns(schemaDef)
+	columns := buildSQLColumns(d.schemaDef)
 
 	rows, err := d.queries.SelectRecords(ctx, internal.SelectRecordsParams{
 		Table:   d.tableName(),
@@ -50,7 +48,9 @@ func (d *SQLDriverTx) GetRecords(
 		_ = rows.Close()
 	}()
 
-	recordMap, err := d.scanSQLRows(rows, schemaURI, schemaDef, columns)
+	schemaURI := d.schemaDef.URI()
+
+	recordMap, err := d.scanSQLRows(rows, columns)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -83,14 +83,12 @@ func buildSQLColumns(schemaDef *schema.Def) []string {
 
 func (d *SQLDriverTx) scanSQLRows(
 	rows *sql.Rows,
-	schemaURI *core.URI,
-	schemaDef *schema.Def,
 	columns []string,
 ) (map[string]*core.Record, error) {
 	recordMap := make(map[string]*core.Record)
 
 	for rows.Next() {
-		record, id, err := d.scanSQLRow(rows, schemaURI, schemaDef, columns)
+		record, id, err := d.scanSQLRow(rows, columns)
 		if err != nil {
 			return nil, err
 		}
@@ -106,10 +104,9 @@ func (d *SQLDriverTx) scanSQLRows(
 
 func (d *SQLDriverTx) scanSQLRow(
 	rows *sql.Rows,
-	schemaURI *core.URI,
-	schemaDef *schema.Def,
 	columns []string,
 ) (*core.Record, string, error) {
+	schemaURI := d.schemaDef.URI()
 	scanDest := make([]any, len(columns))
 	var id string
 	scanDest[0] = &id
@@ -125,7 +122,7 @@ func (d *SQLDriverTx) scanSQLRow(
 
 	record := core.NewRecord(schemaURI.NS().String(), schemaURI.Schema().String(), id)
 
-	for i, field := range schemaDef.Fields {
+	for i, field := range d.schemaDef.Fields {
 		sqlVal := *(scanDest[i+1].(*any))
 		if sqlVal == nil {
 			continue
@@ -203,6 +200,178 @@ func (d *SQLDriverTx) DeleteRecords(ctx context.Context, ids []string) error {
 		Table: tbl,
 		IDs:   ids,
 	})
+}
+
+// TupleRef represents a reference to a specific tuple (id + attr) in a SQL table.
+type TupleRef struct {
+	ID   string
+	Attr string
+}
+
+// GetTuples retrieves individual tuples from the SQL table.
+func (d *SQLDriverTx) GetTuples(
+	ctx context.Context,
+	refs []TupleRef,
+) ([]*core.Tuple, []*core.URI, error) {
+	ids := uniqueIDs(refs)
+	columns := buildSQLColumns(d.schemaDef)
+
+	rows, err := d.queries.SelectRecords(ctx, internal.SelectRecordsParams{
+		Table:   d.tableName(),
+		Columns: columns,
+		IDs:     ids,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	recordMap, err := d.scanSQLRows(rows, columns)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return extractTuplesFromRecords(d.schemaDef.URI(), recordMap, refs)
+}
+
+func uniqueIDs(refs []TupleRef) []string {
+	idSet := make(map[string]bool)
+	for _, ref := range refs {
+		idSet[ref.ID] = true
+	}
+
+	ids := make([]string, 0, len(idSet))
+	for id := range idSet {
+		ids = append(ids, id)
+	}
+
+	return ids
+}
+
+func extractTuplesFromRecords(
+	schemaURI *core.URI,
+	recordMap map[string]*core.Record,
+	refs []TupleRef,
+) ([]*core.Tuple, []*core.URI, error) {
+	tuples := make([]*core.Tuple, 0, len(refs))
+	var missed []*core.URI
+
+	for _, ref := range refs {
+		record, ok := recordMap[ref.ID]
+		if !ok {
+			missed = append(missed, tupleRefURI(schemaURI, ref))
+			continue
+		}
+
+		tuple := record.Get(ref.Attr)
+		if tuple == nil {
+			missed = append(missed, tupleRefURI(schemaURI, ref))
+			continue
+		}
+
+		path := schemaURI.NS().String() + "/" + schemaURI.Schema().String() + "/" + ref.ID
+		tuples = append(tuples, core.NewTuple(path, ref.Attr, tuple.Value()))
+	}
+
+	return tuples, missed, nil
+}
+
+func tupleRefURI(schemaURI *core.URI, ref TupleRef) *core.URI {
+	return core.New().
+		NS(schemaURI.NS().String()).
+		Schema(schemaURI.Schema().String()).
+		ID(ref.ID).
+		Attr(ref.Attr).
+		MustURI()
+}
+
+// PutTuples saves individual tuples to the SQL table.
+func (d *SQLDriverTx) PutTuples(
+	ctx context.Context,
+	tuples []*core.Tuple,
+) error {
+	tbl := d.tableName()
+
+	grouped := make(map[string][]*core.Tuple)
+	for _, tuple := range tuples {
+		id := tuple.ID().String()
+		grouped[id] = append(grouped[id], tuple)
+	}
+
+	for id, idTuples := range grouped {
+		columns := []string{"_id"}
+		values := []any{id}
+
+		for _, tuple := range idTuples {
+			field := d.schemaDef.GetField(tuple.Attr().String())
+			if field == nil {
+				continue
+			}
+
+			sqlVal, err := valueToSQL(tuple.Value())
+			if err != nil {
+				return err
+			}
+
+			columns = append(columns, normalize(field.Name))
+			values = append(values, sqlVal)
+		}
+
+		if err := d.queries.InsertRecord(ctx, internal.InsertRecordParams{
+			Table:   tbl,
+			Columns: columns,
+			Values:  values,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// DeleteTuples sets specific tuple columns to NULL in the SQL table.
+func (d *SQLDriverTx) DeleteTuples(ctx context.Context, refs []TupleRef) error {
+	tbl := d.tableName()
+
+	grouped := make(map[string][]string)
+	for _, ref := range refs {
+		field := d.schemaDef.GetField(ref.Attr)
+		if field == nil {
+			continue
+		}
+		grouped[ref.ID] = append(grouped[ref.ID], normalize(field.Name))
+	}
+
+	for id, columns := range grouped {
+		if err := d.queries.NullifyRecordColumns(ctx, internal.NullifyRecordColumnsParams{
+			Table:   tbl,
+			ID:      id,
+			Columns: columns,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// AddDynamicFieldsFromTuples infers and adds new fields from tuples to a dynamic schema.
+func (d *SQLDriverTx) AddDynamicFieldsFromTuples(
+	ctx context.Context,
+	tuples []*core.Tuple,
+) (*schema.Def, error) {
+	newFields, err := schema.InferFields(d.schemaDef, tuples)
+	if err != nil {
+		return nil, err
+	}
+	if len(newFields) > 0 {
+		d.schemaDef.AddFields(newFields...)
+		schemaURI := tuples[0].SchemaURI()
+		return d.schemaDef, d.schemaDriver.PutSchema(ctx, schemaURI, d.schemaDef)
+	}
+	return d.schemaDef, nil
 }
 
 // AddDynamicFields infers and adds new fields from records to a dynamic schema.

@@ -1,7 +1,10 @@
 package xdbsqlite
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gojekfarm/xtools/errors"
@@ -295,7 +298,9 @@ func convertToArray(sqlVal any, fieldType core.Type) (*core.Value, error) {
 	}
 
 	var rawArr []any
-	if err := json.Unmarshal([]byte(jsonStr), &rawArr); err != nil {
+	dec := json.NewDecoder(strings.NewReader(jsonStr))
+	dec.UseNumber()
+	if err := dec.Decode(&rawArr); err != nil {
 		return nil, errors.Wrap(ErrValueConversion, "reason", "json unmarshal failed")
 	}
 
@@ -303,26 +308,7 @@ func convertToArray(sqlVal any, fieldType core.Type) (*core.Value, error) {
 		return nil, nil
 	}
 
-	elemType := core.Type{}
-	if fieldType.ValueTypeID() != core.TIDUnknown {
-		elemType = core.Type{}
-		switch fieldType.ValueTypeID() {
-		case core.TIDString:
-			elemType = core.TypeString
-		case core.TIDInteger:
-			elemType = core.TypeInt
-		case core.TIDUnsigned:
-			elemType = core.TypeUnsigned
-		case core.TIDBoolean:
-			elemType = core.TypeBool
-		case core.TIDFloat:
-			elemType = core.TypeFloat
-		case core.TIDBytes:
-			elemType = core.TypeBytes
-		case core.TIDTime:
-			elemType = core.TypeTime
-		}
-	}
+	elemType := typeForID(fieldType.ValueTypeID())
 
 	arr := make([]*core.Value, len(rawArr))
 	for i, elem := range rawArr {
@@ -349,7 +335,9 @@ func convertToMap(sqlVal any, fieldType core.Type) (*core.Value, error) {
 	}
 
 	var rawMap map[string]any
-	if err := json.Unmarshal([]byte(jsonStr), &rawMap); err != nil {
+	dec := json.NewDecoder(strings.NewReader(jsonStr))
+	dec.UseNumber()
+	if err := dec.Decode(&rawMap); err != nil {
 		return nil, errors.Wrap(ErrValueConversion, "reason", "json unmarshal failed")
 	}
 
@@ -357,37 +345,12 @@ func convertToMap(sqlVal any, fieldType core.Type) (*core.Value, error) {
 		return nil, nil
 	}
 
-	keyType := core.TypeString
-	if fieldType.KeyTypeID() != core.TIDUnknown {
-		switch fieldType.KeyTypeID() {
-		case core.TIDString:
-			keyType = core.TypeString
-		case core.TIDInteger:
-			keyType = core.TypeInt
-		case core.TIDUnsigned:
-			keyType = core.TypeUnsigned
-		}
+	keyType := typeForID(fieldType.KeyTypeID())
+	if keyType.ID() == core.TIDUnknown {
+		keyType = core.TypeString
 	}
 
-	valueType := core.Type{}
-	if fieldType.ValueTypeID() != core.TIDUnknown {
-		switch fieldType.ValueTypeID() {
-		case core.TIDString:
-			valueType = core.TypeString
-		case core.TIDInteger:
-			valueType = core.TypeInt
-		case core.TIDUnsigned:
-			valueType = core.TypeUnsigned
-		case core.TIDBoolean:
-			valueType = core.TypeBool
-		case core.TIDFloat:
-			valueType = core.TypeFloat
-		case core.TIDBytes:
-			valueType = core.TypeBytes
-		case core.TIDTime:
-			valueType = core.TypeTime
-		}
-	}
+	valueType := typeForID(fieldType.ValueTypeID())
 
 	mp := make(map[*core.Value]*core.Value, len(rawMap))
 	for k, v := range rawMap {
@@ -407,6 +370,27 @@ func convertToMap(sqlVal any, fieldType core.Type) (*core.Value, error) {
 	return core.NewSafeValue(mp)
 }
 
+func typeForID(tid core.TID) core.Type {
+	switch tid {
+	case core.TIDString:
+		return core.TypeString
+	case core.TIDInteger:
+		return core.TypeInt
+	case core.TIDUnsigned:
+		return core.TypeUnsigned
+	case core.TIDBoolean:
+		return core.TypeBool
+	case core.TIDFloat:
+		return core.TypeFloat
+	case core.TIDBytes:
+		return core.TypeBytes
+	case core.TIDTime:
+		return core.TypeTime
+	default:
+		return core.Type{}
+	}
+}
+
 func goToValue(val any, targetType core.Type) (*core.Value, error) {
 	if val == nil {
 		return nil, nil
@@ -422,36 +406,89 @@ func goToValue(val any, targetType core.Type) (*core.Value, error) {
 			return core.NewSafeValue(s)
 		}
 	case core.TIDInteger:
-		switch v := val.(type) {
-		case float64:
-			return core.NewSafeValue(int64(v))
-		case int64:
-			return core.NewSafeValue(v)
-		}
+		return goToInt64Value(val)
 	case core.TIDUnsigned:
-		switch v := val.(type) {
-		case float64:
-			return core.NewSafeValue(uint64(v))
-		case uint64:
-			return core.NewSafeValue(v)
-		}
+		return goToUint64Value(val)
 	case core.TIDBoolean:
 		if b, ok := val.(bool); ok {
 			return core.NewSafeValue(b)
 		}
 	case core.TIDFloat:
-		if f, ok := val.(float64); ok {
-			return core.NewSafeValue(f)
+		return goToFloat64Value(val)
+	case core.TIDBytes:
+		if s, ok := val.(string); ok {
+			b, err := base64.StdEncoding.DecodeString(s)
+			if err != nil {
+				return nil, errors.Wrap(ErrValueConversion, "reason", "base64 decode failed")
+			}
+			return core.NewSafeValue(b)
 		}
 	case core.TIDTime:
-		switch v := val.(type) {
-		case float64:
-			return core.NewSafeValue(time.Unix(0, int64(v)).UTC())
-		case int64:
-			return core.NewSafeValue(time.Unix(0, v).UTC())
-		}
+		return goToTimeValue(val)
 	}
 
+	return core.NewSafeValue(val)
+}
+
+func goToInt64Value(val any) (*core.Value, error) {
+	switch v := val.(type) {
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return nil, errors.Wrap(ErrValueConversion, "reason", "json number to int64 failed")
+		}
+		return core.NewSafeValue(n)
+	case float64:
+		return core.NewSafeValue(int64(v))
+	case int64:
+		return core.NewSafeValue(v)
+	}
+	return core.NewSafeValue(val)
+}
+
+func goToUint64Value(val any) (*core.Value, error) {
+	switch v := val.(type) {
+	case json.Number:
+		n, err := strconv.ParseUint(v.String(), 10, 64)
+		if err != nil {
+			return nil, errors.Wrap(ErrValueConversion, "reason", "json number to uint64 failed")
+		}
+		return core.NewSafeValue(n)
+	case float64:
+		return core.NewSafeValue(uint64(v))
+	case uint64:
+		return core.NewSafeValue(v)
+	}
+	return core.NewSafeValue(val)
+}
+
+func goToFloat64Value(val any) (*core.Value, error) {
+	switch v := val.(type) {
+	case json.Number:
+		f, err := v.Float64()
+		if err != nil {
+			return nil, errors.Wrap(ErrValueConversion, "reason", "json number to float64 failed")
+		}
+		return core.NewSafeValue(f)
+	case float64:
+		return core.NewSafeValue(v)
+	}
+	return core.NewSafeValue(val)
+}
+
+func goToTimeValue(val any) (*core.Value, error) {
+	switch v := val.(type) {
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return nil, errors.Wrap(ErrValueConversion, "reason", "json number to time failed")
+		}
+		return core.NewSafeValue(time.Unix(0, n).UTC())
+	case float64:
+		return core.NewSafeValue(time.Unix(0, int64(v)).UTC())
+	case int64:
+		return core.NewSafeValue(time.Unix(0, v).UTC())
+	}
 	return core.NewSafeValue(val)
 }
 

@@ -34,7 +34,6 @@ func (d *KVDriverTx) tableName() string {
 // GetRecords retrieves records by IDs from the KV table.
 func (d *KVDriverTx) GetRecords(
 	ctx context.Context,
-	schemaURI *core.URI,
 	ids []string,
 ) ([]*core.Record, []*core.URI, error) {
 	rows, err := d.queries.SelectKVTuples(ctx, internal.SelectKVTuplesParams{
@@ -48,7 +47,9 @@ func (d *KVDriverTx) GetRecords(
 		_ = rows.Close()
 	}()
 
-	recordMap, err := d.scanKVRows(rows, schemaURI)
+	schemaURI := d.schemaDef.URI()
+
+	recordMap, err := d.scanKVRows(rows)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -72,8 +73,8 @@ func (d *KVDriverTx) GetRecords(
 
 func (d *KVDriverTx) scanKVRows(
 	rows *sql.Rows,
-	schemaURI *core.URI,
 ) (map[string]*core.Record, error) {
+	schemaURI := d.schemaDef.URI()
 	recordMap := make(map[string]*core.Record)
 
 	for rows.Next() {
@@ -104,6 +105,115 @@ func (d *KVDriverTx) scanKVRows(
 	}
 
 	return recordMap, nil
+}
+
+// GetTuples retrieves individual tuples by their keys from the KV table.
+func (d *KVDriverTx) GetTuples(
+	ctx context.Context,
+	keys []string,
+) ([]*core.Tuple, []*core.URI, error) {
+	schemaURI := d.schemaDef.URI()
+	rows, err := d.queries.SelectKVTuplesByKeys(ctx, internal.SelectKVTuplesByKeysParams{
+		Table: d.tableName(),
+		Keys:  keys,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() {
+		_ = rows.Close()
+	}()
+
+	found := make(map[string]*core.Tuple)
+	for rows.Next() {
+		var kvTuple internal.KVTuple
+		err := rows.Scan(&kvTuple.Key, &kvTuple.ID, &kvTuple.Attr, &kvTuple.Value, &kvTuple.UpdatedAt)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		coreVal, err := d.jsonCodec.DecodeValue([]byte(kvTuple.Value))
+		if err != nil {
+			return nil, nil, err
+		}
+
+		path := schemaURI.NS().String() + "/" + schemaURI.Schema().String() + "/" + kvTuple.ID
+		found[kvTuple.Key] = core.NewTuple(path, kvTuple.Attr, coreVal)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	var tuples []*core.Tuple
+	var missed []*core.URI
+	for _, key := range keys {
+		if t, ok := found[key]; ok {
+			tuples = append(tuples, t)
+		} else {
+			parts := splitKey(key)
+			if parts != nil {
+				missed = append(missed, core.New().
+					NS(schemaURI.NS().String()).
+					Schema(schemaURI.Schema().String()).
+					ID(parts[0]).
+					Attr(parts[1]).
+					MustURI())
+			}
+		}
+	}
+
+	return tuples, missed, nil
+}
+
+// PutTuples saves individual tuples to the KV table.
+func (d *KVDriverTx) PutTuples(
+	ctx context.Context,
+	tuples []*core.Tuple,
+) error {
+	tbl := d.tableName()
+	now := time.Now().Unix()
+
+	kvTuples := make([]internal.KVTuple, 0, len(tuples))
+	for _, tuple := range tuples {
+		id := tuple.ID().String()
+		attr := tuple.Attr().String()
+
+		encodedValue, err := d.jsonCodec.EncodeValue(tuple.Value())
+		if err != nil {
+			return err
+		}
+
+		kvTuples = append(kvTuples, internal.KVTuple{
+			Key:       id + "#" + attr,
+			ID:        id,
+			Attr:      attr,
+			Value:     string(encodedValue),
+			UpdatedAt: now,
+		})
+	}
+
+	return d.queries.InsertKVTuples(ctx, internal.InsertKVTuplesParams{
+		Table:  tbl,
+		Tuples: kvTuples,
+	})
+}
+
+// DeleteTuples removes individual tuples by their keys from the KV table.
+func (d *KVDriverTx) DeleteTuples(ctx context.Context, keys []string) error {
+	return d.queries.DeleteKVTuplesByKeys(ctx, internal.DeleteKVTuplesByKeysParams{
+		Table: d.tableName(),
+		Keys:  keys,
+	})
+}
+
+func splitKey(key string) []string {
+	for i := len(key) - 1; i >= 0; i-- {
+		if key[i] == '#' {
+			return []string{key[:i], key[i+1:]}
+		}
+	}
+	return nil
 }
 
 // PutRecords saves records to the KV table.

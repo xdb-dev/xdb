@@ -101,6 +101,37 @@ func (q *Queries) SelectRecords(ctx context.Context, args SelectRecordsParams) (
 	return q.tx.QueryContext(ctx, query.String(), values...)
 }
 
+// NullifyRecordColumnsParams contains parameters for setting specific columns to NULL.
+type NullifyRecordColumnsParams struct {
+	Table   string
+	ID      string
+	Columns []string
+}
+
+// NullifyRecordColumns sets specified columns to NULL for a given record ID.
+func (q *Queries) NullifyRecordColumns(ctx context.Context, args NullifyRecordColumnsParams) error {
+	if len(args.Columns) == 0 {
+		return nil
+	}
+
+	var query strings.Builder
+
+	query.WriteString("UPDATE ")
+	query.WriteString(args.Table)
+	query.WriteString(" SET ")
+
+	updates := make([]string, len(args.Columns))
+	for i, col := range args.Columns {
+		updates[i] = col + " = NULL"
+	}
+	query.WriteString(strings.Join(updates, ", "))
+
+	query.WriteString(" WHERE _id = $1")
+
+	_, err := q.tx.ExecContext(ctx, query.String(), args.ID)
+	return err
+}
+
 // DeleteRecordsParams contains parameters for deleting records from a SQL table.
 type DeleteRecordsParams struct {
 	Table string
