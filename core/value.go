@@ -210,3 +210,13 @@ func (v *Value) String() string {
 func (v *Value) GoString() string {
 	return fmt.Sprintf("Value(%s, %s)", v.typ.String(), v.String())
 }
+
+// Array returns the underlying array of values.
+func (v *Value) Array() []*Value {
+	return v.data.([]*Value)
+}
+
+// Map returns the underlying map of key-value pairs.
+func (v *Value) Map() map[*Value]*Value {
+	return v.data.(map[*Value]*Value)
+}

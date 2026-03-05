@@ -111,9 +111,11 @@ func (d *SQLDriverTx) scanSQLRow(
 	var id string
 	scanDest[0] = &id
 
-	for i := 1; i < len(columns); i++ {
-		var val any
-		scanDest[i] = &val
+	sqlValues := make([]*value, len(d.schemaDef.Fields))
+	for i, field := range d.schemaDef.Fields {
+		sv := newValueFor(field.Type)
+		sqlValues[i] = sv
+		scanDest[i+1] = sv
 	}
 
 	if err := rows.Scan(scanDest...); err != nil {
@@ -123,16 +125,7 @@ func (d *SQLDriverTx) scanSQLRow(
 	record := core.NewRecord(schemaURI.NS().String(), schemaURI.Schema().String(), id)
 
 	for i, field := range d.schemaDef.Fields {
-		sqlVal := *(scanDest[i+1].(*any))
-		if sqlVal == nil {
-			continue
-		}
-
-		coreVal, err := sqlToValue(sqlVal, field.Type)
-		if err != nil {
-			return nil, "", err
-		}
-
+		coreVal := sqlValues[i].Unwrap()
 		if coreVal != nil {
 			record.Set(field.Name, coreVal)
 		}
@@ -181,13 +174,8 @@ func buildRecordColumns(record *core.Record, schemaDef *schema.Def) ([]string, [
 			continue
 		}
 
-		sqlVal, err := valueToSQL(tuple.Value())
-		if err != nil {
-			return nil, nil, err
-		}
-
 		columns = append(columns, normalize(field.Name))
-		values = append(values, sqlVal)
+		values = append(values, newValue(tuple.Value()))
 	}
 
 	return columns, values, nil
@@ -310,13 +298,8 @@ func (d *SQLDriverTx) PutTuples(
 				continue
 			}
 
-			sqlVal, err := valueToSQL(tuple.Value())
-			if err != nil {
-				return err
-			}
-
 			columns = append(columns, normalize(field.Name))
-			values = append(values, sqlVal)
+			values = append(values, newValue(tuple.Value()))
 		}
 
 		if err := d.queries.InsertRecord(ctx, internal.InsertRecordParams{

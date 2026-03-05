@@ -2,8 +2,10 @@
 package json
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/xdb-dev/xdb/codec"
@@ -187,11 +189,18 @@ func unmarshalMap(rawMap map[string]any) (*core.Value, error) {
 func unmarshalTime(data any) (*core.Value, error) {
 	var unixtime int64
 
-	if i, ok := data.(int64); ok {
+	switch n := data.(type) {
+	case json.Number:
+		i, err := n.Int64()
+		if err != nil {
+			return nil, err
+		}
 		unixtime = i
-	} else if f, ok := data.(float64); ok {
-		unixtime = int64(f)
-	} else {
+	case int64:
+		unixtime = n
+	case float64:
+		unixtime = int64(n)
+	default:
 		return nil, codec.ErrDecodingValue
 	}
 
@@ -205,7 +214,9 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 	}
 
 	var decoded value
-	if err := json.Unmarshal(b, &decoded); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
+	if err := dec.Decode(&decoded); err != nil {
 		return nil, err
 	}
 
@@ -213,41 +224,86 @@ func unmarshalValue(b []byte) (*core.Value, error) {
 		return nil, nil
 	}
 
-	switch decoded.TypeID {
+	return unmarshalTypedData(decoded.TypeID, decoded.Data)
+}
+
+func unmarshalTypedData(tid core.TID, data any) (*core.Value, error) {
+	switch tid {
 	case core.TIDArray:
-		rawArr, ok := decoded.Data.([]any)
+		rawArr, ok := data.([]any)
 		if !ok {
 			return nil, codec.ErrDecodingValue
 		}
 		return unmarshalArray(rawArr)
 	case core.TIDMap:
-		rawMap, ok := decoded.Data.(map[string]any)
+		rawMap, ok := data.(map[string]any)
 		if !ok {
 			return nil, codec.ErrDecodingValue
 		}
 		return unmarshalMap(rawMap)
 	case core.TIDTime:
-		return unmarshalTime(decoded.Data)
+		return unmarshalTime(data)
 	case core.TIDInteger:
-		if f, ok := decoded.Data.(float64); ok {
-			return core.NewSafeValue(int64(f))
-		}
-		return core.NewSafeValue(decoded.Data)
+		return unmarshalInt64(data)
 	case core.TIDUnsigned:
-		if f, ok := decoded.Data.(float64); ok {
-			return core.NewSafeValue(uint64(f))
-		}
-		return core.NewSafeValue(decoded.Data)
+		return unmarshalUint64(data)
+	case core.TIDFloat:
+		return unmarshalFloat64(data)
 	case core.TIDBytes:
-		if s, ok := decoded.Data.(string); ok {
+		if s, ok := data.(string); ok {
 			decodedBytes, err := base64.StdEncoding.DecodeString(s)
 			if err != nil {
 				return nil, err
 			}
 			return core.NewSafeValue(decodedBytes)
 		}
-		return core.NewSafeValue(decoded.Data)
+		return core.NewSafeValue(data)
 	default:
-		return core.NewSafeValue(decoded.Data)
+		return core.NewSafeValue(data)
+	}
+}
+
+func unmarshalInt64(data any) (*core.Value, error) {
+	switch n := data.(type) {
+	case json.Number:
+		i, err := n.Int64()
+		if err != nil {
+			return nil, err
+		}
+		return core.NewSafeValue(i)
+	case float64:
+		return core.NewSafeValue(int64(n))
+	default:
+		return core.NewSafeValue(data)
+	}
+}
+
+func unmarshalUint64(data any) (*core.Value, error) {
+	switch n := data.(type) {
+	case json.Number:
+		i, err := strconv.ParseUint(n.String(), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		return core.NewSafeValue(i)
+	case float64:
+		return core.NewSafeValue(uint64(n))
+	default:
+		return core.NewSafeValue(data)
+	}
+}
+
+func unmarshalFloat64(data any) (*core.Value, error) {
+	switch n := data.(type) {
+	case json.Number:
+		f, err := n.Float64()
+		if err != nil {
+			return nil, err
+		}
+		return core.NewSafeValue(f)
+	case float64:
+		return core.NewSafeValue(n)
+	default:
+		return core.NewSafeValue(data)
 	}
 }

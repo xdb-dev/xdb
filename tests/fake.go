@@ -49,7 +49,7 @@ func FakePost() *core.Record {
 		Set("published", gofakeit.Bool()).
 		Set("comments.count", gofakeit.IntRange(0, 100)).
 		Set("thumbnail", []byte(gofakeit.LoremIpsumSentence(5))).
-		Set("created_at", gofakeit.Date())
+		Set("created_at", gofakeit.Date().Truncate(time.Millisecond))
 }
 
 // FakePosts creates a list of fake records.
@@ -126,10 +126,10 @@ func FakeAllTypesRecord() *core.Record {
 			[]byte(gofakeit.Sentence(10)),
 			[]byte(gofakeit.Sentence(10)),
 		}).
-		Set("time", gofakeit.Date()).
+		Set("time", gofakeit.Date().Truncate(time.Millisecond)).
 		Set("time_array", []time.Time{
-			gofakeit.Date(),
-			gofakeit.Date(),
+			gofakeit.Date().Truncate(time.Millisecond),
+			gofakeit.Date().Truncate(time.Millisecond),
 		}).
 		Set("metadata", map[string]string{
 			gofakeit.Word(): gofakeit.Sentence(5),

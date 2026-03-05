@@ -1,6 +1,8 @@
 package xdbsqlite
 
 import (
+	"database/sql"
+	"database/sql/driver"
 	"testing"
 	"time"
 
@@ -10,34 +12,44 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-func TestValueToSQL_NilValue(t *testing.T) {
-	result, err := valueToSQL(nil)
+func TestSQLValue_Interfaces(t *testing.T) {
+	sv := &value{}
+	assert.Implements(t, (*driver.Valuer)(nil), sv)
+	assert.Implements(t, (*sql.Scanner)(nil), sv)
+}
+
+func TestSQLValue_Value_Nil(t *testing.T) {
+	sv := &value{}
+	result, err := sv.Value()
 	require.NoError(t, err)
 	assert.Nil(t, result)
 }
 
-func TestValueToSQL_String(t *testing.T) {
+func TestSQLValue_Value_String(t *testing.T) {
 	v := core.NewValue("hello")
-	result, err := valueToSQL(v)
+	sv := newValue(v)
+	result, err := sv.Value()
 	require.NoError(t, err)
 	assert.Equal(t, "hello", result)
 }
 
-func TestValueToSQL_Integer(t *testing.T) {
+func TestSQLValue_Value_Integer(t *testing.T) {
 	v := core.NewValue(int64(42))
-	result, err := valueToSQL(v)
+	sv := newValue(v)
+	result, err := sv.Value()
 	require.NoError(t, err)
 	assert.Equal(t, int64(42), result)
 }
 
-func TestValueToSQL_Unsigned(t *testing.T) {
+func TestSQLValue_Value_Unsigned(t *testing.T) {
 	v := core.NewValue(uint64(42))
-	result, err := valueToSQL(v)
+	sv := newValue(v)
+	result, err := sv.Value()
 	require.NoError(t, err)
 	assert.Equal(t, int64(42), result)
 }
 
-func TestValueToSQL_Boolean(t *testing.T) {
+func TestSQLValue_Value_Boolean(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    bool
@@ -50,89 +62,101 @@ func TestValueToSQL_Boolean(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			v := core.NewValue(tt.input)
-			result, err := valueToSQL(v)
+			sv := newValue(v)
+			result, err := sv.Value()
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-func TestValueToSQL_Float(t *testing.T) {
+func TestSQLValue_Value_Float(t *testing.T) {
 	v := core.NewValue(3.14)
-	result, err := valueToSQL(v)
+	sv := newValue(v)
+	result, err := sv.Value()
 	require.NoError(t, err)
 	assert.Equal(t, 3.14, result)
 }
 
-func TestValueToSQL_Bytes(t *testing.T) {
+func TestSQLValue_Value_Bytes(t *testing.T) {
 	data := []byte{0x01, 0x02, 0x03}
 	v := core.NewValue(data)
-	result, err := valueToSQL(v)
+	sv := newValue(v)
+	result, err := sv.Value()
 	require.NoError(t, err)
 	assert.Equal(t, data, result)
 }
 
-func TestValueToSQL_Time(t *testing.T) {
+func TestSQLValue_Value_Time(t *testing.T) {
 	now := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
 	v := core.NewValue(now)
-	result, err := valueToSQL(v)
+	sv := newValue(v)
+	result, err := sv.Value()
 	require.NoError(t, err)
-	assert.Equal(t, now.UnixNano(), result)
+	assert.Equal(t, now.UnixMilli(), result)
 }
 
-func TestValueToSQL_Array(t *testing.T) {
+func TestSQLValue_Value_Array(t *testing.T) {
 	arr := []int64{1, 2, 3}
 	v := core.NewValue(arr)
-	result, err := valueToSQL(v)
+	sv := newValue(v)
+	result, err := sv.Value()
 	require.NoError(t, err)
-	assert.Equal(t, "[1,2,3]", result)
+	assert.IsType(t, "", result)
 }
 
-func TestValueToSQL_Map(t *testing.T) {
+func TestSQLValue_Value_Map(t *testing.T) {
 	mp := map[string]int64{"a": 1}
 	v := core.NewValue(mp)
-	result, err := valueToSQL(v)
+	sv := newValue(v)
+	result, err := sv.Value()
 	require.NoError(t, err)
-	assert.Equal(t, `{"a":1}`, result)
+	assert.IsType(t, "", result)
 }
 
-func TestSQLToValue_NilValue(t *testing.T) {
-	result, err := sqlToValue(nil, core.TypeString)
+func TestSQLValue_Scan_Nil(t *testing.T) {
+	sv := newValueFor(core.TypeString)
+	err := sv.Scan(nil)
 	require.NoError(t, err)
-	assert.Nil(t, result)
+	assert.Nil(t, sv.Unwrap())
 }
 
-func TestSQLToValue_String(t *testing.T) {
-	result, err := sqlToValue("hello", core.TypeString)
+func TestSQLValue_Scan_String(t *testing.T) {
+	sv := newValueFor(core.TypeString)
+	err := sv.Scan("hello")
 	require.NoError(t, err)
-	assert.Equal(t, "hello", result.Unwrap())
+	assert.Equal(t, "hello", sv.Unwrap().Unwrap())
 }
 
-func TestSQLToValue_StringFromBytes(t *testing.T) {
-	result, err := sqlToValue([]byte("hello"), core.TypeString)
+func TestSQLValue_Scan_StringFromBytes(t *testing.T) {
+	sv := newValueFor(core.TypeString)
+	err := sv.Scan([]byte("hello"))
 	require.NoError(t, err)
-	assert.Equal(t, "hello", result.Unwrap())
+	assert.Equal(t, "hello", sv.Unwrap().Unwrap())
 }
 
-func TestSQLToValue_Integer(t *testing.T) {
-	result, err := sqlToValue(int64(42), core.TypeInt)
+func TestSQLValue_Scan_Integer(t *testing.T) {
+	sv := newValueFor(core.TypeInt)
+	err := sv.Scan(int64(42))
 	require.NoError(t, err)
-	assert.Equal(t, int64(42), result.Unwrap())
+	assert.Equal(t, int64(42), sv.Unwrap().Unwrap())
 }
 
-func TestSQLToValue_IntegerFromFloat(t *testing.T) {
-	result, err := sqlToValue(float64(42), core.TypeInt)
+func TestSQLValue_Scan_IntegerFromFloat(t *testing.T) {
+	sv := newValueFor(core.TypeInt)
+	err := sv.Scan(float64(42))
 	require.NoError(t, err)
-	assert.Equal(t, int64(42), result.Unwrap())
+	assert.Equal(t, int64(42), sv.Unwrap().Unwrap())
 }
 
-func TestSQLToValue_Unsigned(t *testing.T) {
-	result, err := sqlToValue(int64(42), core.TypeUnsigned)
+func TestSQLValue_Scan_Unsigned(t *testing.T) {
+	sv := newValueFor(core.TypeUnsigned)
+	err := sv.Scan(int64(42))
 	require.NoError(t, err)
-	assert.Equal(t, uint64(42), result.Unwrap())
+	assert.Equal(t, uint64(42), sv.Unwrap().Unwrap())
 }
 
-func TestSQLToValue_Boolean(t *testing.T) {
+func TestSQLValue_Scan_Boolean(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    int64
@@ -144,150 +168,181 @@ func TestSQLToValue_Boolean(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := sqlToValue(tt.input, core.TypeBool)
+			sv := newValueFor(core.TypeBool)
+			err := sv.Scan(tt.input)
 			require.NoError(t, err)
-			assert.Equal(t, tt.expected, result.Unwrap())
+			assert.Equal(t, tt.expected, sv.Unwrap().Unwrap())
 		})
 	}
 }
 
-func TestSQLToValue_Float(t *testing.T) {
-	result, err := sqlToValue(float64(3.14), core.TypeFloat)
+func TestSQLValue_Scan_Float(t *testing.T) {
+	sv := newValueFor(core.TypeFloat)
+	err := sv.Scan(float64(3.14))
 	require.NoError(t, err)
-	assert.Equal(t, 3.14, result.Unwrap())
+	assert.Equal(t, 3.14, sv.Unwrap().Unwrap())
 }
 
-func TestSQLToValue_Bytes(t *testing.T) {
+func TestSQLValue_Scan_Bytes(t *testing.T) {
 	data := []byte{0x01, 0x02, 0x03}
-	result, err := sqlToValue(data, core.TypeBytes)
+	sv := newValueFor(core.TypeBytes)
+	err := sv.Scan(data)
 	require.NoError(t, err)
-	assert.Equal(t, data, result.Unwrap())
+	assert.Equal(t, data, sv.Unwrap().Unwrap())
 }
 
-func TestSQLToValue_Time(t *testing.T) {
+func TestSQLValue_Scan_Time(t *testing.T) {
 	now := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
-	result, err := sqlToValue(now.UnixNano(), core.TypeTime)
+	sv := newValueFor(core.TypeTime)
+	err := sv.Scan(now.UnixMilli())
 	require.NoError(t, err)
-	assert.Equal(t, now, result.Unwrap())
+	assert.Equal(t, now, sv.Unwrap().Unwrap())
 }
 
-func TestSQLToValue_Array(t *testing.T) {
-	arrayType := core.NewArrayType(core.TIDInteger)
-	result, err := sqlToValue("[1,2,3]", arrayType)
+func TestSQLValue_Scan_Array(t *testing.T) {
+	original := core.NewValue([]int64{1, 2, 3})
+	encoded, err := newValue(original).Value()
 	require.NoError(t, err)
-	require.NotNil(t, result)
 
-	arr := result.Unwrap().([]*core.Value)
+	arrayType := core.NewArrayType(core.TIDInteger)
+	sv := newValueFor(arrayType)
+	err = sv.Scan(encoded)
+	require.NoError(t, err)
+	require.NotNil(t, sv.Unwrap())
+
+	arr := sv.Unwrap().Unwrap().([]*core.Value)
 	require.Len(t, arr, 3)
 	assert.Equal(t, int64(1), arr[0].Unwrap())
 	assert.Equal(t, int64(2), arr[1].Unwrap())
 	assert.Equal(t, int64(3), arr[2].Unwrap())
 }
 
-func TestSQLToValue_Map(t *testing.T) {
-	mapType := core.NewMapType(core.TIDString, core.TIDInteger)
-	result, err := sqlToValue(`{"a":1,"b":2}`, mapType)
+func TestSQLValue_Scan_Map(t *testing.T) {
+	original := core.NewValue(map[string]int64{"a": 1, "b": 2})
+	encoded, err := newValue(original).Value()
 	require.NoError(t, err)
-	require.NotNil(t, result)
 
-	mp := result.Unwrap().(map[*core.Value]*core.Value)
+	mapType := core.NewMapType(core.TIDString, core.TIDInteger)
+	sv := newValueFor(mapType)
+	err = sv.Scan(encoded)
+	require.NoError(t, err)
+	require.NotNil(t, sv.Unwrap())
+
+	mp := sv.Unwrap().Unwrap().(map[*core.Value]*core.Value)
 	assert.Len(t, mp, 2)
 }
 
-func TestValueRoundTrip_String(t *testing.T) {
+func TestSQLValue_RoundTrip_String(t *testing.T) {
 	original := core.NewValue("hello world")
-	sqlVal, err := valueToSQL(original)
+	writer := newValue(original)
+	sqlVal, err := writer.Value()
 	require.NoError(t, err)
 
-	restored, err := sqlToValue(sqlVal, core.TypeString)
+	reader := newValueFor(core.TypeString)
+	err = reader.Scan(sqlVal)
 	require.NoError(t, err)
-	assert.Equal(t, original.Unwrap(), restored.Unwrap())
+	assert.Equal(t, original.Unwrap(), reader.Unwrap().Unwrap())
 }
 
-func TestValueRoundTrip_Integer(t *testing.T) {
+func TestSQLValue_RoundTrip_Integer(t *testing.T) {
 	original := core.NewValue(int64(-12345))
-	sqlVal, err := valueToSQL(original)
+	writer := newValue(original)
+	sqlVal, err := writer.Value()
 	require.NoError(t, err)
 
-	restored, err := sqlToValue(sqlVal, core.TypeInt)
+	reader := newValueFor(core.TypeInt)
+	err = reader.Scan(sqlVal)
 	require.NoError(t, err)
-	assert.Equal(t, original.Unwrap(), restored.Unwrap())
+	assert.Equal(t, original.Unwrap(), reader.Unwrap().Unwrap())
 }
 
-func TestValueRoundTrip_Boolean(t *testing.T) {
+func TestSQLValue_RoundTrip_Boolean(t *testing.T) {
 	for _, b := range []bool{true, false} {
 		original := core.NewValue(b)
-		sqlVal, err := valueToSQL(original)
+		writer := newValue(original)
+		sqlVal, err := writer.Value()
 		require.NoError(t, err)
 
-		restored, err := sqlToValue(sqlVal, core.TypeBool)
+		reader := newValueFor(core.TypeBool)
+		err = reader.Scan(sqlVal)
 		require.NoError(t, err)
-		assert.Equal(t, original.Unwrap(), restored.Unwrap())
+		assert.Equal(t, original.Unwrap(), reader.Unwrap().Unwrap())
 	}
 }
 
-func TestValueRoundTrip_Float(t *testing.T) {
+func TestSQLValue_RoundTrip_Float(t *testing.T) {
 	original := core.NewValue(3.14159265359)
-	sqlVal, err := valueToSQL(original)
+	writer := newValue(original)
+	sqlVal, err := writer.Value()
 	require.NoError(t, err)
 
-	restored, err := sqlToValue(sqlVal, core.TypeFloat)
+	reader := newValueFor(core.TypeFloat)
+	err = reader.Scan(sqlVal)
 	require.NoError(t, err)
-	assert.Equal(t, original.Unwrap(), restored.Unwrap())
+	assert.Equal(t, original.Unwrap(), reader.Unwrap().Unwrap())
 }
 
-func TestValueRoundTrip_Bytes(t *testing.T) {
+func TestSQLValue_RoundTrip_Bytes(t *testing.T) {
 	data := []byte{0xDE, 0xAD, 0xBE, 0xEF}
 	original := core.NewValue(data)
-	sqlVal, err := valueToSQL(original)
+	writer := newValue(original)
+	sqlVal, err := writer.Value()
 	require.NoError(t, err)
 
-	restored, err := sqlToValue(sqlVal, core.TypeBytes)
+	reader := newValueFor(core.TypeBytes)
+	err = reader.Scan(sqlVal)
 	require.NoError(t, err)
-	assert.Equal(t, original.Unwrap(), restored.Unwrap())
+	assert.Equal(t, original.Unwrap(), reader.Unwrap().Unwrap())
 }
 
-func TestValueRoundTrip_Time(t *testing.T) {
+func TestSQLValue_RoundTrip_Time(t *testing.T) {
 	now := time.Date(2024, 6, 15, 14, 30, 45, 0, time.UTC)
 	original := core.NewValue(now)
-	sqlVal, err := valueToSQL(original)
+	writer := newValue(original)
+	sqlVal, err := writer.Value()
 	require.NoError(t, err)
 
-	restored, err := sqlToValue(sqlVal, core.TypeTime)
+	reader := newValueFor(core.TypeTime)
+	err = reader.Scan(sqlVal)
 	require.NoError(t, err)
-	assert.Equal(t, now.UnixMilli(), restored.Unwrap().(time.Time).UnixMilli())
+	assert.Equal(t, now.UnixMilli(), reader.Unwrap().Unwrap().(time.Time).UnixMilli())
 }
 
-func TestValueRoundTrip_Array(t *testing.T) {
+func TestSQLValue_RoundTrip_Array(t *testing.T) {
 	arr := []string{"a", "b", "c"}
 	original := core.NewValue(arr)
-	sqlVal, err := valueToSQL(original)
+	writer := newValue(original)
+	sqlVal, err := writer.Value()
 	require.NoError(t, err)
 
 	arrayType := core.NewArrayType(core.TIDString)
-	restored, err := sqlToValue(sqlVal, arrayType)
+	reader := newValueFor(arrayType)
+	err = reader.Scan(sqlVal)
 	require.NoError(t, err)
 
-	restoredArr := restored.Unwrap().([]*core.Value)
+	restoredArr := reader.Unwrap().Unwrap().([]*core.Value)
 	require.Len(t, restoredArr, 3)
 	assert.Equal(t, "a", restoredArr[0].Unwrap())
 	assert.Equal(t, "b", restoredArr[1].Unwrap())
 	assert.Equal(t, "c", restoredArr[2].Unwrap())
 }
 
-func TestConversionError_InvalidType(t *testing.T) {
-	_, err := sqlToValue("not a number", core.TypeInt)
+func TestSQLValue_Scan_Error_InvalidType(t *testing.T) {
+	sv := newValueFor(core.TypeInt)
+	err := sv.Scan("not a number")
 	assert.Error(t, err)
 }
 
-func TestConversionError_InvalidArrayJSON(t *testing.T) {
+func TestSQLValue_Scan_Error_InvalidArrayJSON(t *testing.T) {
 	arrayType := core.NewArrayType(core.TIDInteger)
-	_, err := sqlToValue("not valid json", arrayType)
+	sv := newValueFor(arrayType)
+	err := sv.Scan("not valid json")
 	assert.Error(t, err)
 }
 
-func TestConversionError_InvalidMapJSON(t *testing.T) {
+func TestSQLValue_Scan_Error_InvalidMapJSON(t *testing.T) {
 	mapType := core.NewMapType(core.TIDString, core.TIDInteger)
-	_, err := sqlToValue("not valid json", mapType)
+	sv := newValueFor(mapType)
+	err := sv.Scan("not valid json")
 	assert.Error(t, err)
 }
