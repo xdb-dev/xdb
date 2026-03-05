@@ -25,10 +25,31 @@ type DaemonConfig struct {
 	Socket string `json:"socket"`
 }
 
+// StoreConfig holds the store backend configuration.
+type StoreConfig struct {
+	Backend string       `json:"backend,omitempty"`
+	SQLite  SQLiteConfig `json:"sqlite,omitzero"`
+}
+
+// SQLiteConfig holds SQLite-specific configuration.
+type SQLiteConfig struct {
+	Dir      string `json:"dir,omitempty"`
+	Name     string `json:"name,omitempty"`
+	InMemory bool   `json:"in_memory,omitempty"`
+}
+
+func (sc StoreConfig) backendName() string {
+	if sc.Backend == "" {
+		return "memory"
+	}
+	return sc.Backend
+}
+
 // Config holds the XDB application configuration.
 type Config struct {
 	Dir      string       `json:"dir"`
 	Daemon   DaemonConfig `json:"daemon"`
+	Store    StoreConfig  `json:"store,omitzero"`
 	LogLevel string       `json:"log_level"`
 }
 
@@ -167,6 +188,12 @@ func (c *Config) Validate() error {
 	case "debug", "info", "warn", "error":
 	default:
 		return errors.Wrap(ErrInvalidLogLevel, "level", c.LogLevel, "path", configPath)
+	}
+
+	switch c.Store.backendName() {
+	case "memory", "sqlite":
+	default:
+		return errors.Wrap(ErrUnsupportedBackend, "backend", c.Store.Backend, "path", configPath)
 	}
 
 	return nil

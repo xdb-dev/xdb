@@ -71,4 +71,7 @@ var (
 
 	// ErrPathNotAbsolute is returned when a path is expected to be absolute but is not.
 	ErrPathNotAbsolute = errors.New("[xdb/app] path is not absolute")
+
+	// ErrUnsupportedBackend is returned when an unknown store backend is configured.
+	ErrUnsupportedBackend = errors.New("[xdb/app] unsupported store backend")
 )

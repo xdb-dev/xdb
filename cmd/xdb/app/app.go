@@ -10,7 +10,6 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/store"
-	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
 type App struct {
@@ -33,12 +32,15 @@ func New(cfg *Config) (*App, error) {
 }
 
 func (a *App) initStore() error {
-	slog.Info("Initializing in-memory store")
+	ss, err := initStoreFromConfig(a.cfg)
+	if err != nil {
+		return err
+	}
 
-	st := xdbmemory.New()
-	a.SchemaDriver = st
-	a.TupleDriver = st
-	a.RecordDriver = st
+	a.SchemaDriver = ss.schema
+	a.TupleDriver = ss.tuple
+	a.RecordDriver = ss.record
+	a.cleanup = append(a.cleanup, ss.cleanup...)
 
 	return nil
 }

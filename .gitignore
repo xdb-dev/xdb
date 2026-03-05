@@ -53,7 +53,7 @@ xdb.yaml
 xdb.yml
 
 # binaries
-xdb
+.bin/
 
 # Git worktrees
 .worktrees/

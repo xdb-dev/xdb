@@ -1,15 +1,20 @@
 GO_BUILD_DIRS := $(shell find . -type f -name 'go.mod' -not -path "*/example*" -exec dirname {} \; | sort)
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 TOOLS_MODULE := $(PROJECT_DIR)/tools.mod
+BIN_DIR := $(PROJECT_DIR)/.bin
 
 # Export GOEXPERIMENT=jsonv2 for all make commands
 export GOEXPERIMENT=jsonv2
 
 # DEVELOPMENT
-.PHONY: setup install lint check tidy
+.PHONY: setup build install lint check tidy
 
 setup: ##@development Setup the project and update dependencies
 	go mod tidy
+
+build: ##@development Build the xdb CLI binary to .bin/
+	@mkdir -p $(BIN_DIR)
+	cd cmd/xdb && go build -o $(BIN_DIR)/xdb .
 
 install: ##@development Install the xdb CLI binary to GOPATH/bin
 	cd cmd/xdb && go install .

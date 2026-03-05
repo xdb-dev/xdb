@@ -6,6 +6,7 @@ This file provides guidance for working with code in this codebase.
 
 ### Build and Test
 
+- `make build` - Build the xdb CLI binary to `.bin/xdb`
 - `make test` - Run all tests with race detection and coverage across all modules
 - `make check` - Run all code quality checks (formatting, vetting, linting)
 - `make lint` - Run golangci-lint (includes formatting, vetting, and linting with auto-fix)
