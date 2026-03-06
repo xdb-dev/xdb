@@ -5,9 +5,12 @@ import (
 	"os"
 
 	"github.com/gojekfarm/xtools/errors"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/xdb-dev/xdb/store"
+	"github.com/xdb-dev/xdb/store/xdbfs"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
+	"github.com/xdb-dev/xdb/store/xdbredis"
 	"github.com/xdb-dev/xdb/store/xdbsqlite"
 )
 
@@ -25,6 +28,10 @@ func initStoreFromConfig(cfg *Config) (*storeSet, error) {
 		return initMemoryStore()
 	case "sqlite":
 		return initSQLiteStore(cfg)
+	case "redis":
+		return initRedisStore(cfg)
+	case "fs":
+		return initFSStore(cfg)
 	default:
 		return nil, errors.Wrap(ErrUnsupportedBackend, "backend", cfg.Store.Backend)
 	}
@@ -75,5 +82,50 @@ func initSQLiteStore(cfg *Config) (*storeSet, error) {
 		record:  st,
 		health:  st,
 		cleanup: []func() error{st.Close},
+	}, nil
+}
+
+func initRedisStore(cfg *Config) (*storeSet, error) {
+	slog.Info("Initializing Redis store", "addr", cfg.Store.Redis.Addr)
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     cfg.Store.Redis.Addr,
+		Password: cfg.Store.Redis.Password,
+		DB:       cfg.Store.Redis.DB,
+	})
+
+	st, err := xdbredis.NewStore(client)
+	if err != nil {
+		_ = client.Close()
+		return nil, err
+	}
+
+	return &storeSet{
+		schema:  st,
+		tuple:   st,
+		record:  st,
+		health:  st,
+		cleanup: []func() error{st.Close},
+	}, nil
+}
+
+func initFSStore(cfg *Config) (*storeSet, error) {
+	dir := cfg.Store.FS.Dir
+	if dir == "" {
+		dir = cfg.DataDir()
+	}
+
+	slog.Info("Initializing filesystem store", "dir", dir)
+
+	st, err := xdbfs.New(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	return &storeSet{
+		schema: st,
+		tuple:  st,
+		record: st,
+		health: xdbmemory.New(),
 	}, nil
 }

@@ -11,6 +11,11 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
+type recordCmdEntry struct {
+	uri *core.URI
+	cmd *redis.MapStringStringCmd
+}
+
 // GetRecords retrieves records by URIs.
 func (s *Store) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Record, []*core.URI, error) {
 	if len(uris) == 0 {
@@ -23,12 +28,7 @@ func (s *Store) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Recor
 
 	pipe := s.db.Pipeline()
 
-	type cmdEntry struct {
-		uri *core.URI
-		cmd *redis.MapStringStringCmd
-	}
-
-	var allEntries []cmdEntry
+	var allEntries []recordCmdEntry
 	var allMissed []*core.URI
 
 	for _, schemaURIs := range grouped {
@@ -41,7 +41,7 @@ func (s *Store) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Recor
 
 		for _, uri := range schemaURIs {
 			cmd := pipe.HGetAll(ctx, uri.ID().String())
-			allEntries = append(allEntries, cmdEntry{uri: uri, cmd: cmd})
+			allEntries = append(allEntries, recordCmdEntry{uri: uri, cmd: cmd})
 		}
 	}
 
@@ -53,16 +53,20 @@ func (s *Store) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Recor
 		return nil, nil, err
 	}
 
-	var allRecords []*core.Record
+	return s.collectRecords(allEntries, allMissed)
+}
 
-	for _, entry := range allEntries {
+func (s *Store) collectRecords(entries []recordCmdEntry, missed []*core.URI) ([]*core.Record, []*core.URI, error) {
+	records := make([]*core.Record, 0, len(entries))
+
+	for _, entry := range entries {
 		if err := entry.cmd.Err(); err != nil {
 			return nil, nil, err
 		}
 
 		attrs := entry.cmd.Val()
 		if len(attrs) == 0 {
-			allMissed = append(allMissed, entry.uri)
+			missed = append(missed, entry.uri)
 			continue
 		}
 
@@ -77,10 +81,10 @@ func (s *Store) GetRecords(ctx context.Context, uris []*core.URI) ([]*core.Recor
 			record.Set(attr, decodedVal)
 		}
 
-		allRecords = append(allRecords, record)
+		records = append(records, record)
 	}
 
-	return allRecords, allMissed, nil
+	return records, missed, nil
 }
 
 // PutRecords saves records to the store.

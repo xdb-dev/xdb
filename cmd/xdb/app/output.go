@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/encoding/xdbjson"
 	"github.com/xdb-dev/xdb/schema"
 )
 
@@ -38,6 +38,8 @@ type Formatter interface {
 	ContentType() string
 }
 
+var defaultEncoder = xdbjson.NewDefaultEncoder()
+
 // JSONFormatter outputs JSON with indentation.
 type JSONFormatter struct {
 	Indent string
@@ -48,7 +50,30 @@ func (f *JSONFormatter) Format(data any) ([]byte, error) {
 	if indent == "" {
 		indent = "  "
 	}
-	return json.MarshalIndent(data, "", indent)
+
+	enc := defaultEncoder
+
+	switch v := data.(type) {
+	case *core.Record:
+		return enc.FromRecordIndent(v, "", indent)
+	case []*core.Record:
+		records := make([]json.RawMessage, len(v))
+		for i, r := range v {
+			b, err := enc.FromRecord(r)
+			if err != nil {
+				return nil, err
+			}
+			records[i] = b
+		}
+		return json.MarshalIndent(records, "", indent)
+	case *core.Tuple:
+		m := map[string]any{
+			v.Attr().String(): v.Value().Unwrap(),
+		}
+		return json.MarshalIndent(m, "", indent)
+	default:
+		return json.MarshalIndent(data, "", indent)
+	}
 }
 
 func (f *JSONFormatter) ContentType() string {
@@ -94,7 +119,7 @@ func (f *TableFormatter) formatRecord(r *core.Record) ([]byte, error) {
 
 	for _, tuple := range r.Tuples() {
 		valueStr := fmt.Sprintf("%v", tuple.Value())
-		typeStr := reflect.TypeOf(tuple.Value()).String()
+		typeStr := tuple.Value().Type().String()
 		t.AppendRow(table.Row{
 			tuple.Attr().String(),
 			valueStr,

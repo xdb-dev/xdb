@@ -2,6 +2,7 @@ package xdbsqlite
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -82,55 +83,52 @@ func (s *Store) PutRecords(ctx context.Context, records []*core.Record) error {
 	defer func() { _ = tx.Rollback() }()
 
 	for _, schemaRecords := range grouped {
-		schemaURI := schemaRecords[0].SchemaURI()
-
-		schemaDef, err := s.getSchemaFromCache(schemaURI)
-		if err != nil {
+		if err := s.putRecordsForSchema(ctx, tx, schemaRecords); err != nil {
 			return err
-		}
-
-		switch schemaDef.Mode {
-		case schema.ModeFlexible:
-			err = schema.ValidateRecords(schemaDef, schemaRecords)
-			if err != nil {
-				return err
-			}
-			driver := NewKVDriverTx(tx, schemaDef)
-			if err := driver.PutRecords(ctx, schemaRecords); err != nil {
-				return err
-			}
-		case schema.ModeStrict:
-			err = schema.ValidateRecords(schemaDef, schemaRecords)
-			if err != nil {
-				return err
-			}
-			driver := NewSQLDriverTx(tx, schemaDef)
-			if err := driver.PutRecords(ctx, schemaRecords); err != nil {
-				return err
-			}
-		case schema.ModeDynamic:
-			driver := NewSQLDriverTx(tx, schemaDef)
-			schemaDef, err = driver.AddDynamicFields(ctx, schemaRecords)
-			if err != nil {
-				return err
-			}
-
-			s.mu.Lock()
-			s.schemas[schemaURI.NS().String()][schemaURI.Schema().String()] = schemaDef
-			s.mu.Unlock()
-
-			err = schema.ValidateRecords(schemaDef, schemaRecords)
-			if err != nil {
-				return err
-			}
-
-			if err := driver.PutRecords(ctx, schemaRecords); err != nil {
-				return err
-			}
 		}
 	}
 
 	return tx.Commit()
+}
+
+func (s *Store) putRecordsForSchema(ctx context.Context, tx *sql.Tx, records []*core.Record) error {
+	schemaURI := records[0].SchemaURI()
+
+	schemaDef, err := s.getSchemaFromCache(schemaURI)
+	if err != nil {
+		return err
+	}
+
+	switch schemaDef.Mode {
+	case schema.ModeFlexible:
+		if err := schema.ValidateRecords(schemaDef, records); err != nil {
+			return err
+		}
+		return NewKVDriverTx(tx, schemaDef).PutRecords(ctx, records)
+	case schema.ModeStrict:
+		if err := schema.ValidateRecords(schemaDef, records); err != nil {
+			return err
+		}
+		return NewSQLDriverTx(tx, schemaDef).PutRecords(ctx, records)
+	case schema.ModeDynamic:
+		driver := NewSQLDriverTx(tx, schemaDef)
+		schemaDef, err = driver.AddDynamicFields(ctx, records)
+		if err != nil {
+			return err
+		}
+
+		s.mu.Lock()
+		s.schemas[schemaURI.NS().String()][schemaURI.Schema().String()] = schemaDef
+		s.mu.Unlock()
+
+		if err := schema.ValidateRecords(schemaDef, records); err != nil {
+			return err
+		}
+
+		return driver.PutRecords(ctx, records)
+	}
+
+	return nil
 }
 
 // DeleteRecords removes records from the store.

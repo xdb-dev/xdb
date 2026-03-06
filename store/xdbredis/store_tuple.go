@@ -11,6 +11,11 @@ import (
 	"github.com/xdb-dev/xdb/x"
 )
 
+type tupleCmdEntry struct {
+	uri *core.URI
+	cmd *redis.StringCmd
+}
+
 // GetTuples retrieves individual tuples by URIs.
 func (s *Store) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple, []*core.URI, error) {
 	if len(uris) == 0 {
@@ -23,12 +28,7 @@ func (s *Store) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple,
 
 	pipe := s.db.Pipeline()
 
-	type cmdEntry struct {
-		uri *core.URI
-		cmd *redis.StringCmd
-	}
-
-	var allEntries []cmdEntry
+	var allEntries []tupleCmdEntry
 	var allMissed []*core.URI
 
 	for _, schemaURIs := range grouped {
@@ -41,7 +41,7 @@ func (s *Store) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple,
 
 		for _, uri := range schemaURIs {
 			cmd := pipe.HGet(ctx, uri.ID().String(), uri.Attr().String())
-			allEntries = append(allEntries, cmdEntry{uri: uri, cmd: cmd})
+			allEntries = append(allEntries, tupleCmdEntry{uri: uri, cmd: cmd})
 		}
 	}
 
@@ -53,12 +53,16 @@ func (s *Store) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple,
 		return nil, nil, err
 	}
 
-	var allTuples []*core.Tuple
+	return s.collectTuples(allEntries, allMissed)
+}
 
-	for _, entry := range allEntries {
+func (s *Store) collectTuples(entries []tupleCmdEntry, missed []*core.URI) ([]*core.Tuple, []*core.URI, error) {
+	tuples := make([]*core.Tuple, 0, len(entries))
+
+	for _, entry := range entries {
 		err := entry.cmd.Err()
 		if errors.Is(err, redis.Nil) {
-			allMissed = append(allMissed, entry.uri)
+			missed = append(missed, entry.uri)
 			continue
 		} else if err != nil {
 			return nil, nil, err
@@ -72,10 +76,10 @@ func (s *Store) GetTuples(ctx context.Context, uris []*core.URI) ([]*core.Tuple,
 		uri := entry.uri
 		path := uri.NS().String() + "/" + uri.Schema().String() + "/" + uri.ID().String()
 		tuple := core.NewTuple(path, uri.Attr().String(), val.Unwrap())
-		allTuples = append(allTuples, tuple)
+		tuples = append(tuples, tuple)
 	}
 
-	return allTuples, allMissed, nil
+	return tuples, missed, nil
 }
 
 // PutTuples saves individual tuples to the store.

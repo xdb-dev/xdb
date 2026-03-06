@@ -19,7 +19,7 @@ xdb --version
 These flags are available for all commands:
 
 - `--output`, `-o`: Output format (json, table, yaml). Auto-detected by default (table for TTY, JSON for pipes)
-- `--config`, `-c`: Path to config file (defaults to xdb.yaml or xdb.yml). Can also be set via `XDB_CONFIG` environment variable
+- `--config`, `-c`: Path to config file (defaults to `~/.xdb/config.json`)
 - `--verbose`, `-v`: Enable verbose logging (INFO level)
 - `--debug`: Enable debug logging with source locations
 
@@ -39,7 +39,7 @@ xdb get xdb://com.example/posts/post-123 | jq '.title'
 xdb -v ls xdb://com.example
 
 # Use a specific config file
-xdb --config prod.yaml server
+xdb --config /path/to/config.json daemon start
 ```
 
 ## Output Formats
@@ -218,6 +218,81 @@ xdb rm xdb://com.example/posts --force
 **Flags:**
 
 - `--force`, `-f`: Skip confirmation prompt
+
+### Daemon
+
+```bash
+# Start the daemon
+xdb daemon start
+
+# Check daemon status
+xdb daemon status
+
+# Stop the daemon
+xdb daemon stop
+
+# Force stop the daemon
+xdb daemon stop --force
+
+# Restart the daemon
+xdb daemon restart
+```
+
+The daemon runs an HTTP server that handles all XDB operations. By default it listens on `localhost:8147` and a Unix socket at `~/.xdb/xdb.sock`.
+
+## Configuration
+
+XDB uses a JSON config file at `~/.xdb/config.json`. A default config is created automatically on first run.
+
+```json
+{
+  "dir": "~/.xdb",
+  "daemon": {
+    "addr": "localhost:8147",
+    "socket": "xdb.sock"
+  },
+  "log_level": "info",
+  "store": {
+    "backend": "memory"
+  }
+}
+```
+
+### Store Backends
+
+- **memory** (default): In-memory store, data is lost on restart
+- **sqlite**: SQLite database, stored in `<dir>/data/`
+- **redis**: Redis server, requires `addr` to be configured
+- **fs**: Filesystem store, stored in `<dir>/data/` by default
+
+Example with SQLite:
+
+```json
+{
+  "store": {
+    "backend": "sqlite",
+    "sqlite": {
+      "dir": "",
+      "name": "xdb.db"
+    }
+  }
+}
+```
+
+Example with Redis:
+
+```json
+{
+  "store": {
+    "backend": "redis",
+    "redis": {
+      "addr": "localhost:6379"
+    }
+  }
+}
+```
+
+See `xdb.example.yaml` for a full reference of all configuration options.
 
 ## Piping and Automation
 

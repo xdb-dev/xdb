@@ -74,4 +74,7 @@ var (
 
 	// ErrUnsupportedBackend is returned when an unknown store backend is configured.
 	ErrUnsupportedBackend = errors.New("[xdb/app] unsupported store backend")
+
+	// ErrRedisAddrRequired is returned when redis backend is configured without an address.
+	ErrRedisAddrRequired = errors.New("[xdb/app] redis addr is required")
 )

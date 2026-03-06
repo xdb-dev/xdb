@@ -6,7 +6,15 @@ allowed-tools: Bash(xdb:*), Write
 
 # Using XDB CLI for Data Management
 
-Run `xdb --help` for command syntax and flags.
+## Install
+
+```bash
+go install github.com/xdb-dev/xdb/cmd/xdb@latest
+```
+
+## Configuration
+
+XDB auto-creates `~/.xdb/config.json` on first run. Default backend is SQLite (`~/.xdb/data/xdb.db`). Available backends: `sqlite` (default), `memory`, `redis`, `fs`.
 
 ## URI Format
 
@@ -41,35 +49,21 @@ xdb://NAMESPACE/SCHEMA/ID#ATTRIBUTE
 | `strict`   | Only allows attributes defined in schema                |
 | `dynamic`  | Auto-infers and adds new fields from data               |
 
-Flexible schema:
-
-```bash
-xdb make-schema xdb://agent.scraper/articles
-```
-
-Strict or dynamic schema with JSON definition:
+Schema JSON definition (for `strict` or `dynamic` modes):
 
 ```json
 {
-  "name": "Article",
+  "name": "Bug",
   "mode": "strict",
   "fields": [
     { "name": "title", "type": "STRING" },
-    { "name": "tags", "type": "ARRAY", "array_of": "STRING" },
-    {
-      "name": "metadata",
-      "type": "MAP",
-      "map_key": "STRING",
-      "map_value": "STRING"
-    },
-    { "name": "author.name", "type": "STRING" },
-    { "name": "author.email", "type": "STRING" }
+    { "name": "severity", "type": "STRING" },
+    { "name": "tags", "type": "ARRAY", "array_of": "STRING" }
   ]
 }
 ```
 
 **Types:** `STRING`, `INTEGER`, `UNSIGNED`, `FLOAT`, `BOOLEAN`, `TIME`, `BYTES`, `ARRAY`, `MAP`
-
 **Nested fields:** Use dot notation (`author.name`, `stats.views`)
 
 ## Nanoid Helper
@@ -80,24 +74,92 @@ Generate unique IDs:
 nanoid() { openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 21; }
 ```
 
+## Command Reference
+
+### make-schema (alias: ms)
+
+```bash
+# Create flexible schema (no definition needed)
+xdb make-schema xdb://NS/SCHEMA
+
+# Create schema from definition file
+xdb make-schema xdb://NS/SCHEMA -s <file>
+```
+
+### get
+
+```bash
+# Get namespace, schema, record, or attribute
+xdb get xdb://NS
+xdb get xdb://NS/SCHEMA
+xdb get xdb://NS/SCHEMA/ID
+xdb get xdb://NS/SCHEMA/ID#ATTRIBUTE
+```
+
+### put
+
+```bash
+# Put record from file
+xdb put xdb://NS/SCHEMA/ID -f <path>
+
+# Put record from stdin
+echo '{"key":"value"}' | xdb put xdb://NS/SCHEMA/ID
+
+# Put from YAML
+xdb put xdb://NS/SCHEMA/ID -f data.yaml --format yaml
+```
+
+### list (alias: ls)
+
+```bash
+# List schemas in namespace
+xdb ls xdb://NS
+
+# List records in schema
+xdb ls xdb://NS/SCHEMA
+
+# Paginate results
+xdb ls xdb://NS/SCHEMA --limit 10 --offset 20
+```
+
+### remove (aliases: rm, delete)
+
+```bash
+# Remove with confirmation prompt
+xdb rm xdb://NS/SCHEMA/ID
+
+# Remove without confirmation
+xdb rm xdb://NS/SCHEMA/ID -f
+
+# Remove schema
+xdb rm xdb://NS/SCHEMA --force
+```
+
+### daemon
+
+```bash
+xdb daemon start              # Start in background
+xdb daemon stop [--force]     # Stop (force kill if needed)
+xdb daemon status [--json]    # Show status
+xdb daemon restart [--force]  # Restart
+xdb daemon logs [-f] [-n 50]  # View/follow logs
+```
+
+### Global Flags
+
+| Flag        | Alias | Description                                            |
+| ----------- | ----- | ------------------------------------------------------ |
+| `--output`  | `-o`  | Output format: `json`, `table`, `yaml` (auto-detected) |
+| `--config`  | `-c`  | Path to config file                                    |
+| `--verbose` | `-v`  | Enable verbose logging                                 |
+| `--debug`   |       | Enable debug logging with source locations             |
+
 ## Example Use Cases
 
-| Use Case            | Mode       | Namespace          | Schema          |
-| ------------------- | ---------- | ------------------ | --------------- |
-| Web scraping        | `flexible` | `agent.scraper`    | `pages`         |
-| Issue tracking      | `strict`   | `project.<name>`   | `issues`        |
-| Research notes      | `dynamic`  | `agent.researcher` | `notes`         |
-| API cache           | `flexible` | `agent.api`        | `cache`         |
-| Conversation memory | `dynamic`  | `agent.memory`     | `conversations` |
-| Bookmarks           | `flexible` | `user.<id>`        | `bookmarks`     |
-| Code snippets       | `strict`   | `team.<name>`      | `snippets`      |
-| Meeting notes       | `dynamic`  | `org.<name>`       | `meetings`      |
-| Error logs          | `dynamic`  | `project.<name>`   | `errors`        |
-| Feature flags       | `strict`   | `project.<name>`   | `flags`         |
-
-## Workflow Examples
-
-- [Web Scraper Agent](examples/web-scraper.md) - Store scraped pages
-- [Issue Tracker Agent](examples/issue-tracker.md) - Track issues with strict schema
-- [Metrics Tracking Agent](examples/metrics-tracker.md) - Time-series metrics
-- [Multi-User Task Manager](examples/task-manager.md) - Per-user namespaces
+| Use Case       | Mode       | Example URI                          |
+| -------------- | ---------- | ------------------------------------ |
+| Web scraping   | `flexible` | `xdb://agent.scraper/pages`          |
+| Issue tracking | `strict`   | `xdb://project.webapp/bugs`          |
+| Research notes | `dynamic`  | `xdb://agent.researcher/notes`       |
+| Bookmarks      | `flexible` | `xdb://user.john/bookmarks`          |
+| Feature flags  | `strict`   | `xdb://project.myapp/flags`          |

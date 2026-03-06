@@ -23,10 +23,10 @@ This file provides guidance for working with code in this codebase.
 - `go test ./core` - Run tests for core package
 - `go test -run TestSpecificTest ./package` - Run specific test
 
-### Running the Server
+### Running the Daemon
 
-- `cd ./cmd/xdb && go run *.go server` - Start the XDB HTTP server
-- The server runs on port 8080 by default
+- `make build && .bin/xdb daemon start` - Start the XDB daemon
+- The daemon listens on `localhost:8147` by default
 - Use Bruno collections in `bruno/` directory for testing API endpoints
 
 ## Project Structure
@@ -34,16 +34,19 @@ This file provides guidance for working with code in this codebase.
 ```
 xdb/
 ├── api/                    # HTTP API layer (see api/README.md)
+├── client/                # HTTP client for the API (see client/README.md)
 ├── cmd/xdb/               # CLI application (see cmd/xdb/README.md)
-│   ├── app/               # Application commands
+│   ├── app/               # Application commands and daemon
 │   └── main.go            # Entry point
 ├── codec/                 # Low-level serialization (see codec/README.md)
 ├── core/                  # Core data model
+├── schema/                # Schema definitions, validation, and loading
 ├── store/                 # Database backends (see store/README.md)
 ├── encoding/              # Format conversions (see encoding/README.md)
 ├── x/                     # Utility functions
 ├── tests/                 # Shared test suites
 ├── examples/              # Example applications
+├── bruno/                 # Bruno API test collections
 ```
 
 ## Core Architecture
@@ -130,9 +133,9 @@ if !field.Type.Equals(tuple.Value().Type()) {
 - Place test functions in `package_test` form when testing public APIs
 - Use `testify/assert` for assertions
 - The `tests/` package provides shared test suites for store implementations:
-  - `TupleStoreTest`: Test suite for `TupleStore` implementations
-  - `RecordStoreTest`: Test suite for `RecordStore` implementations
-  - `SchemaStoreTest`: Test suite for `SchemaStore` implementations
+  - `TupleStoreTestSuite`: Test suite for `TupleStore` implementations
+  - `RecordStoreTestSuite`: Test suite for `RecordStore` implementations
+  - `SchemaStoreTestSuite`: Test suite for `SchemaStore` implementations
 - Use these test suites to ensure consistent behavior across store implementations
 
 ## Important Notes

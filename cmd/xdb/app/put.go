@@ -19,7 +19,7 @@ import (
 // This is a thin wrapper - business logic is in App.PutRecord().
 func Put(ctx context.Context, cmd *cli.Command) error {
 	// 1. Parse arguments
-	uriStr := cmd.Args().First()
+	uriStr := cmd.StringArg("uri")
 	if uriStr == "" {
 		return ErrURIRequired
 	}

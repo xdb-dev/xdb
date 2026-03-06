@@ -44,7 +44,7 @@ Either `Addr` or `SocketPath` must be set. If both are set, Unix socket takes pr
 
 ```go
 cfg := &client.Config{
-    Addr:    "localhost:8080",
+    Addr:    "localhost:8147",
     Timeout: 30 * time.Second,
 }
 ```
@@ -218,7 +218,7 @@ The client applies the configured timeout to each request:
 
 ```go
 cfg := &client.Config{
-    Addr:    "localhost:8080",
+    Addr:    "localhost:8147",
     Timeout: 30 * time.Second, // Applied to each request
 }
 ```
@@ -333,7 +333,7 @@ import (
 func main() {
     // Create client with TCP connection
     cfg := &client.Config{
-        Addr:    "localhost:8080",
+        Addr:    "localhost:8147",
         Timeout: 30 * time.Second,
     }
 

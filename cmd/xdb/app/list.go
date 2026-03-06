@@ -15,7 +15,7 @@ import (
 // This is a thin wrapper - business logic is in App.ListByURI().
 func List(ctx context.Context, cmd *cli.Command) error {
 	// 1. Parse arguments
-	patternStr := cmd.Args().First()
+	patternStr := cmd.StringArg("pattern")
 	if patternStr == "" {
 		return ErrURIRequired
 	}

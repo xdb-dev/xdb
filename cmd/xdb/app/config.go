@@ -29,6 +29,8 @@ type DaemonConfig struct {
 type StoreConfig struct {
 	Backend string       `json:"backend,omitempty"`
 	SQLite  SQLiteConfig `json:"sqlite,omitzero"`
+	Redis   RedisConfig  `json:"redis,omitzero"`
+	FS      FSConfig     `json:"fs,omitzero"`
 }
 
 // SQLiteConfig holds SQLite-specific configuration.
@@ -38,9 +40,21 @@ type SQLiteConfig struct {
 	InMemory bool   `json:"in_memory,omitempty"`
 }
 
+// RedisConfig holds Redis-specific configuration.
+type RedisConfig struct {
+	Addr     string `json:"addr"`
+	Password string `json:"password,omitempty"`
+	DB       int    `json:"db,omitempty"`
+}
+
+// FSConfig holds filesystem store configuration.
+type FSConfig struct {
+	Dir string `json:"dir,omitempty"`
+}
+
 func (sc StoreConfig) backendName() string {
 	if sc.Backend == "" {
-		return "memory"
+		return "sqlite"
 	}
 	return sc.Backend
 }
@@ -191,7 +205,11 @@ func (c *Config) Validate() error {
 	}
 
 	switch c.Store.backendName() {
-	case "memory", "sqlite":
+	case "memory", "sqlite", "fs":
+	case "redis":
+		if c.Store.Redis.Addr == "" {
+			return errors.Wrap(ErrRedisAddrRequired, "path", configPath)
+		}
 	default:
 		return errors.Wrap(ErrUnsupportedBackend, "backend", c.Store.Backend, "path", configPath)
 	}
