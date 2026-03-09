@@ -63,3 +63,10 @@ Write vertical, readable Go code. Favor more lines over longer lines:
 
 - Keep packages small and focused — no circular dependencies.
 - Always run `make check` before committing.
+
+## Research & Plans
+
+- All plans MUST be tracked in the `./docs/plans` directory.
+- All plans MUST be named like `YYYY-MM-DD-plan-name.md`.
+- All research MUST be tracked in the `./docs/research` directory.
+- All research MUST be named like `YYYY-MM-DD-research-name.md`.
