@@ -25,6 +25,13 @@ type Value struct {
 	data any
 }
 
+// NewTypedValue creates a [Value] with the given [Type] and data.
+// This is intended for custom type implementations where the built-in
+// typed constructors are not applicable.
+func NewTypedValue(typ Type, data any) *Value {
+	return &Value{typ: typ, data: data}
+}
+
 // --- Typed constructors ---
 
 // BoolVal creates a new boolean [Value].
