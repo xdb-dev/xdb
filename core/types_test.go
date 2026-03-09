@@ -23,7 +23,7 @@ func TestTIDString(t *testing.T) {
 		{TIDTime, "TIME"},
 		{TIDArray, "ARRAY"},
 		{TIDJSON, "JSON"},
-		{TID(999), ""},
+		{TID("CUSTOM"), "CUSTOM"},
 	}
 
 	for _, tt := range tests {
@@ -100,7 +100,7 @@ func TestTypeString(t *testing.T) {
 }
 
 func TestTypeElemTypeID(t *testing.T) {
-	assert.Equal(t, TIDUnknown, TypeBool.ElemTypeID())
+	assert.Equal(t, TID(""), TypeBool.ElemTypeID())
 	assert.Equal(t, TIDString, NewArrayType(TIDString).ElemTypeID())
 	assert.Equal(t, TIDInteger, NewArrayType(TIDInteger).ElemTypeID())
 }

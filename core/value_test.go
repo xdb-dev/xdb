@@ -545,3 +545,23 @@ func TestNewValuePrimitives(t *testing.T) {
 func TestNewValueNilReturnsNil(t *testing.T) {
 	assert.Nil(t, NewValue(nil))
 }
+
+// --- NewTypedValue ---
+
+func TestNewTypedValue(t *testing.T) {
+	t.Run("built-in type", func(t *testing.T) {
+		v := NewTypedValue(TypeBool, true)
+		require.NotNil(t, v)
+		assert.Equal(t, TIDBoolean, v.Type().ID())
+		assert.Equal(t, true, v.Unwrap())
+	})
+
+	t.Run("custom type", func(t *testing.T) {
+		customTID := TID("MONEY")
+		customType := NewType(customTID)
+		v := NewTypedValue(customType, int64(1999))
+		require.NotNil(t, v)
+		assert.Equal(t, customTID, v.Type().ID())
+		assert.Equal(t, int64(1999), v.Unwrap())
+	})
+}
