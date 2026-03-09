@@ -27,23 +27,23 @@ type Value struct {
 
 // --- Typed constructors ---
 
-// Bool creates a new boolean [Value].
-func Bool(v bool) *Value {
+// BoolVal creates a new boolean [Value].
+func BoolVal(v bool) *Value {
 	return &Value{typ: TypeBool, data: v}
 }
 
-// Int creates a new integer [Value] from an int64.
-func Int(v int64) *Value {
+// IntVal creates a new integer [Value] from an int64.
+func IntVal(v int64) *Value {
 	return &Value{typ: TypeInt, data: v}
 }
 
-// Uint creates a new unsigned integer [Value] from a uint64.
-func Uint(v uint64) *Value {
+// UintVal creates a new unsigned integer [Value] from a uint64.
+func UintVal(v uint64) *Value {
 	return &Value{typ: TypeUnsigned, data: v}
 }
 
-// Float creates a new floating-point [Value] from a float64.
-func Float(v float64) *Value {
+// FloatVal creates a new floating-point [Value] from a float64.
+func FloatVal(v float64) *Value {
 	return &Value{typ: TypeFloat, data: v}
 }
 
@@ -52,8 +52,8 @@ func StringVal(v string) *Value {
 	return &Value{typ: TypeString, data: v}
 }
 
-// Bytes creates a new byte slice [Value].
-func Bytes(v []byte) *Value {
+// BytesVal creates a new byte slice [Value].
+func BytesVal(v []byte) *Value {
 	return &Value{typ: TypeBytes, data: v}
 }
 
@@ -62,13 +62,13 @@ func TimeVal(v time.Time) *Value {
 	return &Value{typ: TypeTime, data: v}
 }
 
-// JSON creates a new JSON [Value] from a [json.RawMessage].
-func JSON(v json.RawMessage) *Value {
+// JSONVal creates a new JSON [Value] from a [json.RawMessage].
+func JSONVal(v json.RawMessage) *Value {
 	return &Value{typ: TypeJSON, data: v}
 }
 
-// Array creates a new array [Value] with the given element type and elements.
-func Array(elemTypeID TID, elems ...*Value) *Value {
+// ArrayVal creates a new array [Value] with the given element type and elements.
+func ArrayVal(elemTypeID TID, elems ...*Value) *Value {
 	return &Value{
 		typ:  NewArrayType(elemTypeID),
 		data: elems,
@@ -378,18 +378,18 @@ func newReflectValue(iv reflect.Value) (*Value, error) {
 	case timeType:
 		return TimeVal(iv.Interface().(time.Time)), nil
 	case rawMsgType:
-		return JSON(iv.Interface().(json.RawMessage)), nil
+		return JSONVal(iv.Interface().(json.RawMessage)), nil
 	}
 
 	switch iv.Kind() {
 	case reflect.Bool:
-		return Bool(iv.Bool()), nil
+		return BoolVal(iv.Bool()), nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return Int(iv.Int()), nil
+		return IntVal(iv.Int()), nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return Uint(iv.Uint()), nil
+		return UintVal(iv.Uint()), nil
 	case reflect.Float32, reflect.Float64:
-		return Float(iv.Float()), nil
+		return FloatVal(iv.Float()), nil
 	case reflect.String:
 		return StringVal(iv.String()), nil
 	case reflect.Slice, reflect.Array:
@@ -402,12 +402,12 @@ func newReflectValue(iv reflect.Value) (*Value, error) {
 func newSliceValue(iv reflect.Value) (*Value, error) {
 	// Check for []byte (but not json.RawMessage, handled above).
 	if iv.Type() == byteSlice {
-		return Bytes(iv.Bytes()), nil
+		return BytesVal(iv.Bytes()), nil
 	}
 
 	// Element kind is uint8 but type isn't []byte — treat as byte slice.
 	if iv.Type().Elem().Kind() == reflect.Uint8 {
-		return Bytes(iv.Bytes()), nil
+		return BytesVal(iv.Bytes()), nil
 	}
 
 	if iv.Len() == 0 {
@@ -425,5 +425,5 @@ func newSliceValue(iv reflect.Value) (*Value, error) {
 
 	elemType := elems[0].Type().ID()
 
-	return Array(elemType, elems...), nil
+	return ArrayVal(elemType, elems...), nil
 }
