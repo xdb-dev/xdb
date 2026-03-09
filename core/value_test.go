@@ -9,31 +9,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// --- Step 4: Typed constructors + utility methods ---
+// --- Typed constructors + utility methods ---
 
-func TestBoolConstructor(t *testing.T) {
-	v := Bool(true)
+func TestBoolValConstructor(t *testing.T) {
+	v := BoolVal(true)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDBoolean, v.Type().ID())
 	assert.Equal(t, true, v.Unwrap())
 }
 
-func TestIntConstructor(t *testing.T) {
-	v := Int(42)
+func TestIntValConstructor(t *testing.T) {
+	v := IntVal(42)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDInteger, v.Type().ID())
 	assert.Equal(t, int64(42), v.Unwrap())
 }
 
-func TestUintConstructor(t *testing.T) {
-	v := Uint(42)
+func TestUintValConstructor(t *testing.T) {
+	v := UintVal(42)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDUnsigned, v.Type().ID())
 	assert.Equal(t, uint64(42), v.Unwrap())
 }
 
-func TestFloatConstructor(t *testing.T) {
-	v := Float(3.14)
+func TestFloatValConstructor(t *testing.T) {
+	v := FloatVal(3.14)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDFloat, v.Type().ID())
 	assert.Equal(t, 3.14, v.Unwrap())
@@ -46,8 +46,8 @@ func TestStringValConstructor(t *testing.T) {
 	assert.Equal(t, "hello", v.Unwrap())
 }
 
-func TestBytesConstructor(t *testing.T) {
-	v := Bytes([]byte("hello"))
+func TestBytesValConstructor(t *testing.T) {
+	v := BytesVal([]byte("hello"))
 	require.NotNil(t, v)
 	assert.Equal(t, TIDBytes, v.Type().ID())
 	assert.Equal(t, []byte("hello"), v.Unwrap())
@@ -61,16 +61,16 @@ func TestTimeValConstructor(t *testing.T) {
 	assert.Equal(t, now, v.Unwrap())
 }
 
-func TestJSONConstructor(t *testing.T) {
+func TestJSONValConstructor(t *testing.T) {
 	raw := json.RawMessage(`{"key":"value"}`)
-	v := JSON(raw)
+	v := JSONVal(raw)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDJSON, v.Type().ID())
 	assert.Equal(t, raw, v.Unwrap())
 }
 
-func TestArrayConstructor(t *testing.T) {
-	v := Array(
+func TestArrayValConstructor(t *testing.T) {
+	v := ArrayVal(
 		TIDString,
 		StringVal("a"),
 		StringVal("b"),
@@ -85,8 +85,8 @@ func TestArrayConstructor(t *testing.T) {
 	assert.Equal(t, "b", elems[1].Unwrap())
 }
 
-func TestArrayConstructorEmpty(t *testing.T) {
-	v := Array(TIDInteger)
+func TestArrayValConstructorEmpty(t *testing.T) {
+	v := ArrayVal(TIDInteger)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDArray, v.Type().ID())
 	assert.Equal(t, TIDInteger, v.Type().ElemTypeID())
@@ -103,7 +103,7 @@ func TestValueIsNil(t *testing.T) {
 	}{
 		{"nil pointer", nil, true},
 		{"zero value", &Value{}, true},
-		{"non-nil", Bool(true), false},
+		{"non-nil", BoolVal(true), false},
 	}
 
 	for _, tt := range tests {
@@ -122,19 +122,19 @@ func TestValueString(t *testing.T) {
 		want string
 	}{
 		{"nil", nil, "nil"},
-		{"bool true", Bool(true), "true"},
-		{"bool false", Bool(false), "false"},
-		{"int", Int(42), "42"},
-		{"int negative", Int(-7), "-7"},
-		{"uint", Uint(100), "100"},
-		{"float", Float(3.14), "3.14"},
+		{"bool true", BoolVal(true), "true"},
+		{"bool false", BoolVal(false), "false"},
+		{"int", IntVal(42), "42"},
+		{"int negative", IntVal(-7), "-7"},
+		{"uint", UintVal(100), "100"},
+		{"float", FloatVal(3.14), "3.14"},
 		{"string", StringVal("hello"), "hello"},
-		{"bytes", Bytes([]byte("abc")), "abc"},
+		{"bytes", BytesVal([]byte("abc")), "abc"},
 		{"time", TimeVal(now), "2024-01-15T10:30:00Z"},
-		{"json", JSON(json.RawMessage(`{"k":"v"}`)), `{"k":"v"}`},
+		{"json", JSONVal(json.RawMessage(`{"k":"v"}`)), `{"k":"v"}`},
 		{
 			"array",
-			Array(TIDString, StringVal("a"), StringVal("b")),
+			ArrayVal(TIDString, StringVal("a"), StringVal("b")),
 			"[a, b]",
 		},
 	}
@@ -147,21 +147,21 @@ func TestValueString(t *testing.T) {
 }
 
 func TestValueGoString(t *testing.T) {
-	v := Bool(true)
+	v := BoolVal(true)
 	assert.Equal(t, "Value(BOOLEAN, true)", v.GoString())
 }
 
-// --- Step 5: Safe As-prefixed extractors ---
+// --- Safe As-prefixed extractors ---
 
 func TestAsBool(t *testing.T) {
 	t.Run("correct type", func(t *testing.T) {
-		got, err := Bool(true).AsBool()
+		got, err := BoolVal(true).AsBool()
 		require.NoError(t, err)
 		assert.True(t, got)
 	})
 
 	t.Run("wrong type", func(t *testing.T) {
-		_, err := Int(42).AsBool()
+		_, err := IntVal(42).AsBool()
 		assert.ErrorIs(t, err, ErrTypeMismatch)
 	})
 
@@ -174,13 +174,13 @@ func TestAsBool(t *testing.T) {
 
 func TestAsInt(t *testing.T) {
 	t.Run("correct type", func(t *testing.T) {
-		got, err := Int(42).AsInt()
+		got, err := IntVal(42).AsInt()
 		require.NoError(t, err)
 		assert.Equal(t, int64(42), got)
 	})
 
 	t.Run("wrong type", func(t *testing.T) {
-		_, err := Bool(true).AsInt()
+		_, err := BoolVal(true).AsInt()
 		assert.ErrorIs(t, err, ErrTypeMismatch)
 	})
 
@@ -193,26 +193,26 @@ func TestAsInt(t *testing.T) {
 
 func TestAsUint(t *testing.T) {
 	t.Run("correct type", func(t *testing.T) {
-		got, err := Uint(42).AsUint()
+		got, err := UintVal(42).AsUint()
 		require.NoError(t, err)
 		assert.Equal(t, uint64(42), got)
 	})
 
 	t.Run("wrong type", func(t *testing.T) {
-		_, err := Int(42).AsUint()
+		_, err := IntVal(42).AsUint()
 		assert.ErrorIs(t, err, ErrTypeMismatch)
 	})
 }
 
 func TestAsFloat(t *testing.T) {
 	t.Run("correct type", func(t *testing.T) {
-		got, err := Float(3.14).AsFloat()
+		got, err := FloatVal(3.14).AsFloat()
 		require.NoError(t, err)
 		assert.InDelta(t, 3.14, got, 0.001)
 	})
 
 	t.Run("wrong type", func(t *testing.T) {
-		_, err := Int(42).AsFloat()
+		_, err := IntVal(42).AsFloat()
 		assert.ErrorIs(t, err, ErrTypeMismatch)
 	})
 }
@@ -225,14 +225,14 @@ func TestAsStr(t *testing.T) {
 	})
 
 	t.Run("wrong type", func(t *testing.T) {
-		_, err := Int(42).AsStr()
+		_, err := IntVal(42).AsStr()
 		assert.ErrorIs(t, err, ErrTypeMismatch)
 	})
 }
 
 func TestAsBytes(t *testing.T) {
 	t.Run("correct type", func(t *testing.T) {
-		got, err := Bytes([]byte("hello")).AsBytes()
+		got, err := BytesVal([]byte("hello")).AsBytes()
 		require.NoError(t, err)
 		assert.Equal(t, []byte("hello"), got)
 	})
@@ -253,7 +253,7 @@ func TestAsTime(t *testing.T) {
 	})
 
 	t.Run("wrong type", func(t *testing.T) {
-		_, err := Int(42).AsTime()
+		_, err := IntVal(42).AsTime()
 		assert.ErrorIs(t, err, ErrTypeMismatch)
 	})
 }
@@ -262,7 +262,7 @@ func TestAsJSON(t *testing.T) {
 	raw := json.RawMessage(`{"k":"v"}`)
 
 	t.Run("correct type", func(t *testing.T) {
-		got, err := JSON(raw).AsJSON()
+		got, err := JSONVal(raw).AsJSON()
 		require.NoError(t, err)
 		assert.Equal(t, raw, got)
 	})
@@ -275,7 +275,7 @@ func TestAsJSON(t *testing.T) {
 
 func TestAsArray(t *testing.T) {
 	t.Run("correct type", func(t *testing.T) {
-		v := Array(TIDString, StringVal("a"))
+		v := ArrayVal(TIDString, StringVal("a"))
 		got, err := v.AsArray()
 		require.NoError(t, err)
 		require.Len(t, got, 1)
@@ -288,58 +288,58 @@ func TestAsArray(t *testing.T) {
 	})
 }
 
-// --- Step 6: Must extractors ---
+// --- Must extractors ---
 
 func TestMustBool(t *testing.T) {
-	assert.True(t, Bool(true).MustBool())
-	assert.Panics(t, func() { Int(42).MustBool() })
+	assert.True(t, BoolVal(true).MustBool())
+	assert.Panics(t, func() { IntVal(42).MustBool() })
 }
 
 func TestMustInt(t *testing.T) {
-	assert.Equal(t, int64(42), Int(42).MustInt())
-	assert.Panics(t, func() { Bool(true).MustInt() })
+	assert.Equal(t, int64(42), IntVal(42).MustInt())
+	assert.Panics(t, func() { BoolVal(true).MustInt() })
 }
 
 func TestMustUint(t *testing.T) {
-	assert.Equal(t, uint64(42), Uint(42).MustUint())
-	assert.Panics(t, func() { Bool(true).MustUint() })
+	assert.Equal(t, uint64(42), UintVal(42).MustUint())
+	assert.Panics(t, func() { BoolVal(true).MustUint() })
 }
 
 func TestMustFloat(t *testing.T) {
-	assert.InDelta(t, 3.14, Float(3.14).MustFloat(), 0.001)
-	assert.Panics(t, func() { Bool(true).MustFloat() })
+	assert.InDelta(t, 3.14, FloatVal(3.14).MustFloat(), 0.001)
+	assert.Panics(t, func() { BoolVal(true).MustFloat() })
 }
 
 func TestMustStr(t *testing.T) {
 	assert.Equal(t, "hello", StringVal("hello").MustStr())
-	assert.Panics(t, func() { Int(42).MustStr() })
+	assert.Panics(t, func() { IntVal(42).MustStr() })
 }
 
 func TestMustBytes(t *testing.T) {
-	assert.Equal(t, []byte("hello"), Bytes([]byte("hello")).MustBytes())
-	assert.Panics(t, func() { Int(42).MustBytes() })
+	assert.Equal(t, []byte("hello"), BytesVal([]byte("hello")).MustBytes())
+	assert.Panics(t, func() { IntVal(42).MustBytes() })
 }
 
 func TestMustTime(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	assert.Equal(t, now, TimeVal(now).MustTime())
-	assert.Panics(t, func() { Int(42).MustTime() })
+	assert.Panics(t, func() { IntVal(42).MustTime() })
 }
 
 func TestMustJSON(t *testing.T) {
 	raw := json.RawMessage(`{"k":"v"}`)
-	assert.Equal(t, raw, JSON(raw).MustJSON())
-	assert.Panics(t, func() { Int(42).MustJSON() })
+	assert.Equal(t, raw, JSONVal(raw).MustJSON())
+	assert.Panics(t, func() { IntVal(42).MustJSON() })
 }
 
 func TestMustArray(t *testing.T) {
-	v := Array(TIDString, StringVal("a"))
+	v := ArrayVal(TIDString, StringVal("a"))
 	got := v.MustArray()
 	require.Len(t, got, 1)
-	assert.Panics(t, func() { Int(42).MustArray() })
+	assert.Panics(t, func() { IntVal(42).MustArray() })
 }
 
-// --- Step 7: NewValue / NewSafeValue ---
+// --- NewValue / NewSafeValue ---
 
 func TestNewSafeValueNil(t *testing.T) {
 	v, err := NewSafeValue(nil)
@@ -348,7 +348,7 @@ func TestNewSafeValueNil(t *testing.T) {
 }
 
 func TestNewSafeValuePassThrough(t *testing.T) {
-	orig := Bool(true)
+	orig := BoolVal(true)
 	v, err := NewSafeValue(orig)
 	require.NoError(t, err)
 	assert.Same(t, orig, v)
@@ -410,7 +410,6 @@ func TestNewSafeValueUints(t *testing.T) {
 }
 
 func TestNewSafeValueUint8IsByte(t *testing.T) {
-	// A single uint8 should be treated as unsigned, not bytes.
 	v, err := NewSafeValue(uint8(7))
 	require.NoError(t, err)
 	require.NotNil(t, v)
