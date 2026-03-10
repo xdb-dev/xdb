@@ -42,7 +42,7 @@ func (s *SchemaStoreSuite) testCreate(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/posts")
 		def := &schema.Def{
 			URI:  uri,
-			Mode: schema.ModeOpen,
+			Mode: schema.ModeFlexible,
 			Fields: map[string]schema.FieldDef{
 				"title": {Type: core.TIDString, Required: true},
 			},
@@ -83,7 +83,7 @@ func (s *SchemaStoreSuite) testUpdate(t *testing.T) {
 
 	t.Run("replaces existing schema", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/posts")
-		def := &schema.Def{URI: uri, Mode: schema.ModeOpen}
+		def := &schema.Def{URI: uri, Mode: schema.ModeFlexible}
 		require.NoError(t, st.CreateSchema(ctx, uri, def))
 
 		updated := &schema.Def{URI: uri, Mode: schema.ModeStrict}
