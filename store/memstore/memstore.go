@@ -18,9 +18,9 @@ import (
 
 // Store is an in-memory implementation of [store.Store].
 type Store struct {
-	mu      sync.RWMutex
 	records map[string]*core.Record
 	schemas map[string]*schema.Def
+	mu      sync.RWMutex
 }
 
 // New creates a new in-memory store.

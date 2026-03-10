@@ -1,1 +1,4 @@
 .worktrees/
+coverage.out
+coverage.json
+coverage.html
