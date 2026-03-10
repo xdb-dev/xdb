@@ -14,21 +14,19 @@ var ErrNoMapping = errors.New("[xdb/types] no mapping registered")
 // Mapping holds the type, native DB type name, and conversion functions
 // for a single [core.TID].
 type Mapping struct {
-	Type     core.Type
-	TypeName string
-	Encode   func(*core.Value) (driver.Value, error)
-	Decode   func(core.Type, any) (*core.Value, error)
-
-	// KV
+	Encode    func(*core.Value) (driver.Value, error)
+	Decode    func(core.Type, any) (*core.Value, error)
 	Marshal   func(*core.Value) ([]byte, error)
 	Unmarshal func(core.Type, []byte) (*core.Value, error)
+	Type      core.Type
+	TypeName  string
 }
 
 // Codec provides encoding, decoding, and type-name mapping
 // for a specific database backend.
 type Codec struct {
-	name     string
 	mappings map[core.TID]Mapping
+	name     string
 }
 
 // New creates a new [Codec] with the given backend name.
@@ -132,8 +130,8 @@ func (c *Codec) Column(t core.Type, v *core.Value) *Column {
 // Column implements [driver.Valuer] and [sql.Scanner] for use with database/sql.
 type Column struct {
 	codec *Codec
-	typ   core.Type
 	val   *core.Value
+	typ   core.Type
 }
 
 // Value implements [driver.Valuer].
@@ -176,8 +174,8 @@ func (c *Codec) KV(t core.Type, v *core.Value) *KV {
 // paralleling [Column] for SQL backends.
 type KV struct {
 	codec *Codec
-	typ   core.Type
 	val   *core.Value
+	typ   core.Type
 }
 
 // Marshal converts the value to bytes.

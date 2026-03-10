@@ -28,9 +28,9 @@ type Page[T any] struct {
 
 // ListQuery holds pagination and filtering parameters for list operations.
 type ListQuery struct {
+	Filter string
 	Limit  int
 	Offset int
-	Filter string
 }
 
 // RecordReader reads records from the store.

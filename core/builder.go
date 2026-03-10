@@ -209,12 +209,12 @@ func (b *Builder) MustFloat(attr string, v float64) *Tuple {
 }
 
 // Str builds a string [Tuple] with the given attribute name and value.
-func (b *Builder) Str(attr string, v string) (*Tuple, error) {
+func (b *Builder) Str(attr, v string) (*Tuple, error) {
 	return b.typedTuple(attr, StringVal(v))
 }
 
 // MustStr is like [Builder.Str] but panics if any component is invalid.
-func (b *Builder) MustStr(attr string, v string) *Tuple {
+func (b *Builder) MustStr(attr, v string) *Tuple {
 	return b.mustTypedTuple(attr, StringVal(v))
 }
 

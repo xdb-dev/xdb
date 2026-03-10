@@ -21,8 +21,8 @@ var (
 // Value represents an attribute value using a tagged union.
 // A zero Value is considered a nil value.
 type Value struct {
-	typ  Type
 	data any
+	typ  Type
 }
 
 // NewTypedValue creates a [Value] with the given [Type] and data.

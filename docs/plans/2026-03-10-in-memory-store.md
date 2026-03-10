@@ -75,13 +75,13 @@ Namespaces are derived — `ListNamespaces` scans the schemas map and collects d
 
 ## Key Design Decisions
 
-| Decision | Rationale |
-|---|---|
-| Single `sync.RWMutex` | Simple, correct. Memstore is not a production database — optimize for clarity |
-| Maps keyed by `URI.Path()` | Deterministic string key, avoids pointer equality issues |
-| Namespaces derived from schemas | No separate namespace storage — consistent with the store interface having no `NamespaceWriter` |
-| Snapshot-based batch | Deep-copy maps before `fn`, restore on error. Simple rollback without WAL complexity |
-| `ListRecords` URI scoping | NS-only URI lists all records in namespace; NS+Schema URI lists records for that schema. Matches RPC `records.list` semantics |
+| Decision                        | Rationale                                                                                                                     |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Single `sync.RWMutex`           | Simple, correct. Memstore is not a production database — optimize for clarity                                                 |
+| Maps keyed by `URI.Path()`      | Deterministic string key, avoids pointer equality issues                                                                      |
+| Namespaces derived from schemas | No separate namespace storage — consistent with the store interface having no `NamespaceWriter`                               |
+| Snapshot-based batch            | Deep-copy maps before `fn`, restore on error. Simple rollback without WAL complexity                                          |
+| `ListRecords` URI scoping       | NS-only URI lists all records in namespace; NS+Schema URI lists records for that schema. Matches RPC `records.list` semantics |
 
 ## Test Plan
 

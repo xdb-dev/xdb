@@ -189,8 +189,8 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/posts")
 
 		tests := []struct {
-			name       string
 			query      *store.ListQuery
+			name       string
 			wantLen    int
 			wantTotal  int
 			wantOffset int
