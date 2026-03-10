@@ -41,6 +41,12 @@ Write vertical, readable Go code. Favor more lines over longer lines:
 - Use early returns to keep logic flat and reduce nesting
 - Write struct literals vertically with one field per line
 
+### Core Value Access
+
+- Use typed `As*` methods (`AsStr()`, `AsInt()`, `AsBool()`, etc.) on `core.Tuple` or `core.Value` — never use `Unwrap()`.
+- Prefer `Tuple.As*()` (e.g., `record.Get("title").AsStr()`) over `Tuple.Value().As*()`.
+- Always check the error returned by `As*` methods.
+
 ### Documentation
 
 - All public functions and types should be documented with GoDoc.
