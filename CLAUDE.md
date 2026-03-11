@@ -1,71 +1,45 @@
 # XDB - Claude
 
-## Overview
+XDB is a Go library and CLI for tuple-based data modeling, storage, and querying across multiple databases. See ./README.md for details.
 
-XDB is a Go library that provides a tuple-based abstraction for modeling, storing, and querying data across multiple databases. Rather than writing database-specific schemas, queries, and migrations, XDB allows developers to model their domain once and use it with one or more databases.
+## TDD (strict)
 
-The `xdb` CLI is a S3 like CLI that allows creating, listing, getting, and deleting data from the XDB store.
+Write tests BEFORE implementation. Run failing test, write minimum code to pass, confirm green. No exceptions.
+- Use `github.com/stretchr/testify` (`require` for fatal, `assert` for non-fatal). Table-driven tests preferred.
 
-Read ./README.md for more details.
+## Build
 
-## Tech Stack
+Use `make` exclusively — never invoke `go test`, `go build`, `go vet`, `golangci-lint` directly. Always run `make check` before committing.
 
-- Go (latest stable)
+| Target | Purpose |
+|---|---|
+| `make setup` | Setup project and update deps |
+| `make build` | Build all packages |
+| `make test` | Run all tests (race + coverage) |
+| `make check` | Linting and formatting (tidy + lint) |
+| `make lint` | Run golangci-lint with auto-fix |
+| `make tidy` | Run go mod tidy |
+| `make coverage` | Generate coverage report |
+| `make report` | Generate and open HTML coverage report |
 
-## Code Quality Expectations
+## Go Style
 
-### Test Driven Development
+Write vertical, readable code. Favor more lines over longer lines:
+- Keep packages small and focused — no circular dependencies
+- One argument per line for long function calls (trailing comma on last arg)
+- Intermediate variables over deeply nested expressions
+- Named booleans for long conditionals
+- Early returns to keep logic flat
+- Vertical struct literals (one field per line)
 
-- Always write tests BEFORE writing implementation code.
-- Run the failing test to confirm it fails for the right reason.
-- Write the minimum implementation to make the test pass.
-- Run tests again to confirm they pass.
-- Only commit when tests are passing.
-- Do not skip this cycle. No exceptions.
-- Use github.com/stretchr/testify for assertions (require for fatal, assert for non-fatal)
-- Table-driven tests preferred.
+## Core Value Access
 
-### Build Commands
+Use typed `As*` methods (`AsStr()`, `AsInt()`, `AsBool()`, etc.) on `core.Tuple` or `core.Value` — never `Unwrap()`. Prefer `record.Get("title").AsStr()` over `Tuple.Value().As*()`. Always check errors.
 
-- Use `make` as the single entry point for all build, test, check commands.
-- Do not invoke `go test`, `go build`, `go vet`, `golangci-lint`, or other tools directly — use the corresponding Makefile target.
-- If a new build/dev command is needed, add a Makefile target for it first.
+## Documentation
 
-### Go Style
-
-Write vertical, readable Go code. Favor more lines over longer lines:
-
-- Break long function calls with one argument per line (trailing comma on last arg)
-- Use intermediate variables instead of deeply nested expressions — the compiler inlines them
-- Break long conditionals into named booleans
-- Use early returns to keep logic flat and reduce nesting
-- Write struct literals vertically with one field per line
-
-### Core Value Access
-
-- Use typed `As*` methods (`AsStr()`, `AsInt()`, `AsBool()`, etc.) on `core.Tuple` or `core.Value` — never use `Unwrap()`.
-- Prefer `Tuple.As*()` (e.g., `record.Get("title").AsStr()`) over `Tuple.Value().As*()`.
-- Always check the error returned by `As*` methods.
-
-### Documentation
-
-- All public functions and types should be documented with GoDoc.
-- Use simple, concise, and clear language.
-- Use doc.go files for detailed package-level documentation.
-- Use `[pkg.Type]` annotations for relevant types in GoDoc comments.
-
-## Makefile Targets
-
-| Target           | Purpose                                  |
-| ---------------- | ---------------------------------------- |
-| `make setup`     | Setup the project and update deps        |
-| `make build`     | Build all packages                       |
-| `make test`      | Run all tests (with race + coverage)     |
-| `make check`     | Run linting and formatting (tidy + lint) |
-| `make lint`      | Run golangci-lint with auto-fix          |
-| `make tidy`      | Run go mod tidy                          |
-| `make coverage`  | Generate coverage report                 |
-| `make report`    | Generate and open HTML coverage report   |
+- GoDoc on all public functions/types. Use `[pkg.Type]` annotations. Use `doc.go` for package-level docs.
+- **Concept docs** (`docs/concepts/`): one file per concept with YAML frontmatter (`title`, `description`, `package`). Create for new abstractions, update when APIs/behavior change. Include Go examples matching actual API. Update `docs/concepts/README.md` index.
 
 ## Project Structure
 
@@ -73,26 +47,17 @@ Write vertical, readable Go code. Favor more lines over longer lines:
 core/             # URI, Tuple, Record, Value, Type — the data model
 schema/           # Schema definitions and validation
 store/            # Store interfaces (RecordStore, SchemaStore, etc.)
-  xdbfs/          # Filesystem-backed store implementation
+  xdbfs/          # Filesystem-backed store
   xdbmemory/      # In-memory store (reference/testing)
-  xdbredis/       # Redis-backed store using RedisJSON (planned)
+  xdbredis/       # Redis-backed store (planned)
 encoding/
   xdbjson/        # JSON encoder/decoder for records
 types/            # Type codec for database backend mappings
 tests/            # Shared test suites for store implementations
 docs/
-  plans/          # Implementation plans (YYYY-MM-DD-name.md)
-  research/       # Research documents (YYYY-MM-DD-name.md)
+  concepts/       # Concept docs (one per concept)
+  plans/          # Plans: YYYY-MM-DD-plan-name.md
+  research/       # Research: YYYY-MM-DD-research-name.md
 ```
 
-## Development Rules
-
-- Keep packages small and focused — no circular dependencies.
-- Always run `make check` before committing.
-
-## Research & Plans
-
-- All plans MUST be tracked in the `./docs/plans` directory.
-- All plans MUST be named like `YYYY-MM-DD-plan-name.md`.
-- All research MUST be tracked in the `./docs/research` directory.
-- All research MUST be named like `YYYY-MM-DD-research-name.md`.
+Plans go in `./docs/plans/`, research in `./docs/research/`, both named `YYYY-MM-DD-name.md`.

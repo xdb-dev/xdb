@@ -8,6 +8,8 @@ Read about the motivation behind XDB in [Introducing XDB](https://raviatluri.in/
 
 ## Core Concepts
 
+> For in-depth documentation on each concept, see [docs/concepts](./docs/concepts/).
+
 The XDB data model can be visualized as a tree of **Namespaces**, **Schemas**, **Records**, and **Tuples**.
 
 ```
