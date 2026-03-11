@@ -1,9 +1,9 @@
-// Package memstore provides an in-memory implementation of [store.Store].
+// Package xdbmemory provides an in-memory implementation of [store.Store].
 //
 // This is the reference implementation used for testing, embedded mode,
 // and validating the store interface design. All state is held in maps
 // protected by a single [sync.RWMutex].
-package memstore
+package xdbmemory
 
 import (
 	"context"

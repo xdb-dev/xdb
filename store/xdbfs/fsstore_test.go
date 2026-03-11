@@ -1,4 +1,4 @@
-package fsstore_test
+package xdbfs_test
 
 import (
 	"context"
@@ -12,13 +12,13 @@ import (
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
-	"github.com/xdb-dev/xdb/store/fsstore"
+	"github.com/xdb-dev/xdb/store/xdbfs"
 	"github.com/xdb-dev/xdb/tests"
 )
 
-func newTestStore(t *testing.T) *fsstore.Store {
+func newTestStore(t *testing.T) *xdbfs.Store {
 	t.Helper()
-	s, err := fsstore.New(t.TempDir(), fsstore.Options{})
+	s, err := xdbfs.New(t.TempDir(), xdbfs.Options{})
 	require.NoError(t, err)
 	return s
 }
@@ -37,13 +37,13 @@ func TestHealth(t *testing.T) {
 	})
 
 	t.Run("nonexistent_root", func(t *testing.T) {
-		s, err := fsstore.New(t.TempDir(), fsstore.Options{})
+		s, err := xdbfs.New(t.TempDir(), xdbfs.Options{})
 		require.NoError(t, err)
 
 		// Remove the root after creation.
 		os.RemoveAll(filepath.Dir(s.Root()) + "/nonexistent")
 		// Create a store pointing to a path that doesn't exist.
-		bad, err := fsstore.New(filepath.Join(t.TempDir(), "gone"), fsstore.Options{})
+		bad, err := xdbfs.New(filepath.Join(t.TempDir(), "gone"), xdbfs.Options{})
 		require.NoError(t, err)
 		os.RemoveAll(bad.Root())
 
@@ -74,7 +74,7 @@ func TestNamespaces(t *testing.T) {
 
 func TestFileLayout_SchemaFile(t *testing.T) {
 	root := t.TempDir()
-	s, err := fsstore.New(root, fsstore.Options{})
+	s, err := xdbfs.New(root, xdbfs.Options{})
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -92,7 +92,7 @@ func TestFileLayout_SchemaFile(t *testing.T) {
 
 func TestFileLayout_RecordFile(t *testing.T) {
 	root := t.TempDir()
-	s, err := fsstore.New(root, fsstore.Options{})
+	s, err := xdbfs.New(root, xdbfs.Options{})
 	require.NoError(t, err)
 
 	ctx := context.Background()
@@ -110,7 +110,7 @@ func TestFileLayout_RecordFile(t *testing.T) {
 
 func TestDeleteSchema_CleansEmptyDirs(t *testing.T) {
 	root := t.TempDir()
-	s, err := fsstore.New(root, fsstore.Options{})
+	s, err := xdbfs.New(root, xdbfs.Options{})
 	require.NoError(t, err)
 
 	ctx := context.Background()
