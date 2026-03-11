@@ -1,4 +1,4 @@
-package fsstore
+package xdbfs
 
 import "github.com/xdb-dev/xdb/store"
 

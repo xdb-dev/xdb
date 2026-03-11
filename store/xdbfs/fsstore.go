@@ -1,4 +1,4 @@
-// Package fsstore provides a filesystem-backed implementation of [store.Store].
+// Package xdbfs provides a filesystem-backed implementation of [store.Store].
 //
 // Records and schemas are stored as JSON files on disk. The directory
 // hierarchy mirrors the XDB data model:
@@ -9,7 +9,7 @@
 // The store is thread-safe via [sync.RWMutex] for concurrent in-process
 // access. It is suitable for local development, CLI tools, and
 // configuration storage.
-package fsstore
+package xdbfs
 
 import (
 	"context"

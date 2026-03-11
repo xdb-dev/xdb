@@ -56,14 +56,34 @@ Write vertical, readable Go code. Favor more lines over longer lines:
 
 ## Makefile Targets
 
-| Target       | Purpose                    |
-| ------------ | -------------------------- |
-| `make test`  | Run all tests              |
-| `make check` | Run linting and formatting |
-| `make tidy`  | Run go mod tidy            |
-| `make build` | Run go build for CLI       |
+| Target           | Purpose                                  |
+| ---------------- | ---------------------------------------- |
+| `make setup`     | Setup the project and update deps        |
+| `make build`     | Build all packages                       |
+| `make test`      | Run all tests (with race + coverage)     |
+| `make check`     | Run linting and formatting (tidy + lint) |
+| `make lint`      | Run golangci-lint with auto-fix          |
+| `make tidy`      | Run go mod tidy                          |
+| `make coverage`  | Generate coverage report                 |
+| `make report`    | Generate and open HTML coverage report   |
 
 ## Project Structure
+
+```
+core/             # URI, Tuple, Record, Value, Type — the data model
+schema/           # Schema definitions and validation
+store/            # Store interfaces (RecordStore, SchemaStore, etc.)
+  xdbfs/          # Filesystem-backed store implementation
+  xdbmemory/      # In-memory store (reference/testing)
+  xdbredis/       # Redis-backed store using RedisJSON (planned)
+encoding/
+  xdbjson/        # JSON encoder/decoder for records
+types/            # Type codec for database backend mappings
+tests/            # Shared test suites for store implementations
+docs/
+  plans/          # Implementation plans (YYYY-MM-DD-name.md)
+  research/       # Research documents (YYYY-MM-DD-name.md)
+```
 
 ## Development Rules
 

@@ -1,4 +1,4 @@
-package fsstore
+package xdbfs
 
 import (
 	"path/filepath"
