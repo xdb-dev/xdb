@@ -4,27 +4,36 @@ TOOLS_MODULE := $(PROJECT_DIR)/tools.mod
 # DEVELOPMENT
 .PHONY: setup build check lint tidy
 
+SUBMODULES := $(shell find . -mindepth 2 -name go.mod -exec dirname {} \;)
+
 setup: ##@development Setup the project and update dependencies
 	go mod tidy
+	@for mod in $(SUBMODULES); do (cd $$mod && go mod tidy); done
 
 build: ##@development Build all packages
 	go build ./...
+	@for mod in $(SUBMODULES); do (cd $$mod && go build ./...); done
 
 check: ##@development Runs linting and formatting
 check: tidy lint
 
 lint: golangci-lint ##@development Runs golangci-lint (includes formatting, vetting, and linting)
 	$(GOLANGCI_LINT) run --fix --config $(PROJECT_DIR)/.golangci.yml ./...
+	@for mod in $(SUBMODULES); do (cd $$mod && $(GOLANGCI_LINT) run --fix --config $(PROJECT_DIR)/.golangci.yml ./...); done
 
 tidy: ##@development Runs go mod tidy to update dependencies
 	go mod tidy
+	@for mod in $(SUBMODULES); do (cd $$mod && go mod tidy); done
 
 # TESTING
 
-.PHONY: test
+.PHONY: test test-redis
 
 test: ##@testing Run tests
 	go test -race -timeout=5m -covermode=atomic -coverprofile=coverage.out ./...
+
+test-redis: ##@testing Run Redis integration tests (requires running Redis)
+	cd store/xdbredis && go test -race -timeout=5m ./...
 
 # COVERAGE
 
