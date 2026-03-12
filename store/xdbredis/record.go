@@ -54,7 +54,7 @@ func (s *Store) ListRecords(
 		return records[i].URI().Path() < records[j].URI().Path()
 	})
 
-	return paginate(records, q), nil
+	return store.Paginate(records, q), nil
 }
 
 // listRecordsBySchema lists records for a single schema.
@@ -72,7 +72,7 @@ func (s *Store) listRecordsBySchema(
 		return records[i].URI().Path() < records[j].URI().Path()
 	})
 
-	return paginate(records, q), nil
+	return store.Paginate(records, q), nil
 }
 
 // fetchRecordsBySchema fetches all records for a given namespace+schema URI.
@@ -173,6 +173,9 @@ func (s *Store) DeleteRecord(ctx context.Context, uri *core.URI) error {
 	return nil
 }
 
+// sentinelField is a marker field so empty records (no tuples) can be stored.
+const sentinelField = "_"
+
 // writeRecord encodes and writes a record to Redis with index update.
 func (s *Store) writeRecord(ctx context.Context, record *core.Record) error {
 	key := s.recordKey(record.URI())
@@ -184,10 +187,17 @@ func (s *Store) writeRecord(ctx context.Context, record *core.Record) error {
 		return err
 	}
 
+	// Always include sentinel so HSet never receives an empty map.
+	fields[sentinelField] = "1"
+
+	schemaIdxKey := s.schemaIndexKey(record.URI())
+	schemaName := record.Schema().String()
+
 	pipe := s.client.TxPipeline()
 	pipe.Del(ctx, key)
 	pipe.HSet(ctx, key, fields)
 	pipe.SAdd(ctx, idxKey, id)
+	pipe.SAdd(ctx, schemaIdxKey, schemaName)
 
 	if _, err := pipe.Exec(ctx); err != nil {
 		return fmt.Errorf("xdbredis: write record: %w", err)
@@ -228,6 +238,10 @@ func decodeRecord(
 	)
 
 	for attr, encoded := range fields {
+		if attr == sentinelField {
+			continue
+		}
+
 		val, err := decodeValue(encoded)
 		if err != nil {
 			return nil, fmt.Errorf("xdbredis: decode field %s: %w", attr, err)

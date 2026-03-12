@@ -74,7 +74,7 @@ func (s *Store) ListRecords(
 		return records[i].URI().Path() < records[j].URI().Path()
 	})
 
-	return paginate(records, q), nil
+	return store.Paginate(records, q), nil
 }
 
 // CreateRecord creates a new record.

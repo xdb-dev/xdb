@@ -15,12 +15,15 @@ Use `make` exclusively — never invoke `go test`, `go build`, `go vet`, `golang
 |---|---|
 | `make setup` | Setup project and update deps |
 | `make build` | Build all packages |
-| `make test` | Run all tests (race + coverage) |
+| `make test` | Run all tests (root + sub-modules) |
 | `make check` | Linting and formatting (tidy + lint) |
 | `make lint` | Run golangci-lint with auto-fix |
 | `make tidy` | Run go mod tidy |
 | `make coverage` | Generate coverage report |
 | `make report` | Generate and open HTML coverage report |
+| `make services-up` | Start compose services (podman) |
+| `make services-down` | Stop compose services |
+| `make services-logs` | Tail compose service logs |
 
 ## Go Style
 
@@ -49,7 +52,8 @@ schema/           # Schema definitions and validation
 store/            # Store interfaces (RecordStore, SchemaStore, etc.)
   xdbfs/          # Filesystem-backed store
   xdbmemory/      # In-memory store (reference/testing)
-  xdbredis/       # Redis-backed store (planned)
+  xdbredis/       # Redis-backed store (requires `make services-up`)
+  xdbsqlite/      # SQLite-backed store
 encoding/
   xdbjson/        # JSON encoder/decoder for records
 types/            # Type codec for database backend mappings

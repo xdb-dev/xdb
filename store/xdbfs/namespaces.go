@@ -55,7 +55,7 @@ func (s *Store) ListNamespaces(
 		return namespaces[i].String() < namespaces[j].String()
 	})
 
-	return paginate(namespaces, q), nil
+	return store.Paginate(namespaces, q), nil
 }
 
 // hasSchema checks if any subdirectory contains a _schema.json file.
