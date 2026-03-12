@@ -45,5 +45,5 @@ func (s *Store) ListNamespaces(
 		items[i] = ns
 	}
 
-	return paginate(items, q), nil
+	return store.Paginate(items, q), nil
 }

@@ -27,13 +27,24 @@ tidy: ##@development Runs go mod tidy to update dependencies
 
 # TESTING
 
-.PHONY: test test-redis
+.PHONY: test
 
-test: ##@testing Run tests
+test: ##@testing Run all tests 
 	go test -race -timeout=5m -covermode=atomic -coverprofile=coverage.out ./...
+	@for mod in $(SUBMODULES); do echo "==> testing $$mod" && (cd $$mod && go test -race -timeout=5m ./...) || exit 1; done
 
-test-redis: ##@testing Run Redis integration tests (requires running Redis)
-	cd store/xdbredis && go test -race -timeout=5m ./...
+# SERVICES
+
+.PHONY: services-up services-down services-logs
+
+services-up: ##@services Start compose services
+	podman compose up -d
+
+services-down: ##@services Stop compose services
+	podman compose down
+
+services-logs: ##@services Tail compose service logs
+	podman compose logs -f
 
 # COVERAGE
 

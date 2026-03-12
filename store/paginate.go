@@ -1,13 +1,13 @@
-package xdbfs
+package store
 
-import "github.com/xdb-dev/xdb/store"
-
-// paginate applies offset/limit to a sorted slice and returns a [store.Page].
-func paginate[T any](items []T, q *store.ListQuery) *store.Page[T] {
+// Paginate applies offset/limit from a [ListQuery] to a sorted slice
+// and returns a [Page].
+func Paginate[T any](items []T, q *ListQuery) *Page[T] {
 	total := len(items)
 
 	offset := 0
 	limit := total
+
 	if q != nil {
 		offset = q.Offset
 		if q.Limit > 0 {
@@ -23,7 +23,7 @@ func paginate[T any](items []T, q *store.ListQuery) *store.Page[T] {
 		nextOffset = end
 	}
 
-	return &store.Page[T]{
+	return &Page[T]{
 		Items:      items[offset:end],
 		Total:      total,
 		NextOffset: nextOffset,

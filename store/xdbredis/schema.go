@@ -63,7 +63,7 @@ func (s *Store) ListSchemas(
 		return defs[i].URI.Path() < defs[j].URI.Path()
 	})
 
-	return paginate(defs, q), nil
+	return store.Paginate(defs, q), nil
 }
 
 // listSchemasByNS lists schemas for a single namespace.
@@ -81,7 +81,7 @@ func (s *Store) listSchemasByNS(
 		return defs[i].URI.Path() < defs[j].URI.Path()
 	})
 
-	return paginate(defs, q), nil
+	return store.Paginate(defs, q), nil
 }
 
 // fetchSchemasByNS fetches all schema definitions for a namespace URI.

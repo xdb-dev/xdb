@@ -78,7 +78,7 @@ func (s *Store) ListSchemas(
 		return defs[i].URI.Path() < defs[j].URI.Path()
 	})
 
-	return paginate(defs, q), nil
+	return store.Paginate(defs, q), nil
 }
 
 // CreateSchema creates a new schema definition.
