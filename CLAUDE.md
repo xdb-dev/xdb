@@ -5,29 +5,31 @@ XDB is a Go library and CLI for tuple-based data modeling, storage, and querying
 ## TDD (strict)
 
 Write tests BEFORE implementation. Run failing test, write minimum code to pass, confirm green. No exceptions.
+
 - Use `github.com/stretchr/testify` (`require` for fatal, `assert` for non-fatal). Table-driven tests preferred.
 
 ## Build
 
 Use `make` exclusively — never invoke `go test`, `go build`, `go vet`, `golangci-lint` directly. Always run `make check` before committing.
 
-| Target | Purpose |
-|---|---|
-| `make setup` | Setup project and update deps |
-| `make build` | Build all packages |
-| `make test` | Run all tests (root + sub-modules) |
-| `make check` | Linting and formatting (tidy + lint) |
-| `make lint` | Run golangci-lint with auto-fix |
-| `make tidy` | Run go mod tidy |
-| `make coverage` | Generate coverage report |
-| `make report` | Generate and open HTML coverage report |
-| `make services-up` | Start compose services (podman) |
-| `make services-down` | Stop compose services |
-| `make services-logs` | Tail compose service logs |
+| Target               | Purpose                                |
+| -------------------- | -------------------------------------- |
+| `make setup`         | Setup project and update deps          |
+| `make build`         | Build all packages                     |
+| `make test`          | Run all tests (root + sub-modules)     |
+| `make check`         | Linting and formatting (tidy + lint)   |
+| `make lint`          | Run golangci-lint with auto-fix        |
+| `make tidy`          | Run go mod tidy                        |
+| `make coverage`      | Generate coverage report               |
+| `make report`        | Generate and open HTML coverage report |
+| `make services-up`   | Start compose services (podman)        |
+| `make services-down` | Stop compose services                  |
+| `make services-logs` | Tail compose service logs              |
 
 ## Go Style
 
 Write vertical, readable code. Favor more lines over longer lines:
+
 - Keep packages small and focused — no circular dependencies
 - One argument per line for long function calls (trailing comma on last arg)
 - Intermediate variables over deeply nested expressions
@@ -56,7 +58,6 @@ store/            # Store interfaces (RecordStore, SchemaStore, etc.)
   xdbsqlite/      # SQLite-backed store
 encoding/
   xdbjson/        # JSON encoder/decoder for records
-types/            # Type codec for database backend mappings
 tests/            # Shared test suites for store implementations
 docs/
   concepts/       # Concept docs (one per concept)
@@ -64,4 +65,7 @@ docs/
   research/       # Research: YYYY-MM-DD-research-name.md
 ```
 
-Plans go in `./docs/plans/`, research in `./docs/research/`, both named `YYYY-MM-DD-name.md`.
+## Plans and Research
+
+- Plans go in `./docs/plans/`, research in `./docs/research/`, both named `YYYY-MM-DD-name.md`.
+- After user approves the plan, move the plan to `./docs/plans/` before implementation.

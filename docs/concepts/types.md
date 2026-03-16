@@ -118,24 +118,12 @@ In [Schema](schemas.md) definitions, array fields specify the element type.
 
 ## Type Codec
 
-The `types` package provides a codec system for mapping XDB types to database-specific types. Each database backend registers its own mappings:
+Each database store defines a codec that maps XDB types to database-specific representations. A codec provides two encoding paths:
 
-```go
-codec := types.New("sqlite")
-codec.Register(types.Mapping{
-    Type:     core.TypeString,
-    TypeName: "TEXT",
-    Encode:   func(v *core.Value) (driver.Value, error) { ... },
-    Decode:   func(t core.Type, src any) (*core.Value, error) { ... },
-})
+- **ToDriver / FromDriver** — converts `*core.Value` to/from `driver.Value` for SQL column storage
+- **ToBytes / FromBytes** — converts `*core.Value` to/from `[]byte` for KV storage
 
-// Convert between XDB and database values
-dbVal, err := codec.Encode(xdbValue)
-xdbVal, err := codec.Decode(core.TypeString, dbVal)
-
-// Get database type name
-name, err := codec.TypeName(core.TypeString) // "TEXT"
-```
+The SQLite store's codec is defined in `store/xdbsqlite/internal/sql/codec.go`.
 
 This abstraction allows XDB to work with multiple databases without changing application code.
 
