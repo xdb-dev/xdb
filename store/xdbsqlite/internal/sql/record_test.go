@@ -23,7 +23,7 @@ func createColumnTable(t *testing.T, q *xsql.Queries, table string) {
 	}))
 }
 
-var testColumns = []xsql.ColumnType{
+var testColumns = []xsql.Value{
 	{Name: "title", Type: core.TypeString},
 	{Name: "count", Type: core.TypeInt},
 	{Name: "score", Type: core.TypeFloat},
@@ -39,9 +39,9 @@ func TestCreateRecord(t *testing.T) {
 		Table: table,
 		ID:    "id1",
 		Values: []xsql.Value{
-			{Column: "title", Val: core.StringVal("hello")},
-			{Column: "count", Val: core.IntVal(42)},
-			{Column: "score", Val: core.FloatVal(3.14)},
+			{Name: "title", Val: core.StringVal("hello")},
+			{Name: "count", Val: core.IntVal(42)},
+			{Name: "score", Val: core.FloatVal(3.14)},
 		},
 	})
 	require.NoError(t, err)
@@ -52,11 +52,11 @@ func TestCreateRecord(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, vals, 3)
 
-	assert.Equal(t, "title", vals[0].Column)
+	assert.Equal(t, "title", vals[0].Name)
 	assert.Equal(t, "hello", vals[0].Val.Unwrap())
-	assert.Equal(t, "count", vals[1].Column)
+	assert.Equal(t, "count", vals[1].Name)
 	assert.Equal(t, int64(42), vals[1].Val.Unwrap())
-	assert.Equal(t, "score", vals[2].Column)
+	assert.Equal(t, "score", vals[2].Name)
 	assert.Equal(t, float64(3.14), vals[2].Val.Unwrap())
 }
 
@@ -68,7 +68,7 @@ func TestCreateRecord_Duplicate(t *testing.T) {
 
 	params := xsql.CreateRecordParams{
 		Table: table, ID: "id1",
-		Values: []xsql.Value{{Column: "title", Val: core.StringVal("x")}},
+		Values: []xsql.Value{{Name: "title", Val: core.StringVal("x")}},
 	}
 
 	require.NoError(t, q.CreateRecord(ctx, params))
@@ -85,12 +85,12 @@ func TestUpdateRecord(t *testing.T) {
 	require.NoError(t, q.CreateRecord(ctx, xsql.CreateRecordParams{
 		Table: table, ID: "id1",
 		Values: []xsql.Value{
-			{Column: "title", Val: core.StringVal("old")},
-			{Column: "count", Val: core.IntVal(1)},
+			{Name: "title", Val: core.StringVal("old")},
+			{Name: "count", Val: core.IntVal(1)},
 		},
 	}))
 
-	cols := []xsql.ColumnType{
+	cols := []xsql.Value{
 		{Name: "title", Type: core.TypeString},
 		{Name: "count", Type: core.TypeInt},
 	}
@@ -98,8 +98,8 @@ func TestUpdateRecord(t *testing.T) {
 	err := q.UpdateRecord(ctx, xsql.UpdateRecordParams{
 		Table: table, ID: "id1",
 		Values: []xsql.Value{
-			{Column: "title", Val: core.StringVal("new")},
-			{Column: "count", Val: core.IntVal(2)},
+			{Name: "title", Val: core.StringVal("new")},
+			{Name: "count", Val: core.IntVal(2)},
 		},
 	})
 	require.NoError(t, err)
@@ -118,12 +118,12 @@ func TestUpsertRecord(t *testing.T) {
 	table := `"t:test/t"`
 	createColumnTable(t, q, table)
 
-	titleCol := []xsql.ColumnType{{Name: "title", Type: core.TypeString}}
+	titleCol := []xsql.Value{{Name: "title", Type: core.TypeString}}
 
 	t.Run("creates when missing", func(t *testing.T) {
 		err := q.UpsertRecord(ctx, xsql.UpsertRecordParams{
 			Table: table, ID: "id1",
-			Values: []xsql.Value{{Column: "title", Val: core.StringVal("v1")}},
+			Values: []xsql.Value{{Name: "title", Val: core.StringVal("v1")}},
 		})
 		require.NoError(t, err)
 
@@ -137,7 +137,7 @@ func TestUpsertRecord(t *testing.T) {
 	t.Run("updates when present", func(t *testing.T) {
 		err := q.UpsertRecord(ctx, xsql.UpsertRecordParams{
 			Table: table, ID: "id1",
-			Values: []xsql.Value{{Column: "title", Val: core.StringVal("v2")}},
+			Values: []xsql.Value{{Name: "title", Val: core.StringVal("v2")}},
 		})
 		require.NoError(t, err)
 
@@ -157,7 +157,7 @@ func TestGetRecord_Missing(t *testing.T) {
 
 	vals, err := q.GetRecord(ctx, xsql.GetRecordParams{
 		Table: table, ID: "nope",
-		Columns: []xsql.ColumnType{{Name: "title", Type: core.TypeString}},
+		Columns: []xsql.Value{{Name: "title", Type: core.TypeString}},
 	})
 	require.NoError(t, err)
 	assert.Nil(t, vals)
@@ -172,11 +172,11 @@ func TestListRecords(t *testing.T) {
 	for _, id := range []string{"c", "a", "b"} {
 		require.NoError(t, q.CreateRecord(ctx, xsql.CreateRecordParams{
 			Table: table, ID: id,
-			Values: []xsql.Value{{Column: "title", Val: core.StringVal("t-" + id)}},
+			Values: []xsql.Value{{Name: "title", Val: core.StringVal("t-" + id)}},
 		}))
 	}
 
-	cols := []xsql.ColumnType{{Name: "title", Type: core.TypeString}}
+	cols := []xsql.Value{{Name: "title", Type: core.TypeString}}
 
 	t.Run("ordered by _id", func(t *testing.T) {
 		rows, err := q.ListRecords(ctx, xsql.ListRecordsParams{
@@ -185,7 +185,7 @@ func TestListRecords(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, rows, 3)
 
-		assert.Equal(t, "_id", rows[0][0].Column)
+		assert.Equal(t, "_id", rows[0][0].Name)
 		assert.Equal(t, "a", rows[0][0].Val.Unwrap())
 		assert.Equal(t, "t-a", rows[0][1].Val.Unwrap())
 		assert.Equal(t, "b", rows[1][0].Val.Unwrap())
@@ -215,14 +215,14 @@ func TestDeleteRecord(t *testing.T) {
 
 	require.NoError(t, q.CreateRecord(ctx, xsql.CreateRecordParams{
 		Table: table, ID: "id1",
-		Values: []xsql.Value{{Column: "title", Val: core.StringVal("x")}},
+		Values: []xsql.Value{{Name: "title", Val: core.StringVal("x")}},
 	}))
 
 	require.NoError(t, q.DeleteRecord(ctx, xsql.DeleteRecordParams{Table: table, ID: "id1"}))
 
 	vals, err := q.GetRecord(ctx, xsql.GetRecordParams{
 		Table: table, ID: "id1",
-		Columns: []xsql.ColumnType{{Name: "title", Type: core.TypeString}},
+		Columns: []xsql.Value{{Name: "title", Type: core.TypeString}},
 	})
 	require.NoError(t, err)
 	assert.Nil(t, vals)
@@ -240,7 +240,7 @@ func TestRecordExists(t *testing.T) {
 
 	require.NoError(t, q.CreateRecord(ctx, xsql.CreateRecordParams{
 		Table: table, ID: "id1",
-		Values: []xsql.Value{{Column: "title", Val: core.StringVal("x")}},
+		Values: []xsql.Value{{Name: "title", Val: core.StringVal("x")}},
 	}))
 
 	exists, err = q.RecordExists(ctx, xsql.RecordExistsParams{Table: table, ID: "id1"})
@@ -257,14 +257,14 @@ func TestRecord_NullValue(t *testing.T) {
 	require.NoError(t, q.CreateRecord(ctx, xsql.CreateRecordParams{
 		Table: table, ID: "id1",
 		Values: []xsql.Value{
-			{Column: "title"},
-			{Column: "count", Val: core.IntVal(5)},
+			{Name: "title"},
+			{Name: "count", Val: core.IntVal(5)},
 		},
 	}))
 
 	vals, err := q.GetRecord(ctx, xsql.GetRecordParams{
 		Table: table, ID: "id1",
-		Columns: []xsql.ColumnType{
+		Columns: []xsql.Value{
 			{Name: "title", Type: core.TypeString},
 			{Name: "count", Type: core.TypeInt},
 		},
@@ -286,12 +286,12 @@ func TestRecord_BoolCoercion(t *testing.T) {
 
 	require.NoError(t, q.CreateRecord(ctx, xsql.CreateRecordParams{
 		Table: table, ID: "id1",
-		Values: []xsql.Value{{Column: "active", Val: core.BoolVal(true)}},
+		Values: []xsql.Value{{Name: "active", Val: core.BoolVal(true)}},
 	}))
 
 	vals, err := q.GetRecord(ctx, xsql.GetRecordParams{
 		Table: table, ID: "id1",
-		Columns: []xsql.ColumnType{{Name: "active", Type: core.TypeBool}},
+		Columns: []xsql.Value{{Name: "active", Type: core.TypeBool}},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, true, vals[0].Val.Unwrap())

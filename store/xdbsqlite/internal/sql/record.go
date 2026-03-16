@@ -3,49 +3,11 @@ package sql
 import (
 	"context"
 	"database/sql"
-	"database/sql/driver"
 	"fmt"
 	"strings"
 
 	"github.com/xdb-dev/xdb/core"
 )
-
-// Value pairs a column name with a [*core.Value] for write operations.
-// It implements [driver.Valuer] for direct use with database/sql.
-type Value struct {
-	Val    *core.Value
-	Column string
-}
-
-// Value implements [driver.Valuer]. database/sql calls this automatically
-// when a Value is passed as a query argument.
-func (v Value) Value() (driver.Value, error) {
-	return defaultCodec.ToDriver(v.Val)
-}
-
-// ColumnType describes a column's name and type for read operations.
-type ColumnType struct {
-	Name string
-	Type core.Type
-}
-
-// column implements [sql.Scanner] for reading a typed column value.
-type column struct {
-	val *core.Value
-	typ core.Type
-}
-
-func (c *column) Scan(src any) error {
-	if src == nil {
-		return nil
-	}
-	v, err := defaultCodec.FromDriver(c.typ, src)
-	if err != nil {
-		return err
-	}
-	c.val = v
-	return nil
-}
 
 // CreateRecordParams are the arguments for [Queries.CreateRecord].
 type CreateRecordParams struct {
@@ -65,7 +27,7 @@ func (q *Queries) CreateRecord(ctx context.Context, arg CreateRecordParams) erro
 	args = append(args, arg.ID)
 
 	for _, v := range arg.Values {
-		cols = append(cols, v.Column)
+		cols = append(cols, v.Name)
 		placeholders = append(placeholders, "?")
 		args = append(args, v)
 	}
@@ -94,7 +56,7 @@ func (q *Queries) UpdateRecord(ctx context.Context, arg UpdateRecordParams) erro
 	args := make([]any, 0, len(arg.Values)+1)
 
 	for _, v := range arg.Values {
-		sets = append(sets, v.Column+" = ?")
+		sets = append(sets, v.Name+" = ?")
 		args = append(args, v)
 	}
 	args = append(args, arg.ID)
@@ -128,9 +90,9 @@ func (q *Queries) UpsertRecord(ctx context.Context, arg UpsertRecordParams) erro
 	args = append(args, arg.ID)
 
 	for _, v := range arg.Values {
-		cols = append(cols, v.Column)
+		cols = append(cols, v.Name)
 		placeholders = append(placeholders, "?")
-		updates = append(updates, v.Column+" = excluded."+v.Column)
+		updates = append(updates, v.Name+" = excluded."+v.Name)
 		args = append(args, v)
 	}
 
@@ -150,20 +112,20 @@ func (q *Queries) UpsertRecord(ctx context.Context, arg UpsertRecordParams) erro
 type GetRecordParams struct {
 	Table   string
 	ID      string
-	Columns []ColumnType
+	Columns []Value
 }
 
 // GetRecord retrieves a single record from a column table.
 // Returns nil, nil if the record does not exist.
 func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) ([]Value, error) {
+	vals := make([]Value, len(arg.Columns))
 	colNames := make([]string, len(arg.Columns))
-	scanners := make([]column, len(arg.Columns))
 	ptrs := make([]any, len(arg.Columns))
 
 	for i, c := range arg.Columns {
+		vals[i] = Value{Name: c.Name, Type: c.Type}
 		colNames[i] = c.Name
-		scanners[i].typ = c.Type
-		ptrs[i] = &scanners[i]
+		ptrs[i] = &vals[i]
 	}
 
 	query := fmt.Sprintf(
@@ -179,18 +141,13 @@ func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) ([]Value, 
 		return nil, err
 	}
 
-	vals := make([]Value, len(arg.Columns))
-	for i, c := range arg.Columns {
-		vals[i] = Value{Column: c.Name, Val: scanners[i].val}
-	}
-
 	return vals, nil
 }
 
 // ListRecordsParams are the arguments for [Queries.ListRecords].
 type ListRecordsParams struct {
 	Table   string
-	Columns []ColumnType
+	Columns []Value
 	Offset  int
 	Limit   int
 }
@@ -218,13 +175,13 @@ func (q *Queries) ListRecords(ctx context.Context, arg ListRecordsParams) ([][]V
 
 	// Reusable scanners: [0] = _id (raw string), [1..] = typed columns.
 	nCols := len(colNames)
-	scanners := make([]column, len(arg.Columns))
+	scanners := make([]Value, len(arg.Columns))
 	ptrs := make([]any, nCols)
 
 	var idDest string
 	ptrs[0] = &idDest
 	for i, c := range arg.Columns {
-		scanners[i].typ = c.Type
+		scanners[i] = Value{Name: c.Name, Type: c.Type}
 		ptrs[i+1] = &scanners[i]
 	}
 
@@ -235,11 +192,11 @@ func (q *Queries) ListRecords(ctx context.Context, arg ListRecordsParams) ([][]V
 		}
 
 		rowVals := make([]Value, nCols)
-		rowVals[0] = Value{Column: "_id", Val: core.StringVal(idDest)}
+		rowVals[0] = Value{Name: "_id", Val: core.StringVal(idDest)}
 
-		for i, c := range arg.Columns {
-			rowVals[i+1] = Value{Column: c.Name, Val: scanners[i].val}
-			scanners[i].val = nil // reset for next row
+		for i := range arg.Columns {
+			rowVals[i+1] = scanners[i]
+			scanners[i].Val = nil // reset for next row
 		}
 
 		result = append(result, rowVals)

@@ -26,8 +26,8 @@ func TestCreateKVRecord(t *testing.T) {
 		Table: table,
 		ID:    "id1",
 		Values: []xsql.Value{
-			{Column: "name", Val: core.StringVal("alice")},
-			{Column: "age", Val: core.IntVal(30)},
+			{Name: "name", Val: core.StringVal("alice")},
+			{Name: "age", Val: core.IntVal(30)},
 		},
 	})
 	require.NoError(t, err)
@@ -37,11 +37,11 @@ func TestCreateKVRecord(t *testing.T) {
 	require.Len(t, vals, 2)
 
 	// Sorted by _attr: age, name
-	assert.Equal(t, "age", vals[0].Column)
+	assert.Equal(t, "age", vals[0].Name)
 	assert.Equal(t, int64(30), vals[0].Val.Unwrap())
 	assert.Equal(t, core.TIDInteger, vals[0].Val.Type().ID())
 
-	assert.Equal(t, "name", vals[1].Column)
+	assert.Equal(t, "name", vals[1].Name)
 	assert.Equal(t, "alice", vals[1].Val.Unwrap())
 	assert.Equal(t, core.TIDString, vals[1].Val.Type().ID())
 }
@@ -54,12 +54,12 @@ func TestCreateKVRecord_ReplaceSemantics(t *testing.T) {
 
 	require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table: table, ID: "id1",
-		Values: []xsql.Value{{Column: "v", Val: core.IntVal(1)}},
+		Values: []xsql.Value{{Name: "v", Val: core.IntVal(1)}},
 	}))
 
 	require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table: table, ID: "id1",
-		Values: []xsql.Value{{Column: "v", Val: core.IntVal(2)}},
+		Values: []xsql.Value{{Name: "v", Val: core.IntVal(2)}},
 	}))
 
 	vals, err := q.GetKVRecord(ctx, xsql.GetKVRecordParams{Table: table, ID: "id1"})
@@ -76,7 +76,7 @@ func TestCreateKVRecord_EmptyValues(t *testing.T) {
 
 	require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table: table, ID: "id1",
-		Values: []xsql.Value{{Column: "v", Val: core.IntVal(1)}},
+		Values: []xsql.Value{{Name: "v", Val: core.IntVal(1)}},
 	}))
 
 	require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
@@ -108,7 +108,7 @@ func TestListKVRecordIDs(t *testing.T) {
 	for _, id := range []string{"c", "a", "b"} {
 		require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 			Table: table, ID: id,
-			Values: []xsql.Value{{Column: "x", Val: core.StringVal("v")}},
+			Values: []xsql.Value{{Name: "x", Val: core.StringVal("v")}},
 		}))
 	}
 
@@ -126,14 +126,14 @@ func TestListKVRecords(t *testing.T) {
 	require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table: table, ID: "id1",
 		Values: []xsql.Value{
-			{Column: "a", Val: core.StringVal("1")},
-			{Column: "b", Val: core.IntVal(2)},
+			{Name: "a", Val: core.StringVal("1")},
+			{Name: "b", Val: core.IntVal(2)},
 		},
 	}))
 	require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table: table, ID: "id2",
 		Values: []xsql.Value{
-			{Column: "c", Val: core.BoolVal(true)},
+			{Name: "c", Val: core.BoolVal(true)},
 		},
 	}))
 
@@ -144,12 +144,12 @@ func TestListKVRecords(t *testing.T) {
 	// Ordered by ID.
 	assert.Equal(t, "id1", records[0].ID)
 	require.Len(t, records[0].Values, 2)
-	assert.Equal(t, "a", records[0].Values[0].Column)
-	assert.Equal(t, "b", records[0].Values[1].Column)
+	assert.Equal(t, "a", records[0].Values[0].Name)
+	assert.Equal(t, "b", records[0].Values[1].Name)
 
 	assert.Equal(t, "id2", records[1].ID)
 	require.Len(t, records[1].Values, 1)
-	assert.Equal(t, "c", records[1].Values[0].Column)
+	assert.Equal(t, "c", records[1].Values[0].Name)
 	assert.Equal(t, true, records[1].Values[0].Val.Unwrap())
 }
 
@@ -161,7 +161,7 @@ func TestDeleteKVRecord(t *testing.T) {
 
 	require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table: table, ID: "id1",
-		Values: []xsql.Value{{Column: "x", Val: core.StringVal("v")}},
+		Values: []xsql.Value{{Name: "x", Val: core.StringVal("v")}},
 	}))
 
 	require.NoError(t, q.DeleteKVRecord(ctx, xsql.DeleteKVRecordParams{Table: table, ID: "id1"}))
@@ -183,7 +183,7 @@ func TestKVRecordExists(t *testing.T) {
 
 	require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table: table, ID: "id1",
-		Values: []xsql.Value{{Column: "x", Val: core.StringVal("v")}},
+		Values: []xsql.Value{{Name: "x", Val: core.StringVal("v")}},
 	}))
 
 	exists, err = q.KVRecordExists(ctx, xsql.KVRecordExistsParams{Table: table, ID: "id1"})
