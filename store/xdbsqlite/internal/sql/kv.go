@@ -39,12 +39,12 @@ func (q *Queries) CreateKVRecord(ctx context.Context, arg CreateKVRecordParams) 
 	args := make([]any, 0, len(arg.Values)*4)
 
 	for i, v := range arg.Values {
-		data, err := defaultCodec.ToBytes(v.Val)
+		data, err := v.MarshalBytes()
 		if err != nil {
 			return err
 		}
 		placeholders[i] = rowPlaceholder
-		args = append(args, arg.ID, v.Column, string(v.Val.Type().ID()), data)
+		args = append(args, arg.ID, v.Name, string(v.Val.Type().ID()), data)
 	}
 
 	query := fmt.Sprintf(
@@ -86,13 +86,13 @@ func (q *Queries) GetKVRecord(ctx context.Context, arg GetKVRecordParams) ([]Val
 			return nil, err
 		}
 
-		typ := core.NewType(core.TID(tid))
-		cv, err := defaultCodec.FromBytes(typ, data)
-		if err != nil {
+		var v Value
+		if err := v.UnmarshalBytes(core.NewType(core.TID(tid)), data); err != nil {
 			return nil, err
 		}
+		v.Name = attr
 
-		result = append(result, Value{Column: attr, Val: cv})
+		result = append(result, v)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -172,17 +172,17 @@ func (q *Queries) ListKVRecords(ctx context.Context, arg ListKVRecordsParams) ([
 			return nil, err
 		}
 
-		typ := core.NewType(core.TID(tid))
-		cv, err := defaultCodec.FromBytes(typ, data)
-		if err != nil {
+		var v Value
+		if err := v.UnmarshalBytes(core.NewType(core.TID(tid)), data); err != nil {
 			return nil, err
 		}
+		v.Name = attr
 
 		if cur == nil || cur.ID != id {
 			result = append(result, KVRecord{ID: id})
 			cur = &result[len(result)-1]
 		}
-		cur.Values = append(cur.Values, Value{Column: attr, Val: cv})
+		cur.Values = append(cur.Values, v)
 	}
 
 	return result, rows.Err()

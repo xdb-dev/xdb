@@ -11,14 +11,24 @@ import (
 
 // RecordKVTx handles record operations using KV-strategy tables.
 type RecordKVTx struct {
-	q     *xsql.Queries
-	def   *schema.Def
-	table string
-	id    string
+	q   *xsql.Queries
+	def *schema.Def
 }
 
 func (r *RecordKVTx) GetRecord(ctx context.Context, uri *core.URI) (*core.Record, error) {
-	return nil, store.ErrNotFound
+	values, err := r.q.GetKVRecord(ctx, xsql.GetKVRecordParams{
+		Table: kvTableName(uri),
+		ID:    uri.ID().String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	record := core.NewRecord(uri.NS().String(), uri.Schema().String(), uri.ID().String())
+	for _, value := range values {
+		record.Set(value.Name, value.Val)
+	}
+	return record, nil
 }
 
 func (r *RecordKVTx) ListRecords(ctx context.Context, uri *core.URI, q *store.ListQuery) (*store.Page[*core.Record], error) {
@@ -43,14 +53,25 @@ func (r *RecordKVTx) DeleteRecord(ctx context.Context, uri *core.URI) error {
 
 // RecordTableTx handles record operations using column-strategy tables.
 type RecordTableTx struct {
-	q     *xsql.Queries
-	def   *schema.Def
-	table string
-	id    string
+	q   *xsql.Queries
+	def *schema.Def
 }
 
 func (r *RecordTableTx) GetRecord(ctx context.Context, uri *core.URI) (*core.Record, error) {
-	return nil, store.ErrNotFound
+	values, err := r.q.GetRecord(ctx, xsql.GetRecordParams{
+		Table:   columnTableName(uri),
+		ID:      uri.ID().String(),
+		Columns: columnValues(r.def),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	record := core.NewRecord(uri.NS().String(), uri.Schema().String(), uri.ID().String())
+	for _, value := range values {
+		record.Set(value.Name, value.Val)
+	}
+	return record, nil
 }
 
 func (r *RecordTableTx) ListRecords(ctx context.Context, uri *core.URI, q *store.ListQuery) (*store.Page[*core.Record], error) {
@@ -86,17 +107,13 @@ func (s *Store) recordStore(
 
 	if useTable {
 		return &RecordTableTx{
-			q:     q,
-			def:   def,
-			table: columnTableName(uri),
-			id:    uri.ID().String(),
+			q:   q,
+			def: def,
 		}, def, nil
 	}
 	return &RecordKVTx{
-		q:     q,
-		def:   def,
-		table: kvTableName(uri),
-		id:    uri.ID().String(),
+		q:   q,
+		def: def,
 	}, def, nil
 }
 

@@ -1,6 +1,6 @@
 // Package sql contains typed SQL queries for the xdbsqlite store.
 // Value encoding/decoding is handled via [driver.Valuer] and [sql.Scanner]
-// interfaces backed by a package-level codec with SQLite type mappings.
+// interfaces with inline type conversions.
 package sql
 
 import (
@@ -18,8 +18,6 @@ type DBTX interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
-var defaultCodec = newCodec()
-
 // Queries provides typed SQL operations backed by a [DBTX].
 type Queries struct {
 	db DBTX
@@ -31,13 +29,18 @@ func NewQueries(db DBTX) *Queries {
 }
 
 // SQLiteTypeName returns the SQLite type name for the given [core.TID].
-// Returns "TEXT" if no mapping is registered.
+// Returns "TEXT" for unknown types.
 func SQLiteTypeName(tid string) string {
-	name, err := defaultCodec.TypeName(core.NewType(core.TID(tid)))
-	if err != nil {
+	switch core.TID(tid) {
+	case core.TIDInteger, core.TIDBoolean, core.TIDUnsigned, core.TIDTime:
+		return "INTEGER"
+	case core.TIDFloat:
+		return "REAL"
+	case core.TIDBytes:
+		return "BLOB"
+	default:
 		return "TEXT"
 	}
-	return name
 }
 
 // Bootstrap creates the _schemas metadata table if it does not exist.

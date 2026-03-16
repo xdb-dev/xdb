@@ -35,13 +35,27 @@ func columnDefs(def *schema.Def) []xsql.Column { //nolint:unused // used once im
 }
 
 // sortedColumns returns alphabetically sorted column names from a schema.
-func sortedColumns(def *schema.Def) []string { //nolint:unused // called by recordToValues
+func sortedColumns(def *schema.Def) []string {
 	names := make([]string, 0, len(def.Fields))
 	for name := range def.Fields {
 		names = append(names, name)
 	}
 	sort.Strings(names)
 	return names
+}
+
+// columnValues builds sorted [xsql.Value] descriptors (Name + Type) from a schema
+// for use in read operations. Columns are sorted alphabetically.
+func columnValues(def *schema.Def) []xsql.Value {
+	names := sortedColumns(def)
+	vals := make([]xsql.Value, len(names))
+	for i, name := range names {
+		vals[i] = xsql.Value{
+			Name: name,
+			Type: core.NewType(def.Fields[name].Type),
+		}
+	}
+	return vals
 }
 
 // recordToValues extracts column values from a [core.Record] as [xsql.Value]
@@ -51,7 +65,7 @@ func recordToValues(def *schema.Def, record *core.Record) []xsql.Value { //nolin
 	cols := sortedColumns(def)
 	vals := make([]xsql.Value, len(cols))
 	for i, col := range cols {
-		v := xsql.Value{Column: col}
+		v := xsql.Value{Name: col}
 		if t := record.Get(col); t != nil {
 			v.Val = t.Value()
 		}

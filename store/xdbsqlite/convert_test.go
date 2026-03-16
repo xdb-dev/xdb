@@ -29,6 +29,8 @@ func TestSQLiteTypeName(t *testing.T) {
 		{core.TIDInteger, "INTEGER"},
 		{core.TIDFloat, "REAL"},
 		{core.TIDBoolean, "INTEGER"},
+		{core.TIDUnsigned, "INTEGER"},
+		{core.TIDTime, "INTEGER"},
 		{core.TIDString, "TEXT"},
 		{core.TIDBytes, "BLOB"},
 	}
@@ -93,9 +95,9 @@ func TestRecordToValues(t *testing.T) {
 	vals := recordToValues(def, record)
 
 	require.Len(t, vals, 2)
-	assert.Equal(t, "count", vals[0].Column)
+	assert.Equal(t, "count", vals[0].Name)
 	assert.Equal(t, int64(42), vals[0].Val.Unwrap())
-	assert.Equal(t, "title", vals[1].Column)
+	assert.Equal(t, "title", vals[1].Name)
 	assert.Equal(t, "hello", vals[1].Val.Unwrap())
 }
 
@@ -116,8 +118,8 @@ func TestRecordToValues_MissingColumn(t *testing.T) {
 	vals := recordToValues(def, record)
 
 	require.Len(t, vals, 2)
-	assert.Equal(t, "missing", vals[0].Column)
+	assert.Equal(t, "missing", vals[0].Name)
 	assert.Nil(t, vals[0].Val)
-	assert.Equal(t, "title", vals[1].Column)
+	assert.Equal(t, "title", vals[1].Name)
 	assert.Equal(t, "hello", vals[1].Val.Unwrap())
 }
