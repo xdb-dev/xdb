@@ -3,6 +3,7 @@ package xdbsqlite
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -101,15 +102,23 @@ func (s *SchemaTx) CreateSchema(ctx context.Context, uri *core.URI, def *schema.
 }
 
 func (s *SchemaTx) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
-	exists, err := s.q.SchemaExists(ctx, xsql.SchemaExistsParams{
-		Namespace: uri.NS().String(),
-		Schema:    uri.Schema().String(),
-	})
+	oldDef, err := s.GetSchema(ctx, uri)
+	if err != nil {
+		return err // includes ErrNotFound
+	}
+
+	if oldDef.Mode != def.Mode {
+		return fmt.Errorf(
+			"%w: cannot change schema mode from %s to %s",
+			store.ErrSchemaViolation,
+			oldDef.Mode,
+			def.Mode,
+		)
+	}
+
+	err = s.evolveSchema(ctx, uri, oldDef, def)
 	if err != nil {
 		return err
-	}
-	if !exists {
-		return store.ErrNotFound
 	}
 
 	data, err := json.Marshal(def)
@@ -122,6 +131,63 @@ func (s *SchemaTx) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.
 		Schema:    uri.Schema().String(),
 		Data:      data,
 	})
+}
+
+// evolveSchema alters the backing column table to match field changes
+// between oldDef and newDef. Only applies to strict/dynamic modes.
+func (s *SchemaTx) evolveSchema(
+	ctx context.Context,
+	uri *core.URI,
+	oldDef *schema.Def,
+	newDef *schema.Def,
+) error {
+	if newDef.Mode == schema.ModeFlexible {
+		return nil
+	}
+
+	tableName := columnTableName(uri)
+
+	// Check for type changes and add new columns.
+	for name, newField := range newDef.Fields {
+		oldField, exists := oldDef.Fields[name]
+		if !exists {
+			err := s.q.AddColumn(ctx, xsql.AddColumnParams{
+				Table: tableName,
+				Column: xsql.Column{
+					Name: name,
+					Type: xsql.SQLiteTypeName(string(newField.Type)),
+				},
+			})
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		if oldField.Type != newField.Type {
+			return fmt.Errorf(
+				"%w: cannot change type of field %q from %s to %s",
+				store.ErrSchemaViolation,
+				name,
+				oldField.Type,
+				newField.Type,
+			)
+		}
+	}
+
+	// Drop removed columns.
+	for name := range oldDef.Fields {
+		if _, exists := newDef.Fields[name]; !exists {
+			err := s.q.DropColumn(ctx, xsql.DropColumnParams{
+				Table:  tableName,
+				Column: name,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *SchemaTx) DeleteSchema(ctx context.Context, uri *core.URI) error {

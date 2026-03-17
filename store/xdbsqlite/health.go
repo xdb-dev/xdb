@@ -2,7 +2,9 @@ package xdbsqlite
 
 import "context"
 
-// Health returns nil if the SQLite database is reachable.
+// Health verifies the SQLite database is reachable and intact
+// using PRAGMA quick_check.
 func (s *Store) Health(ctx context.Context) error {
-	return nil
+	var result string
+	return s.db.QueryRowContext(ctx, "PRAGMA quick_check").Scan(&result)
 }
