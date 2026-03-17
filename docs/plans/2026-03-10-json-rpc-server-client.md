@@ -178,24 +178,33 @@ Every method takes a `params` object. Method names match the CLI's `resource.met
 
 ### records
 
-| Method | Params | Result | Mutating |
-|--------|--------|--------|----------|
-| `records.create` | `uri`, `body` | `Record` | Yes |
-| `records.get` | `uri`, `fields?` | `Record` | No |
-| `records.list` | `uri`, `filters?`, `query?`, `fields?`, `limit?`, `offset?` | `RecordList` | No |
-| `records.update` | `uri`, `body` | `Record` | Yes |
-| `records.upsert` | `uri`, `body` | `Record` | Yes |
-| `records.delete` | `uri` | `{}` | Yes |
+| Method | Params | Result | Mutating | Idempotent |
+|--------|--------|--------|----------|------------|
+| `records.create` | `uri`, `body` | `Record` | Yes | Yes — returns existing if exists |
+| `records.get` | `uri`, `fields?` | `Record` | No | Yes |
+| `records.list` | `uri`, `filters?`, `query?`, `fields?`, `limit?`, `offset?` | `RecordList` | No | Yes |
+| `records.update` | `uri`, `body` | `Record` | Yes | Yes — patch merge, same input = same result |
+| `records.upsert` | `uri`, `body` | `Record` | Yes | Yes — full replace |
+| `records.delete` | `uri` | `{}` | Yes | Yes — succeeds if not found |
+
+- `create` — if record exists, returns the existing record without modification (no error)
+- `update` — **patch semantics**: merges only supplied fields over the existing record. Unspecified fields are preserved. Returns `NOT_FOUND` if record doesn't exist
+- `upsert` — **full replace**: sets the complete record state. Creates if not exists
+- `delete` — succeeds even if record doesn't exist (no `NOT_FOUND` error)
 
 ### schemas
 
-| Method | Params | Result | Mutating |
-|--------|--------|--------|----------|
-| `schemas.create` | `uri`, `body?` | `Schema` | Yes |
-| `schemas.get` | `uri` | `Schema` | No |
-| `schemas.list` | `uri`, `limit?`, `offset?` | `SchemaList` | No |
-| `schemas.update` | `uri`, `body` | `Schema` | Yes |
-| `schemas.delete` | `uri` | `{}` | Yes |
+| Method | Params | Result | Mutating | Idempotent |
+|--------|--------|--------|----------|------------|
+| `schemas.create` | `uri`, `body?` | `Schema` | Yes | Yes — returns existing if exists |
+| `schemas.get` | `uri` | `Schema` | No | Yes |
+| `schemas.list` | `uri`, `limit?`, `offset?` | `SchemaList` | No | Yes |
+| `schemas.update` | `uri`, `body` | `Schema` | Yes | Yes — patch merge |
+| `schemas.delete` | `uri` | `{}` | Yes | Yes — succeeds if not found |
+
+- `create` — if schema exists, returns the existing schema without modification
+- `update` — **patch semantics**: merges supplied attrs over existing definition
+- `delete` — succeeds even if schema doesn't exist. Returns `VALIDATION_ERROR` if records exist (use batch with `--cascade`)
 
 ### namespaces
 
@@ -219,6 +228,14 @@ Every method takes a `params` object. Method names match the CLI's `resource.met
 | `schema.describe_data` | `uri` | `DataSchemaDescription` | No |
 | `schema.list_methods` | — | `MethodList` | No |
 | `schema.list_types` | — | `TypeList` | No |
+
+### watch
+
+| Method | Params | Result | Mutating |
+|--------|--------|--------|----------|
+| `watch.subscribe` | `uri` | Streaming `WatchEvent` (NDJSON) | No |
+
+The watch method uses a long-lived HTTP connection. Events are streamed as NDJSON lines (`Content-Type: application/x-ndjson`). The connection closes when the client disconnects or the watched schema is deleted.
 
 ### system
 
@@ -248,8 +265,8 @@ XDB uses the JSON-RPC 2.0 error code ranges:
 
 | Code | Constant | Meaning |
 |------|----------|---------|
-| -32001 | `NOT_FOUND` | Record, schema, or namespace not found |
-| -32002 | `ALREADY_EXISTS` | Record or schema already exists (on create) |
+| -32001 | `NOT_FOUND` | Record/schema not found (only from `update` — `create`/`delete` are idempotent) |
+| -32002 | `ALREADY_EXISTS` | Reserved (not returned by idempotent `create`, kept for future use) |
 | -32003 | `INVALID_URI` | URI failed validation |
 | -32004 | `SCHEMA_VIOLATION` | Payload violates strict schema |
 | -32005 | `PAYLOAD_TOO_LARGE` | Payload exceeds size limit |
@@ -421,6 +438,9 @@ Business logic between RPC handlers and the store. Handles:
 
 - Parameter validation (URI, payload, limits)
 - Schema enforcement (strict schema checks)
+- Patch merge logic (`update` reads existing record, merges supplied fields, writes back)
+- Idempotent create (check existence, return existing if found)
+- Idempotent delete (suppress `ErrNotFound`)
 - Dry-run logic
 - Field masking (`fields` parameter)
 - Batch transaction coordination
@@ -446,7 +466,7 @@ The service layer is the **only** consumer of the store interface. RPC handlers 
 
 #### Store Interface (`store/store.go`)
 
-Defined in the CLI plan (Phase 5). The server depends on it but doesn't define it.
+Already exists with 4 backend implementations (memory, SQLite, Redis, filesystem). The server depends on it but doesn't define it. Pre-work adds `Close() error` to the interface for daemon shutdown and `Fields []string` to `ListQuery` for store-level field projection.
 
 ---
 
@@ -550,20 +570,20 @@ These are the **wire types** — they match the JSON envelope format from the CL
 
 ### How the CLI Uses the Client
 
-Each CLI command constructs a JSON-RPC call via the client:
+Each CLI command constructs a JSON-RPC call via the client. The CLI uses urfave/cli v3:
 
 ```go
 // internal/cli/records.go
 
-func (a *App) recordsCreateCmd() *cobra.Command {
-    return &cobra.Command{
-        Use: "create",
-        RunE: func(cmd *cobra.Command, args []string) error {
+func (a *App) recordsCreateCmd() *cli.Command {
+    return &cli.Command{
+        Name: "create",
+        Action: func(ctx context.Context, cmd *cli.Command) error {
             // Parse flags
-            uri := cmd.Flag("uri").Value.String()
+            uri := cmd.String("uri")
             body := readInput(cmd) // --json, --file, or stdin
 
-            if dryRun {
+            if cmd.Bool("dry-run") {
                 result, err := a.client.Records.Create(ctx, uri, body, client.WithDryRun())
                 return a.output.Write(result)
             }
@@ -575,20 +595,7 @@ func (a *App) recordsCreateCmd() *cobra.Command {
 }
 ```
 
-### Embedded Mode (No Daemon)
-
-For testing and simple use cases, the CLI can run with an embedded store (no daemon process). The client interface is the same — the implementation just calls the service layer directly instead of making HTTP requests:
-
-```go
-// Daemon mode (default)
-c, err := client.New(client.WithConfig(cfg))
-
-// Embedded mode (--embedded or when daemon is not running)
-svc := service.New(store.NewMemory())
-c := client.NewEmbedded(svc)
-```
-
-Both satisfy the same interface. The CLI doesn't know or care which mode it's in.
+The CLI always talks to a running daemon. If the daemon is not running, the client returns `client.ErrNotRunning` and the CLI exits with code 2: `"daemon not running — start it with: xdb daemon start"`.
 
 ---
 
@@ -634,26 +641,10 @@ The CLI checks the PID file before starting. If a PID file exists and the proces
 
 ## Package Structure
 
+All `internal/` packages live inside the `cmd/xdb/` module (separate Go module from root). The `client/` package lives in the root module.
+
 ```
-internal/rpc/
-  request.go           # JSON-RPC 2.0 request/response types
-  handler.go           # HTTP handler (parse, dispatch, respond)
-  router.go            # Method → handler mapping
-  errors.go            # Error codes and constructors
-
-internal/service/
-  service.go           # Service struct, constructor
-  records.go           # records.* method handlers
-  schemas.go           # schemas.* method handlers
-  namespaces.go        # namespaces.* method handlers
-  batch.go             # batch.execute handler
-  introspect.go        # schema.describe_* handlers
-  system.go            # system.* handlers
-
-internal/daemon/
-  daemon.go            # Daemon lifecycle (start, stop, listeners)
-  pid.go               # PID file management
-
+# Root module (github.com/xdb-dev/xdb)
 client/
   client.go            # Client struct, transport selection
   records.go           # Records typed methods
@@ -662,8 +653,28 @@ client/
   batch.go             # Batch typed methods
   system.go            # System typed methods
   transport.go         # HTTP + Unix socket transport
-  embedded.go          # Embedded mode (direct service calls)
   types.go             # Wire types (Record, RecordList, etc.)
+
+# CLI/daemon module (github.com/xdb-dev/xdb/cmd/xdb)
+cmd/xdb/internal/rpc/
+  request.go           # JSON-RPC 2.0 request/response types
+  handler.go           # HTTP handler (parse, dispatch, respond)
+  router.go            # Method → handler mapping
+  errors.go            # Error codes and constructors
+
+cmd/xdb/internal/service/
+  service.go           # Service struct, constructor
+  records.go           # records.* method handlers
+  schemas.go           # schemas.* method handlers
+  namespaces.go        # namespaces.* method handlers
+  batch.go             # batch.execute handler
+  watch.go             # watch pubsub fan-out
+  introspect.go        # schema.describe_* handlers
+  system.go            # system.* handlers
+
+cmd/xdb/internal/daemon/
+  daemon.go            # Daemon lifecycle (start, stop, listeners)
+  pid.go               # PID file management
 ```
 
 ---
@@ -695,7 +706,6 @@ client/
 12. `client/transport.go` — HTTP + Unix socket transport, auto-detection
 13. `client/client.go` — Client struct, `Call()`, `BatchCall()`
 14. `client/records.go` + `schemas.go` + `namespaces.go` + `batch.go` + `system.go` — Typed method wrappers
-15. `client/embedded.go` — Embedded mode (no daemon)
 
 ### Phase 5: Integration
 
@@ -715,7 +725,6 @@ client/
 | HTTP endpoint | `POST /rpc/{method}` | Method in URL path for free o11y (per-method metrics, logs, traces) |
 | Unix socket transport | HTTP over UDS | Same handler code for both transports, `net/http` does the heavy lifting |
 | Client interface | Typed methods + raw `Call()` | Type safety for common ops, escape hatch for advanced use |
-| Embedded mode | Same client interface, direct service calls | Testing, single-use, no-daemon scenarios |
 | Wire types vs domain types | Separate packages | `client/types.go` for JSON wire format, `core/` for domain logic |
 | PID management | File-based with stale detection | Simple, no external deps, standard Unix pattern |
 
@@ -725,6 +734,7 @@ client/
 
 - **Authentication/authorization** — Local daemon, no auth needed. Add later if XDB supports remote servers.
 - **TLS** — Localhost only. Unix socket is preferred transport.
-- **WebSocket streaming** — JSON-RPC over HTTP is request/response. Streaming (NDJSON) is a CLI output concern, not a transport concern.
-- **MCP integration** — Out of scope per CLI plan. Can be added as a thin adapter over the RPC router later.
-- **Store interface design** — Covered by CLI plan Phase 5. This plan consumes it.
+- **WebSocket streaming** — Watch uses long-lived HTTP with NDJSON streaming, not WebSocket.
+- **MCP integration** — Explicitly excluded from scope. Can be added as a thin adapter over the RPC router later.
+- **Store interface design** — Store interfaces and 4 backends already exist. This plan consumes them.
+- **Embedded mode** — Removed. The CLI always talks to a running daemon via JSON-RPC. No in-process store fallback.
