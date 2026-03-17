@@ -2,6 +2,7 @@ package xdbsqlite
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -15,23 +16,130 @@ type SchemaTx struct {
 }
 
 func (s *SchemaTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
-	return nil, store.ErrNotFound
+	data, err := s.q.GetSchema(ctx, xsql.GetSchemaParams{
+		Namespace: uri.NS().String(),
+		Schema:    uri.Schema().String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if data == nil {
+		return nil, store.ErrNotFound
+	}
+
+	var def schema.Def
+	if err := json.Unmarshal(data, &def); err != nil {
+		return nil, err
+	}
+	return &def, nil
 }
 
 func (s *SchemaTx) ListSchemas(ctx context.Context, uri *core.URI, q *store.ListQuery) (*store.Page[*schema.Def], error) {
-	return nil, nil
+	var ns *string
+	if uri != nil {
+		n := uri.NS().String()
+		ns = &n
+	}
+
+	rows, err := s.q.ListSchemas(ctx, xsql.ListSchemasParams{
+		Namespace: ns,
+		Limit:     10000,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	defs := make([]*schema.Def, 0, len(rows))
+	for _, row := range rows {
+		var def schema.Def
+		if err := json.Unmarshal(row.Data, &def); err != nil {
+			return nil, err
+		}
+		defs = append(defs, &def)
+	}
+
+	return store.Paginate(defs, q), nil
 }
 
 func (s *SchemaTx) CreateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
-	return nil
+	exists, err := s.q.SchemaExists(ctx, xsql.SchemaExistsParams{
+		Namespace: uri.NS().String(),
+		Schema:    uri.Schema().String(),
+	})
+	if err != nil {
+		return err
+	}
+	if exists {
+		return store.ErrAlreadyExists
+	}
+
+	data, err := json.Marshal(def)
+	if err != nil {
+		return err
+	}
+
+	if err := s.q.PutSchema(ctx, xsql.PutSchemaParams{
+		Namespace: uri.NS().String(),
+		Schema:    uri.Schema().String(),
+		Data:      data,
+	}); err != nil {
+		return err
+	}
+
+	// Create the backing table based on schema mode.
+	switch def.Mode {
+	case schema.ModeStrict, schema.ModeDynamic:
+		return s.q.CreateTable(ctx, xsql.CreateTableParams{
+			Table:   columnTableName(uri),
+			Columns: columnDefs(def),
+		})
+	default: // Flexible
+		return s.q.CreateKVTable(ctx, xsql.CreateKVTableParams{
+			Table: kvTableName(uri),
+		})
+	}
 }
 
 func (s *SchemaTx) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
-	return nil
+	exists, err := s.q.SchemaExists(ctx, xsql.SchemaExistsParams{
+		Namespace: uri.NS().String(),
+		Schema:    uri.Schema().String(),
+	})
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return store.ErrNotFound
+	}
+
+	data, err := json.Marshal(def)
+	if err != nil {
+		return err
+	}
+
+	return s.q.PutSchema(ctx, xsql.PutSchemaParams{
+		Namespace: uri.NS().String(),
+		Schema:    uri.Schema().String(),
+		Data:      data,
+	})
 }
 
 func (s *SchemaTx) DeleteSchema(ctx context.Context, uri *core.URI) error {
-	return nil
+	exists, err := s.q.SchemaExists(ctx, xsql.SchemaExistsParams{
+		Namespace: uri.NS().String(),
+		Schema:    uri.Schema().String(),
+	})
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return store.ErrNotFound
+	}
+
+	return s.q.DeleteSchema(ctx, xsql.DeleteSchemaParams{
+		Namespace: uri.NS().String(),
+		Schema:    uri.Schema().String(),
+	})
 }
 
 // --- Store delegation ---
@@ -42,7 +150,7 @@ func (s *Store) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, erro
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	stx := &SchemaTx{q: xsql.NewQueries(tx)}
 
@@ -68,7 +176,7 @@ func (s *Store) ListSchemas(
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	stx := &SchemaTx{q: xsql.NewQueries(tx)}
 
@@ -90,7 +198,7 @@ func (s *Store) CreateSchema(ctx context.Context, uri *core.URI, def *schema.Def
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	stx := &SchemaTx{q: xsql.NewQueries(tx)}
 
@@ -112,7 +220,7 @@ func (s *Store) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.Def
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	stx := &SchemaTx{q: xsql.NewQueries(tx)}
 
@@ -134,7 +242,7 @@ func (s *Store) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	stx := &SchemaTx{q: xsql.NewQueries(tx)}
 
