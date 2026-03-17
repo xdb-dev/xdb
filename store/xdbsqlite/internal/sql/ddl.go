@@ -106,6 +106,19 @@ func (q *Queries) AddColumn(ctx context.Context, arg AddColumnParams) error {
 	return err
 }
 
+// DropColumnParams are the arguments for [Queries.DropColumn].
+type DropColumnParams struct {
+	Table  string
+	Column string
+}
+
+// DropColumn drops a column from an existing table.
+func (q *Queries) DropColumn(ctx context.Context, arg DropColumnParams) error {
+	query := fmt.Sprintf("ALTER TABLE %s DROP COLUMN %s", arg.Table, arg.Column)
+	_, err := q.db.ExecContext(ctx, query)
+	return err
+}
+
 // CreateIndexParams are the arguments for [Queries.CreateIndex].
 type CreateIndexParams struct {
 	Table string

@@ -1,17 +1,28 @@
 package store
 
+const (
+	// DefaultLimit is the default number of items per page.
+	DefaultLimit = 20
+	// MaxLimit is the maximum number of items per page.
+	MaxLimit = 1000
+)
+
 // Paginate applies offset/limit from a [ListQuery] to a sorted slice
-// and returns a [Page].
+// and returns a [Page]. Defaults to [DefaultLimit], capped at [MaxLimit].
 func Paginate[T any](items []T, q *ListQuery) *Page[T] {
 	total := len(items)
 
 	offset := 0
-	limit := total
+	limit := DefaultLimit
 
 	if q != nil {
 		offset = q.Offset
-		if q.Limit > 0 {
-			limit = q.Limit
+		limit = q.Limit
+		if limit <= 0 {
+			limit = DefaultLimit
+		}
+		if limit > MaxLimit {
+			limit = MaxLimit
 		}
 	}
 

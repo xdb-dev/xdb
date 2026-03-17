@@ -83,15 +83,28 @@ func (s *SchemaStoreSuite) testUpdate(t *testing.T) {
 
 	t.Run("replaces existing schema", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/posts")
-		def := &schema.Def{URI: uri, Mode: schema.ModeFlexible}
+		def := &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.FieldDef{
+				"title": {Type: core.TIDString},
+			},
+		}
 		require.NoError(t, st.CreateSchema(ctx, uri, def))
 
-		updated := &schema.Def{URI: uri, Mode: schema.ModeStrict}
+		updated := &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.FieldDef{
+				"title": {Type: core.TIDString},
+				"body":  {Type: core.TIDString},
+			},
+		}
 		require.NoError(t, st.UpdateSchema(ctx, uri, updated))
 
 		got, err := st.GetSchema(ctx, uri)
 		require.NoError(t, err)
-		assert.Equal(t, schema.ModeStrict, got.Mode)
+		assert.Contains(t, got.Fields, "body")
 	})
 
 	t.Run("not found", func(t *testing.T) {

@@ -160,3 +160,35 @@ func TestDropTable(t *testing.T) {
 	err = q.DropTable(ctx, xsql.DropTableParams{Table: `"t:test/drop"`})
 	require.NoError(t, err)
 }
+
+func TestDropColumn(t *testing.T) {
+	db, q := testDB(t)
+	ctx := context.Background()
+
+	require.NoError(t, q.CreateTable(ctx, xsql.CreateTableParams{
+		Table: `"t:test/dc"`,
+		Columns: []xsql.Column{
+			{Name: "a", Type: "TEXT"},
+			{Name: "b", Type: "INTEGER"},
+		},
+	}))
+
+	// Drop column b.
+	err := q.DropColumn(ctx, xsql.DropColumnParams{
+		Table:  `"t:test/dc"`,
+		Column: "b",
+	})
+	require.NoError(t, err)
+
+	// Insert with b should fail.
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO "t:test/dc" (_id, a, b) VALUES (?, ?, ?)`, "id1", "x", 5,
+	)
+	assert.Error(t, err)
+
+	// Insert without b should succeed.
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO "t:test/dc" (_id, a) VALUES (?, ?)`, "id1", "x",
+	)
+	require.NoError(t, err)
+}

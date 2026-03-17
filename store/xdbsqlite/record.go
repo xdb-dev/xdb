@@ -90,7 +90,7 @@ func (r *RecordKVTx) ListRecords(ctx context.Context, uri *core.URI, q *store.Li
 		return nil, err
 	}
 
-	limit, offset := paginationParams(q, total)
+	limit, offset := paginationParams(q)
 
 	rows, err := r.q.ListKVRecords(ctx, xsql.ListKVRecordsParams{
 		Table:  table,
@@ -235,7 +235,7 @@ func (r *RecordTableTx) ListRecords(ctx context.Context, uri *core.URI, q *store
 		return nil, err
 	}
 
-	limit, offset := paginationParams(q, total)
+	limit, offset := paginationParams(q)
 
 	rows, err := r.q.ListRecords(ctx, xsql.ListRecordsParams{
 		Table:   table,
@@ -339,14 +339,18 @@ func (r *RecordTableTx) DeleteRecord(ctx context.Context, uri *core.URI) error {
 
 // --- Pagination helpers ---
 
-// paginationParams extracts limit/offset from a ListQuery, defaulting to fetch all.
-func paginationParams(q *store.ListQuery, total int) (limit, offset int) {
+// paginationParams extracts limit/offset from a ListQuery.
+// Defaults to [store.DefaultLimit], capped at [store.MaxLimit].
+func paginationParams(q *store.ListQuery) (limit, offset int) {
 	if q == nil {
-		return total, 0
+		return store.DefaultLimit, 0
 	}
 	limit = q.Limit
 	if limit <= 0 {
-		limit = total
+		limit = store.DefaultLimit
+	}
+	if limit > store.MaxLimit {
+		limit = store.MaxLimit
 	}
 	return limit, q.Offset
 }
@@ -473,7 +477,7 @@ func (s *Store) listRecordsByNamespace(
 			return nil, err
 		}
 
-		page, err := rs.ListRecords(ctx, schemaURI, nil)
+		page, err := rs.ListRecords(ctx, schemaURI, &store.ListQuery{Limit: store.MaxLimit})
 		if err != nil {
 			return nil, err
 		}
