@@ -212,7 +212,14 @@ func (s *ModeStoreSuite) testNoSchema(t *testing.T) {
 	ctx := context.Background()
 	st := s.newStore()
 
-	t.Run("accepts any record when no schema exists", func(t *testing.T) {
+	// Create a flexible schema (no field constraints) so the backing table exists.
+	schemaURI := core.MustParseURI("xdb://com.example/unschematized")
+	require.NoError(t, st.CreateSchema(ctx, schemaURI, &schema.Def{
+		URI:  schemaURI,
+		Mode: schema.ModeFlexible,
+	}))
+
+	t.Run("accepts any record with flexible schema", func(t *testing.T) {
 		r := core.NewRecord("com.example", "unschematized", "no-schema-1")
 		r.Set("anything", "goes")
 		r.Set("count", int64(42))
@@ -223,13 +230,13 @@ func (s *ModeStoreSuite) testNoSchema(t *testing.T) {
 		AssertEqualRecord(t, r, got)
 	})
 
-	t.Run("upsert works without schema", func(t *testing.T) {
+	t.Run("upsert works with flexible schema", func(t *testing.T) {
 		r := core.NewRecord("com.example", "unschematized", "no-schema-2")
 		r.Set("field", "value")
 		require.NoError(t, st.UpsertRecord(ctx, r))
 	})
 
-	t.Run("update works without schema", func(t *testing.T) {
+	t.Run("update works with flexible schema", func(t *testing.T) {
 		r := core.NewRecord("com.example", "unschematized", "no-schema-3")
 		r.Set("field", "value")
 		require.NoError(t, st.CreateRecord(ctx, r))

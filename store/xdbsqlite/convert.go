@@ -22,7 +22,7 @@ func columnTableName(uri *core.URI) string {
 
 // columnDefs builds sorted [xsql.Column] definitions from a schema.
 // Columns are sorted alphabetically for deterministic ordering.
-func columnDefs(def *schema.Def) []xsql.Column { //nolint:unused // used once implementations land
+func columnDefs(def *schema.Def) []xsql.Column {
 	names := sortedColumns(def)
 	cols := make([]xsql.Column, len(names))
 	for i, name := range names {
@@ -61,7 +61,7 @@ func columnValues(def *schema.Def) []xsql.Value {
 // recordToValues extracts column values from a [core.Record] as [xsql.Value]
 // in alphabetical column order matching the schema. Missing columns produce
 // nil Val fields.
-func recordToValues(def *schema.Def, record *core.Record) []xsql.Value { //nolint:unused // used once implementations land
+func recordToValues(def *schema.Def, record *core.Record) []xsql.Value {
 	cols := sortedColumns(def)
 	vals := make([]xsql.Value, len(cols))
 	for i, col := range cols {
@@ -70,6 +70,40 @@ func recordToValues(def *schema.Def, record *core.Record) []xsql.Value { //nolin
 			v.Val = t.Value()
 		}
 		vals[i] = v
+	}
+	return vals
+}
+
+// kvRecordFromValues builds a [*core.Record] from KV values, filtering out
+// the sentinel attribute used for empty records.
+func kvRecordFromValues(uri *core.URI, values []xsql.Value) *core.Record {
+	record := core.NewRecord(uri.NS().String(), uri.Schema().String(), uri.ID().String())
+	for _, v := range values {
+		if v.Name == "_" {
+			continue
+		}
+		record.Set(v.Name, v.Val)
+	}
+	return record
+}
+
+// kvValues extracts all tuple values from a [core.Record] as [xsql.Value]
+// for KV table writes. Empty records get a sentinel attribute so the record
+// ID is always trackable via KVRecordExists and CountKVRecords.
+func kvValues(record *core.Record) []xsql.Value {
+	tuples := record.Tuples()
+	if len(tuples) == 0 {
+		return []xsql.Value{{
+			Name: "_",
+			Val:  core.BoolVal(true),
+		}}
+	}
+	vals := make([]xsql.Value, len(tuples))
+	for i, t := range tuples {
+		vals[i] = xsql.Value{
+			Name: t.Attr().String(),
+			Val:  t.Value(),
+		}
 	}
 	return vals
 }
