@@ -231,3 +231,16 @@ func (q *Queries) RecordExists(ctx context.Context, arg RecordExistsParams) (boo
 	err := q.db.QueryRowContext(ctx, query, arg.ID).Scan(&exists)
 	return exists, err
 }
+
+// CountRecordsParams are the arguments for [Queries.CountRecords].
+type CountRecordsParams struct {
+	Table string
+}
+
+// CountRecords returns the number of records in a column table.
+func (q *Queries) CountRecords(ctx context.Context, arg CountRecordsParams) (int, error) {
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", arg.Table)
+	var count int
+	err := q.db.QueryRowContext(ctx, query).Scan(&count)
+	return count, err
+}

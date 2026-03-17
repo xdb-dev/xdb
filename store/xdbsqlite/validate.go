@@ -2,6 +2,7 @@ package xdbsqlite
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -122,11 +123,14 @@ func (s *Store) evolveDynamic(
 		evolved.Fields[name] = newFields[i]
 	}
 
-	// TODO: encode evolved *schema.Def to []byte when implementing.
-	err := q.PutSchema(ctx, xsql.PutSchemaParams{
+	data, err := json.Marshal(evolved)
+	if err != nil {
+		return err
+	}
+	err = q.PutSchema(ctx, xsql.PutSchemaParams{
 		Namespace: def.URI.NS().String(),
 		Schema:    def.URI.Schema().String(),
-		Data:      nil,
+		Data:      data,
 	})
 	if err != nil {
 		return err

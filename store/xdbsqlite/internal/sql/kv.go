@@ -214,3 +214,16 @@ func (q *Queries) KVRecordExists(ctx context.Context, arg KVRecordExistsParams) 
 	err := q.db.QueryRowContext(ctx, query, arg.ID).Scan(&exists)
 	return exists, err
 }
+
+// CountKVRecordsParams are the arguments for [Queries.CountKVRecords].
+type CountKVRecordsParams struct {
+	Table string
+}
+
+// CountKVRecords returns the number of distinct records in a KV table.
+func (q *Queries) CountKVRecords(ctx context.Context, arg CountKVRecordsParams) (int, error) {
+	query := fmt.Sprintf("SELECT COUNT(DISTINCT _id) FROM %s", arg.Table)
+	var count int
+	err := q.db.QueryRowContext(ctx, query).Scan(&count)
+	return count, err
+}

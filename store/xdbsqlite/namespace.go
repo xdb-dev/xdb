@@ -14,11 +14,33 @@ type NamespaceTx struct {
 }
 
 func (n *NamespaceTx) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, error) {
-	return nil, store.ErrNotFound
+	exists, err := n.q.NamespaceExists(ctx, xsql.NamespaceExistsParams{
+		Namespace: uri.NS().String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, store.ErrNotFound
+	}
+
+	return core.NewNS(uri.NS().String()), nil
 }
 
 func (n *NamespaceTx) ListNamespaces(ctx context.Context, q *store.ListQuery) (*store.Page[*core.NS], error) {
-	return nil, nil
+	names, err := n.q.ListNamespaces(ctx, xsql.ListNamespacesParams{
+		Limit: 10000,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	nss := make([]*core.NS, len(names))
+	for i, name := range names {
+		nss[i] = core.NewNS(name)
+	}
+
+	return store.Paginate(nss, q), nil
 }
 
 // --- Store delegation ---
@@ -29,7 +51,7 @@ func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, erro
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	ntx := &NamespaceTx{q: xsql.NewQueries(tx)}
 
@@ -54,7 +76,7 @@ func (s *Store) ListNamespaces(
 	if err != nil {
 		return nil, err
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	ntx := &NamespaceTx{q: xsql.NewQueries(tx)}
 
