@@ -7,9 +7,13 @@
 
 ## Current State
 
-- Only `core/` package exists (URI, Tuple, Record, Value, Type, Builder)
-- No CLI, no store backends, no API layer
-- README describes the target CLI surface (S3-like: `ls`, `get`, `put`, `rm`, `make-schema`, `daemon`)
+- `core/` package exists (URI, Tuple, Record, Value, Type, Builder)
+- `schema/` package exists (Def, Attr, validation)
+- `store/` interfaces exist (RecordStore, SchemaStore, NamespaceReader, Store, BatchExecutor, HealthChecker)
+- 4 store backends implemented: `xdbmemory`, `xdbfs`, `xdbredis`, `xdbsqlite`
+- `encoding/xdbjson/` exists (JSON encoder/decoder for records)
+- `tests/` shared test suites exist for store implementations
+- No CLI, no daemon, no API layer
 - Module: `github.com/xdb-dev/xdb`, Go 1.26
 
 ## Design Principles
@@ -44,10 +48,29 @@ xdb records upsert  --uri xdb://com.example/posts/post-123 --json '{...}'
 xdb records delete  --uri xdb://com.example/posts/post-123
 ```
 
-- `create` fails if record already exists
-- `update` fails if record doesn't exist
-- `upsert` creates or updates (equivalent to old `put`)
-- `delete` prompts for confirmation unless `--force`
+- `create` is **idempotent** — if the record already exists, returns the existing record (no error). On new record, returns the created record. Safe to retry after timeout
+- `update` uses **patch semantics** — only supplied fields are modified, unspecified fields are preserved. Fails if record doesn't exist (`NOT_FOUND`). Returns the full record after merge
+- `upsert` creates or full-replaces (equivalent to old `put`). Returns the record on success. Use when you want to set the complete state regardless of what existed before
+- `delete` is **idempotent** — succeeds even if the record doesn't exist (no `NOT_FOUND` error). Always requires `--force` (both TTY and non-TTY). Without `--force`, exits with error
+
+**Verb semantics summary:**
+
+| Verb | Exists? | Behavior | Idempotent? |
+|------|---------|----------|-------------|
+| `create` | No | Create record | Yes |
+| `create` | Yes | Return existing record (no error) | Yes |
+| `update` | No | `NOT_FOUND` error | N/A |
+| `update` | Yes | Patch: merge supplied fields over existing | Yes |
+| `upsert` | No | Create record (full state) | Yes |
+| `upsert` | Yes | Full replace (all fields) | Yes |
+| `delete` | No | Success (no-op) | Yes |
+| `delete` | Yes | Delete record | Yes |
+
+**When to use each:**
+- `create` — "I'm making something new, but don't fail if I already made it" (retry-safe)
+- `update` — "Change these specific fields on an existing record" (partial merge)
+- `upsert` — "Set this record to exactly this state, I don't care what was there" (full replace)
+- `delete` — "Make sure this record is gone" (retry-safe)
 
 #### Schemas
 
@@ -56,8 +79,14 @@ xdb schemas create  --uri xdb://com.example/posts --json '{...}'
 xdb schemas get     --uri xdb://com.example/posts
 xdb schemas list    --uri xdb://com.example
 xdb schemas update  --uri xdb://com.example/posts --json '{...}'
-xdb schemas delete  --uri xdb://com.example/posts
+xdb schemas delete  --uri xdb://com.example/posts --force
+xdb schemas delete  --uri xdb://com.example/posts --cascade  # deletes schema + all records
 ```
+
+- `create` is **idempotent** — if the schema already exists, returns the existing schema (no error)
+- `update` uses **patch semantics** — merges supplied attrs over existing definition. Fails if schema doesn't exist
+- `delete` is **idempotent** — succeeds even if schema doesn't exist. Refuses if records exist; use `--cascade` to delete schema + all records
+- `delete` always requires `--force` (same as record delete)
 
 #### Namespaces
 
@@ -181,6 +210,78 @@ Reads execute within the same transaction snapshot, so they see a consistent vie
 - Max 10MB total payload size
 - Operations execute in array order within the transaction
 
+#### Watch
+
+Stream change notifications as NDJSON. Turns XDB from a passive store into an event source for agent workflows.
+
+```bash
+# Watch all changes in a schema
+xdb watch --uri xdb://com.example/posts --output ndjson
+
+# Watch a specific record
+xdb watch --uri xdb://com.example/posts/post-123 --output ndjson
+```
+
+Output (one line per event):
+
+```
+{"type":"create","uri":"xdb://com.example/posts/post-1","data":{"title":"Hello"}}
+{"type":"update","uri":"xdb://com.example/posts/post-1","data":{"title":"Updated"}}
+{"type":"delete","uri":"xdb://com.example/posts/post-1"}
+```
+
+**Lifecycle events:**
+
+- `{"type":"connected"}` — emitted on initial connection and after reconnect
+- `{"type":"reconnecting"}` — emitted when connection lost, before retry
+- `{"type":"deleted","uri":"xdb://com.example/posts"}` — schema was deleted; watch exits with code 0
+
+**Reconnection:** On daemon restart or connection loss, the client retries with exponential backoff (1s, 2s, 4s, max 30s). A `reconnecting` event is emitted so consumers know.
+
+**Limits:** Max 10 watchers per schema, max 50 total (configurable in config file). Excess connections get an error: `"too many watchers (max 50)"`.
+
+#### Import / Export
+
+Bulk data movement for loading and dumping datasets.
+
+```bash
+# Import NDJSON file (auto-chunks into batches of 100)
+xdb import --uri xdb://com.example/posts --file data.ndjson
+
+# Import from stdin
+cat data.ndjson | xdb import --uri xdb://com.example/posts
+
+# Export all records as NDJSON
+xdb export --uri xdb://com.example/posts --output ndjson > backup.ndjson
+
+# Export with field mask
+xdb export --uri xdb://com.example/posts --fields id,title --output ndjson
+```
+
+**Import behavior:**
+
+- Reads NDJSON (one JSON object per line) or JSON array
+- Auto-chunks into batches of 100 operations, each sent as `batch.execute`
+- Each chunk is atomic (all-or-nothing), but chunks are independent
+- Progress to stderr: `Imported 100/10000... 200/10000...`
+- On chunk failure: reports which chunk failed and how many records committed before it
+- Uses `records.upsert` by default; `--create-only` flag uses `records.create` (fails on duplicates)
+
+**Export behavior:**
+
+- Thin wrapper over `records.list --page-all --output ndjson`
+- Streams across all pages without buffering
+
+#### Init
+
+First-run scaffolding command:
+
+```bash
+xdb init    # Creates ~/.xdb/, config file, starts daemon
+```
+
+Creates `~/.xdb/` directory, writes default `config.json`, and starts the daemon. Idempotent — safe to run multiple times.
+
 ### Human Aliases
 
 Short-form commands that infer the resource from the URI depth:
@@ -220,6 +321,16 @@ Aliases accept positional URIs (no `--uri` flag needed). The canonical commands 
 
 ## 1. Output: JSON-First, Table for Humans
 
+### Exit Codes
+
+| Code | Meaning | Example |
+|------|---------|---------|
+| 0 | Success | Record created, list returned |
+| 1 | Application error | NOT_FOUND, ALREADY_EXISTS, SCHEMA_VIOLATION |
+| 2 | Connection error | Daemon not running, timeout |
+| 3 | Input validation error | INVALID_URI, bad JSON, mutual exclusivity |
+| 4 | Internal error | Store failure, unexpected daemon error |
+
 ### Auto-detection (already in README spec)
 
 - **TTY** → table format (human-readable)
@@ -229,6 +340,7 @@ Aliases accept positional URIs (no `--uri` flag needed). The canonical commands 
 ### Agent additions
 
 - `--output ndjson` — one JSON object per line for streaming. Available on list and batch operations.
+- `--quiet` — suppress all stdout output. Only exit code matters. Useful for shell conditionals: `if xdb records get --uri ... --quiet; then ...`
 - Compact JSON by default when piped; `--output json --pretty` for indented.
 - All JSON output uses a consistent envelope:
 
@@ -333,14 +445,15 @@ xdb batch --file ops.json --output ndjson | jq 'select(.status == "error")'
 
 Inspired by gws-cli's formatter, XDB's output layer handles four formats with pagination-aware behavior:
 
-| Format | Single response | List / Batch | `--page-all` |
-|--------|----------------|--------------|--------------|
-| **JSON** | Pretty-printed with envelope | Pretty-printed with envelope (`items` array) | Each page as separate JSON object |
-| **NDJSON** | N/A (falls back to JSON) | One line per item, no envelope | Streams across pages, one line per item |
-| **Table** | Key-value rows | Column headers + data rows | Headers on first page only |
-| **YAML** | YAML document | YAML document with sequence | `---` separator between pages |
+| Format     | Single response              | List / Batch                                 | `--page-all`                            |
+| ---------- | ---------------------------- | -------------------------------------------- | --------------------------------------- |
+| **JSON**   | Pretty-printed with envelope | Pretty-printed with envelope (`items` array) | Each page as separate JSON object       |
+| **NDJSON** | N/A (falls back to JSON)     | One line per item, no envelope               | Streams across pages, one line per item |
+| **Table**  | Key-value rows               | Column headers + data rows                   | Headers on first page only              |
+| **YAML**   | YAML document                | YAML document with sequence                  | `---` separator between pages           |
 
 Key behaviors:
+
 - **First-page awareness** — table emits column headers only on the first page (gws-cli pattern). Subsequent pages append data rows only.
 - **YAML document separators** — each page is prefixed with `---\n`, producing a valid multi-document YAML stream.
 - **Compact vs pretty** — JSON uses compact form when piped, pretty when TTY. `--pretty` forces indented output regardless.
@@ -365,6 +478,8 @@ cat post.json | xdb records create --uri xdb://com.example/posts/post-123
 xdb schemas create --uri xdb://com.example/posts --json '{"attrs":[{"name":"title","type":"string"}]}'
 ```
 
+**Input mutual exclusivity:** `--json`, `--file`, and stdin are mutually exclusive. If more than one is provided, error: `"Error: specify only one of --json, --file, or stdin"` (exit code 3).
+
 For `records list` filters, support a structured JSON query alongside the human-friendly `--filter`:
 
 ```bash
@@ -374,6 +489,8 @@ xdb records list --uri xdb://com.example/posts --filter "age>30"
 # Agent-friendly: structured query
 xdb records list --uri xdb://com.example/posts --query '{"filters":[{"attr":"age","op":">","value":30}],"limit":10}'
 ```
+
+`--filter` and `--query` are mutually exclusive. If both are provided, error: `"Error: specify only one of --filter or --query"` (exit code 3).
 
 ---
 
@@ -629,6 +746,36 @@ Output:
 }
 ```
 
+When the record already exists (idempotent create):
+
+```json
+{
+  "dry_run": true,
+  "valid": true,
+  "method": "records.create",
+  "uri": "xdb://com.example/posts/post-123",
+  "changes": {
+    "record_exists": true,
+    "action": "return_existing"
+  }
+}
+```
+
+For `records.update` (patch), dry-run shows the merge diff:
+
+```json
+{
+  "dry_run": true,
+  "valid": true,
+  "method": "records.update",
+  "uri": "xdb://com.example/posts/post-123",
+  "changes": {
+    "fields_modified": ["title"],
+    "fields_unchanged": ["content", "author.id", "created_at"]
+  }
+}
+```
+
 On validation failure:
 
 ```json
@@ -646,10 +793,9 @@ On validation failure:
 1. URI validation
 2. Input parsing and type checking
 3. Schema validation (if strict schema)
-4. Conflict detection (record exists / doesn't exist)
-5. Returns what _would_ happen without executing
-
-For `records.create`, dry-run also reports if the record already exists (which would cause the actual call to fail).
+4. Existence check (reports `record_exists` for create, `NOT_FOUND` for update)
+5. For update: reports which fields would be modified vs unchanged
+6. Returns what _would_ happen without executing
 
 ---
 
@@ -691,6 +837,7 @@ Output is markdown — designed for LLM consumption, not machine parsing:
 - ALWAYS use --fields on list operations to limit response size
 - ALWAYS use --output json when parsing output programmatically
 - PREFER canonical commands (xdb records create) over aliases (xdb put)
+- PREFER `update` for modifying specific fields (patch merge). Use `upsert` only when you want to set the complete record state
 - Use --query for structured filters instead of --filter string parsing
 - URI components must not contain: ?, #, %, .., control characters
 
@@ -698,20 +845,20 @@ Output is markdown — designed for LLM consumption, not machine parsing:
 
 ### records
 
-- create — Create a new record (fails if exists)
+- create — Create a new record. Idempotent: returns existing if already exists
 - get — Retrieve a record by URI
 - list — List records in a schema
-- update — Update an existing record (fails if not exists)
-- upsert — Create or update a record
-- delete — Delete a record
+- update — Patch: merge supplied fields over existing record (fails if not exists)
+- upsert — Full replace: set the complete record state (creates if not exists)
+- delete — Delete a record. Idempotent: succeeds even if not found
 
 ### schemas
 
-- create — Define a new schema
+- create — Define a new schema. Idempotent: returns existing if already exists
 - get — Retrieve schema definition
 - list — List schemas in a namespace
-- update — Update schema definition
-- delete — Delete a schema
+- update — Patch: merge supplied attrs over existing schema definition
+- delete — Delete a schema. Idempotent: succeeds even if not found
 
 ### namespaces
 
@@ -728,11 +875,19 @@ Output is markdown — designed for LLM consumption, not machine parsing:
 
 ## Common Patterns
 
-### Create and verify a record
+### Create a record (safe to retry)
 
 xdb records create --uri xdb://NS/SCHEMA/ID --json '{...}' --dry-run
 xdb records create --uri xdb://NS/SCHEMA/ID --json '{...}'
-xdb records get --uri xdb://NS/SCHEMA/ID --fields <relevant-fields>
+
+### Modify specific fields on a record
+
+xdb records update --uri xdb://NS/SCHEMA/ID --json '{"title":"New Title"}' --dry-run
+xdb records update --uri xdb://NS/SCHEMA/ID --json '{"title":"New Title"}'
+
+### Set a record to an exact state (full replace)
+
+xdb records upsert --uri xdb://NS/SCHEMA/ID --json '{full record...}'
 
 ### Explore data
 
@@ -745,7 +900,7 @@ xdb records get --uri xdb://NS/SCHEMA/ID # fetch one record
 xdb schema records.create # see params, flags, examples
 ```
 
-Key design: the output is **dynamic**. It includes live data from the running store (installed schemas, namespaces) so the agent knows what data exists without having to discover it through trial and error. The resource/method sections are auto-generated from the cobra command tree, so they're always in sync with the binary.
+Key design: the output is **dynamic**. It includes live data from the running store (installed schemas, namespaces) so the agent knows what data exists without having to discover it through trial and error. The resource/method sections are auto-generated from the urfave/cli command tree, so they're always in sync with the binary.
 
 ### `xdb skills`
 
@@ -812,8 +967,9 @@ Persistent settings. Created automatically on first run.
 {
   "dir": "~/.xdb",
   "daemon": { "addr": "localhost:8147", "socket": "xdb.sock" },
-  "log_level": "info",
-  "store": { "backend": "sqlite", "sqlite": { "name": "xdb.db" } }
+  "log": { "level": "info", "file": "xdb.log" },
+  "store": { "backend": "sqlite", "sqlite": { "name": "xdb.db" } },
+  "watch": { "max_per_schema": 10, "max_total": 50 }
 }
 ```
 
@@ -841,88 +997,152 @@ No parallel env var config surface. CI/containers generate or mount a config fil
 
 ## Package Structure
 
+The CLI/daemon is a **separate Go module** (`github.com/xdb-dev/xdb/cmd/xdb`) to keep the root module clean for library consumers. The root module contains only library packages (`core/`, `schema/`, `store/`, `client/`, `filter/`). CLI-specific dependencies (urfave/cli, etc.) don't pollute library imports.
+
+### Root module (github.com/xdb-dev/xdb) — library
+
+```
+core/              # URI, Tuple, Record, Value, Type (existing)
+schema/            # Schema definitions and validation (existing)
+store/             # Store interfaces + backends (existing)
+encoding/xdbjson/  # JSON encoder/decoder (existing)
+client/            # Go client library (JSON-RPC client, wire types)
+filter/            # Filter parsing — minimal grammar (attr OP value)
+```
+
+### CLI/daemon module (github.com/xdb-dev/xdb/cmd/xdb)
+
 ```
 cmd/xdb/
-  main.go                # Entry point
+  main.go                    # Entry point
 
-internal/cli/
-  app.go                 # Root command setup, global flags, alias registration
-  records.go             # records create/get/list/update/upsert/delete
-  schemas.go             # schemas create/get/list/update/delete
-  namespaces.go          # namespaces list/get
-  batch.go               # batch execution (multi-op transactions)
-  schema_inspect.go      # xdb schema (method + type introspection)
-  context.go             # context command (full agent context)
-  skills.go              # skills command (list + get skills)
-  daemon.go              # daemon start/stop/status/restart
-  aliases.go             # get/put/ls/rm → canonical command resolution
+  internal/cli/
+    app.go                   # Root command setup, global flags, alias registration
+    records.go               # records create/get/list/update/upsert/delete
+    schemas.go               # schemas create/get/list/update/delete
+    namespaces.go            # namespaces list/get
+    batch.go                 # batch execution (multi-op transactions)
+    watch.go                 # watch command (streaming changes)
+    import_export.go         # import/export commands (bulk data)
+    init.go                  # init command (first-run scaffolding)
+    schema_inspect.go        # xdb schema (method + type introspection)
+    context.go               # context command (full agent context)
+    skills.go                # skills command (list + get skills)
+    daemon.go                # daemon start/stop/status/restart
+    aliases.go               # get/put/ls/rm → canonical command resolution
 
-internal/cli/output/
-  output.go              # Output interface + format detection
-  json.go                # JSON/NDJSON formatter
-  table.go               # Table formatter
-  yaml.go                # YAML formatter
+  internal/cli/output/
+    output.go                # Output interface + format detection
+    json.go                  # JSON/NDJSON formatter
+    table.go                 # Table formatter
+    yaml.go                  # YAML formatter
 
-internal/cli/validate/
-  validate.go            # URI + file path + payload validation
+  internal/cli/validate/
+    validate.go              # URI + file path + payload validation
+
+  internal/rpc/
+    request.go               # JSON-RPC 2.0 request/response types
+    handler.go               # HTTP handler (parse, dispatch, respond)
+    router.go                # Method → handler mapping
+    errors.go                # Error codes and constructors
+
+  internal/service/
+    service.go               # Service struct, constructor
+    records.go               # records.* method handlers
+    schemas.go               # schemas.* method handlers
+    namespaces.go            # namespaces.* method handlers
+    batch.go                 # batch.execute handler
+    watch.go                 # watch pubsub fan-out
+    introspect.go            # schema.describe_* handlers
+    system.go                # system.* handlers
+
+  internal/daemon/
+    daemon.go                # Daemon lifecycle (start, stop, listeners)
+    pid.go                   # PID file management
 ```
 
+### Security: File permissions
+
+- `~/.xdb/` directory: `0700`
+- `~/.xdb/xdb.sock` socket: `0600`
+- `~/.xdb/config.json`: `0600`
+- `~/.xdb/xdb.log`: `0600`
+
 ---
+
+## Pre-Work (store interface changes)
+
+Before CLI implementation begins:
+
+1. **Add `Close() error` to `store.Store` interface** — required for daemon shutdown. All 4 backends implement it (SQLite closes DB, Redis closes pool, memory/fs are no-ops).
+2. **Add `Fields []string` to `store.ListQuery`** — store-level field projection. SQLite implements as SELECT column list; others filter post-fetch.
 
 ## Implementation Phases
 
 ### Phase 1: Foundation
 
-1. `internal/cli/validate/` — URI hardening, file path sandboxing, payload validation
-2. `internal/cli/output/` — JSON, NDJSON, table, YAML formatters with TTY detection
-3. `internal/cli/app.go` — Root command with global flags + resource subcommands
-4. `cmd/xdb/main.go` — Entry point
+1. `filter/` package — minimal filter grammar (attr OP value), AST, evaluation. Extend later with AND/OR/parens
+2. `internal/cli/validate/` — URI hardening, file path sandboxing, payload validation
+3. `internal/cli/output/` — JSON, NDJSON, table, YAML formatters with TTY detection
+4. `internal/cli/app.go` — Root command with global flags + resource subcommands
+5. `cmd/xdb/main.go` — Entry point
+6. `xdb init` — first-run scaffolding (~/.xdb/, config, daemon start)
 
 ### Phase 2: Core Resource Commands
 
-5. `records` — create, get, list, update, upsert, delete with `--json`, `--file`, `--dry-run`, `--fields`
-6. `schemas` — create, get, list, update, delete with `--json`, `--dry-run`
-7. `namespaces` — list, get
-8. `batch` — multi-operation atomic transactions with `--json`, `--file`, `--dry-run`
-9. `aliases.go` — `get`, `put`, `ls`, `rm`, `make-schema` → canonical command routing
+7. `records` — create, get, list, update, upsert, delete with `--json`, `--file`, `--dry-run`, `--fields`, `--quiet`
+8. `schemas` — create, get, list, update, delete with `--json`, `--dry-run`, `--cascade`
+9. `namespaces` — list, get
+10. `batch` — multi-operation atomic transactions with `--json`, `--file`, `--dry-run`
+11. `import` / `export` — bulk data movement (NDJSON, auto-chunking)
+12. `aliases.go` — `get`, `put`, `ls`, `rm`, `make-schema` → canonical command routing
 
-### Phase 3: Introspection & Safety
+### Phase 3: Introspection, Safety & Streaming
 
-10. `xdb schema` — method introspection (dot-notation), type definitions, data schema describe
-11. Structured error responses (JSON error envelope)
-12. Input hardening test suite (fuzz with agent-typical hallucinations)
+13. `xdb schema` — method introspection (dot-notation), type definitions, data schema describe
+14. `xdb watch` — streaming change notifications (NDJSON, reconnection, lifecycle events)
+15. Structured error responses (JSON error envelope with exit codes)
+16. Input hardening test suite (fuzz with agent-typical hallucinations)
 
 ### Phase 4: Agent Surfaces
 
-13. `xdb context` command (dynamic agent context generation)
-14. `xdb skills` / `xdb skills get <name>` (compiled-in skill documents)
-15. Daemon with Unix socket + HTTP
+17. `xdb context` command (dynamic agent context generation)
+18. `xdb skills` / `xdb skills get <name>` (compiled-in skill documents)
+19. Daemon with Unix socket + HTTP, structured logging to `~/.xdb/xdb.log`
 
-### Phase 5: Store Backends
+### Phase 5: Distribution
 
-16. Store interface in `store/` package
-17. Memory backend
-18. SQLite backend
-19. Redis backend
-20. Filesystem backend
+20. `goreleaser` config for GitHub releases with prebuilt binaries
+21. Homebrew tap (`xdb-dev/tap/xdb`)
+22. `go install github.com/xdb-dev/xdb/cmd/xdb@latest` verification
 
 ---
 
 ## Key Decisions
 
-| Decision          | Choice                             | Rationale                                                           |
-| ----------------- | ---------------------------------- | ------------------------------------------------------------------- |
-| Command structure | RPC-method (`resource method`)     | 1:1 with operations, explicit semantics, agent-predictable          |
-| Human aliases     | `get/put/ls/rm` with URI inference | Keeps human DX, resolves to same code path                          |
-| Create vs Update  | Separate methods                   | Agents know exactly what will happen, no upsert ambiguity           |
-| Introspection     | `xdb schema` (dot-notation)        | gws-cli pattern — methods, types, data schemas from one command     |
-| CLI framework     | `cobra`                            | Standard, supports subcommands, completion, good help generation    |
-| Config binding    | `viper` or manual                  | Flags > config file > defaults; `XDB_CONFIG` for file location only |
-| JSON output       | `encoding/json`                    | Stdlib, no external dep needed                                      |
-| Table output      | `tablewriter` or custom            | Minimal dep                                                         |
-| Validation        | Custom in `internal/cli/validate/` | XDB-specific rules, no generic framework needed                     |
-| `--dry-run` scope | All mutating methods               | Defense-in-depth for agents                                         |
-| NDJSON            | Custom writer                      | One `json.Marshal` + newline per record                             |
+| Decision               | Choice                             | Rationale                                                           |
+| ---------------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| Command structure      | RPC-method (`resource method`)     | 1:1 with operations, explicit semantics, agent-predictable          |
+| Human aliases          | `get/put/ls/rm` with URI inference | Keeps human DX, resolves to same code path                          |
+| Create vs Update       | Separate methods, distinct semantics | `create` = idempotent insert, `update` = patch merge, `upsert` = full replace |
+| Introspection          | `xdb schema` (dot-notation)        | gws-cli pattern — methods, types, data schemas from one command     |
+| CLI framework          | `urfave/cli v3`                    | Simple API, built-in completion, sufficient for XDB's command tree  |
+| Module structure       | `cmd/xdb/` as separate Go module   | Root module stays clean for library consumers (no CLI deps)         |
+| Config binding         | Manual JSON + flags                | Flags > config file > defaults; `XDB_CONFIG` for file location only |
+| JSON output            | `encoding/json`                    | Stdlib, no external dep needed                                      |
+| Table output           | `tablewriter` or custom            | Minimal dep                                                         |
+| Validation             | Custom in `internal/cli/validate/` | XDB-specific rules, no generic framework needed                     |
+| Filter parsing         | `filter/` package in root module   | Minimal grammar (attr OP value), reusable across CLI and service    |
+| Field masking          | Store-level projection             | `Fields []string` in `ListQuery`; backends implement column select  |
+| `--dry-run` scope      | All mutating methods               | Defense-in-depth for agents                                         |
+| NDJSON                 | Custom writer                      | One `json.Marshal` + newline per record                             |
+| Delete safety          | Idempotent + always require `--force` | Idempotent (no error if gone) for retry safety; `--force` for intent |
+| Schema delete + records| Error unless `--cascade`           | Refuses if records exist; `--cascade` deletes schema + all records  |
+| Mutation responses     | Return full record                 | All mutations return the full record (after merge for update)       |
+| Idempotency           | create + delete are idempotent     | Retry-safe: create returns existing, delete succeeds if gone        |
+| Update semantics      | Patch (partial merge)              | Only supplied fields change; tuple model naturally supports merge   |
+| Import chunking        | Auto-batch of 100                  | Each chunk atomic, chunks independent. Progress to stderr           |
+| Distribution           | go install + goreleaser + Homebrew | Full distribution: `brew install`, GitHub releases, `go install`    |
 
 ---
 
@@ -932,5 +1152,8 @@ internal/cli/validate/
 - **OAuth / browser auth** — XDB is local-first (daemon on localhost). Config file is sufficient.
 - **Skill files on disk / OpenClaw registry** — Skills are compiled into the binary and served via `xdb skills`. No external files to install or manage.
 - **Dynamic Discovery Documents** — XDB schemas _are_ the discovery mechanism. `xdb schema` serves this purpose.
-- **MCP surface** — Out of scope for now. Can be added later as a thin layer over the resource commands.
+- **MCP surface** — Explicitly excluded from scope. Can be added later as a thin layer over the resource commands.
 - **Personas / Recipes** — XDB is a data tool with atomic operations, not a multi-service productivity suite.
+- **Embedded mode** — The CLI always talks to a running daemon. No in-process store fallback. If the daemon isn't running, error: `"daemon not running — start it with: xdb daemon start"` (exit code 2).
+- **Prometheus metrics** — Structured access logs are sufficient for a local daemon. Add metrics when XDB supports remote/multi-user.
+- **Audit / transaction log** — Records have `created_at`/`updated_at`. Full mutation history deferred to a future plan.
