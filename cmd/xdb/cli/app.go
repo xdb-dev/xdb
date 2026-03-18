@@ -46,7 +46,7 @@ func NewApp() *cli.Command {
 
 	return &cli.Command{
 		Name:                          "xdb",
-		Usage:                         "Tuple-based data store",
+		Usage:                         "An agent-first data layer. Model once, store anywhere.",
 		CustomRootCommandHelpTemplate: rootHelpTemplate,
 		Flags: []cli.Flag{
 			&cli.StringFlag{

@@ -45,7 +45,7 @@ OPTIONS:{{template "visibleFlagCategoryTemplate" .}}{{else if .VisibleFlags}}
 OPTIONS:{{template "visibleFlagTemplate" .}}{{end}}
 `
 
-var rootHelpTemplate = `xdb — Tuple-based data store
+var rootHelpTemplate = `xdb — An agent-first data layer. Model once, store anywhere.
 
 USAGE:
     xdb <resource> <method> [flags]

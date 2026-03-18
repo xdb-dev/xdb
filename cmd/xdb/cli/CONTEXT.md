@@ -1,6 +1,6 @@
 # XDB CLI (`xdb`) Context
 
-The `xdb` CLI provides tuple-based data modeling, storage, and querying. All data is addressed by URI: `xdb://NAMESPACE/SCHEMA/ID#ATTR`.
+XDB is an agent-first data layer. Model once, store anywhere. All data is addressed by URI: `xdb://NAMESPACE/SCHEMA/ID#ATTR`.
 
 ## Rules of Engagement for Agents
 
