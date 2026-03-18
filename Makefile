@@ -2,7 +2,7 @@ PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 TOOLS_MODULE := $(PROJECT_DIR)/tools.mod
 
 # DEVELOPMENT
-.PHONY: setup build check lint tidy
+.PHONY: setup build install check lint tidy
 
 SUBMODULES := $(shell find . -mindepth 2 -name go.mod -exec dirname {} \;)
 
@@ -13,6 +13,9 @@ setup: ##@development Setup the project and update dependencies
 build: ##@development Build all packages
 	go build ./...
 	@for mod in $(SUBMODULES); do (cd $$mod && go build ./...); done
+
+install: ##@development Install the xdb CLI binary
+	cd cmd/xdb && go install .
 
 check: ##@development Runs linting and formatting
 check: tidy lint
