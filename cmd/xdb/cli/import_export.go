@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/urfave/cli/v3"
 
@@ -91,7 +92,12 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 			return fmt.Errorf("line %d: missing _id or id field", imported+1)
 		}
 
-		recordURI := fmt.Sprintf("%s/%v", uri, id)
+		idStr := fmt.Sprintf("%v", id)
+		if strings.ContainsAny(idStr, "/?#%") || strings.Contains(idStr, "..") {
+			return fmt.Errorf("line %d: invalid id %q (contains forbidden characters)", imported+1, idStr)
+		}
+
+		recordURI := fmt.Sprintf("%s/%s", uri, idStr)
 
 		if createOnly {
 			_, createErr := a.records.Create(ctx, &api.CreateRecordRequest{
