@@ -27,11 +27,15 @@ tidy: ##@development Runs go mod tidy to update dependencies
 
 # TESTING
 
-.PHONY: test
+.PHONY: test bench
 
-test: ##@testing Run all tests 
+test: ##@testing Run all tests
 	go test -race -timeout=5m -covermode=atomic -coverprofile=coverage.out ./...
 	@for mod in $(SUBMODULES); do echo "==> testing $$mod" && (cd $$mod && go test -race -timeout=5m ./...) || exit 1; done
+
+bench: ##@testing Run all benchmarks
+	go test -bench=. -benchmem -run=^$$ -timeout=10m ./...
+	@for mod in $(SUBMODULES); do echo "==> bench $$mod" && (cd $$mod && go test -bench=. -benchmem -run=^$$ -timeout=10m ./...) || exit 1; done
 
 # SERVICES
 
