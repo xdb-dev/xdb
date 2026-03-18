@@ -3,11 +3,19 @@ package daemon
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
 
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/rpc"
 	"github.com/xdb-dev/xdb/store"
+	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
 // Config holds daemon configuration.
@@ -20,7 +28,9 @@ type Config struct {
 
 // Daemon manages the XDB daemon process.
 type Daemon struct {
-	config Config
+	listener net.Listener
+	server   *http.Server
+	config   Config
 }
 
 // New creates a new [Daemon] with the given configuration.
@@ -79,16 +89,93 @@ func NewRouter(s store.Store, version string) *rpc.Router {
 }
 
 // Start starts the daemon.
-func (d *Daemon) Start(_ context.Context) error {
-	return fmt.Errorf("daemon: Start not implemented")
+func (d *Daemon) Start(ctx context.Context) error {
+	s := xdbmemory.New()
+	router := NewRouter(s, d.config.Version)
+
+	d.server = &http.Server{
+		Handler:           router,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	d.server.SetKeepAlivesEnabled(false)
+
+	// Remove stale socket file if it exists.
+	_ = os.Remove(d.config.SocketPath)
+
+	lc := net.ListenConfig{}
+
+	ln, err := lc.Listen(ctx, "unix", d.config.SocketPath)
+	if err != nil {
+		return err
+	}
+
+	d.listener = ln
+
+	if chmodErr := os.Chmod(d.config.SocketPath, 0o600); chmodErr != nil {
+		return chmodErr
+	}
+
+	pid := pidPath(d.config.SocketPath)
+
+	if pidErr := WritePID(pid); pidErr != nil {
+		return pidErr
+	}
+
+	err = d.server.Serve(d.listener)
+	if errors.Is(err, http.ErrServerClosed) {
+		err = nil
+	}
+
+	_ = RemovePID(pid)
+
+	return err
 }
 
 // Stop stops the daemon.
 func (d *Daemon) Stop() error {
-	return fmt.Errorf("daemon: Stop not implemented")
+	if d.server == nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	return d.server.Shutdown(ctx)
 }
 
 // Status returns the daemon's current status.
 func (d *Daemon) Status() (string, error) {
-	return "", fmt.Errorf("daemon: Status not implemented")
+	pp := pidPath(d.config.SocketPath)
+
+	if !isProcessRunning(pp) {
+		return "stopped", nil
+	}
+
+	return "running", nil
+}
+
+// isProcessRunning checks if the process in the PID file is alive.
+func isProcessRunning(pp string) bool {
+	pid, err := ReadPID(pp)
+	if err != nil {
+		return false
+	}
+
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		_ = RemovePID(pp)
+		return false
+	}
+
+	err = p.Signal(syscall.Signal(0))
+	if err != nil {
+		_ = RemovePID(pp)
+		return false
+	}
+
+	return true
+}
+
+func pidPath(socketPath string) string {
+	return strings.TrimSuffix(socketPath, filepath.Ext(socketPath)) + ".pid"
 }

@@ -2,12 +2,13 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/urfave/cli/v3"
+
+	"github.com/xdb-dev/xdb/api"
 )
 
-func namespacesCmd() *cli.Command {
+func (a *App) namespacesCmd() *cli.Command {
 	return &cli.Command{
 		Name:               "namespaces",
 		Usage:              "List and inspect namespaces",
@@ -23,9 +24,7 @@ func namespacesCmd() *cli.Command {
 					&cli.IntFlag{Name: "offset", Usage: "Page offset"},
 					&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 				},
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("namespaces list: not implemented")
-				},
+				Action: a.namespaceList,
 			},
 			{
 				Name:               "get",
@@ -35,10 +34,43 @@ func namespacesCmd() *cli.Command {
 					&cli.StringFlag{Name: "uri", Usage: "Namespace URI", Required: true},
 					&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 				},
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("namespaces get: not implemented")
-				},
+				Action: a.namespaceGet,
 			},
 		},
 	}
+}
+
+func (a *App) namespaceList(ctx context.Context, cmd *cli.Command) error {
+	resp, err := a.namespaces.List(ctx, &api.ListNamespacesRequest{
+		Limit:  int(cmd.Int("limit")),
+		Offset: int(cmd.Int("offset")),
+	})
+	if err != nil {
+		return err
+	}
+
+	items := make([]any, len(resp.Items))
+	for i, ns := range resp.Items {
+		items[i] = map[string]string{"namespace": ns.String()}
+	}
+
+	return formatList(cmd, items)
+}
+
+func (a *App) namespaceGet(ctx context.Context, cmd *cli.Command) error {
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	resp, err := a.namespaces.Get(ctx, &api.GetNamespaceRequest{
+		URI: uri,
+	})
+	if err != nil {
+		return err
+	}
+
+	return formatOne(cmd, map[string]string{
+		"namespace": resp.Data.String(),
+	})
 }

@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v3"
+
+	"github.com/xdb-dev/xdb/api"
 )
 
-func schemasCmd() *cli.Command {
+func (a *App) schemasCmd() *cli.Command {
 	return &cli.Command{
 		Name:               "schemas",
 		Usage:              "Define and manage schema definitions",
@@ -19,48 +21,147 @@ func schemasCmd() *cli.Command {
 				Usage:              "Create a new schema (idempotent)",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              schemaMutationFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("schemas create: not implemented")
-				},
+				Action:             a.schemaCreate,
 			},
 			{
 				Name:               "get",
 				Usage:              "Retrieve a schema definition",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              schemaReadFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("schemas get: not implemented")
-				},
+				Action:             a.schemaGet,
 			},
 			{
 				Name:               "list",
 				Usage:              "List schemas in a namespace",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              schemaListFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("schemas list: not implemented")
-				},
+				Action:             a.schemaList,
 			},
 			{
 				Name:               "update",
 				Usage:              "Update a schema (patch semantics)",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              schemaMutationFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("schemas update: not implemented")
-				},
+				Action:             a.schemaUpdate,
 			},
 			{
 				Name:               "delete",
 				Usage:              "Delete a schema (idempotent, requires --force)",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              schemaDeleteFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("schemas delete: not implemented")
-				},
+				Action:             a.schemaDelete,
 			},
 		},
 	}
+}
+
+func (a *App) schemaCreate(ctx context.Context, cmd *cli.Command) error {
+	data, err := readPayload(cmd)
+	if err != nil {
+		return err
+	}
+
+	if data == nil {
+		return fmt.Errorf("create requires a payload (--json, --file, or stdin)")
+	}
+
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	resp, err := a.schemas.Create(ctx, &api.CreateSchemaRequest{
+		URI:  uri,
+		Data: data,
+	})
+	if err != nil {
+		return err
+	}
+
+	return formatOne(cmd, resp.Data)
+}
+
+func (a *App) schemaGet(ctx context.Context, cmd *cli.Command) error {
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	resp, err := a.schemas.Get(ctx, &api.GetSchemaRequest{
+		URI: uri,
+	})
+	if err != nil {
+		return err
+	}
+
+	return formatOne(cmd, resp.Data)
+}
+
+func (a *App) schemaList(ctx context.Context, cmd *cli.Command) error {
+	// URI is optional for schemas list — uses flag or positional arg.
+	uri, _ := getURI(cmd)
+
+	resp, err := a.schemas.List(ctx, &api.ListSchemasRequest{
+		URI:    uri,
+		Limit:  int(cmd.Int("limit")),
+		Offset: int(cmd.Int("offset")),
+	})
+	if err != nil {
+		return err
+	}
+
+	items := make([]any, len(resp.Items))
+	for i, def := range resp.Items {
+		items[i] = def
+	}
+
+	return formatList(cmd, items)
+}
+
+func (a *App) schemaUpdate(ctx context.Context, cmd *cli.Command) error {
+	data, err := readPayload(cmd)
+	if err != nil {
+		return err
+	}
+
+	if data == nil {
+		return fmt.Errorf("update requires a payload (--json, --file, or stdin)")
+	}
+
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	resp, err := a.schemas.Update(ctx, &api.UpdateSchemaRequest{
+		URI:  uri,
+		Data: data,
+	})
+	if err != nil {
+		return err
+	}
+
+	return formatOne(cmd, resp.Data)
+}
+
+func (a *App) schemaDelete(ctx context.Context, cmd *cli.Command) error {
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	_, deleteErr := a.schemas.Delete(ctx, &api.DeleteSchemaRequest{
+		URI:     uri,
+		Cascade: cmd.Bool("cascade"),
+	})
+	if deleteErr != nil {
+		return deleteErr
+	}
+
+	return formatOne(cmd, map[string]string{
+		"status": "deleted",
+		"uri":    uri,
+	})
 }
 
 func schemaMutationFlags() []cli.Flag {

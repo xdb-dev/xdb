@@ -100,3 +100,5 @@ func (t *storeTx) DeleteRecord(ctx context.Context, uri *core.URI) error {
 	}
 	return rs.DeleteRecord(ctx, uri)
 }
+
+func (t *storeTx) Close() error { return nil }

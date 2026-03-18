@@ -17,8 +17,12 @@ func watchCmd() *cli.Command {
 			&cli.StringFlag{Name: "uri", Usage: "URI to watch", Required: true},
 			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 		},
-		Action: func(_ context.Context, _ *cli.Command) error {
-			return fmt.Errorf("watch: not implemented")
-		},
+		Action: watchAction,
 	}
+}
+
+func watchAction(_ context.Context, _ *cli.Command) error {
+	// Watch requires pubsub infrastructure in the daemon.
+	// This will be implemented when the daemon supports change streams.
+	return fmt.Errorf("watch requires a running daemon with pubsub support (not yet implemented)")
 }

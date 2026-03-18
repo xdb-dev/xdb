@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v3"
+
+	"github.com/xdb-dev/xdb/api"
 )
 
-func recordsCmd() *cli.Command {
+func (a *App) recordsCmd() *cli.Command {
 	return &cli.Command{
 		Name:               "records",
 		Usage:              "Create, read, update, delete records",
@@ -19,57 +21,197 @@ func recordsCmd() *cli.Command {
 				Usage:              "Create a new record (idempotent)",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              recordMutationFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("records create: not implemented")
-				},
+				Action:             a.recordCreate,
 			},
 			{
 				Name:               "get",
 				Usage:              "Retrieve a record by URI",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              recordReadFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("records get: not implemented")
-				},
+				Action:             a.recordGet,
 			},
 			{
 				Name:               "list",
 				Usage:              "List records in a schema",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              recordListFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("records list: not implemented")
-				},
+				Action:             a.recordList,
 			},
 			{
 				Name:               "update",
 				Usage:              "Update a record (patch semantics)",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              recordMutationFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("records update: not implemented")
-				},
+				Action:             a.recordUpdate,
 			},
 			{
 				Name:               "upsert",
 				Usage:              "Create or replace a record",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              recordMutationFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("records upsert: not implemented")
-				},
+				Action:             a.recordUpsert,
 			},
 			{
 				Name:               "delete",
 				Usage:              "Delete a record (idempotent, requires --force)",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags:              recordDeleteFlags(),
-				Action: func(_ context.Context, _ *cli.Command) error {
-					return fmt.Errorf("records delete: not implemented")
-				},
+				Action:             a.recordDelete,
 			},
 		},
 	}
+}
+
+func (a *App) recordCreate(ctx context.Context, cmd *cli.Command) error {
+	data, err := readPayload(cmd)
+	if err != nil {
+		return err
+	}
+
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	resp, err := a.records.Create(ctx, &api.CreateRecordRequest{
+		URI:  uri,
+		Data: data,
+	})
+	if err != nil {
+		return err
+	}
+
+	if cmd.Bool("quiet") {
+		return nil
+	}
+
+	return a.formatRecord(cmd, resp.Data)
+}
+
+func (a *App) recordGet(ctx context.Context, cmd *cli.Command) error {
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	resp, err := a.records.Get(ctx, &api.GetRecordRequest{
+		URI:    uri,
+		Fields: parseFields(cmd.String("fields")),
+	})
+	if err != nil {
+		return err
+	}
+
+	return a.formatRecord(cmd, resp.Data)
+}
+
+func (a *App) recordList(ctx context.Context, cmd *cli.Command) error {
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	resp, err := a.records.List(ctx, &api.ListRecordsRequest{
+		URI:    uri,
+		Filter: cmd.String("filter"),
+		Fields: parseFields(cmd.String("fields")),
+		Limit:  int(cmd.Int("limit")),
+		Offset: int(cmd.Int("offset")),
+	})
+	if err != nil {
+		return err
+	}
+
+	items := make([]any, len(resp.Items))
+	for i, rec := range resp.Items {
+		m, mapErr := a.recordToMap(rec)
+		if mapErr != nil {
+			return mapErr
+		}
+
+		items[i] = m
+	}
+
+	return formatList(cmd, items)
+}
+
+func (a *App) recordUpdate(ctx context.Context, cmd *cli.Command) error {
+	data, err := readPayload(cmd)
+	if err != nil {
+		return err
+	}
+
+	if data == nil {
+		return fmt.Errorf("update requires a payload (--json, --file, or stdin)")
+	}
+
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	resp, err := a.records.Update(ctx, &api.UpdateRecordRequest{
+		URI:  uri,
+		Data: data,
+	})
+	if err != nil {
+		return err
+	}
+
+	if cmd.Bool("quiet") {
+		return nil
+	}
+
+	return a.formatRecord(cmd, resp.Data)
+}
+
+func (a *App) recordUpsert(ctx context.Context, cmd *cli.Command) error {
+	data, err := readPayload(cmd)
+	if err != nil {
+		return err
+	}
+
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	resp, err := a.records.Upsert(ctx, &api.UpsertRecordRequest{
+		URI:  uri,
+		Data: data,
+	})
+	if err != nil {
+		return err
+	}
+
+	if cmd.Bool("quiet") {
+		return nil
+	}
+
+	return a.formatRecord(cmd, resp.Data)
+}
+
+func (a *App) recordDelete(ctx context.Context, cmd *cli.Command) error {
+	uri, err := getURI(cmd)
+	if err != nil {
+		return err
+	}
+
+	_, deleteErr := a.records.Delete(ctx, &api.DeleteRecordRequest{
+		URI: uri,
+	})
+	if deleteErr != nil {
+		return deleteErr
+	}
+
+	if cmd.Bool("quiet") {
+		return nil
+	}
+
+	return formatOne(cmd, map[string]string{
+		"status": "deleted",
+		"uri":    uri,
+	})
 }
 
 func recordMutationFlags() []cli.Flag {

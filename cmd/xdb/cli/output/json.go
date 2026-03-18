@@ -1,34 +1,68 @@
 package output
 
 import (
-	"fmt"
+	"encoding/json"
 	"io"
 )
 
 type jsonFormatter struct{}
 
-func (f *jsonFormatter) FormatOne(_ io.Writer, _ any) error {
-	return fmt.Errorf("output: json FormatOne not implemented")
+func (f *jsonFormatter) FormatOne(w io.Writer, v any) error {
+	return writeIndentedJSON(w, v)
 }
 
-func (f *jsonFormatter) FormatList(_ io.Writer, _ []any) error {
-	return fmt.Errorf("output: json FormatList not implemented")
+func (f *jsonFormatter) FormatList(w io.Writer, items []any) error {
+	if items == nil {
+		items = []any{}
+	}
+
+	return writeIndentedJSON(w, items)
 }
 
-func (f *jsonFormatter) FormatError(_ io.Writer, _ error) error {
-	return fmt.Errorf("output: json FormatError not implemented")
+func (f *jsonFormatter) FormatError(w io.Writer, err error) error {
+	return writeIndentedJSON(w, map[string]string{"error": err.Error()})
 }
 
 type ndjsonFormatter struct{}
 
-func (f *ndjsonFormatter) FormatOne(_ io.Writer, _ any) error {
-	return fmt.Errorf("output: ndjson FormatOne not implemented")
+func (f *ndjsonFormatter) FormatOne(w io.Writer, v any) error {
+	return writeCompactJSON(w, v)
 }
 
-func (f *ndjsonFormatter) FormatList(_ io.Writer, _ []any) error {
-	return fmt.Errorf("output: ndjson FormatList not implemented")
+func (f *ndjsonFormatter) FormatList(w io.Writer, items []any) error {
+	for _, item := range items {
+		if err := writeCompactJSON(w, item); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func (f *ndjsonFormatter) FormatError(_ io.Writer, _ error) error {
-	return fmt.Errorf("output: ndjson FormatError not implemented")
+func (f *ndjsonFormatter) FormatError(w io.Writer, err error) error {
+	return writeCompactJSON(w, map[string]string{"error": err.Error()})
+}
+
+func writeIndentedJSON(w io.Writer, v any) error {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	data = append(data, '\n')
+	_, err = w.Write(data)
+
+	return err
+}
+
+func writeCompactJSON(w io.Writer, v any) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	data = append(data, '\n')
+	_, err = w.Write(data)
+
+	return err
 }

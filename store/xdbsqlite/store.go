@@ -20,6 +20,11 @@ type Store struct {
 // Option configures a [Store].
 type Option func(*Store)
 
+// Close closes the underlying database connection.
+func (s *Store) Close() error {
+	return s.db.Close()
+}
+
 // New creates a new SQLite store backed by the given [*sql.DB].
 // The caller is responsible for opening and closing the database connection.
 func New(db *sql.DB, opts ...Option) (*Store, error) {

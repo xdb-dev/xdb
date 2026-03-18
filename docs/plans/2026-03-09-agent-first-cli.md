@@ -498,27 +498,27 @@ xdb records list --uri xdb://com.example/posts --query '{"filters":[{"attr":"age
 
 Agents should never need external docs to understand XDB's data model. The CLI itself is the documentation.
 
-### `xdb schema` command (gws-cli pattern)
+### `xdb describe` command (gws-cli pattern)
 
 Uses dot-notation to introspect methods and types:
 
 ```bash
 # Method signature — params, request body, flags, mutating?
-xdb schema records.create
-xdb schema records.list
-xdb schema schemas.get
+xdb describe records.create
+xdb describe records.list
+xdb describe schemas.get
 
 # Type definitions
-xdb schema Record
-xdb schema Schema
-xdb schema Namespace
-xdb schema Value
+xdb describe Record
+xdb describe Schema
+xdb describe Namespace
+xdb describe Value
 ```
 
 #### Method introspection output
 
 ```bash
-$ xdb schema records.create
+$ xdb describe records.create
 ```
 
 ```json
@@ -576,7 +576,7 @@ $ xdb schema records.create
 #### Type introspection output
 
 ```bash
-$ xdb schema Record
+$ xdb describe Record
 ```
 
 ```json
@@ -616,7 +616,7 @@ $ xdb schema Record
 
 ```bash
 # Describe a user-defined schema — returns field names, types, constraints
-xdb schema --uri xdb://com.example/posts
+xdb describe --uri xdb://com.example/posts
 ```
 
 ```json
@@ -637,13 +637,13 @@ xdb schema --uri xdb://com.example/posts
 
 ```bash
 # List all methods
-xdb schema --methods
+xdb describe --methods
 
 # List all types
-xdb schema --types
+xdb describe --types
 
 # List supported value types (string, integer, float, etc.)
-xdb schema --value-types
+xdb describe --value-types
 ```
 
 This replaces the need for agents to read docs. The CLI is the canonical reference.
@@ -826,9 +826,9 @@ Output is markdown — designed for LLM consumption, not machine parsing:
 ## Quick Reference
 
 - All data is addressed by URI: xdb://NS/SCHEMA/ID#ATTR
-- Use `xdb schema <resource>.<method>` for method signatures
-- Use `xdb schema --uri <uri>` for data schema details
-- Use `xdb schema <TypeName>` for type definitions
+- Use `xdb describe <resource>.<method>` for method signatures
+- Use `xdb describe --uri <uri>` for data schema details
+- Use `xdb describe <TypeName>` for type definitions
 
 ## Rules
 
@@ -891,13 +891,13 @@ xdb records upsert --uri xdb://NS/SCHEMA/ID --json '{full record...}'
 
 ### Explore data
 
-xdb schema --uri xdb://NS/SCHEMA # understand data schema
+xdb describe --uri xdb://NS/SCHEMA # understand data schema
 xdb records list --uri xdb://NS/SCHEMA --fields id --limit 5 # sample IDs
 xdb records get --uri xdb://NS/SCHEMA/ID # fetch one record
 
 ### Introspect a method before using it
 
-xdb schema records.create # see params, flags, examples
+xdb describe records.create # see params, flags, examples
 ```
 
 Key design: the output is **dynamic**. It includes live data from the running store (installed schemas, namespaces) so the agent knows what data exists without having to discover it through trial and error. The resource/method sections are auto-generated from the urfave/cli command tree, so they're always in sync with the binary.
@@ -931,7 +931,7 @@ Skills are **compiled into the binary** — no external files to install or syml
 | Skill       | Covers                                                                |
 | ----------- | --------------------------------------------------------------------- |
 | `crud`      | records create/get/list/update/upsert/delete — usage, flags, examples |
-| `schema`    | schemas create/get/update, xdb schema — definition, introspection     |
+| `schema`    | schemas create/get/update, xdb describe — definition, introspection   |
 | `filtering` | --filter, --query — operators, structured filters, combining          |
 | `batch`     | batch command — transaction semantics, operation format, limits       |
 | `bulk`      | --page-all, --output ndjson, --fields — streaming, field masks        |
@@ -1025,7 +1025,7 @@ cmd/xdb/
     watch.go                 # watch command (streaming changes)
     import_export.go         # import/export commands (bulk data)
     init.go                  # init command (first-run scaffolding)
-    schema_inspect.go        # xdb schema (method + type introspection)
+    describe.go              # xdb describe (method + type introspection)
     context.go               # context command (full agent context)
     skills.go                # skills command (list + get skills)
     daemon.go                # daemon start/stop/status/restart
@@ -1099,7 +1099,7 @@ Before CLI implementation begins:
 
 ### Phase 3: Introspection, Safety & Streaming
 
-13. `xdb schema` — method introspection (dot-notation), type definitions, data schema describe
+13. `xdb describe` — method introspection (dot-notation), type definitions, data schema describe
 14. `xdb watch` — streaming change notifications (NDJSON, reconnection, lifecycle events)
 15. Structured error responses (JSON error envelope with exit codes)
 16. Input hardening test suite (fuzz with agent-typical hallucinations)
@@ -1125,7 +1125,7 @@ Before CLI implementation begins:
 | Command structure      | RPC-method (`resource method`)     | 1:1 with operations, explicit semantics, agent-predictable          |
 | Human aliases          | `get/put/ls/rm` with URI inference | Keeps human DX, resolves to same code path                          |
 | Create vs Update       | Separate methods, distinct semantics | `create` = idempotent insert, `update` = patch merge, `upsert` = full replace |
-| Introspection          | `xdb schema` (dot-notation)        | gws-cli pattern — methods, types, data schemas from one command     |
+| Introspection          | `xdb describe` (dot-notation)       | gws-cli pattern — methods, types, data schemas from one command     |
 | CLI framework          | `urfave/cli v3`                    | Simple API, built-in completion, sufficient for XDB's command tree  |
 | Module structure       | `cmd/xdb/` as separate Go module   | Root module stays clean for library consumers (no CLI deps)         |
 | Config binding         | Manual JSON + flags                | Flags > config file > defaults; `XDB_CONFIG` for file location only |
@@ -1151,7 +1151,7 @@ Before CLI implementation begins:
 - **Response sanitization (`--sanitize`)** — XDB stores user-defined data, not third-party content with prompt injection risk. If needed later, add at the application layer, not the CLI.
 - **OAuth / browser auth** — XDB is local-first (daemon on localhost). Config file is sufficient.
 - **Skill files on disk / OpenClaw registry** — Skills are compiled into the binary and served via `xdb skills`. No external files to install or manage.
-- **Dynamic Discovery Documents** — XDB schemas _are_ the discovery mechanism. `xdb schema` serves this purpose.
+- **Dynamic Discovery Documents** — XDB schemas _are_ the discovery mechanism. `xdb describe` serves this purpose.
 - **MCP surface** — Explicitly excluded from scope. Can be added later as a thin layer over the resource commands.
 - **Personas / Recipes** — XDB is a data tool with atomic operations, not a multi-service productivity suite.
 - **Embedded mode** — The CLI always talks to a running daemon. No in-process store fallback. If the daemon isn't running, error: `"daemon not running — start it with: xdb daemon start"` (exit code 2).

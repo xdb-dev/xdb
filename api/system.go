@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 )
 
 // SystemService provides system operations (health, version).
@@ -25,7 +24,7 @@ type HealthResponse struct {
 
 // Health reports the system health status.
 func (s *SystemService) Health(_ context.Context, _ *HealthRequest) (*HealthResponse, error) {
-	return nil, fmt.Errorf("api: health not implemented")
+	return &HealthResponse{Status: "ok"}, nil
 }
 
 // VersionRequest is the request for system.version.
@@ -38,5 +37,5 @@ type VersionResponse struct {
 
 // Version reports the system version.
 func (s *SystemService) Version(_ context.Context, _ *VersionRequest) (*VersionResponse, error) {
-	return nil, fmt.Errorf("api: version not implemented")
+	return &VersionResponse{Version: s.version}, nil
 }
