@@ -54,6 +54,9 @@ type Store struct {
 	mu   sync.RWMutex
 }
 
+// Close is a no-op for the filesystem store.
+func (s *Store) Close() error { return nil }
+
 // New creates a new filesystem store rooted at the given directory.
 // The directory is created if it does not exist.
 func New(root string, opts Options) (*Store, error) {

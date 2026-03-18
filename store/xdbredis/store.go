@@ -26,6 +26,11 @@ func WithPrefix(prefix string) Option {
 	}
 }
 
+// Close closes the underlying Redis client.
+func (s *Store) Close() error {
+	return s.client.Close()
+}
+
 // New creates a new Redis store.
 func New(client redis.UniversalClient, opts ...Option) *Store {
 	s := &Store{

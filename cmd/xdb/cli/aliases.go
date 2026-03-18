@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v3"
+
+	"github.com/xdb-dev/xdb/core"
 )
 
-// aliasCommands returns human-friendly alias commands.
-// Each alias resolves to a canonical resource command based on URI depth.
-func aliasCommands() []*cli.Command {
+func (a *App) aliasCommands() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:               "get",
@@ -17,9 +17,11 @@ func aliasCommands() []*cli.Command {
 			Category:           "aliases",
 			CustomHelpTemplate: commandHelpTemplate,
 			ArgsUsage:          "<uri>",
-			Action: func(_ context.Context, _ *cli.Command) error {
-				return fmt.Errorf("get: not implemented")
+			Flags: []cli.Flag{
+				&cli.StringFlag{Name: "fields", Usage: "Comma-separated field mask"},
+				&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 			},
+			Action: a.aliasGet,
 		},
 		{
 			Name:               "put",
@@ -30,10 +32,9 @@ func aliasCommands() []*cli.Command {
 			Flags: []cli.Flag{
 				&cli.StringFlag{Name: "json", Usage: "Inline JSON payload"},
 				&cli.StringFlag{Name: "file", Aliases: []string{"f"}, Usage: "Path to input file"},
+				&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 			},
-			Action: func(_ context.Context, _ *cli.Command) error {
-				return fmt.Errorf("put: not implemented")
-			},
+			Action: a.aliasPut,
 		},
 		{
 			Name:               "ls",
@@ -46,9 +47,7 @@ func aliasCommands() []*cli.Command {
 				&cli.IntFlag{Name: "offset", Usage: "Page offset"},
 				&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 			},
-			Action: func(_ context.Context, _ *cli.Command) error {
-				return fmt.Errorf("ls: not implemented")
-			},
+			Action: a.aliasLs,
 		},
 		{
 			Name:               "rm",
@@ -58,10 +57,9 @@ func aliasCommands() []*cli.Command {
 			ArgsUsage:          "<uri>",
 			Flags: []cli.Flag{
 				&cli.BoolFlag{Name: "force", Usage: "Confirm deletion", Required: true},
+				&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 			},
-			Action: func(_ context.Context, _ *cli.Command) error {
-				return fmt.Errorf("rm: not implemented")
-			},
+			Action: a.aliasRm,
 		},
 		{
 			Name:               "make-schema",
@@ -72,10 +70,90 @@ func aliasCommands() []*cli.Command {
 			Flags: []cli.Flag{
 				&cli.StringFlag{Name: "json", Usage: "Inline JSON payload"},
 				&cli.StringFlag{Name: "file", Aliases: []string{"f"}, Usage: "Path to input file"},
+				&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 			},
-			Action: func(_ context.Context, _ *cli.Command) error {
-				return fmt.Errorf("make-schema: not implemented")
-			},
+			Action: a.aliasMakeSchema,
 		},
 	}
+}
+
+// uriDepth returns the number of path components in an XDB URI.
+func uriDepth(raw string) (int, error) {
+	uri, err := core.ParseURI(raw)
+	if err != nil {
+		return 0, err
+	}
+
+	depth := 1
+	if uri.Schema() != nil {
+		depth++
+	}
+
+	if uri.ID() != nil {
+		depth++
+	}
+
+	return depth, nil
+}
+
+func (a *App) aliasGet(ctx context.Context, cmd *cli.Command) error {
+	depth, err := uriDepth(cmd.Args().First())
+	if err != nil {
+		return err
+	}
+
+	switch depth {
+	case 3:
+		return a.recordGet(ctx, cmd)
+	case 2:
+		return a.schemaGet(ctx, cmd)
+	case 1:
+		return a.namespaceGet(ctx, cmd)
+	default:
+		return fmt.Errorf("cannot infer resource from URI: %s", cmd.Args().First())
+	}
+}
+
+func (a *App) aliasPut(ctx context.Context, cmd *cli.Command) error {
+	return a.recordUpsert(ctx, cmd)
+}
+
+func (a *App) aliasLs(ctx context.Context, cmd *cli.Command) error {
+	if cmd.Args().Len() == 0 {
+		return a.namespaceList(ctx, cmd)
+	}
+
+	depth, err := uriDepth(cmd.Args().First())
+	if err != nil {
+		return err
+	}
+
+	switch depth {
+	case 2:
+		return a.recordList(ctx, cmd)
+	case 1:
+		return a.schemaList(ctx, cmd)
+	default:
+		return fmt.Errorf("cannot infer list target from URI: %s", cmd.Args().First())
+	}
+}
+
+func (a *App) aliasRm(ctx context.Context, cmd *cli.Command) error {
+	depth, err := uriDepth(cmd.Args().First())
+	if err != nil {
+		return err
+	}
+
+	switch depth {
+	case 3:
+		return a.recordDelete(ctx, cmd)
+	case 2:
+		return a.schemaDelete(ctx, cmd)
+	default:
+		return fmt.Errorf("cannot infer resource to delete from URI: %s", cmd.Args().First())
+	}
+}
+
+func (a *App) aliasMakeSchema(ctx context.Context, cmd *cli.Command) error {
+	return a.schemaCreate(ctx, cmd)
 }

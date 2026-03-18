@@ -29,8 +29,18 @@ type GetNamespaceResponse struct {
 }
 
 // Get retrieves namespace metadata by URI.
-func (s *NamespaceService) Get(_ context.Context, _ *GetNamespaceRequest) (*GetNamespaceResponse, error) {
-	return nil, fmt.Errorf("api: namespaces.get not implemented")
+func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*GetNamespaceResponse, error) {
+	uri, err := core.ParseURI(req.URI)
+	if err != nil {
+		return nil, fmt.Errorf("api: namespaces.get: %w", err)
+	}
+
+	ns, err := s.store.GetNamespace(ctx, uri)
+	if err != nil {
+		return nil, fmt.Errorf("api: namespaces.get: %w", err)
+	}
+
+	return &GetNamespaceResponse{Data: ns}, nil
 }
 
 // ListNamespacesRequest is the request for namespaces.list.
@@ -47,6 +57,20 @@ type ListNamespacesResponse struct {
 }
 
 // List lists all known namespaces.
-func (s *NamespaceService) List(_ context.Context, _ *ListNamespacesRequest) (*ListNamespacesResponse, error) {
-	return nil, fmt.Errorf("api: namespaces.list not implemented")
+func (s *NamespaceService) List(ctx context.Context, req *ListNamespacesRequest) (*ListNamespacesResponse, error) {
+	q := &store.ListQuery{
+		Limit:  req.Limit,
+		Offset: req.Offset,
+	}
+
+	page, err := s.store.ListNamespaces(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("api: namespaces.list: %w", err)
+	}
+
+	return &ListNamespacesResponse{
+		Items:      page.Items,
+		NextOffset: page.NextOffset,
+		Total:      page.Total,
+	}, nil
 }

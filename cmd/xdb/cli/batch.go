@@ -5,9 +5,11 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v3"
+
+	"github.com/xdb-dev/xdb/api"
 )
 
-func batchCmd() *cli.Command {
+func (a *App) batchCmd() *cli.Command {
 	return &cli.Command{
 		Name:               "batch",
 		Usage:              "Execute multiple operations atomically",
@@ -19,8 +21,27 @@ func batchCmd() *cli.Command {
 			&cli.BoolFlag{Name: "dry-run", Usage: "Validate without executing"},
 			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 		},
-		Action: func(_ context.Context, _ *cli.Command) error {
-			return fmt.Errorf("batch: not implemented")
-		},
+		Action: a.batchExecute,
 	}
+}
+
+func (a *App) batchExecute(ctx context.Context, cmd *cli.Command) error {
+	data, err := readPayload(cmd)
+	if err != nil {
+		return err
+	}
+
+	if data == nil {
+		return fmt.Errorf("batch requires a payload (--json, --file, or stdin)")
+	}
+
+	resp, err := a.batch.Execute(ctx, &api.ExecuteBatchRequest{
+		Operations: data,
+		DryRun:     cmd.Bool("dry-run"),
+	})
+	if err != nil {
+		return err
+	}
+
+	return formatOne(cmd, resp)
 }

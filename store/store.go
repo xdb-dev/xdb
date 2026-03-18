@@ -29,6 +29,7 @@ type Page[T any] struct {
 // ListQuery holds pagination and filtering parameters for list operations.
 type ListQuery struct {
 	Filter string
+	Fields []string
 	Limit  int
 	Offset int
 }
@@ -112,8 +113,15 @@ type NamespaceReader interface {
 	ListNamespaces(ctx context.Context, q *ListQuery) (*Page[*core.NS], error)
 }
 
+// Closer is implemented by stores that hold resources requiring cleanup.
+type Closer interface {
+	// Close releases any resources held by the store.
+	Close() error
+}
+
 // Store is the full store interface consumed by the service layer.
 type Store interface {
+	Closer
 	RecordStore
 	SchemaStore
 	NamespaceReader

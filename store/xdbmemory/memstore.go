@@ -31,6 +31,9 @@ func New() *Store {
 	}
 }
 
+// Close is a no-op for the in-memory store.
+func (s *Store) Close() error { return nil }
+
 // Health always returns nil — the in-memory store is always healthy.
 func (s *Store) Health(_ context.Context) error {
 	return nil
@@ -252,6 +255,8 @@ func (tx *txStore) ListNamespaces(
 ) (*store.Page[*core.NS], error) {
 	return listNamespaces(tx.store.schemas, q), nil
 }
+
+func (tx *txStore) Close() error { return nil }
 
 // --- Lock-free helpers ---
 // These contain the actual logic. Both Store (under lock) and txStore

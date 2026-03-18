@@ -50,13 +50,13 @@ var rootHelpTemplate = `xdb — Tuple-based data store
 USAGE:
     xdb <resource> <method> [flags]
     xdb <alias> <uri> [flags]
-    xdb schema <resource.method | TypeName>
+    xdb describe <resource.method | TypeName>
 
 EXAMPLES:
     xdb records create --uri xdb://com.example/posts/post-1 --json '{"title":"Hello"}'
     xdb records list   --uri xdb://com.example/posts --fields id,title --limit 10
     xdb get xdb://com.example/posts/post-1
-    xdb schema records.create
+    xdb describe records.create
 
 FLAGS:
     --config, -c <PATH>   Path to config file (default: ~/.xdb/config.json)
