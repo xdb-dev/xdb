@@ -162,7 +162,11 @@ type Page[T any] struct {
 
 All errors are sentinel values — use `errors.Is(err, store.ErrNotFound)` to check.
 
+> **Note:** `ErrSchemaViolation` is currently only enforced by schema-aware backends (xdbsqlite). Other backends (xdbmemory, xdbfs, xdbredis) store data without schema validation — the service layer will enforce validation uniformly across all backends.
+
 ## Failure Modes
+
+> `ErrSchemaViolation` paths below only apply to schema-aware backends (currently xdbsqlite). Other backends skip validation.
 
 ### Record Operations
 
@@ -305,7 +309,7 @@ store, err := xdbredis.New(ctx, xdbredis.Options{
 - Records stored as Redis hashes, one hash per record.
 - Schemas stored as JSON strings in Redis keys.
 - Namespaces derived from key prefixes.
-- Uses pipelining for batch operations.
+- Uses transaction pipelines for atomic individual operations.
 - Health check uses `PING`.
 - Requires a running Redis instance (`make services-up`).
 
