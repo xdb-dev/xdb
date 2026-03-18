@@ -15,12 +15,10 @@ import (
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/rpc"
 	"github.com/xdb-dev/xdb/store"
-	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
 // Config holds daemon configuration.
 type Config struct {
-	Addr       string
 	SocketPath string
 	LogFile    string
 	Version    string
@@ -36,6 +34,26 @@ type Daemon struct {
 // New creates a new [Daemon] with the given configuration.
 func New(cfg Config) *Daemon {
 	return &Daemon{config: cfg}
+}
+
+// PIDPath derives the PID file path from a socket path by replacing the
+// extension with .pid.
+func PIDPath(socketPath string) string {
+	return strings.TrimSuffix(socketPath, filepath.Ext(socketPath)) + ".pid"
+}
+
+// IsProcessAlive checks whether a process with the given PID is running.
+func IsProcessAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+
+	return p.Signal(syscall.Signal(0)) == nil
 }
 
 // NewRouter creates a [rpc.Router] with all services registered.
@@ -88,9 +106,8 @@ func NewRouter(s store.Store, version string) *rpc.Router {
 	return r
 }
 
-// Start starts the daemon.
-func (d *Daemon) Start(ctx context.Context) error {
-	s := xdbmemory.New()
+// Start starts the daemon with the given [store.Store].
+func (d *Daemon) Start(ctx context.Context, s store.Store) error {
 	router := NewRouter(s, d.config.Version)
 
 	d.server = &http.Server{
@@ -115,9 +132,9 @@ func (d *Daemon) Start(ctx context.Context) error {
 		return chmodErr
 	}
 
-	pid := pidPath(d.config.SocketPath)
+	pp := PIDPath(d.config.SocketPath)
 
-	if pidErr := WritePID(pid); pidErr != nil {
+	if pidErr := WritePID(pp); pidErr != nil {
 		return pidErr
 	}
 
@@ -126,7 +143,7 @@ func (d *Daemon) Start(ctx context.Context) error {
 		err = nil
 	}
 
-	_ = RemovePID(pid)
+	_ = RemovePID(pp)
 
 	return err
 }
@@ -145,37 +162,12 @@ func (d *Daemon) Stop() error {
 
 // Status returns the daemon's current status.
 func (d *Daemon) Status() (string, error) {
-	pp := pidPath(d.config.SocketPath)
+	pp := PIDPath(d.config.SocketPath)
 
-	if !isProcessRunning(pp) {
+	pid, _ := ReadPID(pp)
+	if !IsProcessAlive(pid) {
 		return "stopped", nil
 	}
 
 	return "running", nil
-}
-
-// isProcessRunning checks if the process in the PID file is alive.
-func isProcessRunning(pp string) bool {
-	pid, err := ReadPID(pp)
-	if err != nil {
-		return false
-	}
-
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		_ = RemovePID(pp)
-		return false
-	}
-
-	err = p.Signal(syscall.Signal(0))
-	if err != nil {
-		_ = RemovePID(pp)
-		return false
-	}
-
-	return true
-}
-
-func pidPath(socketPath string) string {
-	return strings.TrimSuffix(socketPath, filepath.Ext(socketPath)) + ".pid"
 }

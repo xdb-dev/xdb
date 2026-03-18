@@ -21,3 +21,8 @@ This directory contains documentation for XDB's core concepts. Each document cov
 
 - [Stores](stores.md) — Storage interfaces and implementations
 - [Encoding](encoding.md) — JSON encoding and decoding of records
+
+## CLI & Daemon
+
+- [Configuration](config.md) — Config file loading, validation, and defaults
+- [Daemon](daemon.md) — Background daemon lifecycle management
