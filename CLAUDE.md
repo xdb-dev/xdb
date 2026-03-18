@@ -1,6 +1,6 @@
 # XDB - Claude
 
-XDB is a Go library and CLI for tuple-based data modeling, storage, and querying across multiple databases. See ./README.md for details.
+XDB is an agent-first data layer. Model once, store anywhere. See ./README.md for details.
 
 ## TDD (strict)
 

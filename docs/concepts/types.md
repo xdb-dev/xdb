@@ -125,7 +125,7 @@ Each database store defines a codec that maps XDB types to database-specific rep
 
 The SQLite store's codec is defined in `store/xdbsqlite/internal/sql/codec.go`.
 
-This abstraction allows XDB to work with multiple databases without changing application code.
+This is how XDB defines types once and maps them to SQLite, Postgres, Redis, or the filesystem.
 
 ## Related Concepts
 

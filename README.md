@@ -1,6 +1,6 @@
 # XDB
 
-XDB is a CLI & a library that provides a tuple-based abstraction for modeling, storing, and querying data across multiple databases. Rather than writing database-specific schemas, queries, and migrations, XDB allows developers to model their domain once and use it with one or more databases.
+XDB is an agent-first data layer. Model once, store anywhere. Simple URIs, structured tuples, and a pipe-friendly CLI that agents and humans both get right on the first try.
 
 ## Why XDB?
 
