@@ -6,7 +6,7 @@ package: cmd/xdb/cli, cmd/xdb/daemon
 
 # Daemon
 
-The XDB daemon runs a JSON-RPC server over a Unix socket, providing access to all store operations. The CLI manages the daemon lifecycle through `xdb daemon start|stop|status|restart`.
+The XDB daemon runs a JSON-RPC server over a Unix socket, providing access to all store operations. The CLI manages the daemon lifecycle through `xdb daemon start|stop|status|restart`. The daemon is also started automatically by `xdb init`.
 
 ## Architecture
 
@@ -43,11 +43,13 @@ xdb daemon start --foreground # Blocks in current process
 Background mode:
 
 1. Reads config via `--config` flag or default `~/.xdb/config.json`
-2. Checks PID file — errors if daemon is already running, cleans stale PIDs
+2. Checks PID file — returns successfully if daemon is already running, cleans stale PIDs
 3. Opens log file for append
 4. Re-execs the binary with `XDB_DAEMON_CHILD=1` environment variable
 5. Waits up to 3 seconds for the socket to accept connections
 6. Prints PID and socket path, then exits
+
+All commands are idempotent: `start` is a no-op when already running, `stop` is a no-op when already stopped.
 
 Foreground mode (or when `XDB_DAEMON_CHILD=1` is set):
 

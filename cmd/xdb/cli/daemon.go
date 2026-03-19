@@ -78,6 +78,13 @@ func daemonConfigFrom(cfg *Config) daemon.Config {
 	}
 }
 
+// isDaemonRunning checks whether the daemon is currently running by reading
+// the PID file and verifying the process is alive.
+func isDaemonRunning(cfg *Config) bool {
+	pid, _ := daemon.ReadPID(cfg.PIDFile())
+	return pid > 0 && daemon.IsProcessAlive(pid)
+}
+
 func daemonStartAction(ctx context.Context, cmd *cli.Command) error {
 	cfg, err := loadAppConfig(cmd)
 	if err != nil {
@@ -87,6 +94,13 @@ func daemonStartAction(ctx context.Context, cmd *cli.Command) error {
 	// Ensure directory exists.
 	if mkErr := os.MkdirAll(cfg.ExpandedDir(), 0o700); mkErr != nil {
 		return fmt.Errorf("create xdb directory: %w", mkErr)
+	}
+
+	// Already running — report and exit successfully.
+	if isDaemonRunning(cfg) {
+		pid, _ := daemon.ReadPID(cfg.PIDFile())
+		fmt.Fprintf(os.Stderr, "Daemon already running (PID %d)\n", pid)
+		return nil
 	}
 
 	foreground := cmd.Bool("foreground") || os.Getenv(daemonChildEnv) == "1"
@@ -131,12 +145,13 @@ func runForeground(ctx context.Context, cfg *Config) error {
 func spawnDaemon(cfg *Config, configFlag string) error {
 	pidFile := cfg.PIDFile()
 
-	// Check for an already-running daemon.
-	pid, _ := daemon.ReadPID(pidFile)
-	if pid > 0 && daemon.IsProcessAlive(pid) {
-		return fmt.Errorf("daemon already running (PID %d)", pid)
+	// Already running — nothing to do.
+	if isDaemonRunning(cfg) {
+		return nil
 	}
 
+	// Stale PID file — clean up.
+	pid, _ := daemon.ReadPID(pidFile)
 	if pid > 0 {
 		_ = daemon.RemovePID(pidFile)
 	}
@@ -266,7 +281,7 @@ func daemonStatusAction(_ context.Context, cmd *cli.Command) error {
 	pid, _ := daemon.ReadPID(pidFile)
 	status := "stopped"
 
-	if pid > 0 && daemon.IsProcessAlive(pid) {
+	if isDaemonRunning(cfg) {
 		status = "running"
 	}
 

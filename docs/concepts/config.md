@@ -10,7 +10,7 @@ XDB uses a JSON configuration file at `~/.xdb/config.json` to control the daemon
 
 ## Config File
 
-Created automatically by `xdb init` or on first `daemon start`:
+Created automatically by `xdb init` (which also creates the data directory and starts the daemon) or on first `daemon start`:
 
 ```json
 {

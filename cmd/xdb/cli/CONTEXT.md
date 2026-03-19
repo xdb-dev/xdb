@@ -1,116 +1,95 @@
-# XDB CLI (`xdb`) Context
+# XDB CLI Context
 
-XDB is an agent-first data layer. Model once, store anywhere. All data is addressed by URI: `xdb://NAMESPACE/SCHEMA/ID#ATTR`.
+Agent-first data layer. Model once, store anywhere. URI-addressed: `xdb://NAMESPACE/SCHEMA/ID#ATTR`.
 
-## Rules of Engagement for Agents
+**Before you start:** `xdb describe --uri xdb://NS/SCHEMA` to discover schema. `xdb describe <resource>.<method>` to discover method params. Always `--fields` and `--limit` to protect context window.
 
-* **Schema Discovery:** *If you don't know the data structure, run `xdb describe --uri xdb://NS/SCHEMA` first to inspect the schema before creating records.*
-* **Context Window Protection:** *Record lists can be large. ALWAYS use `--fields` to select only the attributes you need, and `--limit` to cap result size.*
-* **Dry-Run Safety:** *Always use `--dry-run` for mutating operations (create, update, upsert, delete) to validate before actual execution.*
-* **Introspection First:** *Run `xdb describe <resource>.<method>` to inspect any method's parameters before using it.*
+## Syntax
 
-## Core Syntax
-
-```bash
-xdb <resource> <method> [flags]
+```
+xdb <resource> <method> [flags]        # structured
+xdb <alias> <uri> [flags]              # human shorthand
+xdb describe <resource.method | Type>  # introspection
 ```
 
-Use `--help` at any level:
+## Flags
+
+| Flag                  | Purpose                                            |
+| --------------------- | -------------------------------------------------- |
+| `-c, --config <PATH>` | Config file (default `~/.xdb/config.json`)         |
+| `-o, --output <FMT>`  | `json` (pipes) / `table` (TTY) / `yaml` / `ndjson` |
+| `--uri <URI>`         | Target resource                                    |
+| `--json '<JSON>'`     | Inline payload                                     |
+| `-f, --file <PATH>`   | Payload from file (stdin if omitted)               |
+| `--fields <MASK>`     | Field mask — always use this                       |
+| `--limit`, `--offset` | Pagination                                         |
+| `--dry-run`           | Validate without writing                           |
+| `--force`             | Required for deletes                               |
+| `--quiet`             | Suppress output, exit code only                    |
+
+## Examples
 
 ```bash
-xdb --help
-xdb records --help
-xdb records create --help
+# Read
+xdb records get --uri xdb://ns/schema/id --fields title,author
+xdb records list --uri xdb://ns/schema --filter "status=published" --fields id,title --limit 10
+xdb records list --uri xdb://ns/schema --query '{"age":{"$gt":30}}' --fields id,name --limit 10
+xdb schemas list --uri xdb://ns
+
+# Write (create=idempotent, update=patch merge, upsert=full replace)
+xdb records create --uri xdb://ns/schema/id --json '{"title":"Hello"}'
+xdb records update --uri xdb://ns/schema/id --json '{"title":"Updated"}'
+xdb records upsert --uri xdb://ns/schema/id --json '{"title":"Complete","author":"Bob"}'
+
+# Bulk
+xdb export --uri xdb://ns/schema --fields id,title
+cat data.ndjson | xdb import --uri xdb://ns/schema
+xdb import --uri xdb://ns/schema --file data.ndjson --create-only
+xdb batch --json '[{"method":"records.create","uri":"xdb://ns/schema/id","body":{}}]'
+
+# Schema
+xdb schemas create --uri xdb://ns/schema --json '{"Fields":{"title":{"Type":"string"}}}'
+xdb schemas delete --uri xdb://ns/schema --force --cascade
+
+# Introspect
+xdb describe records.create       # method params
+xdb describe Record               # type definition
+xdb describe --methods            # all methods
+xdb describe --types              # all types
+xdb describe --value-types        # supported value types
+xdb describe --uri xdb://ns/schema  # data schema
 ```
 
-### Key Flags
+## Aliases
 
-- `--uri <URI>`: Target resource URI (e.g., `xdb://com.example/posts/post-1`).
-- `--json '<JSON>'`: Inline JSON payload for create/update/upsert.
-- `--file <PATH>`, `-f`: Read payload from a file instead of `--json`.
-- `--fields <MASK>`: Comma-separated field mask (critical for AI context window efficiency).
-- `--output <FMT>`, `-o`: Output format: `json` (default for pipes), `table` (default for TTY), `yaml`, `ndjson`.
-- `--dry-run`: Validate without writing.
-- `--force`: Required for all delete operations.
-- `--quiet`: Suppress output; only exit code matters.
-- `--limit`, `--offset`: Pagination controls for list operations.
-
-## Usage Patterns
-
-### 1. Reading Data (get / list)
-
-Always use `--fields` to minimize tokens.
+URI depth determines resource. Positional URI (no `--uri`):
 
 ```bash
-# Get a single record
-xdb records get --uri xdb://com.example/posts/post-1 --fields title,author
-
-# List records with filter
-xdb records list --uri xdb://com.example/posts --filter "status=published" --fields id,title --limit 10
-
-# List schemas in a namespace
-xdb schemas list --uri xdb://com.example
+xdb get  xdb://ns/schema/id       # records get
+xdb get  xdb://ns/schema          # schemas get
+xdb get  xdb://ns                 # namespaces get
+xdb ls   xdb://ns/schema          # records list
+xdb ls   xdb://ns                 # schemas list
+xdb ls                            # namespaces list
+xdb put  xdb://ns/schema/id ...   # records upsert
+xdb rm   xdb://ns/schema/id --force  # records delete
+xdb rm   xdb://ns/schema --force  # schemas delete
+xdb make-schema xdb://ns/schema   # schemas create
 ```
 
-### 2. Writing Data (create / update / upsert)
-
-Use `--json` for the request body. Always `--dry-run` first.
+## System
 
 ```bash
-# Create a record (idempotent — safe to retry)
-xdb records create --uri xdb://com.example/posts/post-1 --json '{"title":"Hello","author":"Alice"}' --dry-run
-xdb records create --uri xdb://com.example/posts/post-1 --json '{"title":"Hello","author":"Alice"}'
-
-# Update specific fields (patch merge — unspecified fields preserved)
-xdb records update --uri xdb://com.example/posts/post-1 --json '{"title":"Updated Title"}'
-
-# Full replace (upsert — sets complete state)
-xdb records upsert --uri xdb://com.example/posts/post-1 --json '{"title":"Complete","author":"Bob"}'
+xdb init                          # config + data dir + start daemon
+xdb context                       # print this document
+xdb skills list                   # available skills
+xdb skills get <name>             # skill document
 ```
 
-### 3. Streaming & Bulk (ndjson / import / export)
+## Exit Codes
 
-Use `--output ndjson` for streaming, `import`/`export` for bulk.
-
-```bash
-# Export all records as NDJSON
-xdb export --uri xdb://com.example/posts --fields id,title
-
-# Import from NDJSON
-cat records.ndjson | xdb import --uri xdb://com.example/posts
-
-# Stream list as NDJSON for piping
-xdb records list --uri xdb://com.example/posts --output ndjson | jq 'select(.title != null)'
-```
-
-### 4. Schema Introspection
-
-If unsure about parameters or data structure, introspect:
-
-```bash
-# Inspect a method
-xdb describe records.create
-
-# Inspect a type
-xdb describe Record
-
-# List all methods
-xdb describe --methods
-
-# Describe a data schema
-xdb describe --uri xdb://com.example/posts
-```
-
-### 5. Human Aliases
-
-Aliases infer the resource from URI depth:
-
-```bash
-xdb get xdb://com.example/posts/post-1       # → records get
-xdb get xdb://com.example/posts              # → schemas get
-xdb ls xdb://com.example/posts               # → records list
-xdb ls xdb://com.example                     # → schemas list
-xdb ls                                       # → namespaces list
-xdb put xdb://com.example/posts/post-1 ...   # → records upsert
-xdb rm xdb://com.example/posts/post-1 --force # → records delete
-```
+- `0` success
+- `1` app error (NOT_FOUND, ALREADY_EXISTS, SCHEMA_VIOLATION)
+- `2` connection error
+- `3` input validation error
+- `4` internal error

@@ -11,7 +11,7 @@ import (
 func initCmd() *cli.Command {
 	return &cli.Command{
 		Name:               "init",
-		Usage:              "Initialize XDB (create ~/.xdb/, config, start daemon)",
+		Usage:              "Initialize XDB and start the daemon",
 		Category:           "system",
 		CustomHelpTemplate: commandHelpTemplate,
 		Action:             initAction,
@@ -19,7 +19,7 @@ func initCmd() *cli.Command {
 }
 
 func initAction(_ context.Context, cmd *cli.Command) error {
-	configPath := DefaultConfigPath()
+	configPath := expandTilde(cmd.Root().String("config"))
 
 	created, err := EnsureConfigAt(configPath)
 	if err != nil {
@@ -37,9 +37,24 @@ func initAction(_ context.Context, cmd *cli.Command) error {
 		return loadErr
 	}
 
+	// Create the XDB data directory.
+	if mkErr := os.MkdirAll(cfg.ExpandedDir(), 0o700); mkErr != nil {
+		return fmt.Errorf("create xdb directory: %w", mkErr)
+	}
+
+	// Start the daemon (best-effort — don't fail init if spawn fails).
+	daemonStatus := "started"
+	if isDaemonRunning(cfg) {
+		daemonStatus = "already running"
+	} else if spawnErr := spawnDaemon(cfg, configPath); spawnErr != nil {
+		daemonStatus = "not started"
+		fmt.Fprintf(os.Stderr, "Warning: could not start daemon: %v\n", spawnErr)
+	}
+
 	return formatOne(cmd, map[string]string{
 		"status": "initialized",
 		"dir":    cfg.ExpandedDir(),
 		"config": configPath,
+		"daemon": daemonStatus,
 	})
 }

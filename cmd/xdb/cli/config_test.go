@@ -286,6 +286,32 @@ func TestLoadConfig(t *testing.T) {
 		require.ErrorIs(t, err, ErrConfigDirNotAbsolute)
 	})
 
+	t.Run("expands tilde in config path", func(t *testing.T) {
+		home, homeErr := os.UserHomeDir()
+		require.NoError(t, homeErr)
+
+		// Create a temp config inside the home directory so ~/relative works.
+		dir := filepath.Join(home, ".xdb-test-"+t.Name())
+		require.NoError(t, os.MkdirAll(dir, 0o700))
+		t.Cleanup(func() { os.RemoveAll(dir) })
+
+		configPath := filepath.Join(dir, "config.json")
+		require.NoError(t, os.WriteFile(
+			configPath,
+			[]byte(`{"dir": "/tmp/xdb"}`),
+			0o600,
+		))
+
+		rel, relErr := filepath.Rel(home, configPath)
+		require.NoError(t, relErr)
+
+		tildePath := "~/" + rel
+
+		loaded, err := LoadConfig(tildePath)
+		require.NoError(t, err)
+		assert.Equal(t, "/tmp/xdb", loaded.Dir)
+	})
+
 	t.Run("returns error for missing file", func(t *testing.T) {
 		_, err := LoadConfig("/nonexistent/path/config.json")
 		require.Error(t, err)
