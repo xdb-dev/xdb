@@ -116,8 +116,8 @@ func (sc StoreConfig) backendName() string {
 type Config struct {
 	Dir      string       `json:"dir"`
 	Daemon   DaemonConfig `json:"daemon"`
-	Store    StoreConfig  `json:"store,omitzero"`
 	LogLevel string       `json:"log_level"`
+	Store    StoreConfig  `json:"store,omitzero"`
 }
 
 // NewDefaultConfig creates a [Config] with default values.
@@ -235,6 +235,8 @@ func LoadConfig(configPath string) (*Config, error) {
 			return nil, err
 		}
 	}
+
+	configPath = expandTilde(configPath)
 
 	data, err := os.ReadFile(configPath) // #nosec G304 - configPath is from trusted CLI flag or hardcoded default
 	if err != nil {
