@@ -12,7 +12,7 @@ func ExampleEncoder_FromRecord() {
 		Set("name", "John Doe").
 		Set("email", "john@example.com")
 
-	encoder := xdbjson.NewDefaultEncoder()
+	encoder := xdbjson.New()
 	data, err := encoder.FromRecord(record)
 	if err != nil {
 		panic(err)
@@ -28,10 +28,7 @@ func ExampleEncoder_FromRecord_withMetadata() {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe")
 
-	encoder := xdbjson.NewEncoder(xdbjson.Options{
-		IncludeNS:     true,
-		IncludeSchema: true,
-	})
+	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
 	data, err := encoder.FromRecord(record)
 	if err != nil {
 		panic(err)
@@ -51,8 +48,8 @@ func ExampleEncoder_FromRecord_nestedStruct() {
 		Set("address.location.lat", 42.3601).
 		Set("address.location.lon", -71.0589)
 
-	encoder := xdbjson.NewDefaultEncoder()
-	data, err := encoder.FromRecordIndent(record, "", "  ")
+	encoder := xdbjson.New()
+	data, err := encoder.FromRecord(record, xdbjson.WithIndent("", "  "))
 	if err != nil {
 		panic(err)
 	}
@@ -77,7 +74,7 @@ func ExampleEncoder_FromRecord_nestedStruct() {
 func ExampleDecoder_ToRecord() {
 	data := []byte(`{"_id":"123","name":"John Doe","age":30}`)
 
-	decoder := xdbjson.NewDefaultDecoder("com.example", "users")
+	decoder := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("users"))
 	record, err := decoder.ToRecord(data)
 	if err != nil {
 		panic(err)
@@ -98,7 +95,7 @@ func ExampleDecoder_ToRecord() {
 func ExampleDecoder_ToRecord_withMetadata() {
 	data := []byte(`{"_id":"123","_ns":"com.example","_schema":"users","name":"John Doe"}`)
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{})
+	decoder := xdbjson.NewDecoder()
 	record, err := decoder.ToRecord(data)
 	if err != nil {
 		panic(err)
@@ -119,11 +116,11 @@ func ExampleDecoder_ToRecord_withMetadata() {
 func ExampleDecoder_ToRecord_customFields() {
 	data := []byte(`{"userId":"123","namespace":"com.example","type":"users","name":"John"}`)
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{
-		IDField:     "userId",
-		NSField:     "namespace",
-		SchemaField: "type",
-	})
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithIDField("userId"),
+		xdbjson.WithNSField("namespace"),
+		xdbjson.WithSchemaField("type"),
+	)
 
 	record, err := decoder.ToRecord(data)
 	if err != nil {
@@ -150,7 +147,7 @@ func ExampleDecoder_ToRecord_nestedObject() {
 		}
 	}`)
 
-	decoder := xdbjson.NewDefaultDecoder("com.example", "users")
+	decoder := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("users"))
 	record, err := decoder.ToRecord(data)
 	if err != nil {
 		panic(err)
@@ -172,16 +169,13 @@ func Example_roundTrip() {
 		Set("tags", []string{"admin", "developer"}).
 		Set("score", 100)
 
-	encoder := xdbjson.NewEncoder(xdbjson.Options{
-		IncludeNS:     true,
-		IncludeSchema: true,
-	})
+	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
 	data, err := encoder.FromRecord(original)
 	if err != nil {
 		panic(err)
 	}
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{})
+	decoder := xdbjson.NewDecoder()
 	decoded, err := decoder.ToRecord(data)
 	if err != nil {
 		panic(err)

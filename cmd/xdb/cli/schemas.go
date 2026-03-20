@@ -70,11 +70,11 @@ func (a *App) schemaCreate(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	resp, err := a.schemas.Create(ctx, &api.CreateSchemaRequest{
+	var resp api.CreateSchemaResponse
+	if err := a.client.Call(ctx, "schemas.create", &api.CreateSchemaRequest{
 		URI:  uri,
 		Data: data,
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
@@ -87,10 +87,10 @@ func (a *App) schemaGet(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	resp, err := a.schemas.Get(ctx, &api.GetSchemaRequest{
+	var resp api.GetSchemaResponse
+	if err := a.client.Call(ctx, "schemas.get", &api.GetSchemaRequest{
 		URI: uri,
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
@@ -101,12 +101,12 @@ func (a *App) schemaList(ctx context.Context, cmd *cli.Command) error {
 	// URI is optional for schemas list — uses flag or positional arg.
 	uri, _ := getURI(cmd)
 
-	resp, err := a.schemas.List(ctx, &api.ListSchemasRequest{
+	var resp api.ListSchemasResponse
+	if err := a.client.Call(ctx, "schemas.list", &api.ListSchemasRequest{
 		URI:    uri,
 		Limit:  int(cmd.Int("limit")),
 		Offset: int(cmd.Int("offset")),
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
@@ -133,11 +133,11 @@ func (a *App) schemaUpdate(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	resp, err := a.schemas.Update(ctx, &api.UpdateSchemaRequest{
+	var resp api.UpdateSchemaResponse
+	if err := a.client.Call(ctx, "schemas.update", &api.UpdateSchemaRequest{
 		URI:  uri,
 		Data: data,
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
@@ -150,12 +150,11 @@ func (a *App) schemaDelete(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	_, deleteErr := a.schemas.Delete(ctx, &api.DeleteSchemaRequest{
+	if err := a.client.Call(ctx, "schemas.delete", &api.DeleteSchemaRequest{
 		URI:     uri,
 		Cascade: cmd.Bool("cascade"),
-	})
-	if deleteErr != nil {
-		return deleteErr
+	}, nil); err != nil {
+		return err
 	}
 
 	return formatOne(cmd, map[string]string{

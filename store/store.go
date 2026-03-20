@@ -2,21 +2,18 @@ package store
 
 import (
 	"context"
-	"errors"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 )
 
+// Re-exported sentinel errors from [core] for backward compatibility.
+// New code should prefer [core.ErrNotFound], [core.ErrAlreadyExists],
+// and [core.ErrSchemaViolation] directly.
 var (
-	// ErrNotFound is returned when a requested resource does not exist.
-	ErrNotFound = errors.New("[xdb/store] not found")
-
-	// ErrAlreadyExists is returned when creating a resource that already exists.
-	ErrAlreadyExists = errors.New("[xdb/store] already exists")
-
-	// ErrSchemaViolation is returned when data violates a schema constraint.
-	ErrSchemaViolation = errors.New("[xdb/store] schema violation")
+	ErrNotFound        = core.ErrNotFound
+	ErrAlreadyExists   = core.ErrAlreadyExists
+	ErrSchemaViolation = core.ErrSchemaViolation
 )
 
 // Page is a paginated list of items.
@@ -96,6 +93,11 @@ type SchemaWriter interface {
 	// DeleteSchema deletes a schema by URI.
 	// Returns [ErrNotFound] if the schema does not exist.
 	DeleteSchema(ctx context.Context, uri *core.URI) error
+
+	// DeleteSchemaRecords deletes all records belonging to a schema.
+	// This includes dropping any backing tables or storage associated
+	// with the schema's records. It is a no-op if no records exist.
+	DeleteSchemaRecords(ctx context.Context, uri *core.URI) error
 }
 
 // SchemaStore combines read and write access for schemas.

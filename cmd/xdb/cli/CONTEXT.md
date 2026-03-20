@@ -2,7 +2,7 @@
 
 Agent-first data layer. Model once, store anywhere. URI-addressed: `xdb://NAMESPACE/SCHEMA/ID#ATTR`.
 
-**Before you start:** `xdb describe --uri xdb://NS/SCHEMA` to discover schema. `xdb describe <resource>.<method>` to discover method params. Always `--fields` and `--limit` to protect context window.
+**Before you start:** `xdb describe --uri xdb://NS/SCHEMA` to discover schema. `xdb describe <resource>.<method>` to discover method params. `xdb describe --value-types` for supported field types. Always `--fields` and `--limit` to protect context window.
 
 ## Syntax
 
@@ -22,10 +22,11 @@ xdb describe <resource.method | Type>  # introspection
 | `--json '<JSON>'`     | Inline payload                                     |
 | `-f, --file <PATH>`   | Payload from file (stdin if omitted)               |
 | `--filter <CEL>`      | CEL filter expression (AIP-160)                    |
-| `--fields <MASK>`     | Field mask — always use this                       |
+| `--fields <MASK>`     | Field mask (`_id` always included)                 |
 | `--limit`, `--offset` | Pagination                                         |
 | `--dry-run`           | Validate without writing                           |
 | `--force`             | Required for deletes                               |
+| `--cascade`           | Delete schema and all its records                  |
 | `--quiet`             | Suppress output, exit code only                    |
 
 ## Filter Syntax (CEL / AIP-160)
@@ -41,6 +42,12 @@ xdb describe <resource.method | Type>  # introspection
 
 Operators: `==`, `!=`, `<`, `>`, `<=`, `>=`, `&&`, `||`, `!`, `in`
 Functions: `.contains()`, `.startsWith()`, `.endsWith()`, `size()`
+
+## Value Types
+
+`string`, `integer`, `unsigned`, `float`, `boolean`, `time`, `bytes`, `json`, `array`
+
+Use these in schema field definitions: `{"fields":{"age":{"type":"integer"}}}`. Run `xdb describe --value-types` for the full list.
 
 ## Examples
 
@@ -60,11 +67,10 @@ xdb records upsert --uri xdb://ns/schema/id --json '{"title":"Complete","author"
 xdb export --uri xdb://ns/schema --fields id,title
 cat data.ndjson | xdb import --uri xdb://ns/schema
 xdb import --uri xdb://ns/schema --file data.ndjson --create-only
-xdb batch --json '[{"method":"records.create","uri":"xdb://ns/schema/id","body":{}}]'
 
 # Schema
-xdb schemas create --uri xdb://ns/schema --json '{"Fields":{"title":{"Type":"string"}}}'
-xdb schemas delete --uri xdb://ns/schema --force --cascade
+xdb schemas create --uri xdb://ns/schema --json '{"fields":{"title":{"type":"string"}}}'
+xdb schemas delete --uri xdb://ns/schema --force --cascade  # delete schema and all records
 
 # Introspect
 xdb describe records.create       # method params
@@ -96,7 +102,6 @@ xdb make-schema xdb://ns/schema   # schemas create
 
 ```bash
 xdb init                          # config + data dir + start daemon
-xdb context                       # print this document
 xdb skills list                   # available skills
 xdb skills get <name>             # skill document
 ```

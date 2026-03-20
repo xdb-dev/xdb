@@ -31,55 +31,58 @@ Dot-separated attributes are **unfolded** into nested objects during encoding, a
 The encoder converts records to JSON.
 
 ```go
-encoder := xdbjson.NewDefaultEncoder()
+encoder := xdbjson.New()
 
 // Compact JSON
 data, err := encoder.FromRecord(record)
 
 // Pretty-printed JSON
-data, err := encoder.FromRecordIndent(record, "", "  ")
+data, err := encoder.FromRecord(record, xdbjson.WithIndent("", "  "))
+
+// Field projection
+data, err := encoder.FromRecord(record, xdbjson.WithFields("name", "email"))
 ```
 
 ### Options
 
 ```go
-encoder := xdbjson.NewEncoder(xdbjson.Options{
-    IDField:       "_id",      // JSON field for record ID (default: "_id")
-    NSField:       "_ns",      // JSON field for namespace (default: "_ns")
-    SchemaField:   "_schema",  // JSON field for schema (default: "_schema")
-    IncludeNS:     false,      // Include namespace in output
-    IncludeSchema: false,      // Include schema in output
-})
+encoder := xdbjson.New(
+    xdbjson.WithIDField("_id"),          // JSON field for record ID (default: "_id")
+    xdbjson.WithNSField("_ns"),          // JSON field for namespace (default: "_ns")
+    xdbjson.WithSchemaField("_schema"),  // JSON field for schema (default: "_schema")
+    xdbjson.WithIncludeNS(),             // Include namespace in output
+    xdbjson.WithIncludeSchema(),         // Include schema in output
+)
 ```
 
 ### Output
 
 ```json
 {
-    "_id": "post-123",
-    "title": "Hello World",
-    "author": {
-        "id": "user-001",
-        "name": "Alice"
-    },
-    "tags": ["go", "xdb"],
-    "created": "2024-01-15T10:30:00Z"
+  "_id": "post-123",
+  "title": "Hello World",
+  "author": {
+    "id": "user-001",
+    "name": "Alice"
+  },
+  "tags": ["go", "xdb"],
+  "created": "2024-01-15T10:30:00Z"
 }
 ```
 
 ### Type Conversions (Encode)
 
-| XDB Type    | JSON Representation         |
-| ----------- | --------------------------- |
-| `STRING`    | String                      |
-| `INTEGER`   | Number                      |
-| `UNSIGNED`  | Number                      |
-| `FLOAT`     | Number                      |
-| `BOOLEAN`   | Boolean                     |
-| `TIME`      | String (RFC 3339)           |
-| `JSON`      | Inline JSON                 |
-| `BYTES`     | String (base64-encoded)     |
-| `ARRAY`     | Array                       |
+| XDB Type   | JSON Representation     |
+| ---------- | ----------------------- |
+| `string`   | String                  |
+| `integer`  | Number                  |
+| `unsigned` | Number                  |
+| `float`    | Number                  |
+| `boolean`  | Boolean                 |
+| `time`     | String (RFC 3339)       |
+| `json`     | Inline JSON             |
+| `bytes`    | String (base64-encoded) |
+| `array`    | Array                   |
 
 ## Decoder
 
@@ -87,13 +90,25 @@ The decoder parses JSON into records.
 
 ```go
 // With default NS and Schema (used when not present in JSON)
-decoder := xdbjson.NewDefaultDecoder("com.example", "posts")
+decoder := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("posts"))
 
 // Parse JSON to a new record
 record, err := decoder.ToRecord(jsonData)
 
 // Parse JSON into an existing record
 err := decoder.ToExistingRecord(jsonData, record)
+```
+
+### Schema-aware Decoding
+
+When a schema definition is provided via `WithDef()`, the decoder coerces JSON values to match field types. For example, JSON numbers (always `float64` in Go) are converted to `int64` for `integer` fields and `uint64` for `unsigned` fields. Without a schema, values keep their JSON-native types.
+
+```go
+decoder := xdbjson.NewDecoder(
+    xdbjson.WithNS("com.example"),
+    xdbjson.WithSchema("posts"),
+    xdbjson.WithDef(schemaDef),  // enables type coercion
+)
 ```
 
 ### Resolution Order
@@ -107,14 +122,14 @@ If neither source provides a required field, an error is returned.
 
 ### Errors
 
-| Error                | Cause                                        |
-| -------------------- | -------------------------------------------- |
-| `ErrInvalidJSON`     | JSON parsing failed                          |
-| `ErrMissingID`       | No ID field in JSON and no default           |
-| `ErrEmptyID`         | ID field is present but empty                |
-| `ErrMissingNamespace`| No NS in JSON and no default                 |
-| `ErrMissingSchema`   | No schema in JSON and no default             |
-| `ErrNilRecord`       | Nil record passed to `ToExistingRecord`      |
+| Error                 | Cause                                   |
+| --------------------- | --------------------------------------- |
+| `ErrInvalidJSON`      | JSON parsing failed                     |
+| `ErrMissingID`        | No ID field in JSON and no default      |
+| `ErrEmptyID`          | ID field is present but empty           |
+| `ErrMissingNamespace` | No NS in JSON and no default            |
+| `ErrMissingSchema`    | No schema in JSON and no default        |
+| `ErrNilRecord`        | Nil record passed to `ToExistingRecord` |
 
 ## Related Concepts
 

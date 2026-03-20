@@ -99,6 +99,40 @@ func TestTypeString(t *testing.T) {
 	assert.Equal(t, "ARRAY", NewArrayType(TIDString).String())
 }
 
+func TestTIDLower(t *testing.T) {
+	tests := []struct {
+		tid  TID
+		want string
+	}{
+		{TIDString, "string"},
+		{TIDInteger, "integer"},
+		{TIDUnsigned, "unsigned"},
+		{TIDFloat, "float"},
+		{TIDBoolean, "boolean"},
+		{TIDTime, "time"},
+		{TIDBytes, "bytes"},
+		{TIDJSON, "json"},
+		{TIDArray, "array"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.tid.Lower())
+		})
+	}
+}
+
+func TestValueTypes(t *testing.T) {
+	// ValueTypes must contain all user-facing types (excluding UNKNOWN).
+	assert.Len(t, ValueTypes, 9)
+	assert.NotContains(t, ValueTypes, TIDUnknown)
+
+	for _, tid := range ValueTypes {
+		_, ok := builtinTypes[tid]
+		assert.True(t, ok, "ValueTypes contains unregistered TID: %s", tid)
+	}
+}
+
 func TestTypeElemTypeID(t *testing.T) {
 	assert.Equal(t, TID(""), TypeBool.ElemTypeID())
 	assert.Equal(t, TIDString, NewArrayType(TIDString).ElemTypeID())

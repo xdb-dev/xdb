@@ -34,8 +34,8 @@ var validModes = map[Mode]struct{}{
 
 // FieldDef describes a single field in a schema definition.
 type FieldDef struct {
-	Type     core.TID
-	Required bool
+	Type     core.TID `json:"type"`
+	Required bool     `json:"required,omitempty"`
 }
 
 // Def represents a schema definition.

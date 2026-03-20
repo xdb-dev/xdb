@@ -60,41 +60,12 @@ func IsProcessAlive(pid int) bool {
 func NewRouter(s store.Store, version string) *rpc.Router {
 	r := rpc.NewRouter()
 
-	records := api.NewRecordService(s)
-	schemas := api.NewSchemaService(s)
-	namespaces := api.NewNamespaceService(s)
-	batch := api.NewBatchService(s)
-	watch := api.NewWatchService(s)
-	system := api.NewSystemService(version)
-
-	// Record operations.
-	rpc.RegisterHandler(r, "records.create", records.Create)
-	rpc.RegisterHandler(r, "records.get", records.Get)
-	rpc.RegisterHandler(r, "records.list", records.List)
-	rpc.RegisterHandler(r, "records.update", records.Update)
-	rpc.RegisterHandler(r, "records.upsert", records.Upsert)
-	rpc.RegisterHandler(r, "records.delete", records.Delete)
-
-	// Schema operations.
-	rpc.RegisterHandler(r, "schemas.create", schemas.Create)
-	rpc.RegisterHandler(r, "schemas.get", schemas.Get)
-	rpc.RegisterHandler(r, "schemas.list", schemas.List)
-	rpc.RegisterHandler(r, "schemas.update", schemas.Update)
-	rpc.RegisterHandler(r, "schemas.delete", schemas.Delete)
-
-	// Namespace operations.
-	rpc.RegisterHandler(r, "namespaces.get", namespaces.Get)
-	rpc.RegisterHandler(r, "namespaces.list", namespaces.List)
-
-	// Batch operations.
-	rpc.RegisterHandler(r, "batch.execute", batch.Execute)
-
-	// Streaming.
-	rpc.RegisterStream(r, "watch", watch.Watch)
-
-	// System.
-	rpc.RegisterHandler(r, "system.health", system.Health)
-	rpc.RegisterHandler(r, "system.version", system.Version)
+	registerRecords(r, api.NewRecordService(s))
+	registerSchemas(r, api.NewSchemaService(s))
+	registerNamespaces(r, api.NewNamespaceService(s))
+	registerBatch(r, api.NewBatchService(s))
+	registerWatch(r, api.NewWatchService(s))
+	registerSystem(r, api.NewSystemService(version))
 
 	// Introspection (registered last so it can see all other methods).
 	introspect := api.NewIntrospectService(r)
@@ -104,6 +75,194 @@ func NewRouter(s store.Store, version string) *rpc.Router {
 	rpc.RegisterHandler(r, "introspect.types", introspect.ListTypes)
 
 	return r
+}
+
+func registerRecords(r *rpc.Router, svc *api.RecordService) {
+	rpc.RegisterHandlerWithMeta(r, "records.create", svc.Create, rpc.MethodMeta{
+		Description: "Create a new record. Idempotent: returns existing if already exists.",
+		Mutating:    true,
+		Parameters: map[string]rpc.ParamMeta{
+			"uri":  {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+			"data": {Description: "Record data as JSON object", Type: "object"},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"data": {Description: "The created or existing record data", Type: "object"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "records.get", svc.Get, rpc.MethodMeta{
+		Description: "Retrieve a record by URI.",
+		Parameters: map[string]rpc.ParamMeta{
+			"uri":    {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+			"fields": {Description: "Field projection list", Type: "array"},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"data": {Description: "The record data", Type: "object"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "records.list", svc.List, rpc.MethodMeta{
+		Description: "List records matching a query.",
+		Parameters: map[string]rpc.ParamMeta{
+			"uri":    {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
+			"filter": {Description: "CEL filter expression", Type: "string"},
+			"fields": {Description: "Field projection list", Type: "array"},
+			"limit":  {Description: "Max items per page", Type: "integer"},
+			"offset": {Description: "Page offset", Type: "integer"},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"items":       {Description: "Matching records", Type: "array"},
+			"next_offset": {Description: "Offset for next page", Type: "integer"},
+			"total":       {Description: "Total matching records", Type: "integer"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "records.update", svc.Update, rpc.MethodMeta{
+		Description: "Update an existing record (patch semantics). Only supplied fields change.",
+		Mutating:    true,
+		Parameters: map[string]rpc.ParamMeta{
+			"uri":  {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+			"data": {Description: "Patch data as JSON object", Type: "object", Required: true},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"data": {Description: "The updated record data", Type: "object"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "records.upsert", svc.Upsert, rpc.MethodMeta{
+		Description: "Create or replace a record (full replace). Sets complete state.",
+		Mutating:    true,
+		Parameters: map[string]rpc.ParamMeta{
+			"uri":  {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+			"data": {Description: "Record data as JSON object", Type: "object"},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"data": {Description: "The upserted record data", Type: "object"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "records.delete", svc.Delete, rpc.MethodMeta{
+		Description: "Delete a record. Idempotent: succeeds even if not found.",
+		Mutating:    true,
+		Parameters: map[string]rpc.ParamMeta{
+			"uri": {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+		},
+	})
+}
+
+func registerSchemas(r *rpc.Router, svc *api.SchemaService) {
+	rpc.RegisterHandlerWithMeta(r, "schemas.create", svc.Create, rpc.MethodMeta{
+		Description: "Create a new schema definition. Idempotent: returns existing if already exists.",
+		Mutating:    true,
+		Parameters: map[string]rpc.ParamMeta{
+			"uri":  {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
+			"data": {Description: "Schema definition as JSON object", Type: "object"},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"data": {Description: "The created or existing schema definition", Type: "object"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "schemas.get", svc.Get, rpc.MethodMeta{
+		Description: "Retrieve a schema definition by URI.",
+		Parameters: map[string]rpc.ParamMeta{
+			"uri": {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"data": {Description: "The schema definition", Type: "object"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "schemas.list", svc.List, rpc.MethodMeta{
+		Description: "List schemas in a namespace.",
+		Parameters: map[string]rpc.ParamMeta{
+			"uri":    {Description: "Namespace URI (xdb://ns)", Type: "string"},
+			"limit":  {Description: "Max items per page", Type: "integer"},
+			"offset": {Description: "Page offset", Type: "integer"},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"items":       {Description: "Schema definitions", Type: "array"},
+			"next_offset": {Description: "Offset for next page", Type: "integer"},
+			"total":       {Description: "Total schemas", Type: "integer"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "schemas.update", svc.Update, rpc.MethodMeta{
+		Description: "Update a schema definition (patch semantics).",
+		Mutating:    true,
+		Parameters: map[string]rpc.ParamMeta{
+			"uri":  {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
+			"data": {Description: "Patch data as JSON object", Type: "object", Required: true},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"data": {Description: "The updated schema definition", Type: "object"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "schemas.delete", svc.Delete, rpc.MethodMeta{
+		Description: "Delete a schema. Idempotent: succeeds even if not found.",
+		Mutating:    true,
+		Parameters: map[string]rpc.ParamMeta{
+			"uri":     {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
+			"cascade": {Description: "Delete all records in the schema", Type: "boolean"},
+		},
+	})
+}
+
+func registerNamespaces(r *rpc.Router, svc *api.NamespaceService) {
+	rpc.RegisterHandlerWithMeta(r, "namespaces.get", svc.Get, rpc.MethodMeta{
+		Description: "Retrieve namespace metadata by URI.",
+		Parameters: map[string]rpc.ParamMeta{
+			"uri": {Description: "Namespace URI (xdb://ns)", Type: "string", Required: true},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"data": {Description: "The namespace metadata", Type: "object"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "namespaces.list", svc.List, rpc.MethodMeta{
+		Description: "List all known namespaces.",
+		Parameters: map[string]rpc.ParamMeta{
+			"limit":  {Description: "Max items per page", Type: "integer"},
+			"offset": {Description: "Page offset", Type: "integer"},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"items":       {Description: "Namespaces", Type: "array"},
+			"next_offset": {Description: "Offset for next page", Type: "integer"},
+			"total":       {Description: "Total namespaces", Type: "integer"},
+		},
+	})
+}
+
+func registerBatch(r *rpc.Router, svc *api.BatchService) {
+	rpc.RegisterHandlerWithMeta(r, "batch.execute", svc.Execute, rpc.MethodMeta{
+		Description: "Run multiple operations in a single atomic transaction.",
+		Mutating:    true,
+		Parameters: map[string]rpc.ParamMeta{
+			"operations": {Description: "Array of operations to execute", Type: "array", Required: true},
+			"dry_run":    {Description: "Validate without writing", Type: "boolean"},
+		},
+		Response: map[string]rpc.ParamMeta{
+			"total":     {Description: "Total operations", Type: "integer"},
+			"succeeded": {Description: "Successful operations", Type: "integer"},
+			"failed":    {Description: "Failed operations", Type: "integer"},
+			"results":   {Description: "Per-operation results", Type: "array"},
+		},
+	})
+}
+
+func registerWatch(r *rpc.Router, svc *api.WatchService) {
+	rpc.RegisterStreamWithMeta(r, "watch", svc.Watch, rpc.MethodMeta{
+		Description: "Stream changes matching a URI pattern.",
+		Parameters: map[string]rpc.ParamMeta{
+			"uri": {Description: "URI pattern to watch", Type: "string", Required: true},
+		},
+	})
+}
+
+func registerSystem(r *rpc.Router, svc *api.SystemService) {
+	rpc.RegisterHandlerWithMeta(r, "system.health", svc.Health, rpc.MethodMeta{
+		Description: "Report system health status.",
+		Response: map[string]rpc.ParamMeta{
+			"status": {Description: "Health status", Type: "string"},
+		},
+	})
+	rpc.RegisterHandlerWithMeta(r, "system.version", svc.Version, rpc.MethodMeta{
+		Description: "Report system version.",
+		Response: map[string]rpc.ParamMeta{
+			"version": {Description: "Daemon version string", Type: "string"},
+		},
+	})
 }
 
 // Start starts the daemon with the given [store.Store].
@@ -137,6 +296,18 @@ func (d *Daemon) Start(ctx context.Context, s store.Store) error {
 	if pidErr := WritePID(pp); pidErr != nil {
 		return pidErr
 	}
+
+	go func() {
+		<-ctx.Done()
+
+		shutdownCtx, shutdownCancel := context.WithTimeout(
+			context.Background(),
+			5*time.Second,
+		)
+		defer shutdownCancel()
+
+		_ = d.server.Shutdown(shutdownCtx)
+	}()
 
 	err = d.server.Serve(d.listener)
 	if errors.Is(err, http.ErrServerClosed) {

@@ -32,7 +32,7 @@ func TestDef_MarshalJSON(t *testing.T) {
 				"uri": "xdb://com.example/posts",
 				"mode": "strict",
 				"fields": {
-					"title": {"type": "STRING", "required": true}
+					"title": {"type": "string", "required": true}
 				}
 			}`,
 		},
@@ -62,9 +62,9 @@ func TestDef_MarshalJSON(t *testing.T) {
 				"uri": "xdb://com.example/posts",
 				"mode": "strict",
 				"fields": {
-					"title":  {"type": "STRING", "required": true},
-					"rating": {"type": "FLOAT"},
-					"active": {"type": "BOOLEAN"}
+					"title":  {"type": "string", "required": true},
+					"rating": {"type": "float"},
+					"active": {"type": "boolean"}
 				}
 			}`,
 		},
@@ -116,7 +116,7 @@ func TestDef_UnmarshalJSON(t *testing.T) {
 				"uri": "xdb://com.example/posts",
 				"mode": "strict",
 				"fields": {
-					"title": {"type": "STRING", "required": true}
+					"title": {"type": "string", "required": true}
 				}
 			}`,
 			expectedURI:  "xdb://com.example/posts",
@@ -173,9 +173,9 @@ func TestDef_UnmarshalJSON_FieldDetails(t *testing.T) {
 		"uri": "xdb://com.example/posts",
 		"mode": "strict",
 		"fields": {
-			"title":  {"type": "STRING", "required": true},
-			"rating": {"type": "FLOAT"},
-			"active": {"type": "BOOLEAN"}
+			"title":  {"type": "string", "required": true},
+			"rating": {"type": "float"},
+			"active": {"type": "boolean"}
 		}
 	}`
 

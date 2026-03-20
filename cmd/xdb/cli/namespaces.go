@@ -41,11 +41,11 @@ func (a *App) namespacesCmd() *cli.Command {
 }
 
 func (a *App) namespaceList(ctx context.Context, cmd *cli.Command) error {
-	resp, err := a.namespaces.List(ctx, &api.ListNamespacesRequest{
+	var resp api.ListNamespacesResponse
+	if err := a.client.Call(ctx, "namespaces.list", &api.ListNamespacesRequest{
 		Limit:  int(cmd.Int("limit")),
 		Offset: int(cmd.Int("offset")),
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
@@ -63,10 +63,10 @@ func (a *App) namespaceGet(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	resp, err := a.namespaces.Get(ctx, &api.GetNamespaceRequest{
+	var resp api.GetNamespaceResponse
+	if err := a.client.Call(ctx, "namespaces.get", &api.GetNamespaceRequest{
 		URI: uri,
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 

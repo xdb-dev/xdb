@@ -3,13 +3,32 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+
+	"github.com/xdb-dev/xdb/core"
 )
+
+// ParamMeta describes a single request or response parameter.
+type ParamMeta struct {
+	Description string `json:"description"`
+	Type        string `json:"type"`
+	Required    bool   `json:"required,omitempty"`
+}
+
+// MethodMeta describes an RPC method's interface.
+type MethodMeta struct {
+	Parameters  map[string]ParamMeta `json:"parameters,omitempty"`
+	Response    map[string]ParamMeta `json:"response,omitempty"`
+	Description string               `json:"description"`
+	Mutating    bool                 `json:"mutating,omitempty"`
+}
 
 // methodEntry is the internal representation of a registered method.
 type methodEntry struct {
 	fn     func(ctx context.Context, params json.RawMessage, send func(string, json.RawMessage)) (json.RawMessage, error)
+	meta   MethodMeta
 	stream bool
 }
 
@@ -34,6 +53,16 @@ func (r *Router) Methods() []string {
 	}
 
 	return names
+}
+
+// Meta returns the metadata for the named method.
+func (r *Router) Meta(method string) (MethodMeta, bool) {
+	entry, ok := r.methods[method]
+	if !ok {
+		return MethodMeta{}, false
+	}
+
+	return entry.meta, true
 }
 
 // ServeHTTP implements [http.Handler] for JSON-RPC 2.0 over HTTP.
@@ -140,6 +169,16 @@ func RegisterHandler[Req, Res any](
 	method string,
 	h func(ctx context.Context, req *Req) (*Res, error),
 ) {
+	RegisterHandlerWithMeta(r, method, h, MethodMeta{})
+}
+
+// RegisterHandlerWithMeta registers a typed handler with method metadata.
+func RegisterHandlerWithMeta[Req, Res any](
+	r *Router,
+	method string,
+	h func(ctx context.Context, req *Req) (*Res, error),
+	meta MethodMeta,
+) {
 	r.methods[method] = methodEntry{
 		fn: func(ctx context.Context, params json.RawMessage, _ func(string, json.RawMessage)) (json.RawMessage, error) {
 			var req Req
@@ -162,6 +201,7 @@ func RegisterHandler[Req, Res any](
 
 			return data, nil
 		},
+		meta: meta,
 	}
 }
 
@@ -172,6 +212,16 @@ func RegisterStream[Req any](
 	r *Router,
 	method string,
 	h func(ctx context.Context, req *Req, send func(string, json.RawMessage)) error,
+) {
+	RegisterStreamWithMeta(r, method, h, MethodMeta{})
+}
+
+// RegisterStreamWithMeta registers a streaming handler with method metadata.
+func RegisterStreamWithMeta[Req any](
+	r *Router,
+	method string,
+	h func(ctx context.Context, req *Req, send func(string, json.RawMessage)) error,
+	meta MethodMeta,
 ) {
 	r.methods[method] = methodEntry{
 		fn: func(ctx context.Context, params json.RawMessage, send func(string, json.RawMessage)) (json.RawMessage, error) {
@@ -185,17 +235,31 @@ func RegisterStream[Req any](
 
 			return nil, h(ctx, &req, send)
 		},
+		meta:   meta,
 		stream: true,
 	}
 }
 
 // MapError converts a Go error to a JSON-RPC [Error].
+// It maps well-known store errors to XDB-specific error codes
+// and falls back to [InternalError] for unknown errors.
 func MapError(err error) *Error {
 	if rpcErr, ok := err.(*Error); ok {
 		return rpcErr
 	}
 
-	return InternalError(err.Error())
+	msg := err.Error()
+
+	switch {
+	case errors.Is(err, core.ErrNotFound):
+		return NotFound(msg)
+	case errors.Is(err, core.ErrAlreadyExists):
+		return AlreadyExists(msg)
+	case errors.Is(err, core.ErrSchemaViolation):
+		return SchemaViolation(msg)
+	default:
+		return InternalError(msg)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v *Response) {

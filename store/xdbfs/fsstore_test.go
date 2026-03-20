@@ -70,6 +70,12 @@ func TestNamespaces(t *testing.T) {
 	}).Run(t)
 }
 
+func TestCascade(t *testing.T) {
+	tests.NewCascadeStoreSuite(func() store.Store {
+		return newTestStore(t)
+	}).Run(t)
+}
+
 // --- FS-specific tests ---
 
 func TestFileLayout_SchemaFile(t *testing.T) {

@@ -185,8 +185,8 @@ type DeleteSchemaResponse struct{}
 // Create and Update requests. It avoids unmarshaling the URI field
 // (which is provided separately in the request envelope).
 type schemaDefPayload struct {
-	Fields map[string]schema.FieldDef `json:"Fields,omitempty"`
-	Mode   schema.Mode                `json:"Mode,omitempty"`
+	Fields map[string]schema.FieldDef `json:"fields,omitempty"`
+	Mode   schema.Mode                `json:"mode,omitempty"`
 }
 
 // unmarshalSchemaDef decodes a schema definition payload and attaches
@@ -197,19 +197,43 @@ func unmarshalSchemaDef(data json.RawMessage, uri *core.URI) (schema.Def, error)
 	if err := json.Unmarshal(data, &p); err != nil {
 		return schema.Def{}, err
 	}
+	mode := p.Mode
+	if mode == "" {
+		mode = schema.ModeStrict
+	}
+
+	// Normalize type identifiers (e.g. "string" → "STRING").
+	for name, field := range p.Fields {
+		tid, err := core.ParseType(string(field.Type))
+		if err != nil {
+			return schema.Def{}, err
+		}
+		field.Type = tid
+		p.Fields[name] = field
+	}
+
 	return schema.Def{
 		URI:    uri,
 		Fields: p.Fields,
-		Mode:   p.Mode,
+		Mode:   mode,
 	}, nil
 }
 
 // Delete deletes a schema by URI.
 // If the schema does not exist, the operation is treated as successful (idempotent).
+// When Cascade is true, all records belonging to the schema are deleted first.
+// If the store supports [store.BatchExecutor], cascade + delete runs atomically.
 func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*DeleteSchemaResponse, error) {
 	uri, err := core.ParseURI(req.URI)
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.delete: %w", err)
+	}
+
+	if req.Cascade {
+		if cascadeErr := s.cascadeDelete(ctx, uri); cascadeErr != nil {
+			return nil, fmt.Errorf("api: schemas.delete: %w", cascadeErr)
+		}
+		return &DeleteSchemaResponse{}, nil
 	}
 
 	err = s.store.DeleteSchema(ctx, uri)
@@ -221,4 +245,32 @@ func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*
 	}
 
 	return &DeleteSchemaResponse{}, nil
+}
+
+// cascadeDelete deletes all records and the schema itself.
+// Uses [store.BatchExecutor] for atomicity when available,
+// otherwise falls back to sequential operations.
+func (s *SchemaService) cascadeDelete(ctx context.Context, uri *core.URI) error {
+	if batch, ok := s.store.(store.BatchExecutor); ok {
+		return batch.ExecuteBatch(ctx, func(tx store.Store) error {
+			if err := tx.DeleteSchemaRecords(ctx, uri); err != nil {
+				return err
+			}
+			err := tx.DeleteSchema(ctx, uri)
+			if errors.Is(err, store.ErrNotFound) {
+				return nil
+			}
+			return err
+		})
+	}
+
+	// Fallback: sequential (non-atomic).
+	if err := s.store.DeleteSchemaRecords(ctx, uri); err != nil {
+		return err
+	}
+	err := s.store.DeleteSchema(ctx, uri)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	return err
 }

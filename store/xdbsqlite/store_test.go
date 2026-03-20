@@ -74,6 +74,44 @@ func TestModes(t *testing.T) {
 	}).Run(t)
 }
 
+func TestCascade(t *testing.T) {
+	tests.NewCascadeStoreSuite(func() store.Store {
+		return newTestStore(t)
+	}).Run(t)
+}
+
+func TestCreateSchema_ThenCreateRecord(t *testing.T) {
+	ctx := context.Background()
+	st := newTestStore(t)
+
+	uri := core.MustParseURI("xdb://test/books")
+	def := &schema.Def{
+		URI:  uri,
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.FieldDef{
+			"title":  {Type: core.TIDString},
+			"author": {Type: core.TIDString},
+		},
+	}
+	require.NoError(t, st.CreateSchema(ctx, uri, def))
+
+	r := core.NewRecord("test", "books", "1984")
+	r.Set("title", "1984")
+	r.Set("author", "George Orwell")
+	require.NoError(t, st.CreateRecord(ctx, r))
+
+	got, err := st.GetRecord(ctx, r.URI())
+	require.NoError(t, err)
+
+	title, err := got.Get("title").AsStr()
+	require.NoError(t, err)
+	assert.Equal(t, "1984", title)
+
+	author, err := got.Get("author").AsStr()
+	require.NoError(t, err)
+	assert.Equal(t, "George Orwell", author)
+}
+
 func TestUpdateSchema_DDLEvolution(t *testing.T) {
 	ctx := context.Background()
 

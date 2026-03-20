@@ -11,7 +11,7 @@ import (
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
 )
 
-var defaultEncoder = xdbjson.NewDefaultEncoder()
+var defaultEncoder = xdbjson.New()
 
 func TestEncoder_BasicEncoding(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
@@ -36,10 +36,10 @@ func TestEncoder_WithMetadata(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe")
 
-	encoder := xdbjson.NewEncoder(xdbjson.Options{
-		IncludeNS:     true,
-		IncludeSchema: true,
-	})
+	encoder := xdbjson.New(
+		xdbjson.WithIncludeNS(),
+		xdbjson.WithIncludeSchema(),
+	)
 
 	data, err := encoder.FromRecord(record)
 	require.NoError(t, err)
@@ -58,13 +58,13 @@ func TestEncoder_CustomFieldNames(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe")
 
-	encoder := xdbjson.NewEncoder(xdbjson.Options{
-		IDField:       "userId",
-		NSField:       "namespace",
-		SchemaField:   "type",
-		IncludeNS:     true,
-		IncludeSchema: true,
-	})
+	encoder := xdbjson.New(
+		xdbjson.WithIDField("userId"),
+		xdbjson.WithNSField("namespace"),
+		xdbjson.WithSchemaField("type"),
+		xdbjson.WithIncludeNS(),
+		xdbjson.WithIncludeSchema(),
+	)
 
 	data, err := encoder.FromRecord(record)
 	require.NoError(t, err)
@@ -206,7 +206,7 @@ func TestEncoder_IndentOutput(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe")
 
-	data, err := defaultEncoder.FromRecordIndent(record, "", "  ")
+	data, err := defaultEncoder.FromRecord(record, xdbjson.WithIndent("", "  "))
 	require.NoError(t, err)
 
 	expected := `{
@@ -242,8 +242,56 @@ func TestEncoder_ErrorNilRecord(t *testing.T) {
 }
 
 func TestEncoder_ErrorNilRecordIndent(t *testing.T) {
-	data, err := defaultEncoder.FromRecordIndent(nil, "", "  ")
+	data, err := defaultEncoder.FromRecord(nil, xdbjson.WithIndent("", "  "))
 	assert.Error(t, err)
 	assert.Nil(t, data)
 	assert.ErrorIs(t, err, xdbjson.ErrNilRecord)
+}
+
+func TestEncoder_FromRecordFields(t *testing.T) {
+	record := core.NewRecord("com.example", "users", "123").
+		Set("name", "John Doe").
+		Set("email", "john@example.com").
+		Set("age", int64(30))
+
+	t.Run("projects to subset", func(t *testing.T) {
+		data, err := defaultEncoder.FromRecord(record, xdbjson.WithFields("name"))
+		require.NoError(t, err)
+
+		var m map[string]any
+		require.NoError(t, json.Unmarshal(data, &m))
+
+		assert.Equal(t, "123", m["_id"], "_id always included")
+		assert.Equal(t, "John Doe", m["name"])
+		assert.NotContains(t, m, "email")
+		assert.NotContains(t, m, "age")
+	})
+
+	t.Run("projects multiple fields", func(t *testing.T) {
+		data, err := defaultEncoder.FromRecord(record, xdbjson.WithFields("name", "age"))
+		require.NoError(t, err)
+
+		var m map[string]any
+		require.NoError(t, json.Unmarshal(data, &m))
+
+		assert.Equal(t, "123", m["_id"])
+		assert.Equal(t, "John Doe", m["name"])
+		assert.Equal(t, float64(30), m["age"])
+		assert.NotContains(t, m, "email")
+	})
+
+	t.Run("no fields returns all", func(t *testing.T) {
+		data, err := defaultEncoder.FromRecord(record)
+		require.NoError(t, err)
+
+		var m map[string]any
+		require.NoError(t, json.Unmarshal(data, &m))
+
+		assert.Len(t, m, 4) // _id + name + email + age
+	})
+
+	t.Run("nil record returns error", func(t *testing.T) {
+		_, err := defaultEncoder.FromRecord(nil, xdbjson.WithFields("name"))
+		assert.ErrorIs(t, err, xdbjson.ErrNilRecord)
+	})
 }

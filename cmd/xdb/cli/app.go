@@ -11,38 +11,42 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	"github.com/xdb-dev/xdb/api"
+	_ "embed"
+
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/validate"
-	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/encoding/xdbjson"
-	"github.com/xdb-dev/xdb/store/xdbmemory"
+	"github.com/xdb-dev/xdb/rpc/client"
 )
 
-// App holds the store, services, and encoder used by CLI commands.
+//go:embed CONTEXT.md
+var agentContext string
+
+// App holds the RPC client used by CLI commands.
+// The client is initialized lazily via the Before hook so that the
+// --config flag value is available.
 type App struct {
-	records    *api.RecordService
-	schemas    *api.SchemaService
-	namespaces *api.NamespaceService
-	batch      *api.BatchService
-	encoder    *xdbjson.Encoder
+	client *client.Client
 }
 
-func newApp() *App {
-	s := xdbmemory.New()
-
-	return &App{
-		records:    api.NewRecordService(s),
-		schemas:    api.NewSchemaService(s),
-		namespaces: api.NewNamespaceService(s),
-		batch:      api.NewBatchService(s),
-		encoder:    xdbjson.NewDefaultEncoder(),
+// connect initializes the RPC client from the config file.
+func (a *App) connect(cmd *cli.Command) error {
+	if a.client != nil {
+		return nil
 	}
+
+	cfg, err := LoadConfig(cmd.String("config"))
+	if err != nil {
+		return err
+	}
+
+	a.client = client.New(cfg.SocketPath())
+
+	return nil
 }
 
 // NewApp creates the root xdb CLI command.
 func NewApp() *cli.Command {
-	a := newApp()
+	a := &App{}
 
 	return &cli.Command{
 		Name:                          "xdb",
@@ -70,6 +74,9 @@ func NewApp() *cli.Command {
 				Usage: "Enable debug logging",
 			},
 		},
+		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+			return ctx, a.connect(cmd)
+		},
 		Commands: append(
 			[]*cli.Command{
 				a.recordsCmd(),
@@ -81,14 +88,14 @@ func NewApp() *cli.Command {
 				a.exportCmd(),
 				initCmd(),
 				a.describeCmd(),
-				contextCmd(),
 				skillsCmd(),
 				daemonCmd(),
 			},
 			a.aliasCommands()...,
 		),
 		Action: func(_ context.Context, _ *cli.Command) error {
-			return fmt.Errorf("run 'xdb --help' for usage")
+			_, err := fmt.Fprint(os.Stdout, agentContext)
+			return err
 		},
 	}
 }
@@ -166,25 +173,10 @@ func isTerminal(f *os.File) bool {
 	return (stat.Mode() & os.ModeCharDevice) != 0
 }
 
-// recordToMap converts a core.Record to a map for output formatting.
-func (a *App) recordToMap(rec *core.Record) (map[string]any, error) {
-	data, err := a.encoder.FromRecord(rec)
-	if err != nil {
-		return nil, err
-	}
-
+// formatRawJSON unmarshals a json.RawMessage to a map and writes it.
+func formatRawJSON(cmd *cli.Command, raw json.RawMessage) error {
 	var m map[string]any
-	if jsonErr := json.Unmarshal(data, &m); jsonErr != nil {
-		return nil, jsonErr
-	}
-
-	return m, nil
-}
-
-// formatRecord encodes a record and writes it.
-func (a *App) formatRecord(cmd *cli.Command, rec *core.Record) error {
-	m, err := a.recordToMap(rec)
-	if err != nil {
+	if err := json.Unmarshal(raw, &m); err != nil {
 		return err
 	}
 

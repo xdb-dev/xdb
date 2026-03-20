@@ -209,6 +209,13 @@ func (s *SchemaTx) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	})
 }
 
+func (s *SchemaTx) DeleteSchemaRecords(ctx context.Context, uri *core.URI) error {
+	// Try dropping both table types — at most one will exist.
+	_ = s.q.DropTable(ctx, xsql.DropTableParams{Table: kvTableName(uri)})
+	_ = s.q.DropTable(ctx, xsql.DropTableParams{Table: columnTableName(uri)})
+	return nil
+}
+
 // --- Store delegation ---
 
 // GetSchema retrieves a schema definition by URI.
@@ -299,6 +306,28 @@ func (s *Store) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.Def
 	}
 
 	s.cache.Store(cacheKey(uri), def)
+	return nil
+}
+
+// DeleteSchemaRecords deletes all records belonging to a schema by
+// dropping the backing KV or column table.
+func (s *Store) DeleteSchemaRecords(ctx context.Context, uri *core.URI) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	stx := &SchemaTx{q: xsql.NewQueries(tx)}
+	if err := stx.DeleteSchemaRecords(ctx, uri); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	s.invalidateSchema(uri)
 	return nil
 }
 

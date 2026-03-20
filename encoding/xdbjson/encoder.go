@@ -12,51 +12,66 @@ import (
 
 // Encoder converts XDB records to JSON.
 type Encoder struct {
-	opts Options
+	opts options
 }
 
-// NewEncoder creates an encoder with custom options.
-func NewEncoder(opts Options) *Encoder {
-	return &Encoder{opts: opts.withDefaults()}
+// New creates an [Encoder] with functional options.
+//
+//	enc := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIDField("id"))
+func New(opts ...Option) *Encoder {
+	return &Encoder{opts: applyOptions(opts)}
 }
 
-// NewDefaultEncoder creates an encoder with default options.
-// The encoder will NOT include namespace or schema in JSON output.
-func NewDefaultEncoder() *Encoder {
-	return NewEncoder(DefaultOptions())
-}
-
-// FromRecord converts a core.Record to JSON bytes.
-func (e *Encoder) FromRecord(record *core.Record) ([]byte, error) {
+// FromRecord converts a [core.Record] to JSON bytes.
+//
+// Use [EncodeOption] values to control output format:
+//
+//	data, err := enc.FromRecord(record, xdbjson.WithIndent("", "  "))
+//	data, err := enc.FromRecord(record, xdbjson.WithFields("name", "email"))
+func (e *Encoder) FromRecord(record *core.Record, opts ...EncodeOption) ([]byte, error) {
 	if record == nil {
 		return nil, ErrNilRecord
 	}
 
+	var cfg encodeConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
 	data := e.buildMap(record)
+
+	if len(cfg.fields) > 0 {
+		keep := make(map[string]bool, len(cfg.fields)+1)
+		keep[e.opts.idField] = true
+		for _, f := range cfg.fields {
+			keep[f] = true
+		}
+
+		for k := range data {
+			if !keep[k] {
+				delete(data, k)
+			}
+		}
+	}
+
+	if cfg.indent != "" {
+		return json.MarshalIndent(data, cfg.prefix, cfg.indent)
+	}
+
 	return json.Marshal(data)
-}
-
-// FromRecordIndent converts a core.Record to indented JSON bytes.
-func (e *Encoder) FromRecordIndent(record *core.Record, prefix, indent string) ([]byte, error) {
-	if record == nil {
-		return nil, ErrNilRecord
-	}
-
-	data := e.buildMap(record)
-	return json.MarshalIndent(data, prefix, indent)
 }
 
 func (e *Encoder) buildMap(record *core.Record) map[string]any {
 	result := make(map[string]any)
 
-	result[e.opts.IDField] = record.ID().String()
+	result[e.opts.idField] = record.ID().String()
 
-	if e.opts.IncludeNS {
-		result[e.opts.NSField] = record.NS().String()
+	if e.opts.includeNS {
+		result[e.opts.nsField] = record.NS().String()
 	}
 
-	if e.opts.IncludeSchema {
-		result[e.opts.SchemaField] = record.Schema().String()
+	if e.opts.includeSchema {
+		result[e.opts.schemaField] = record.Schema().String()
 	}
 
 	tuples := record.Tuples()
