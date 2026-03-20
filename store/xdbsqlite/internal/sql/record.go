@@ -146,10 +146,12 @@ func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) ([]Value, 
 
 // ListRecordsParams are the arguments for [Queries.ListRecords].
 type ListRecordsParams struct {
-	Table   string
-	Columns []Value
-	Offset  int
-	Limit   int
+	Table     string
+	Where     string
+	Columns   []Value
+	WhereArgs []any
+	Offset    int
+	Limit     int
 }
 
 // ListRecords lists records from a column table.
@@ -161,13 +163,22 @@ func (q *Queries) ListRecords(ctx context.Context, arg ListRecordsParams) ([][]V
 		colNames = append(colNames, c.Name)
 	}
 
+	var whereClause string
+	var queryArgs []any
+	if arg.Where != "" {
+		whereClause = " WHERE " + arg.Where
+		queryArgs = append(queryArgs, arg.WhereArgs...)
+	}
+	queryArgs = append(queryArgs, arg.Limit, arg.Offset)
+
 	query := fmt.Sprintf(
-		"SELECT %s FROM %s ORDER BY _id LIMIT ? OFFSET ?",
+		"SELECT %s FROM %s%s ORDER BY _id LIMIT ? OFFSET ?",
 		strings.Join(colNames, ", "),
 		arg.Table,
+		whereClause,
 	)
 
-	rows, err := q.db.QueryContext(ctx, query, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -234,13 +245,20 @@ func (q *Queries) RecordExists(ctx context.Context, arg RecordExistsParams) (boo
 
 // CountRecordsParams are the arguments for [Queries.CountRecords].
 type CountRecordsParams struct {
-	Table string
+	Table     string
+	Where     string // optional WHERE clause (without "WHERE" keyword)
+	WhereArgs []any  // params for Where placeholders
 }
 
 // CountRecords returns the number of records in a column table.
 func (q *Queries) CountRecords(ctx context.Context, arg CountRecordsParams) (int, error) {
-	query := fmt.Sprintf("SELECT COUNT(*) FROM %s", arg.Table)
+	var whereClause string
+	if arg.Where != "" {
+		whereClause = " WHERE " + arg.Where
+	}
+
+	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", arg.Table, whereClause)
 	var count int
-	err := q.db.QueryRowContext(ctx, query).Scan(&count)
+	err := q.db.QueryRowContext(ctx, query, arg.WhereArgs...).Scan(&count)
 	return count, err
 }

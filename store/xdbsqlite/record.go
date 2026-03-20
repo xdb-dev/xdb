@@ -6,6 +6,8 @@ import (
 	"sort"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/filter"
+	"github.com/xdb-dev/xdb/filter/sqlgen"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 	xsql "github.com/xdb-dev/xdb/store/xdbsqlite/internal/sql"
@@ -85,7 +87,25 @@ func (r *RecordKVTx) ListRecords(ctx context.Context, uri *core.URI, q *store.Li
 	}
 
 	table := kvTableName(uri)
-	total, err := r.q.CountKVRecords(ctx, xsql.CountKVRecordsParams{Table: table})
+
+	var whereSQL string
+	var whereArgs []any
+	if q != nil && q.Filter != "" {
+		wc, err := compileFilter(q.Filter, r.def, sqlgen.KVStrategy, table)
+		if err != nil {
+			return nil, err
+		}
+		if wc != nil {
+			whereSQL = wc.SQL
+			whereArgs = wc.Params
+		}
+	}
+
+	total, err := r.q.CountKVRecords(ctx, xsql.CountKVRecordsParams{
+		Table:     table,
+		Where:     whereSQL,
+		WhereArgs: whereArgs,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -93,9 +113,11 @@ func (r *RecordKVTx) ListRecords(ctx context.Context, uri *core.URI, q *store.Li
 	limit, offset := paginationParams(q)
 
 	rows, err := r.q.ListKVRecords(ctx, xsql.ListKVRecordsParams{
-		Table:  table,
-		Limit:  limit,
-		Offset: offset,
+		Table:     table,
+		Limit:     limit,
+		Offset:    offset,
+		Where:     whereSQL,
+		WhereArgs: whereArgs,
 	})
 	if err != nil {
 		return nil, err
@@ -230,7 +252,24 @@ func (r *RecordTableTx) GetRecord(ctx context.Context, uri *core.URI) (*core.Rec
 func (r *RecordTableTx) ListRecords(ctx context.Context, uri *core.URI, q *store.ListQuery) (*store.Page[*core.Record], error) {
 	table := columnTableName(uri)
 
-	total, err := r.q.CountRecords(ctx, xsql.CountRecordsParams{Table: table})
+	var whereSQL string
+	var whereArgs []any
+	if q != nil && q.Filter != "" {
+		wc, err := compileFilter(q.Filter, r.def, sqlgen.ColumnStrategy, table)
+		if err != nil {
+			return nil, err
+		}
+		if wc != nil {
+			whereSQL = wc.SQL
+			whereArgs = wc.Params
+		}
+	}
+
+	total, err := r.q.CountRecords(ctx, xsql.CountRecordsParams{
+		Table:     table,
+		Where:     whereSQL,
+		WhereArgs: whereArgs,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -238,10 +277,12 @@ func (r *RecordTableTx) ListRecords(ctx context.Context, uri *core.URI, q *store
 	limit, offset := paginationParams(q)
 
 	rows, err := r.q.ListRecords(ctx, xsql.ListRecordsParams{
-		Table:   table,
-		Columns: columnValues(r.def),
-		Limit:   limit,
-		Offset:  offset,
+		Table:     table,
+		Columns:   columnValues(r.def),
+		Limit:     limit,
+		Offset:    offset,
+		Where:     whereSQL,
+		WhereArgs: whereArgs,
 	})
 	if err != nil {
 		return nil, err
@@ -335,6 +376,28 @@ func (r *RecordTableTx) DeleteRecord(ctx context.Context, uri *core.URI) error {
 		Table: table,
 		ID:    uri.ID().String(),
 	})
+}
+
+// --- Filter helpers ---
+
+// compileFilter compiles a filter expression and generates a SQL WHERE clause.
+// Returns nil WhereClause if the filter is empty.
+func compileFilter(
+	filterExpr string,
+	def *schema.Def,
+	strategy sqlgen.Strategy,
+	table string,
+) (*sqlgen.WhereClause, error) {
+	if filterExpr == "" {
+		return nil, nil
+	}
+
+	f, err := filter.Compile(filterExpr, def)
+	if err != nil {
+		return nil, err
+	}
+
+	return sqlgen.Generate(f, strategy, table)
 }
 
 // --- Pagination helpers ---
