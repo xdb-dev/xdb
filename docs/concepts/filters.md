@@ -6,7 +6,9 @@ package: filter
 
 # Filters
 
-Filters narrow down record list results using [CEL](https://cel.dev/) (Common Expression Language) expressions. A single filter string works across all store backends — in-memory stores evaluate against records directly, while SQL stores push filters down as WHERE clauses.
+Filters narrow down record list results using [CEL](https://cel.dev/) (Common Expression Language) expressions. The filter design follows [Google's AIP-160 filtering standard](https://google.aip.dev/160), which defines a unified filtering language across Google APIs. XDB uses CEL as the evaluation engine for strict type-safety and predictable performance.
+
+A single filter string works across all store backends — in-memory stores evaluate CEL against records directly, while SQL stores push filters down as WHERE clauses.
 
 ## Syntax
 
@@ -44,6 +46,19 @@ xdb records list --uri xdb://myapp/posts --filter 'title.contains("hello")'
 
 When a schema is available, filter expressions are type-checked against field definitions. When no schema exists (flexible mode), all variables are dynamically typed. Unknown fields evaluate to false rather than causing errors.
 
+## Relationship to AIP-160
+
+XDB follows the [AIP-160](https://google.aip.dev/160) filtering standard conceptually — field traversal, comparison operators, and function calls all match AIP-160 patterns. The implementation uses CEL's stricter syntax conventions:
+
+| Concept    | AIP-160     | XDB (CEL)  |
+| ---------- | ----------- | ---------- |
+| Equality   | `=`         | `==`       |
+| Logical AND | `AND`      | `&&`       |
+| Logical OR  | `OR`       | `\|\|`     |
+| Negation   | `NOT`, `-`  | `!`        |
+
+CEL was chosen over AIP-160's looser syntax for compile-time type checking, safe evaluation (non-Turing-complete), and direct SQL generation.
+
 ## Go usage
 
 ```go
@@ -66,3 +81,11 @@ wc, err := sqlgen.Generate(f, sqlgen.ColumnStrategy, "")
 // wc.SQL    = "(status = ? AND age >= ?)"
 // wc.Params = ["active", 18]
 ```
+
+## Related
+
+- [AIP-160: Filtering](https://google.aip.dev/160) — Google's filtering standard
+- [AIP-132: List](https://google.aip.dev/132) — Standard List method design
+- [AIP-158: Pagination](https://google.aip.dev/158) — Page token and page size patterns
+- [CEL specification](https://cel.dev/) — Common Expression Language
+- [Stores](stores.md) — How filters integrate with store backends

@@ -7,9 +7,9 @@ const (
 	MaxLimit = 1000
 )
 
-// Paginate applies offset/limit from a [ListQuery] to a sorted slice
+// Paginate applies offset/limit from a [Query] to a sorted slice
 // and returns a [Page]. Defaults to [DefaultLimit], capped at [MaxLimit].
-func Paginate[T any](items []T, q *ListQuery) *Page[T] {
+func Paginate[T any](items []T, q *Query) *Page[T] {
 	total := len(items)
 
 	offset := 0

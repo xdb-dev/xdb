@@ -118,13 +118,14 @@ func (s *RecordService) List(ctx context.Context, req *ListRecordsRequest) (*Lis
 		return nil, err
 	}
 
-	query := &store.ListQuery{
+	query := &store.Query{
+		URI:    uri,
 		Filter: req.Filter,
 		Limit:  req.Limit,
 		Offset: req.Offset,
 	}
 
-	page, err := s.store.ListRecords(ctx, uri, query)
+	page, err := s.store.ListRecords(ctx, query)
 	if err != nil {
 		return nil, err
 	}

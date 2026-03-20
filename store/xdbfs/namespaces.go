@@ -29,7 +29,7 @@ func (s *Store) GetNamespace(_ context.Context, uri *core.URI) (*core.NS, error)
 // ListNamespaces lists unique namespaces derived from schema directories.
 func (s *Store) ListNamespaces(
 	_ context.Context,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.NS], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

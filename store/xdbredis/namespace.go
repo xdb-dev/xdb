@@ -27,7 +27,7 @@ func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, erro
 // ListNamespaces lists all known namespaces.
 func (s *Store) ListNamespaces(
 	ctx context.Context,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.NS], error) {
 	names, err := s.client.SMembers(ctx, s.nsIndexKey()).Result()
 	if err != nil {

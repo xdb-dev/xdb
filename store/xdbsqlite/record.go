@@ -81,7 +81,8 @@ func (r *RecordKVTx) GetRecord(ctx context.Context, uri *core.URI) (*core.Record
 	return kvRecordFromValues(uri, values), nil
 }
 
-func (r *RecordKVTx) ListRecords(ctx context.Context, uri *core.URI, q *store.ListQuery) (*store.Page[*core.Record], error) {
+func (r *RecordKVTx) ListRecords(ctx context.Context, q *store.Query) (*store.Page[*core.Record], error) {
+	uri := q.URI
 	if err := r.ensureTable(ctx, uri); err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func (r *RecordKVTx) ListRecords(ctx context.Context, uri *core.URI, q *store.Li
 
 	var whereSQL string
 	var whereArgs []any
-	if q != nil && q.Filter != "" {
+	if q.Filter != "" {
 		wc, err := compileFilter(q.Filter, r.def, sqlgen.KVStrategy, table)
 		if err != nil {
 			return nil, err
@@ -249,12 +250,13 @@ func (r *RecordTableTx) GetRecord(ctx context.Context, uri *core.URI) (*core.Rec
 	return record, nil
 }
 
-func (r *RecordTableTx) ListRecords(ctx context.Context, uri *core.URI, q *store.ListQuery) (*store.Page[*core.Record], error) {
+func (r *RecordTableTx) ListRecords(ctx context.Context, q *store.Query) (*store.Page[*core.Record], error) {
+	uri := q.URI
 	table := columnTableName(uri)
 
 	var whereSQL string
 	var whereArgs []any
-	if q != nil && q.Filter != "" {
+	if q.Filter != "" {
 		wc, err := compileFilter(q.Filter, r.def, sqlgen.ColumnStrategy, table)
 		if err != nil {
 			return nil, err
@@ -404,7 +406,7 @@ func compileFilter(
 
 // paginationParams extracts limit/offset from a ListQuery.
 // Defaults to [store.DefaultLimit], capped at [store.MaxLimit].
-func paginationParams(q *store.ListQuery) (limit, offset int) {
+func paginationParams(q *store.Query) (limit, offset int) {
 	if q == nil {
 		return store.DefaultLimit, 0
 	}
@@ -484,9 +486,9 @@ func (s *Store) GetRecord(ctx context.Context, uri *core.URI) (*core.Record, err
 // When uri has no schema component, lists records across all schemas in the namespace.
 func (s *Store) ListRecords(
 	ctx context.Context,
-	uri *core.URI,
-	lq *store.ListQuery,
+	lq *store.Query,
 ) (*store.Page[*core.Record], error) {
+	uri := lq.URI
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -497,12 +499,12 @@ func (s *Store) ListRecords(
 
 	var res *store.Page[*core.Record]
 	if uri.Schema() == nil {
-		res, err = s.listRecordsByNamespace(ctx, q, uri, lq)
+		res, err = s.listRecordsByNamespace(ctx, q, lq)
 	} else {
 		var rs store.RecordStore
 		rs, _, err = s.recordStore(ctx, q, uri)
 		if err == nil {
-			res, err = rs.ListRecords(ctx, uri, lq)
+			res, err = rs.ListRecords(ctx, lq)
 		}
 	}
 	if err != nil {
@@ -520,9 +522,9 @@ func (s *Store) ListRecords(
 func (s *Store) listRecordsByNamespace(
 	ctx context.Context,
 	q *xsql.Queries,
-	uri *core.URI,
-	lq *store.ListQuery,
+	lq *store.Query,
 ) (*store.Page[*core.Record], error) {
+	uri := lq.URI
 	ns := uri.NS().String()
 	schemas, err := q.ListSchemas(ctx, xsql.ListSchemasParams{
 		Namespace: &ns,
@@ -540,7 +542,7 @@ func (s *Store) listRecordsByNamespace(
 			return nil, err
 		}
 
-		page, err := rs.ListRecords(ctx, schemaURI, &store.ListQuery{Limit: store.MaxLimit})
+		page, err := rs.ListRecords(ctx, &store.Query{URI: schemaURI, Limit: store.MaxLimit})
 		if err != nil {
 			return nil, err
 		}

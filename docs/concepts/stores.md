@@ -28,7 +28,7 @@ Store
 ```go
 type RecordReader interface {
     GetRecord(ctx context.Context, uri *core.URI) (*core.Record, error)
-    ListRecords(ctx context.Context, uri *core.URI, q *ListQuery) (*Page[*core.Record], error)
+    ListRecords(ctx context.Context, q *Query) (*Page[*core.Record], error)
 }
 
 type RecordWriter interface {
@@ -44,7 +44,7 @@ type RecordWriter interface {
 ```go
 type SchemaReader interface {
     GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error)
-    ListSchemas(ctx context.Context, uri *core.URI, q *ListQuery) (*Page[*schema.Def], error)
+    ListSchemas(ctx context.Context, q *Query) (*Page[*schema.Def], error)
 }
 
 type SchemaWriter interface {
@@ -59,7 +59,7 @@ type SchemaWriter interface {
 ```go
 type NamespaceReader interface {
     GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, error)
-    ListNamespaces(ctx context.Context, q *ListQuery) (*Page[*core.NS], error)
+    ListNamespaces(ctx context.Context, q *Query) (*Page[*core.NS], error)
 }
 ```
 
@@ -128,13 +128,15 @@ Implementations may also satisfy:
 
 `BatchExecutor` runs a function within a transaction. If the function returns an error, all changes are rolled back. The `tx Store` passed to the function is a transactional view — reads see writes made within the same transaction.
 
-## Pagination
+## Querying and Pagination
 
-List operations accept a `ListQuery` and return a `Page`:
+List operations follow [AIP-132](https://google.aip.dev/132) (List) and [AIP-160](https://google.aip.dev/160) (Filtering) patterns. They accept a `Query` and return a `Page`:
 
 ```go
-type ListQuery struct {
-    Filter string
+type Query struct {
+    URI    *core.URI // scope: ns-only or ns+schema
+    Filter string    // CEL filter expression
+    Fields []string  // field mask (not yet implemented)
     Limit  int
     Offset int
 }
@@ -146,11 +148,12 @@ type Page[T any] struct {
 }
 ```
 
+- `URI` determines the scope — ns-only lists across all schemas, ns+schema lists a single schema
+- `Filter` is a [CEL expression](filters.md) evaluated against each record
 - `Limit` defaults to 20, max 1000
 - `Offset` is zero-based
 - `NextOffset` is 0 when there are no more pages
 - `Total` is the total count of matching items (not just the current page)
-- `Filter` is a raw filter string (parsed by the service layer)
 
 ## Errors
 
@@ -343,4 +346,5 @@ The `tests/` package provides shared test suites that validate any `Store` imple
 - [Records](records.md) — The primary data stored
 - [Schemas](schemas.md) — Structure definitions stored alongside records
 - [Namespaces](namespaces.md) — Organizational grouping
+- [Filters](filters.md) — CEL-based record filtering for list operations
 - [Encoding](encoding.md) — How records are serialized for storage

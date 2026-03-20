@@ -26,11 +26,12 @@ func (s *Store) GetSchema(_ context.Context, uri *core.URI) (*schema.Def, error)
 // ListSchemas lists schemas, optionally scoped by namespace URI.
 func (s *Store) ListSchemas(
 	_ context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*schema.Def], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	uri := q.URI
 
 	var nsDirs []string
 	if uri != nil {

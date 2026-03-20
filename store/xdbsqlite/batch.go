@@ -52,12 +52,13 @@ func (t *storeTx) GetRecord(ctx context.Context, uri *core.URI) (*core.Record, e
 	return rs.GetRecord(ctx, uri)
 }
 
-func (t *storeTx) ListRecords(ctx context.Context, uri *core.URI, q *store.ListQuery) (*store.Page[*core.Record], error) {
+func (t *storeTx) ListRecords(ctx context.Context, q *store.Query) (*store.Page[*core.Record], error) {
+	uri := q.URI
 	rs, _, err := t.store.recordStore(ctx, t.q, uri)
 	if err != nil {
 		return nil, err
 	}
-	return rs.ListRecords(ctx, uri, q)
+	return rs.ListRecords(ctx, q)
 }
 
 func (t *storeTx) CreateRecord(ctx context.Context, record *core.Record) error {

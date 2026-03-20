@@ -21,19 +21,34 @@ xdb describe <resource.method | Type>  # introspection
 | `--uri <URI>`         | Target resource                                    |
 | `--json '<JSON>'`     | Inline payload                                     |
 | `-f, --file <PATH>`   | Payload from file (stdin if omitted)               |
+| `--filter <CEL>`      | CEL filter expression (AIP-160)                    |
 | `--fields <MASK>`     | Field mask — always use this                       |
 | `--limit`, `--offset` | Pagination                                         |
 | `--dry-run`           | Validate without writing                           |
 | `--force`             | Required for deletes                               |
 | `--quiet`             | Suppress output, exit code only                    |
 
+## Filter Syntax (CEL / AIP-160)
+
+```bash
+--filter 'status == "published"'
+--filter 'status == "active" && age >= 18'
+--filter 'title.contains("hello") || title.startsWith("Hi")'
+--filter 'status in ["active", "pending"]'
+--filter 'size(name) > 3'
+--filter '!(archived == true)'
+```
+
+Operators: `==`, `!=`, `<`, `>`, `<=`, `>=`, `&&`, `||`, `!`, `in`
+Functions: `.contains()`, `.startsWith()`, `.endsWith()`, `size()`
+
 ## Examples
 
 ```bash
 # Read
 xdb records get --uri xdb://ns/schema/id --fields title,author
-xdb records list --uri xdb://ns/schema --filter "status=published" --fields id,title --limit 10
-xdb records list --uri xdb://ns/schema --query '{"age":{"$gt":30}}' --fields id,name --limit 10
+xdb records list --uri xdb://ns/schema --filter 'status == "published"' --fields id,title --limit 10
+xdb records list --uri xdb://ns/schema --filter 'age > 30 && active == true' --fields id,name --limit 10
 xdb schemas list --uri xdb://ns
 
 # Write (create=idempotent, update=patch merge, upsert=full replace)
