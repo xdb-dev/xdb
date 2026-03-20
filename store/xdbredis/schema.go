@@ -36,9 +36,10 @@ func (s *Store) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, erro
 // ListSchemas lists schemas, optionally scoped by namespace URI.
 func (s *Store) ListSchemas(
 	ctx context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*schema.Def], error) {
+	uri := q.URI
+
 	if uri != nil {
 		return s.listSchemasByNS(ctx, uri, q)
 	}
@@ -70,7 +71,7 @@ func (s *Store) ListSchemas(
 func (s *Store) listSchemasByNS(
 	ctx context.Context,
 	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*schema.Def], error) {
 	defs, err := s.fetchSchemasByNS(ctx, uri)
 	if err != nil {

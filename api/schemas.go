@@ -106,12 +106,13 @@ func (s *SchemaService) List(ctx context.Context, req *ListSchemasRequest) (*Lis
 		return nil, fmt.Errorf("api: schemas.list: %w", err)
 	}
 
-	q := &store.ListQuery{
+	q := &store.Query{
+		URI:    uri,
 		Limit:  req.Limit,
 		Offset: req.Offset,
 	}
 
-	page, err := s.store.ListSchemas(ctx, uri, q)
+	page, err := s.store.ListSchemas(ctx, q)
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.list: %w", err)
 	}

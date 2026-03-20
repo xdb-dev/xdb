@@ -136,13 +136,13 @@ func (s *BenchmarkSuite) benchListRecords(b *testing.B, n int) {
 	}
 
 	uri := FakePost("unused").URI()
-	q := &store.ListQuery{Limit: 20}
+	q := &store.Query{URI: uri, Limit: 20}
 
 	b.ReportAllocs()
 	b.ResetTimer()
 
 	for range b.N {
-		if _, err := st.ListRecords(ctx, uri, q); err != nil {
+		if _, err := st.ListRecords(ctx, q); err != nil {
 			b.Fatal(err)
 		}
 	}

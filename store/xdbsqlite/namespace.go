@@ -27,7 +27,7 @@ func (n *NamespaceTx) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS
 	return core.NewNS(uri.NS().String()), nil
 }
 
-func (n *NamespaceTx) ListNamespaces(ctx context.Context, q *store.ListQuery) (*store.Page[*core.NS], error) {
+func (n *NamespaceTx) ListNamespaces(ctx context.Context, q *store.Query) (*store.Page[*core.NS], error) {
 	names, err := n.q.ListNamespaces(ctx, xsql.ListNamespacesParams{
 		Limit: 10000,
 	})
@@ -70,7 +70,7 @@ func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, erro
 // ListNamespaces lists unique namespaces derived from schemas.
 func (s *Store) ListNamespaces(
 	ctx context.Context,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.NS], error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

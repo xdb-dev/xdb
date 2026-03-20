@@ -149,7 +149,7 @@ func (s *SchemaStoreSuite) testList(t *testing.T) {
 		require.NoError(t, st.CreateSchema(ctx, otherURI, &schema.Def{URI: otherURI}))
 
 		nsURI := core.MustParseURI("xdb://com.example")
-		page, err := st.ListSchemas(ctx, nsURI, nil)
+		page, err := st.ListSchemas(ctx, &store.Query{URI: nsURI})
 		require.NoError(t, err)
 		assert.Equal(t, 3, page.Total)
 		assert.Len(t, page.Items, 3)
@@ -165,7 +165,7 @@ func (s *SchemaStoreSuite) testList(t *testing.T) {
 		otherURI := core.MustParseURI("xdb://com.other/posts")
 		require.NoError(t, st.CreateSchema(ctx, otherURI, &schema.Def{URI: otherURI}))
 
-		page, err := st.ListSchemas(ctx, nil, nil)
+		page, err := st.ListSchemas(ctx, &store.Query{})
 		require.NoError(t, err)
 		assert.Equal(t, 3, page.Total)
 	})

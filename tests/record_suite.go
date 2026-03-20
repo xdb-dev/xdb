@@ -159,7 +159,7 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 		require.NoError(t, st.CreateRecord(ctx, other))
 
 		uri := core.MustParseURI("xdb://com.example/posts")
-		page, err := st.ListRecords(ctx, uri, nil)
+		page, err := st.ListRecords(ctx, &store.Query{URI: uri})
 		require.NoError(t, err)
 		assert.Equal(t, 3, page.Total)
 		assert.Len(t, page.Items, 3)
@@ -173,7 +173,7 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 		require.NoError(t, st.CreateRecord(ctx, core.NewRecord("com.other", "posts", "p1")))
 
 		uri := core.MustParseURI("xdb://com.example")
-		page, err := st.ListRecords(ctx, uri, nil)
+		page, err := st.ListRecords(ctx, &store.Query{URI: uri})
 		require.NoError(t, err)
 		assert.Equal(t, 2, page.Total)
 	})
@@ -251,16 +251,16 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				q := &store.ListQuery{Filter: tt.filter}
-				page, err := st.ListRecords(ctx, uri, q)
+				q := &store.Query{URI: uri, Filter: tt.filter}
+				page, err := st.ListRecords(ctx, q)
 				require.NoError(t, err)
 				assert.Len(t, page.Items, tt.wantLen)
 			})
 		}
 
 		t.Run("invalid filter returns error", func(t *testing.T) {
-			q := &store.ListQuery{Filter: `status ===`}
-			_, err := st.ListRecords(ctx, uri, q)
+			q := &store.Query{URI: uri, Filter: `status ===`}
+			_, err := st.ListRecords(ctx, q)
 			require.Error(t, err)
 		})
 	})
@@ -276,7 +276,7 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/posts")
 
 		tests := []struct {
-			query      *store.ListQuery
+			query      *store.Query
 			name       string
 			wantLen    int
 			wantTotal  int
@@ -284,21 +284,21 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 		}{
 			{
 				name:       "first page",
-				query:      &store.ListQuery{Limit: 2, Offset: 0},
+				query:      &store.Query{URI: uri, Limit: 2, Offset: 0},
 				wantLen:    2,
 				wantTotal:  5,
 				wantOffset: 2,
 			},
 			{
 				name:       "middle page",
-				query:      &store.ListQuery{Limit: 2, Offset: 2},
+				query:      &store.Query{URI: uri, Limit: 2, Offset: 2},
 				wantLen:    2,
 				wantTotal:  5,
 				wantOffset: 4,
 			},
 			{
 				name:       "last page",
-				query:      &store.ListQuery{Limit: 2, Offset: 4},
+				query:      &store.Query{URI: uri, Limit: 2, Offset: 4},
 				wantLen:    1,
 				wantTotal:  5,
 				wantOffset: 0,
@@ -307,7 +307,7 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				page, err := st.ListRecords(ctx, uri, tt.query)
+				page, err := st.ListRecords(ctx, tt.query)
 				require.NoError(t, err)
 				assert.Len(t, page.Items, tt.wantLen)
 				assert.Equal(t, tt.wantTotal, page.Total)

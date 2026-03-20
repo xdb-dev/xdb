@@ -28,11 +28,12 @@ func (s *Store) GetRecord(ctx context.Context, uri *core.URI) (*core.Record, err
 // ListRecords lists records scoped by the given URI.
 func (s *Store) ListRecords(
 	ctx context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.Record], error) {
+	uri := q.URI
+
 	if uri.Schema() != nil {
-		return s.listRecordsBySchema(ctx, uri, q)
+		return s.listRecordsBySchema(ctx, q)
 	}
 
 	// List across all schemas in the namespace.
@@ -51,7 +52,7 @@ func (s *Store) ListRecords(
 		records = append(records, recs...)
 	}
 
-	if q != nil && q.Filter != "" {
+	if q.Filter != "" {
 		f, err := filter.Compile(q.Filter, nil)
 		if err != nil {
 			return nil, err
@@ -72,15 +73,16 @@ func (s *Store) ListRecords(
 // listRecordsBySchema lists records for a single schema.
 func (s *Store) listRecordsBySchema(
 	ctx context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.Record], error) {
+	uri := q.URI
+
 	records, err := s.fetchRecordsBySchema(ctx, uri)
 	if err != nil {
 		return nil, err
 	}
 
-	if q != nil && q.Filter != "" {
+	if q.Filter != "" {
 		f, err := filter.Compile(q.Filter, nil)
 		if err != nil {
 			return nil, err

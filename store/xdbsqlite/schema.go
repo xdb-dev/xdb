@@ -35,7 +35,8 @@ func (s *SchemaTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, e
 	return &def, nil
 }
 
-func (s *SchemaTx) ListSchemas(ctx context.Context, uri *core.URI, q *store.ListQuery) (*store.Page[*schema.Def], error) {
+func (s *SchemaTx) ListSchemas(ctx context.Context, q *store.Query) (*store.Page[*schema.Def], error) {
+	uri := q.URI
 	var ns *string
 	if uri != nil {
 		n := uri.NS().String()
@@ -235,8 +236,7 @@ func (s *Store) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, erro
 // ListSchemas lists schemas, optionally scoped by namespace URI.
 func (s *Store) ListSchemas(
 	ctx context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*schema.Def], error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -246,7 +246,7 @@ func (s *Store) ListSchemas(
 
 	stx := &SchemaTx{q: xsql.NewQueries(tx)}
 
-	res, err := stx.ListSchemas(ctx, uri, q)
+	res, err := stx.ListSchemas(ctx, q)
 	if err != nil {
 		return nil, err
 	}

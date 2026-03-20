@@ -26,8 +26,9 @@ type Page[T any] struct {
 	NextOffset int // 0 means no more pages
 }
 
-// ListQuery holds pagination and filtering parameters for list operations.
-type ListQuery struct {
+// Query holds scope, filtering, and pagination parameters for list operations.
+type Query struct {
+	URI    *core.URI // scope: ns-only or ns+schema
 	Filter string
 	Fields []string
 	Limit  int
@@ -42,9 +43,9 @@ type RecordReader interface {
 	GetRecord(ctx context.Context, uri *core.URI) (*core.Record, error)
 
 	// ListRecords lists records matching the given query.
-	// The URI determines the scope: ns-only lists all records in the namespace,
+	// Query.URI determines the scope: ns-only lists all records in the namespace,
 	// ns+schema lists records for that schema.
-	ListRecords(ctx context.Context, uri *core.URI, q *ListQuery) (*Page[*core.Record], error)
+	ListRecords(ctx context.Context, q *Query) (*Page[*core.Record], error)
 }
 
 // RecordWriter writes records to the store.
@@ -77,8 +78,9 @@ type SchemaReader interface {
 	// Returns [ErrNotFound] if the schema does not exist.
 	GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error)
 
-	// ListSchemas lists schemas, optionally scoped by namespace URI.
-	ListSchemas(ctx context.Context, uri *core.URI, q *ListQuery) (*Page[*schema.Def], error)
+	// ListSchemas lists schemas matching the given query.
+	// Query.URI scopes the listing by namespace.
+	ListSchemas(ctx context.Context, q *Query) (*Page[*schema.Def], error)
 }
 
 // SchemaWriter writes schema definitions to the store.
@@ -110,7 +112,7 @@ type NamespaceReader interface {
 	GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, error)
 
 	// ListNamespaces lists all known namespaces.
-	ListNamespaces(ctx context.Context, q *ListQuery) (*Page[*core.NS], error)
+	ListNamespaces(ctx context.Context, q *Query) (*Page[*core.NS], error)
 }
 
 // Closer is implemented by stores that hold resources requiring cleanup.

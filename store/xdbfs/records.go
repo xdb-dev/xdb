@@ -26,11 +26,12 @@ func (s *Store) GetRecord(_ context.Context, uri *core.URI) (*core.Record, error
 // ListRecords lists records scoped by the given URI.
 func (s *Store) ListRecords(
 	_ context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.Record], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	uri := q.URI
 
 	ns := uri.NS()
 	schemaScope := uri.Schema()
@@ -71,7 +72,7 @@ func (s *Store) ListRecords(
 		records = append(records, recs...)
 	}
 
-	if q != nil && q.Filter != "" {
+	if q.Filter != "" {
 		f, err := filter.Compile(q.Filter, nil)
 		if err != nil {
 			return nil, err

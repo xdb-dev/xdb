@@ -52,12 +52,11 @@ func (s *Store) GetRecord(_ context.Context, uri *core.URI) (*core.Record, error
 // ListRecords lists records scoped by the given URI.
 func (s *Store) ListRecords(
 	_ context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.Record], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return listRecords(s.records, uri, q)
+	return listRecords(s.records, q)
 }
 
 // CreateRecord creates a new record. Returns [store.ErrAlreadyExists] if it exists.
@@ -101,12 +100,11 @@ func (s *Store) GetSchema(_ context.Context, uri *core.URI) (*schema.Def, error)
 // ListSchemas lists schemas, optionally scoped by namespace URI.
 func (s *Store) ListSchemas(
 	_ context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*schema.Def], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return listSchemas(s.schemas, uri, q), nil
+	return listSchemas(s.schemas, q), nil
 }
 
 // CreateSchema creates a new schema definition. Returns [store.ErrAlreadyExists] if it exists.
@@ -150,7 +148,7 @@ func (s *Store) GetNamespace(_ context.Context, uri *core.URI) (*core.NS, error)
 // ListNamespaces lists unique namespaces derived from schemas.
 func (s *Store) ListNamespaces(
 	_ context.Context,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.NS], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -199,10 +197,9 @@ func (tx *txStore) GetRecord(_ context.Context, uri *core.URI) (*core.Record, er
 
 func (tx *txStore) ListRecords(
 	_ context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.Record], error) {
-	return listRecords(tx.store.records, uri, q)
+	return listRecords(tx.store.records, q)
 }
 
 func (tx *txStore) CreateRecord(_ context.Context, record *core.Record) error {
@@ -228,10 +225,9 @@ func (tx *txStore) GetSchema(_ context.Context, uri *core.URI) (*schema.Def, err
 
 func (tx *txStore) ListSchemas(
 	_ context.Context,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*schema.Def], error) {
-	return listSchemas(tx.store.schemas, uri, q), nil
+	return listSchemas(tx.store.schemas, q), nil
 }
 
 func (tx *txStore) CreateSchema(_ context.Context, uri *core.URI, def *schema.Def) error {
@@ -252,7 +248,7 @@ func (tx *txStore) GetNamespace(_ context.Context, uri *core.URI) (*core.NS, err
 
 func (tx *txStore) ListNamespaces(
 	_ context.Context,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.NS], error) {
 	return listNamespaces(tx.store.schemas, q), nil
 }
@@ -276,9 +272,9 @@ func getRecord(
 
 func listRecords(
 	records map[string]*core.Record,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) (*store.Page[*core.Record], error) {
+	uri := q.URI
 	ns := uri.NS()
 	schemaScope := uri.Schema()
 
@@ -293,7 +289,7 @@ func listRecords(
 		matched = append(matched, r)
 	}
 
-	if q != nil && q.Filter != "" {
+	if q.Filter != "" {
 		f, err := filter.Compile(q.Filter, nil)
 		if err != nil {
 			return nil, err
@@ -340,9 +336,9 @@ func getSchema(
 
 func listSchemas(
 	schemas map[string]*schema.Def,
-	uri *core.URI,
-	q *store.ListQuery,
+	q *store.Query,
 ) *store.Page[*schema.Def] {
+	uri := q.URI
 	var matched []*schema.Def
 	for _, def := range schemas {
 		if uri != nil && !def.URI.NS().Equals(uri.NS()) {
@@ -371,7 +367,7 @@ func getNamespace(
 
 func listNamespaces(
 	schemas map[string]*schema.Def,
-	q *store.ListQuery,
+	q *store.Query,
 ) *store.Page[*core.NS] {
 	seen := make(map[string]*core.NS)
 	for _, def := range schemas {
@@ -421,7 +417,7 @@ func deleteFromMap[T any](m map[string]T, key string) error {
 func sortAndPaginate[T any](
 	items []T,
 	keyFn func(T) string,
-	q *store.ListQuery,
+	q *store.Query,
 ) *store.Page[T] {
 	keys := make([]string, len(items))
 	for i, item := range items {

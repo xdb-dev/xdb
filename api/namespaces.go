@@ -58,7 +58,7 @@ type ListNamespacesResponse struct {
 
 // List lists all known namespaces.
 func (s *NamespaceService) List(ctx context.Context, req *ListNamespacesRequest) (*ListNamespacesResponse, error) {
-	q := &store.ListQuery{
+	q := &store.Query{
 		Limit:  req.Limit,
 		Offset: req.Offset,
 	}
