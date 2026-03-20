@@ -153,6 +153,18 @@ func TestGenerate_KV(t *testing.T) {
 			wantParams: []any{"status", "active"},
 		},
 		{
+			name:       "boolean equality",
+			expr:       `active == true`,
+			wantSQL:    `(_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS REAL) = ?))`,
+			wantParams: []any{"active", true},
+		},
+		{
+			name:       "boolean in compound",
+			expr:       `active == true && age > 30`,
+			wantSQL:    `((_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS REAL) = ?)) AND (_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS REAL) > ?)))`,
+			wantParams: []any{"active", true, "age", int64(30)},
+		},
+		{
 			name:       "compound AND",
 			expr:       `status == "active" && age > 30`,
 			wantSQL:    `((_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS TEXT) = ?)) AND (_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS REAL) > ?)))`,

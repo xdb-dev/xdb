@@ -150,6 +150,32 @@ func (s *Store) DeleteSchema(_ context.Context, uri *core.URI) error {
 	return nil
 }
 
+// DeleteSchemaRecords deletes all record files belonging to a schema.
+func (s *Store) DeleteSchemaRecords(_ context.Context, uri *core.URI) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	dir := s.schemaDir(uri)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("fsstore: read schema dir: %w", err)
+	}
+
+	for _, e := range entries {
+		if e.Name() == schemaFileName || e.IsDir() {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dir, e.Name())); err != nil {
+			return fmt.Errorf("fsstore: delete record: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (s *Store) readSchema(uri *core.URI) (*schema.Def, error) {
 	path := s.schemaPath(uri)
 	def, err := readSchemaFile(path)

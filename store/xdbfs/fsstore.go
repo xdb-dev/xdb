@@ -66,10 +66,7 @@ func New(root string, opts Options) (*Store, error) {
 		return nil, fmt.Errorf("fsstore: create root directory: %w", err)
 	}
 
-	enc := xdbjson.NewEncoder(xdbjson.Options{
-		IncludeNS:     true,
-		IncludeSchema: true,
-	})
+	enc := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
 
 	return &Store{
 		root: root,

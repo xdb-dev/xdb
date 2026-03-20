@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/urfave/cli/v3"
@@ -73,11 +74,11 @@ func (a *App) recordCreate(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	resp, err := a.records.Create(ctx, &api.CreateRecordRequest{
+	var resp api.CreateRecordResponse
+	if err := a.client.Call(ctx, "records.create", &api.CreateRecordRequest{
 		URI:  uri,
 		Data: data,
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
@@ -85,7 +86,7 @@ func (a *App) recordCreate(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	return a.formatRecord(cmd, resp.Data)
+	return formatRawJSON(cmd, resp.Data)
 }
 
 func (a *App) recordGet(ctx context.Context, cmd *cli.Command) error {
@@ -94,15 +95,15 @@ func (a *App) recordGet(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	resp, err := a.records.Get(ctx, &api.GetRecordRequest{
+	var resp api.GetRecordResponse
+	if err := a.client.Call(ctx, "records.get", &api.GetRecordRequest{
 		URI:    uri,
 		Fields: parseFields(cmd.String("fields")),
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
-	return a.formatRecord(cmd, resp.Data)
+	return formatRawJSON(cmd, resp.Data)
 }
 
 func (a *App) recordList(ctx context.Context, cmd *cli.Command) error {
@@ -111,22 +112,22 @@ func (a *App) recordList(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	resp, err := a.records.List(ctx, &api.ListRecordsRequest{
+	var resp api.ListRecordsResponse
+	if err := a.client.Call(ctx, "records.list", &api.ListRecordsRequest{
 		URI:    uri,
 		Filter: cmd.String("filter"),
 		Fields: parseFields(cmd.String("fields")),
 		Limit:  int(cmd.Int("limit")),
 		Offset: int(cmd.Int("offset")),
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
 	items := make([]any, len(resp.Items))
-	for i, rec := range resp.Items {
-		m, mapErr := a.recordToMap(rec)
-		if mapErr != nil {
-			return mapErr
+	for i, raw := range resp.Items {
+		var m map[string]any
+		if jsonErr := json.Unmarshal(raw, &m); jsonErr != nil {
+			return jsonErr
 		}
 
 		items[i] = m
@@ -150,11 +151,11 @@ func (a *App) recordUpdate(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	resp, err := a.records.Update(ctx, &api.UpdateRecordRequest{
+	var resp api.UpdateRecordResponse
+	if err := a.client.Call(ctx, "records.update", &api.UpdateRecordRequest{
 		URI:  uri,
 		Data: data,
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
@@ -162,7 +163,7 @@ func (a *App) recordUpdate(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	return a.formatRecord(cmd, resp.Data)
+	return formatRawJSON(cmd, resp.Data)
 }
 
 func (a *App) recordUpsert(ctx context.Context, cmd *cli.Command) error {
@@ -176,11 +177,11 @@ func (a *App) recordUpsert(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	resp, err := a.records.Upsert(ctx, &api.UpsertRecordRequest{
+	var resp api.UpsertRecordResponse
+	if err := a.client.Call(ctx, "records.upsert", &api.UpsertRecordRequest{
 		URI:  uri,
 		Data: data,
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
@@ -188,7 +189,7 @@ func (a *App) recordUpsert(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	return a.formatRecord(cmd, resp.Data)
+	return formatRawJSON(cmd, resp.Data)
 }
 
 func (a *App) recordDelete(ctx context.Context, cmd *cli.Command) error {
@@ -197,11 +198,10 @@ func (a *App) recordDelete(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	_, deleteErr := a.records.Delete(ctx, &api.DeleteRecordRequest{
+	if err := a.client.Call(ctx, "records.delete", &api.DeleteRecordRequest{
 		URI: uri,
-	})
-	if deleteErr != nil {
-		return deleteErr
+	}, nil); err != nil {
+		return err
 	}
 
 	if cmd.Bool("quiet") {

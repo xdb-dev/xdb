@@ -106,6 +106,9 @@ func (s *ModeStoreSuite) testStrict(t *testing.T) {
 
 		err := st.CreateRecord(ctx, r)
 		require.ErrorIs(t, err, store.ErrSchemaViolation)
+
+		// Error should include field-level detail.
+		assert.Contains(t, err.Error(), "title")
 	})
 
 	t.Run("rejects on update", func(t *testing.T) {

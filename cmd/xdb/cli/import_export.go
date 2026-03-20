@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/urfave/cli/v3"
 
@@ -59,7 +58,7 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 		if openErr != nil {
 			return fmt.Errorf("open file: %w", openErr)
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		reader = f
 	} else if !isTerminal(os.Stdin) {
@@ -78,43 +77,25 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 			continue
 		}
 
-		var obj map[string]any
-		if jsonErr := json.Unmarshal(line, &obj); jsonErr != nil {
-			return fmt.Errorf("line %d: invalid JSON: %w", imported+1, jsonErr)
+		recordURI, err := extractRecordURI(uri, line, imported+1)
+		if err != nil {
+			return err
 		}
-
-		id, ok := obj["_id"]
-		if !ok {
-			id, ok = obj["id"]
-		}
-
-		if !ok {
-			return fmt.Errorf("line %d: missing _id or id field", imported+1)
-		}
-
-		idStr := fmt.Sprintf("%v", id)
-		if strings.ContainsAny(idStr, "/?#%") || strings.Contains(idStr, "..") {
-			return fmt.Errorf("line %d: invalid id %q (contains forbidden characters)", imported+1, idStr)
-		}
-
-		recordURI := fmt.Sprintf("%s/%s", uri, idStr)
 
 		if createOnly {
-			_, createErr := a.records.Create(ctx, &api.CreateRecordRequest{
+			err = a.client.Call(ctx, "records.create", &api.CreateRecordRequest{
 				URI:  recordURI,
 				Data: json.RawMessage(line),
-			})
-			if createErr != nil {
-				return fmt.Errorf("line %d: %w", imported+1, createErr)
-			}
+			}, nil)
 		} else {
-			_, upsertErr := a.records.Upsert(ctx, &api.UpsertRecordRequest{
+			err = a.client.Call(ctx, "records.upsert", &api.UpsertRecordRequest{
 				URI:  recordURI,
 				Data: json.RawMessage(line),
-			})
-			if upsertErr != nil {
-				return fmt.Errorf("line %d: %w", imported+1, upsertErr)
-			}
+			}, nil)
+		}
+
+		if err != nil {
+			return fmt.Errorf("line %d: %w", imported+1, err)
 		}
 
 		imported++
@@ -143,20 +124,20 @@ func (a *App) exportRecords(ctx context.Context, cmd *cli.Command) error {
 	offset := 0
 
 	for {
-		resp, listErr := a.records.List(ctx, &api.ListRecordsRequest{
+		var resp api.ListRecordsResponse
+		if listErr := a.client.Call(ctx, "records.list", &api.ListRecordsRequest{
 			URI:    uri,
 			Fields: parseFields(cmd.String("fields")),
 			Limit:  100,
 			Offset: offset,
-		})
-		if listErr != nil {
+		}, &resp); listErr != nil {
 			return listErr
 		}
 
-		for _, rec := range resp.Items {
-			m, mapErr := a.recordToMap(rec)
-			if mapErr != nil {
-				return mapErr
+		for _, raw := range resp.Items {
+			var m map[string]any
+			if jsonErr := json.Unmarshal(raw, &m); jsonErr != nil {
+				return jsonErr
 			}
 
 			if fmtErr := f.FormatOne(os.Stdout, m); fmtErr != nil {
@@ -172,4 +153,25 @@ func (a *App) exportRecords(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	return nil
+}
+
+// extractRecordURI parses a JSON line, extracts the id, and builds a record URI.
+func extractRecordURI(baseURI string, line []byte, lineNum int) (string, error) {
+	var obj map[string]any
+	if err := json.Unmarshal(line, &obj); err != nil {
+		return "", fmt.Errorf("line %d: invalid JSON: %w", lineNum, err)
+	}
+
+	id, ok := obj["_id"]
+	if !ok {
+		id, ok = obj["id"]
+	}
+
+	if !ok {
+		return "", fmt.Errorf("line %d: missing _id or id field", lineNum)
+	}
+
+	idStr := fmt.Sprintf("%v", id)
+
+	return fmt.Sprintf("%s/%s", baseURI, idStr), nil
 }

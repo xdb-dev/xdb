@@ -10,17 +10,21 @@ XDB has a built-in type system that maps to both Go types and database-specific 
 
 ## Supported Types
 
-| Type ID     | Go Type             | PostgreSQL         | SQLite    | Description                  |
-| ----------- | ------------------- | ------------------ | --------- | ---------------------------- |
-| `STRING`    | `string`            | `TEXT`             | `TEXT`    | UTF-8 string                 |
-| `INTEGER`   | `int64`             | `BIGINT`           | `INTEGER` | 64-bit signed integer        |
-| `UNSIGNED`  | `uint64`            | `BIGINT`           | `INTEGER` | 64-bit unsigned integer      |
-| `FLOAT`     | `float64`           | `DOUBLE PRECISION` | `REAL`    | 64-bit floating point        |
-| `BOOLEAN`   | `bool`              | `BOOLEAN`          | `INTEGER` | True or false                |
-| `TIME`      | `time.Time`         | `TIMESTAMPTZ`      | `INTEGER` | Date and time in UTC         |
-| `JSON`      | `json.RawMessage`   | `JSONB`            | `TEXT`    | Arbitrary JSON data          |
-| `BYTES`     | `[]byte`            | `BYTEA`            | `BLOB`    | Binary data                  |
-| `ARRAY`     | `[]*Value`          | `[]T`              | `TEXT`    | Array of typed values        |
+The canonical user-facing type names are lowercase. Internally, type identifiers are stored as uppercase constants (`TID`), but `TID.Lower()` returns the lowercase form for JSON output and CLI display.
+
+| Type       | Go Type           | PostgreSQL         | SQLite    | Description             |
+| ---------- | ----------------- | ------------------ | --------- | ----------------------- |
+| `string`   | `string`          | `TEXT`             | `TEXT`    | UTF-8 string            |
+| `integer`  | `int64`           | `BIGINT`           | `INTEGER` | 64-bit signed integer   |
+| `unsigned` | `uint64`          | `BIGINT`           | `INTEGER` | 64-bit unsigned integer |
+| `float`    | `float64`         | `DOUBLE PRECISION` | `REAL`    | 64-bit floating point   |
+| `boolean`  | `bool`            | `BOOLEAN`          | `INTEGER` | True or false           |
+| `time`     | `time.Time`       | `TIMESTAMPTZ`      | `INTEGER` | Date and time in UTC    |
+| `json`     | `json.RawMessage` | `JSONB`            | `TEXT`    | Arbitrary JSON data     |
+| `bytes`    | `[]byte`          | `BYTEA`            | `BLOB`    | Binary data             |
+| `array`    | `[]*Value`        | `[]T`              | `TEXT`    | Array of typed values   |
+
+The ordered list of user-facing types is available as `core.ValueTypes`.
 
 ## Type Identifiers
 

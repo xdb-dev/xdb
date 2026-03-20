@@ -12,7 +12,7 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-var defaultDecoder = xdbjson.NewDefaultDecoder("com.example", "users")
+var defaultDecoder = xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("users"))
 
 func TestDecoder_BasicDecoding(t *testing.T) {
 	data := []byte(`{"_id":"123","name":"John Doe","email":"john@example.com"}`)
@@ -33,7 +33,7 @@ func TestDecoder_BasicDecoding(t *testing.T) {
 func TestDecoder_WithMetadata(t *testing.T) {
 	data := []byte(`{"_id":"123","_ns":"custom.ns","_schema":"custom_schema","name":"John Doe"}`)
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{})
+	decoder := xdbjson.NewDecoder()
 
 	record, err := decoder.ToRecord(data)
 	require.NoError(t, err)
@@ -47,11 +47,11 @@ func TestDecoder_WithMetadata(t *testing.T) {
 func TestDecoder_CustomFieldNames(t *testing.T) {
 	data := []byte(`{"userId":"123","namespace":"com.custom","type":"accounts","name":"John"}`)
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{
-		IDField:     "userId",
-		NSField:     "namespace",
-		SchemaField: "type",
-	})
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithIDField("userId"),
+		xdbjson.WithNSField("namespace"),
+		xdbjson.WithSchemaField("type"),
+	)
 
 	record, err := decoder.ToRecord(data)
 	require.NoError(t, err)
@@ -238,35 +238,35 @@ func TestDecoder_FallbackToOptions(t *testing.T) {
 	tests := []struct {
 		name       string
 		json       string
-		opts       xdbjson.Options
+		opts       []xdbjson.Option
 		expectedNS string
 		expectedSc string
 	}{
 		{
 			name:       "ns_from_options",
 			json:       `{"_id":"123","_schema":"orders"}`,
-			opts:       xdbjson.Options{NS: "default.ns"},
+			opts:       []xdbjson.Option{xdbjson.WithNS("default.ns")},
 			expectedNS: "default.ns",
 			expectedSc: "orders",
 		},
 		{
 			name:       "schema_from_options",
 			json:       `{"_id":"123","_ns":"custom.ns"}`,
-			opts:       xdbjson.Options{Schema: "default_schema"},
+			opts:       []xdbjson.Option{xdbjson.WithSchema("default_schema")},
 			expectedNS: "custom.ns",
 			expectedSc: "default_schema",
 		},
 		{
 			name:       "both_from_options",
 			json:       `{"_id":"123"}`,
-			opts:       xdbjson.Options{NS: "default.ns", Schema: "default_schema"},
+			opts:       []xdbjson.Option{xdbjson.WithNS("default.ns"), xdbjson.WithSchema("default_schema")},
 			expectedNS: "default.ns",
 			expectedSc: "default_schema",
 		},
 		{
 			name:       "json_overrides_options",
 			json:       `{"_id":"123","_ns":"json.ns","_schema":"json_schema"}`,
-			opts:       xdbjson.Options{NS: "default.ns", Schema: "default_schema"},
+			opts:       []xdbjson.Option{xdbjson.WithNS("default.ns"), xdbjson.WithSchema("default_schema")},
 			expectedNS: "json.ns",
 			expectedSc: "json_schema",
 		},
@@ -274,7 +274,7 @@ func TestDecoder_FallbackToOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			decoder := xdbjson.NewDecoder(tt.opts)
+			decoder := xdbjson.NewDecoder(tt.opts...)
 
 			record, err := decoder.ToRecord([]byte(tt.json))
 			require.NoError(t, err)
@@ -291,15 +291,12 @@ func TestDecoder_RoundTrip(t *testing.T) {
 		Set("score", 100).
 		Set("address.city", "Boston")
 
-	encoder := xdbjson.NewEncoder(xdbjson.Options{
-		IncludeNS:     true,
-		IncludeSchema: true,
-	})
+	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
 
 	data, err := encoder.FromRecord(original)
 	require.NoError(t, err)
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{})
+	decoder := xdbjson.NewDecoder()
 
 	decoded, err := decoder.ToRecord(data)
 	require.NoError(t, err)
@@ -351,7 +348,7 @@ func TestDecoder_ErrorEmptyID(t *testing.T) {
 func TestDecoder_ErrorMissingNamespace(t *testing.T) {
 	data := []byte(`{"_id":"123","_schema":"users","name":"John"}`)
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{})
+	decoder := xdbjson.NewDecoder()
 
 	record, err := decoder.ToRecord(data)
 	assert.Error(t, err)
@@ -362,7 +359,7 @@ func TestDecoder_ErrorMissingNamespace(t *testing.T) {
 func TestDecoder_ErrorMissingSchema(t *testing.T) {
 	data := []byte(`{"_id":"123","_ns":"com.example","name":"John"}`)
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{})
+	decoder := xdbjson.NewDecoder()
 
 	record, err := decoder.ToRecord(data)
 	assert.Error(t, err)
@@ -410,9 +407,11 @@ func TestDecoder_WithSchema_AllTypes(t *testing.T) {
 		{"bytes", `{"_id":"1","data":"SGVsbG8="}`, "data", core.TIDBytes},
 	}
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{
-		NS: "com.example", Schema: "test", Def: def,
-	})
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("test"),
+		xdbjson.WithDef(def),
+	)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -439,16 +438,11 @@ func TestDecoder_WithSchema_RoundTrip(t *testing.T) {
 		Set("count", int64(42)).
 		Set("data", []byte("Hello"))
 
-	encoder := xdbjson.NewEncoder(xdbjson.Options{
-		IncludeNS:     true,
-		IncludeSchema: true,
-	})
+	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
 	data, err := encoder.FromRecord(original)
 	require.NoError(t, err)
 
-	decoder := xdbjson.NewDecoder(xdbjson.Options{
-		Def: def,
-	})
+	decoder := xdbjson.NewDecoder(xdbjson.WithDef(def))
 	decoded, err := decoder.ToRecord(data)
 	require.NoError(t, err)
 
@@ -462,7 +456,7 @@ func TestDecoder_WithSchema_RoundTrip(t *testing.T) {
 }
 
 func TestDecoder_WithoutSchema_NoConversion(t *testing.T) {
-	decoder := xdbjson.NewDefaultDecoder("com.example", "events")
+	decoder := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("events"))
 
 	data := []byte(`{"_id": "123", "created_at": "2025-01-26T10:00:00Z"}`)
 	record, err := decoder.ToRecord(data)

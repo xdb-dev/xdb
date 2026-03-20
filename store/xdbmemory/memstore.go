@@ -7,6 +7,7 @@ package xdbmemory
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"sort"
 	"sync"
@@ -63,6 +64,11 @@ func (s *Store) ListRecords(
 func (s *Store) CreateRecord(_ context.Context, record *core.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if err := validateAndEvolve(s.schemas, record); err != nil {
+		return err
+	}
+
 	return createRecord(s.records, record)
 }
 
@@ -70,6 +76,11 @@ func (s *Store) CreateRecord(_ context.Context, record *core.Record) error {
 func (s *Store) UpdateRecord(_ context.Context, record *core.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if err := validateAndEvolve(s.schemas, record); err != nil {
+		return err
+	}
+
 	return updateRecord(s.records, record)
 }
 
@@ -77,6 +88,11 @@ func (s *Store) UpdateRecord(_ context.Context, record *core.Record) error {
 func (s *Store) UpsertRecord(_ context.Context, record *core.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if err := validateAndEvolve(s.schemas, record); err != nil {
+		return err
+	}
+
 	s.records[record.URI().Path()] = record
 	return nil
 }
@@ -134,6 +150,14 @@ func (s *Store) DeleteSchema(_ context.Context, uri *core.URI) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return deleteFromMap(s.schemas, uri.Path())
+}
+
+// DeleteSchemaRecords deletes all records belonging to a schema.
+func (s *Store) DeleteSchemaRecords(_ context.Context, uri *core.URI) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	deleteRecordsBySchema(s.records, uri)
+	return nil
 }
 
 // --- Namespaces ---
@@ -203,14 +227,23 @@ func (tx *txStore) ListRecords(
 }
 
 func (tx *txStore) CreateRecord(_ context.Context, record *core.Record) error {
+	if err := validateAndEvolve(tx.store.schemas, record); err != nil {
+		return err
+	}
 	return createRecord(tx.store.records, record)
 }
 
 func (tx *txStore) UpdateRecord(_ context.Context, record *core.Record) error {
+	if err := validateAndEvolve(tx.store.schemas, record); err != nil {
+		return err
+	}
 	return updateRecord(tx.store.records, record)
 }
 
 func (tx *txStore) UpsertRecord(_ context.Context, record *core.Record) error {
+	if err := validateAndEvolve(tx.store.schemas, record); err != nil {
+		return err
+	}
 	tx.store.records[record.URI().Path()] = record
 	return nil
 }
@@ -242,6 +275,11 @@ func (tx *txStore) DeleteSchema(_ context.Context, uri *core.URI) error {
 	return deleteFromMap(tx.store.schemas, uri.Path())
 }
 
+func (tx *txStore) DeleteSchemaRecords(_ context.Context, uri *core.URI) error {
+	deleteRecordsBySchema(tx.store.records, uri)
+	return nil
+}
+
 func (tx *txStore) GetNamespace(_ context.Context, uri *core.URI) (*core.NS, error) {
 	return getNamespace(tx.store.schemas, uri)
 }
@@ -255,9 +293,82 @@ func (tx *txStore) ListNamespaces(
 
 func (tx *txStore) Close() error { return nil }
 
+// --- Validation ---
+
+// validateAndEvolve validates record tuples against the schema.
+// For strict schemas, unknown fields and type mismatches are rejected.
+// For dynamic schemas, unknown fields are inferred and added to the schema.
+// For flexible schemas (or no schema), validation is skipped.
+func validateAndEvolve(
+	schemas map[string]*schema.Def,
+	record *core.Record,
+) error {
+	def, ok := schemas[record.SchemaURI().Path()]
+	if !ok || def.Mode == schema.ModeFlexible {
+		return nil
+	}
+
+	switch def.Mode {
+	case schema.ModeStrict:
+		if err := schema.ValidateTuples(def, record.Tuples()); err != nil {
+			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+		}
+
+	case schema.ModeDynamic:
+		// Clone the def before mutating to avoid aliasing the cached pointer.
+		evolved := &schema.Def{
+			URI:    def.URI,
+			Mode:   def.Mode,
+			Fields: make(map[string]schema.FieldDef, len(def.Fields)),
+		}
+		for k, v := range def.Fields {
+			evolved.Fields[k] = v
+		}
+
+		changed := false
+		for _, tuple := range record.Tuples() {
+			attr := tuple.Attr().String()
+			field, known := evolved.Fields[attr]
+
+			if !known {
+				evolved.Fields[attr] = schema.FieldDef{
+					Type: tuple.Value().Type().ID(),
+				}
+				changed = true
+				continue
+			}
+
+			if field.Type != tuple.Value().Type().ID() {
+				return fmt.Errorf(
+					"%w: field %q: expected %s, got %s",
+					store.ErrSchemaViolation,
+					attr,
+					field.Type,
+					tuple.Value().Type().ID(),
+				)
+			}
+		}
+
+		if changed {
+			schemas[record.SchemaURI().Path()] = evolved
+		}
+	}
+
+	return nil
+}
+
 // --- Lock-free helpers ---
 // These contain the actual logic. Both Store (under lock) and txStore
 // (parent lock already held) delegate to these.
+
+func deleteRecordsBySchema(records map[string]*core.Record, uri *core.URI) {
+	prefix := uri.NS().String() + "/" + uri.Schema().String() + "/"
+	for key := range records {
+		if len(key) > len(prefix) && key[:len(prefix)] == prefix {
+			delete(records, key)
+		}
+	}
+}
 
 func getRecord(
 	records map[string]*core.Record,

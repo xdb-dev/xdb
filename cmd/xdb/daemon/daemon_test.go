@@ -92,6 +92,43 @@ func TestDaemon_StartStop(t *testing.T) {
 	}
 }
 
+func TestDaemon_ContextCancellation(t *testing.T) {
+	socketPath := filepath.Join(t.TempDir(), "xdb.sock")
+
+	d := daemon.New(daemon.Config{
+		SocketPath: socketPath,
+		Version:    "test-1.0.0",
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- d.Start(ctx, xdbmemory.New())
+	}()
+
+	// Wait for socket to appear.
+	require.Eventually(t, func() bool {
+		conn, err := net.Dial("unix", socketPath)
+		if err != nil {
+			return false
+		}
+		conn.Close()
+		return true
+	}, 2*time.Second, 50*time.Millisecond, "socket never became available")
+
+	// Cancel context — this simulates SIGTERM triggering cancel().
+	cancel()
+
+	// Start should return promptly.
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(3 * time.Second):
+		t.Fatal("daemon did not stop after context cancellation")
+	}
+}
+
 func TestDaemon_Status_Stopped(t *testing.T) {
 	socketPath := filepath.Join(t.TempDir(), "xdb.sock")
 

@@ -47,3 +47,15 @@ func TestBatch(t *testing.T) {
 		return xdbmemory.New()
 	}).Run(t)
 }
+
+func TestModes(t *testing.T) {
+	tests.NewModeStoreSuite(func() store.Store {
+		return xdbmemory.New()
+	}).Run(t)
+}
+
+func TestCascade(t *testing.T) {
+	tests.NewCascadeStoreSuite(func() store.Store {
+		return xdbmemory.New()
+	}).Run(t)
+}

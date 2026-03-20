@@ -227,3 +227,9 @@ func (s *Store) DeleteSchema(ctx context.Context, uri *core.URI) error {
 
 	return nil
 }
+
+// DeleteSchemaRecords is a no-op for Redis because [DeleteSchema]
+// already removes all records belonging to the schema.
+func (s *Store) DeleteSchemaRecords(_ context.Context, _ *core.URI) error {
+	return nil
+}

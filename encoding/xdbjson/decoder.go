@@ -11,21 +11,14 @@ import (
 
 // Decoder converts JSON to XDB records.
 type Decoder struct {
-	opts Options
+	opts options
 }
 
-// NewDecoder creates a decoder with custom options.
-func NewDecoder(opts Options) *Decoder {
-	return &Decoder{opts: opts.withDefaults()}
-}
-
-// NewDefaultDecoder creates a decoder with default options.
-// NS and Schema must be provided as they are required for creating records.
-func NewDefaultDecoder(ns, schema string) *Decoder {
-	opts := DefaultOptions()
-	opts.NS = ns
-	opts.Schema = schema
-	return NewDecoder(opts)
+// NewDecoder creates a [Decoder] with functional options.
+//
+//	dec := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("posts"))
+func NewDecoder(opts ...Option) *Decoder {
+	return &Decoder{opts: applyOptions(opts)}
 }
 
 // ToRecord converts JSON bytes to a new core.Record.
@@ -73,7 +66,7 @@ func (d *Decoder) ToExistingRecord(data []byte, record *core.Record) error {
 }
 
 func (d *Decoder) extractID(m map[string]any) (string, error) {
-	v, ok := m[d.opts.IDField]
+	v, ok := m[d.opts.idField]
 	if !ok {
 		return "", ErrMissingID
 	}
@@ -91,21 +84,21 @@ func (d *Decoder) extractID(m map[string]any) (string, error) {
 }
 
 func (d *Decoder) extractNS(m map[string]any) string {
-	if v, ok := m[d.opts.NSField]; ok {
+	if v, ok := m[d.opts.nsField]; ok {
 		if ns, ok := v.(string); ok {
 			return ns
 		}
 	}
-	return d.opts.NS
+	return d.opts.ns
 }
 
 func (d *Decoder) extractSchema(m map[string]any) string {
-	if v, ok := m[d.opts.SchemaField]; ok {
+	if v, ok := m[d.opts.schemaField]; ok {
 		if schema, ok := v.(string); ok {
 			return schema
 		}
 	}
-	return d.opts.Schema
+	return d.opts.schema
 }
 
 func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
@@ -117,8 +110,8 @@ func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
 			continue
 		}
 		if value != nil {
-			if d.opts.Def != nil {
-				if field, ok := d.opts.Def.Fields[attr]; ok {
+			if d.opts.def != nil {
+				if field, ok := d.opts.def.Fields[attr]; ok {
 					value = convertToType(value, field.Type)
 				}
 			}
@@ -154,9 +147,9 @@ func convertToType(value any, fieldType core.TID) any {
 }
 
 func (d *Decoder) isMetadataField(attr string) bool {
-	return attr == d.opts.IDField ||
-		attr == d.opts.NSField ||
-		attr == d.opts.SchemaField
+	return attr == d.opts.idField ||
+		attr == d.opts.nsField ||
+		attr == d.opts.schemaField
 }
 
 func flatten(m map[string]any, prefix string, result map[string]any) {

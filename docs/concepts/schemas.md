@@ -56,9 +56,9 @@ Only declared fields are accepted. Values must match the declared type. Unknown 
     "uri": "xdb://com.example/users",
     "mode": "strict",
     "fields": {
-        "name":  { "type": "STRING",  "required": true  },
-        "email": { "type": "STRING",  "required": true  },
-        "age":   { "type": "INTEGER", "required": false }
+        "name":  { "type": "string",  "required": true  },
+        "email": { "type": "string",  "required": true  },
+        "age":   { "type": "integer", "required": false }
     }
 }
 ```

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/urfave/cli/v3"
@@ -35,13 +36,18 @@ func (a *App) batchExecute(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("batch requires a payload (--json, --file, or stdin)")
 	}
 
-	resp, err := a.batch.Execute(ctx, &api.ExecuteBatchRequest{
+	var resp json.RawMessage
+	if err := a.client.Call(ctx, "batch.execute", &api.ExecuteBatchRequest{
 		Operations: data,
 		DryRun:     cmd.Bool("dry-run"),
-	})
-	if err != nil {
+	}, &resp); err != nil {
 		return err
 	}
 
-	return formatOne(cmd, resp)
+	var m map[string]any
+	if jsonErr := json.Unmarshal(resp, &m); jsonErr != nil {
+		return jsonErr
+	}
+
+	return formatOne(cmd, m)
 }

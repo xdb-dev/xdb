@@ -3,6 +3,7 @@ package xdbsqlite
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -58,7 +59,7 @@ func (s *Store) validateAndEvolve(
 // Unknown fields and type mismatches are rejected.
 func validateStrict(def *schema.Def, tuples []*core.Tuple) error {
 	if err := schema.ValidateTuples(def, tuples); err != nil {
-		return store.ErrSchemaViolation
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 	}
 	return nil
 }

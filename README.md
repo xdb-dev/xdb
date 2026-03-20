@@ -98,16 +98,17 @@ Attribute:  xdb://com.example/posts/123-456-789#author.id
 
 ## Supported Types
 
-| Type      | PostgreSQL       | SQLite  | Description                  |
-| --------- | ---------------- | ------- | ---------------------------- |
-| String    | TEXT             | TEXT    | UTF-8 string                 |
-| Integer   | BIGINT           | INTEGER | 64-bit signed integer        |
-| Float     | DOUBLE PRECISION | REAL    | 64-bit floating point number |
-| Boolean   | BOOLEAN          | INTEGER | True or False                |
-| Timestamp | TIMESTAMPZ       | INTEGER | Date and time in UTC         |
-| JSON      | JSONB            | TEXT    | JSON data type               |
-| Bytes     | BYTEA            | BLOB    | Binary data                  |
-| Array<T>  | []T              | TEXT    | Array of T                   |
+| Type       | PostgreSQL         | SQLite    | Description                  |
+| ---------- | ------------------ | --------- | ---------------------------- |
+| `string`   | `TEXT`             | `TEXT`    | UTF-8 string                 |
+| `integer`  | `BIGINT`           | `INTEGER` | 64-bit signed integer        |
+| `unsigned` | `BIGINT`           | `INTEGER` | 64-bit unsigned integer      |
+| `float`    | `DOUBLE PRECISION` | `REAL`    | 64-bit floating point        |
+| `boolean`  | `BOOLEAN`          | `INTEGER` | True or false                |
+| `time`     | `TIMESTAMPTZ`      | `INTEGER` | Date and time in UTC         |
+| `json`     | `JSONB`            | `TEXT`    | Arbitrary JSON data          |
+| `bytes`    | `BYTEA`            | `BLOB`    | Binary data                  |
+| `array`    | `[]T`              | `TEXT`    | Array of typed values        |
 
 ## Getting Started
 
@@ -148,7 +149,7 @@ xdb get xdb://com.example/posts/post-123
 xdb ls xdb://com.example/posts
 
 # Filter records
-xdb ls xdb://com.example/posts --filter "title~Hello"
+xdb ls xdb://com.example/posts --filter 'title.contains("Hello")'
 
 # Remove record
 xdb rm xdb://com.example/posts/post-123
@@ -187,18 +188,18 @@ xdb ls xdb://com.example/users --limit 10 --offset 20
 # List all (default limit is 100)
 xdb ls xdb://com.example
 
-# Filter records by attribute
-xdb ls xdb://com.example/users --filter "age>30"
-xdb ls xdb://com.example/users --filter "name=alice"
+# Filter records (CEL expressions)
+xdb ls xdb://com.example/users --filter 'age > 30'
+xdb ls xdb://com.example/users --filter 'name == "alice"'
 
-# Multiple filters (AND logic)
-xdb ls xdb://com.example/users --filter "age>=25" --filter "status!=inactive"
+# Compound filters
+xdb ls xdb://com.example/users --filter 'age >= 25 && status != "inactive"'
 
-# Contains filter
-xdb ls xdb://com.example/posts --filter "title~hello"
+# String functions
+xdb ls xdb://com.example/posts --filter 'title.contains("hello")'
 
 # Combine filters with pagination
-xdb ls xdb://com.example/users --filter "age>30" --limit 10
+xdb ls xdb://com.example/users --filter 'age > 30' --limit 10
 ```
 
 `ls` lists namespaces, schemas, or records depending on the URI. If no URI is provided, it lists all namespaces. Filters are only applied when listing records.
@@ -207,7 +208,7 @@ xdb ls xdb://com.example/users --filter "age>30" --limit 10
 
 - `--limit N`: Maximum number of results to return (default: 100)
 - `--offset N`: Number of results to skip (default: 0)
-- `--filter EXPR`: Filter records by attribute (repeatable). Supported operators: `=`, `!=`, `>`, `>=`, `<`, `<=`, `~` (contains). Multiple filters are combined with AND logic. Filtering is applied before pagination.
+- `--filter EXPR`: CEL filter expression ([AIP-160](https://google.aip.dev/160)). Operators: `==`, `!=`, `>`, `>=`, `<`, `<=`, `&&`, `||`, `!`, `in`. Functions: `.contains()`, `.startsWith()`, `.endsWith()`, `size()`.
 
 #### Get
 
@@ -260,8 +261,8 @@ xdb remove xdb://com.example/posts/post-123
 # Remove without confirmation
 xdb rm xdb://com.example/posts/post-123 --force
 
-# Remove schema
-xdb rm xdb://com.example/posts --force
+# Remove schema and all its records
+xdb rm xdb://com.example/posts --force --cascade
 ```
 
 `remove` (aliases: `rm`, `delete`) deletes a Record, Attribute, or Schema at the given URI.
@@ -269,6 +270,7 @@ xdb rm xdb://com.example/posts --force
 **Flags:**
 
 - `--force`, `-f`: Skip confirmation prompt
+- `--cascade`: Delete schema and all its records (schema delete only)
 
 #### Daemon
 

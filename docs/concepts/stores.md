@@ -51,6 +51,7 @@ type SchemaWriter interface {
     CreateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error
     UpdateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error
     DeleteSchema(ctx context.Context, uri *core.URI) error
+    DeleteSchemaRecords(ctx context.Context, uri *core.URI) error
 }
 ```
 
@@ -107,6 +108,7 @@ The service layer (planned) will implement **patch semantics** on top of `Update
 | `CreateSchema` | `ErrAlreadyExists` | Creates schema | Insert only — rejects duplicates |
 | `UpdateSchema` | Full replace | `ErrNotFound` | Replaces the schema definition |
 | `DeleteSchema` | Deletes schema | `ErrNotFound` | Remove by URI |
+| `DeleteSchemaRecords` | Deletes all records | No-op if none exist | Drop backing tables/records |
 
 ### Namespace Operations
 
@@ -165,11 +167,11 @@ type Page[T any] struct {
 
 All errors are sentinel values — use `errors.Is(err, store.ErrNotFound)` to check.
 
-> **Note:** `ErrSchemaViolation` is currently only enforced by schema-aware backends (xdbsqlite). Other backends (xdbmemory, xdbfs, xdbredis) store data without schema validation — the service layer will enforce validation uniformly across all backends.
+> **Note:** `ErrSchemaViolation` is enforced by schema-aware backends (xdbsqlite, xdbmemory). Other backends (xdbfs, xdbredis) store data without schema validation.
 
 ## Failure Modes
 
-> `ErrSchemaViolation` paths below only apply to schema-aware backends (currently xdbsqlite). Other backends skip validation.
+> `ErrSchemaViolation` paths below apply to schema-aware backends (xdbsqlite, xdbmemory). Other backends skip validation.
 
 ### Record Operations
 
@@ -223,6 +225,10 @@ UpdateSchema
 DeleteSchema
 ├── OK                → schema removed
 ├── ErrNotFound       → no schema at this URI, nothing changed
+└── context error     → timeout or cancellation
+
+DeleteSchemaRecords
+├── OK                → all records for schema removed (no-op if none exist)
 └── context error     → timeout or cancellation
 ```
 

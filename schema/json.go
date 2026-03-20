@@ -35,7 +35,7 @@ func (d *Def) MarshalJSON() ([]byte, error) {
 		jd.Fields = make(map[string]jsonFieldDef, len(d.Fields))
 		for name, field := range d.Fields {
 			jd.Fields[name] = jsonFieldDef{
-				Type:     string(field.Type),
+				Type:     field.Type.Lower(),
 				Required: field.Required,
 			}
 		}

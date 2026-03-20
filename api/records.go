@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
@@ -12,12 +13,18 @@ import (
 
 // RecordService provides record operations.
 type RecordService struct {
-	store store.RecordStore
+	store   store.RecordStore
+	schemas store.SchemaReader
+	enc     *xdbjson.Encoder
 }
 
-// NewRecordService creates a [RecordService] backed by the given [store.RecordStore].
-func NewRecordService(s store.RecordStore) *RecordService {
-	return &RecordService{store: s}
+// NewRecordService creates a [RecordService] backed by the given [store.Store].
+func NewRecordService(s store.Store) *RecordService {
+	return &RecordService{
+		store:   s,
+		schemas: s,
+		enc:     xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema()),
+	}
 }
 
 // CreateRecordRequest is the request for records.create.
@@ -28,7 +35,7 @@ type CreateRecordRequest struct {
 
 // CreateRecordResponse is the response for records.create.
 type CreateRecordResponse struct {
-	Data *core.Record `json:"data"`
+	Data json.RawMessage `json:"data"`
 }
 
 // Create creates a new record. Idempotent: returns existing if already exists.
@@ -45,8 +52,12 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 	)
 
 	if len(req.Data) > 0 {
-		dec := xdbjson.NewDefaultDecoder(uri.NS().String(), uri.Schema().String())
+		decOpts, optsErr := s.decoderOpts(ctx, uri)
+		if optsErr != nil {
+			return nil, optsErr
+		}
 
+		dec := xdbjson.NewDecoder(decOpts...)
 		if decErr := dec.ToExistingRecord(req.Data, record); decErr != nil {
 			return nil, decErr
 		}
@@ -59,14 +70,14 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 			return nil, getErr
 		}
 
-		return &CreateRecordResponse{Data: existing}, nil
+		return s.recordResponse(existing)
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &CreateRecordResponse{Data: record}, nil
+	return s.recordResponse(record)
 }
 
 // GetRecordRequest is the request for records.get.
@@ -77,7 +88,7 @@ type GetRecordRequest struct {
 
 // GetRecordResponse is the response for records.get.
 type GetRecordResponse struct {
-	Data *core.Record `json:"data"`
+	Data json.RawMessage `json:"data"`
 }
 
 // Get retrieves a single record by URI.
@@ -89,10 +100,20 @@ func (s *RecordService) Get(ctx context.Context, req *GetRecordRequest) (*GetRec
 
 	record, err := s.store.GetRecord(ctx, uri)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("api: records.get %s: %w", uri, err)
 	}
 
-	return &GetRecordResponse{Data: record}, nil
+	var encOpts []xdbjson.EncodeOption
+	if len(req.Fields) > 0 {
+		encOpts = append(encOpts, xdbjson.WithFields(req.Fields...))
+	}
+
+	data, encErr := s.enc.FromRecord(record, encOpts...)
+	if encErr != nil {
+		return nil, fmt.Errorf("api: encode record: %w", encErr)
+	}
+
+	return &GetRecordResponse{Data: data}, nil
 }
 
 // ListRecordsRequest is the request for records.list.
@@ -106,9 +127,9 @@ type ListRecordsRequest struct {
 
 // ListRecordsResponse is the response for records.list.
 type ListRecordsResponse struct {
-	Items      []*core.Record `json:"items"`
-	NextOffset int            `json:"next_offset,omitempty"`
-	Total      int            `json:"total"`
+	Items      []json.RawMessage `json:"items"`
+	NextOffset int               `json:"next_offset,omitempty"`
+	Total      int               `json:"total"`
 }
 
 // List lists records matching the given query.
@@ -130,8 +151,23 @@ func (s *RecordService) List(ctx context.Context, req *ListRecordsRequest) (*Lis
 		return nil, err
 	}
 
+	var encOpts []xdbjson.EncodeOption
+	if len(req.Fields) > 0 {
+		encOpts = append(encOpts, xdbjson.WithFields(req.Fields...))
+	}
+
+	items := make([]json.RawMessage, len(page.Items))
+	for i, rec := range page.Items {
+		data, encErr := s.enc.FromRecord(rec, encOpts...)
+		if encErr != nil {
+			return nil, fmt.Errorf("api: encode record: %w", encErr)
+		}
+
+		items[i] = data
+	}
+
 	return &ListRecordsResponse{
-		Items:      page.Items,
+		Items:      items,
 		NextOffset: page.NextOffset,
 		Total:      page.Total,
 	}, nil
@@ -145,7 +181,7 @@ type UpdateRecordRequest struct {
 
 // UpdateRecordResponse is the response for records.update.
 type UpdateRecordResponse struct {
-	Data *core.Record `json:"data"`
+	Data json.RawMessage `json:"data"`
 }
 
 // Update updates an existing record using patch semantics.
@@ -160,8 +196,12 @@ func (s *RecordService) Update(ctx context.Context, req *UpdateRecordRequest) (*
 		return nil, err
 	}
 
-	dec := xdbjson.NewDefaultDecoder(uri.NS().String(), uri.Schema().String())
+	decOpts, optsErr := s.decoderOpts(ctx, uri)
+	if optsErr != nil {
+		return nil, optsErr
+	}
 
+	dec := xdbjson.NewDecoder(decOpts...)
 	if decErr := dec.ToExistingRecord(req.Data, existing); decErr != nil {
 		return nil, decErr
 	}
@@ -170,7 +210,12 @@ func (s *RecordService) Update(ctx context.Context, req *UpdateRecordRequest) (*
 		return nil, updateErr
 	}
 
-	return &UpdateRecordResponse{Data: existing}, nil
+	data, encErr := s.enc.FromRecord(existing)
+	if encErr != nil {
+		return nil, fmt.Errorf("api: encode record: %w", encErr)
+	}
+
+	return &UpdateRecordResponse{Data: data}, nil
 }
 
 // UpsertRecordRequest is the request for records.upsert (full replace).
@@ -181,7 +226,7 @@ type UpsertRecordRequest struct {
 
 // UpsertRecordResponse is the response for records.upsert.
 type UpsertRecordResponse struct {
-	Data *core.Record `json:"data"`
+	Data json.RawMessage `json:"data"`
 }
 
 // Upsert creates or replaces a record.
@@ -198,8 +243,12 @@ func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*
 	)
 
 	if len(req.Data) > 0 {
-		dec := xdbjson.NewDefaultDecoder(uri.NS().String(), uri.Schema().String())
+		decOpts, optsErr := s.decoderOpts(ctx, uri)
+		if optsErr != nil {
+			return nil, optsErr
+		}
 
+		dec := xdbjson.NewDecoder(decOpts...)
 		if decErr := dec.ToExistingRecord(req.Data, record); decErr != nil {
 			return nil, decErr
 		}
@@ -209,7 +258,12 @@ func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*
 		return nil, upsertErr
 	}
 
-	return &UpsertRecordResponse{Data: record}, nil
+	data, encErr := s.enc.FromRecord(record)
+	if encErr != nil {
+		return nil, fmt.Errorf("api: encode record: %w", encErr)
+	}
+
+	return &UpsertRecordResponse{Data: data}, nil
 }
 
 // DeleteRecordRequest is the request for records.delete.
@@ -237,4 +291,36 @@ func (s *RecordService) Delete(ctx context.Context, req *DeleteRecordRequest) (*
 	}
 
 	return &DeleteRecordResponse{}, nil
+}
+
+// decoderOpts returns decoder options for the given URI, including the schema
+// definition for type-aware decoding when a schema exists.
+// Returns an error if the schema lookup fails for reasons other than not-found.
+func (s *RecordService) decoderOpts(ctx context.Context, uri *core.URI) ([]xdbjson.Option, error) {
+	opts := []xdbjson.Option{
+		xdbjson.WithNS(uri.NS().String()),
+		xdbjson.WithSchema(uri.Schema().String()),
+	}
+
+	def, err := s.schemas.GetSchema(ctx, uri)
+	switch {
+	case err == nil && def != nil:
+		opts = append(opts, xdbjson.WithDef(def))
+	case errors.Is(err, store.ErrNotFound):
+		// No schema — flexible mode, skip type coercion.
+	case err != nil:
+		return nil, fmt.Errorf("api: lookup schema %s: %w", uri, err)
+	}
+
+	return opts, nil
+}
+
+// recordResponse encodes a [core.Record] into a [CreateRecordResponse].
+func (s *RecordService) recordResponse(rec *core.Record) (*CreateRecordResponse, error) {
+	data, err := s.enc.FromRecord(rec)
+	if err != nil {
+		return nil, fmt.Errorf("api: encode record: %w", err)
+	}
+
+	return &CreateRecordResponse{Data: data}, nil
 }

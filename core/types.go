@@ -43,9 +43,28 @@ var builtinTypes = map[TID]struct{}{
 	TIDJSON:     {},
 }
 
+// ValueTypes is the ordered list of user-facing value type identifiers.
+// UNKNOWN is excluded because it is an internal sentinel.
+var ValueTypes = []TID{
+	TIDString,
+	TIDInteger,
+	TIDUnsigned,
+	TIDFloat,
+	TIDBoolean,
+	TIDTime,
+	TIDBytes,
+	TIDJSON,
+	TIDArray,
+}
+
 // String returns the name of the type.
 func (t TID) String() string {
 	return string(t)
+}
+
+// Lower returns the lowercase name of the type for user-facing output.
+func (t TID) Lower() string {
+	return strings.ToLower(string(t))
 }
 
 // ParseType parses a type name into a [TID].

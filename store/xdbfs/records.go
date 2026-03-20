@@ -162,9 +162,9 @@ func (s *Store) readRecord(uri *core.URI) (*core.Record, error) {
 		return nil, fmt.Errorf("fsstore: read record: %w", err)
 	}
 
-	dec := xdbjson.NewDefaultDecoder(
-		uri.NS().String(),
-		uri.Schema().String(),
+	dec := xdbjson.NewDecoder(
+		xdbjson.WithNS(uri.NS().String()),
+		xdbjson.WithSchema(uri.Schema().String()),
 	)
 
 	record, err := dec.ToRecord(data)
@@ -181,7 +181,7 @@ func (s *Store) writeRecord(path string, record *core.Record) error {
 		return fmt.Errorf("fsstore: create record dir: %w", err)
 	}
 
-	data, err := s.enc.FromRecordIndent(record, "", s.opts.Indent)
+	data, err := s.enc.FromRecord(record, xdbjson.WithIndent("", s.opts.Indent))
 	if err != nil {
 		return fmt.Errorf("fsstore: encode record: %w", err)
 	}
@@ -204,7 +204,7 @@ func (s *Store) readRecordsInDir(si schemaInfo) ([]*core.Record, error) {
 		return nil, fmt.Errorf("fsstore: read schema dir: %w", err)
 	}
 
-	dec := xdbjson.NewDefaultDecoder(si.ns, si.schema)
+	dec := xdbjson.NewDecoder(xdbjson.WithNS(si.ns), xdbjson.WithSchema(si.schema))
 
 	var records []*core.Record
 	for _, e := range entries {

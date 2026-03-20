@@ -331,7 +331,7 @@ func (g *generator) resolveAttrName(expr ast.Expr) (string, error) {
 // to the appropriate type for comparisons to work.
 func (g *generator) kvValExpr(val ref.Val) string {
 	switch val.Type() {
-	case types.IntType, types.UintType, types.DoubleType:
+	case types.IntType, types.UintType, types.DoubleType, types.BoolType:
 		return "CAST(_val AS REAL)"
 	default:
 		return "CAST(_val AS TEXT)"
