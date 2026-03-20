@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/filter"
 	"github.com/xdb-dev/xdb/store"
 )
 
@@ -50,6 +51,17 @@ func (s *Store) ListRecords(
 		records = append(records, recs...)
 	}
 
+	if q != nil && q.Filter != "" {
+		f, err := filter.Compile(q.Filter, nil)
+		if err != nil {
+			return nil, err
+		}
+		records, err = filter.Records(f, records)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	sort.Slice(records, func(i, j int) bool {
 		return records[i].URI().Path() < records[j].URI().Path()
 	})
@@ -66,6 +78,17 @@ func (s *Store) listRecordsBySchema(
 	records, err := s.fetchRecordsBySchema(ctx, uri)
 	if err != nil {
 		return nil, err
+	}
+
+	if q != nil && q.Filter != "" {
+		f, err := filter.Compile(q.Filter, nil)
+		if err != nil {
+			return nil, err
+		}
+		records, err = filter.Records(f, records)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	sort.Slice(records, func(i, j int) bool {

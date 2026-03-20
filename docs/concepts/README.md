@@ -17,6 +17,10 @@ This directory contains documentation for XDB's core concepts. Each document cov
 
 - [Types](types.md) — Supported value types and typed accessors
 
+## Querying
+
+- [Filters](filters.md) — CEL-based record filtering with SQL generation
+
 ## Storage & Encoding
 
 - [Stores](stores.md) — Storage interfaces and implementations

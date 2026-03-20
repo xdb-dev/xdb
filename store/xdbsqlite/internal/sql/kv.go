@@ -140,22 +140,33 @@ func (q *Queries) ListKVRecordIDs(ctx context.Context, arg ListKVRecordIDsParams
 
 // ListKVRecordsParams are the arguments for [Queries.ListKVRecords].
 type ListKVRecordsParams struct {
-	Table  string
-	Offset int
-	Limit  int
+	Table     string
+	Where     string
+	WhereArgs []any
+	Offset    int
+	Limit     int
 }
 
 // ListKVRecords lists records from a KV table, grouped by ID in order.
 // The Limit/Offset apply to distinct record IDs via a subquery.
+// When Where is set, it is injected into the inner ID-selecting subquery.
 func (q *Queries) ListKVRecords(ctx context.Context, arg ListKVRecordsParams) ([]KVRecord, error) {
+	var innerWhere string
+	var queryArgs []any
+	if arg.Where != "" {
+		innerWhere = " AND " + arg.Where
+		queryArgs = append(queryArgs, arg.WhereArgs...)
+	}
+	queryArgs = append(queryArgs, arg.Limit, arg.Offset)
+
 	query := fmt.Sprintf(
 		"SELECT _id, _attr, _type, _val FROM %s "+
-			"WHERE _id IN (SELECT DISTINCT _id FROM %s ORDER BY _id LIMIT ? OFFSET ?) "+
+			"WHERE _id IN (SELECT DISTINCT _id FROM %s WHERE 1=1%s ORDER BY _id LIMIT ? OFFSET ?) "+
 			"ORDER BY _id, _attr",
-		arg.Table, arg.Table,
+		arg.Table, arg.Table, innerWhere,
 	)
 
-	rows, err := q.db.QueryContext(ctx, query, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -217,13 +228,21 @@ func (q *Queries) KVRecordExists(ctx context.Context, arg KVRecordExistsParams) 
 
 // CountKVRecordsParams are the arguments for [Queries.CountKVRecords].
 type CountKVRecordsParams struct {
-	Table string
+	Table     string
+	Where     string // optional WHERE clause
+	WhereArgs []any  // params for Where placeholders
 }
 
 // CountKVRecords returns the number of distinct records in a KV table.
+// When Where is set, only IDs matching the filter are counted.
 func (q *Queries) CountKVRecords(ctx context.Context, arg CountKVRecordsParams) (int, error) {
-	query := fmt.Sprintf("SELECT COUNT(DISTINCT _id) FROM %s", arg.Table)
+	var whereClause string
+	if arg.Where != "" {
+		whereClause = " WHERE " + arg.Where
+	}
+
+	query := fmt.Sprintf("SELECT COUNT(DISTINCT _id) FROM %s%s", arg.Table, whereClause)
 	var count int
-	err := q.db.QueryRowContext(ctx, query).Scan(&count)
+	err := q.db.QueryRowContext(ctx, query, arg.WhereArgs...).Scan(&count)
 	return count, err
 }

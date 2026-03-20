@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/filter"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 )
@@ -56,7 +57,7 @@ func (s *Store) ListRecords(
 ) (*store.Page[*core.Record], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return listRecords(s.records, uri, q), nil
+	return listRecords(s.records, uri, q)
 }
 
 // CreateRecord creates a new record. Returns [store.ErrAlreadyExists] if it exists.
@@ -201,7 +202,7 @@ func (tx *txStore) ListRecords(
 	uri *core.URI,
 	q *store.ListQuery,
 ) (*store.Page[*core.Record], error) {
-	return listRecords(tx.store.records, uri, q), nil
+	return listRecords(tx.store.records, uri, q)
 }
 
 func (tx *txStore) CreateRecord(_ context.Context, record *core.Record) error {
@@ -277,7 +278,7 @@ func listRecords(
 	records map[string]*core.Record,
 	uri *core.URI,
 	q *store.ListQuery,
-) *store.Page[*core.Record] {
+) (*store.Page[*core.Record], error) {
 	ns := uri.NS()
 	schemaScope := uri.Schema()
 
@@ -292,9 +293,20 @@ func listRecords(
 		matched = append(matched, r)
 	}
 
+	if q != nil && q.Filter != "" {
+		f, err := filter.Compile(q.Filter, nil)
+		if err != nil {
+			return nil, err
+		}
+		matched, err = filter.Records(f, matched)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return sortAndPaginate(matched, func(r *core.Record) string {
 		return r.URI().Path()
-	}, q)
+	}, q), nil
 }
 
 func createRecord(records map[string]*core.Record, record *core.Record) error {

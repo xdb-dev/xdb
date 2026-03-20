@@ -1,75 +1,112 @@
 package filter
 
 import (
-	"strconv"
-	"strings"
+	"fmt"
+
+	"github.com/google/cel-go/common/types"
 
 	"github.com/xdb-dev/xdb/core"
 )
 
-// Match evaluates an [Expr] against a [core.Record].
-// Returns true if the record matches the filter.
-func Match(expr *Expr, record *core.Record) bool {
-	tuple := record.Get(expr.Attr)
-	if tuple == nil {
-		return false
+// Match evaluates a compiled [Filter] against a [core.Record].
+// Returns true if the record satisfies the filter, false otherwise.
+// A missing attribute causes comparisons against it to return false.
+func Match(f *Filter, record *core.Record) (bool, error) {
+	env := buildActivation(record)
+
+	out, _, evalErr := f.prg.Eval(env)
+	if evalErr != nil {
+		// CEL returns an error for missing variables or type mismatches.
+		// Treat as non-matching rather than propagating.
+		return false, nil //nolint:nilerr // intentional: missing vars → no match
 	}
 
-	recordValue := tuple.Value().String()
-
-	switch expr.Op {
-	case OpEq:
-		return recordValue == expr.Value
-	case OpNe:
-		return recordValue != expr.Value
-	case OpContains:
-		return strings.Contains(recordValue, expr.Value)
-	case OpGt, OpLt, OpGte, OpLte:
-		return compareOrdered(recordValue, expr.Value, expr.Op)
-	default:
-		return false
+	if out.Type() != types.BoolType {
+		return false, fmt.Errorf("filter: expression did not evaluate to bool, got %s", out.Type())
 	}
+
+	return out.Value().(bool), nil
 }
 
-// compareOrdered compares two values using the given ordering operator.
-// If both values parse as floats, comparison is numeric; otherwise lexicographic.
-func compareOrdered(recordValue, filterValue string, op Op) bool {
-	rv, rerr := strconv.ParseFloat(recordValue, 64)
-	fv, ferr := strconv.ParseFloat(filterValue, 64)
+// buildActivation converts a record's tuples into a map[string]any suitable
+// for CEL evaluation.
+func buildActivation(record *core.Record) map[string]any {
+	tuples := record.Tuples()
+	env := make(map[string]any, len(tuples))
 
-	if rerr == nil && ferr == nil {
-		return compareFloat(rv, fv, op)
+	for _, tuple := range tuples {
+		env[tuple.Attr().String()] = nativeValue(tuple.Value())
 	}
 
-	return compareString(recordValue, filterValue, op)
+	return env
 }
 
-func compareFloat(a, b float64, op Op) bool {
-	switch op {
-	case OpGt:
-		return a > b
-	case OpLt:
-		return a < b
-	case OpGte:
-		return a >= b
-	case OpLte:
-		return a <= b
-	default:
-		return false
+// Records filters a slice of records, returning only those that match the
+// compiled filter. This is the primary integration point for in-memory stores.
+func Records(f *Filter, records []*core.Record) ([]*core.Record, error) {
+	var result []*core.Record
+	for _, r := range records {
+		ok, err := Match(f, r)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			result = append(result, r)
+		}
 	}
+	return result, nil
 }
 
-func compareString(a, b string, op Op) bool {
-	switch op {
-	case OpGt:
-		return a > b
-	case OpLt:
-		return a < b
-	case OpGte:
-		return a >= b
-	case OpLte:
-		return a <= b
+// nativeValue converts a [core.Value] to a native Go type that CEL understands.
+func nativeValue(v *core.Value) any {
+	if v == nil {
+		return nil
+	}
+
+	switch v.Type().ID() {
+	case core.TIDString:
+		s, err := v.AsStr()
+		if err != nil {
+			return v.String()
+		}
+		return s
+
+	case core.TIDInteger:
+		i, err := v.AsInt()
+		if err != nil {
+			return v.String()
+		}
+		return i
+
+	case core.TIDUnsigned:
+		u, err := v.AsUint()
+		if err != nil {
+			return v.String()
+		}
+		return u
+
+	case core.TIDFloat:
+		f, err := v.AsFloat()
+		if err != nil {
+			return v.String()
+		}
+		return f
+
+	case core.TIDBoolean:
+		b, err := v.AsBool()
+		if err != nil {
+			return v.String()
+		}
+		return b
+
+	case core.TIDTime:
+		t, err := v.AsTime()
+		if err != nil {
+			return v.String()
+		}
+		return t
+
 	default:
-		return false
+		return v.String()
 	}
 }
