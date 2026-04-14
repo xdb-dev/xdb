@@ -2,3 +2,5 @@
 coverage.out
 coverage.json
 coverage.html
+bin/
+dist/

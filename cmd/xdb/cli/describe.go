@@ -15,10 +15,10 @@ import (
 func (a *App) describeCmd() *cli.Command {
 	return &cli.Command{
 		Name:               "describe",
-		Usage:              "Introspect actions, types, filters, errors, and data schemas",
+		Usage:              "Introspect actions, types, filters, errors, config, daemon, and data schemas",
 		Category:           "agent",
 		CustomHelpTemplate: commandHelpTemplate,
-		ArgsUsage:          "[resource.action | TypeName]",
+		ArgsUsage:          "[resource.action | TypeName | config | daemon]",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "methods", Usage: "List all actions (dotted RPC form)"},
 			&cli.BoolFlag{Name: "actions", Usage: "Show action \u00d7 resource matrix"},
@@ -26,6 +26,8 @@ func (a *App) describeCmd() *cli.Command {
 			&cli.BoolFlag{Name: "value-types", Usage: "List supported value types"},
 			&cli.BoolFlag{Name: "filter", Usage: "Show CEL filter grammar"},
 			&cli.BoolFlag{Name: "errors", Usage: "List error codes"},
+			&cli.BoolFlag{Name: "config", Usage: "Explain the config file schema and defaults"},
+			&cli.BoolFlag{Name: "daemon", Usage: "Explain daemon lifecycle and commands"},
 			&cli.StringFlag{Name: "uri", Usage: "Data schema URI"},
 			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 		},
@@ -58,16 +60,31 @@ func (a *App) schemaInspect(ctx context.Context, cmd *cli.Command) error {
 		return listErrorCodes(cmd)
 	}
 
+	if cmd.Bool("config") {
+		return describeConfig(cmd)
+	}
+
+	if cmd.Bool("daemon") {
+		return describeDaemon(cmd)
+	}
+
 	if uri := cmd.String("uri"); uri != "" {
 		return a.describeDataSchema(ctx, cmd, uri)
 	}
 
 	args := cmd.Args()
 	if args.Len() == 0 {
-		return fmt.Errorf("specify a resource.action name, type name, or use --actions/--types/--value-types/--filter/--errors")
+		return fmt.Errorf("specify a resource.action name, type name, config, daemon, or use --actions/--types/--value-types/--filter/--errors/--config/--daemon")
 	}
 
 	name := args.First()
+
+	switch name {
+	case "config":
+		return describeConfig(cmd)
+	case "daemon":
+		return describeDaemon(cmd)
+	}
 
 	if strings.Contains(name, ".") {
 		return a.describeMethod(ctx, cmd, name)
@@ -267,6 +284,88 @@ func listErrorCodes(cmd *cli.Command) error {
 	}
 
 	return formatList(cmd, items)
+}
+
+// describeConfig returns a static description of the XDB config file — its
+// default path, JSON schema, field defaults, derived paths, and validation
+// rules — so agents can discover how to configure the daemon without reading
+// the concept docs.
+func describeConfig(cmd *cli.Command) error {
+	doc := map[string]any{
+		"kind":         "ConfigDescription",
+		"default_path": DefaultConfigPath(),
+		"root_flag":    "--config / -c (overrides default path)",
+		"created_by":   []string{"xdb init", "xdb daemon start (on first run)"},
+		"fields": []map[string]any{
+			{"name": "dir", "default": defaultConfigDir, "description": "Root directory for all XDB data (absolute or starts with ~)"},
+			{"name": "daemon.socket", "default": defaultSocket, "description": "Unix socket filename (no path separators)"},
+			{"name": "store.backend", "default": defaultBackend, "description": "Store backend: sqlite, memory, redis, or fs"},
+			{"name": "store.sqlite.path", "default": "<datadir>/xdb.db", "description": "SQLite database file path"},
+			{"name": "store.sqlite.journal", "default": defaultJournal, "description": "Journal mode: wal, delete, truncate, persist, memory, off"},
+			{"name": "store.sqlite.sync", "default": defaultSync, "description": "Synchronous mode: off, normal, full, extra"},
+			{"name": "store.sqlite.cache_size", "default": defaultCacheSize, "description": "Page cache size in KiB (negative) or pages (positive)"},
+			{"name": "store.sqlite.busy_timeout", "default": defaultBusyTimeout, "description": "Busy timeout in milliseconds"},
+			{"name": "store.redis.addr", "default": "(required for redis)", "description": "Redis server address (host:port)"},
+			{"name": "store.redis.password", "default": "", "description": "Redis auth password"},
+			{"name": "store.redis.db", "default": 0, "description": "Redis database number"},
+			{"name": "store.fs.dir", "default": "<datadir>", "description": "Filesystem store root directory"},
+			{"name": "log_level", "default": defaultLogLevel, "description": "Log level: debug, info, warn, error"},
+		},
+		"derived_paths": map[string]string{
+			"socket": "<dir>/" + defaultSocket,
+			"log":    "<dir>/xdb.log",
+			"pid":    "<dir>/xdb.pid",
+			"data":   "<dir>/data",
+		},
+		"validation": []string{
+			"dir must be non-empty and absolute (or start with ~)",
+			"daemon.socket must be a filename (no / or \\)",
+			"log_level must be debug, info, warn, or error",
+			"store.backend must be memory, sqlite, fs, or redis",
+			"store.redis.addr is required when backend is redis",
+		},
+		"example": map[string]any{
+			"dir":       "~/.xdb",
+			"daemon":    map[string]any{"socket": "xdb.sock"},
+			"store":     map[string]any{"backend": "sqlite"},
+			"log_level": "info",
+		},
+	}
+
+	return formatOne(cmd, doc)
+}
+
+// describeDaemon returns a static description of the daemon lifecycle — the
+// subcommands, socket/log/pid file locations, and the parent-child spawn
+// pattern — so agents can manage the daemon without reading the concept docs.
+func describeDaemon(cmd *cli.Command) error {
+	doc := map[string]any{
+		"kind":      "DaemonDescription",
+		"transport": "JSON-RPC 2.0 over Unix domain socket",
+		"commands": []map[string]any{
+			{"name": "xdb daemon start", "flags": []string{"--foreground"}, "description": "Spawn the daemon in the background (idempotent). --foreground blocks in the current process."},
+			{"name": "xdb daemon stop", "description": "Send SIGTERM and wait up to 5s for exit (idempotent)."},
+			{"name": "xdb daemon status", "description": "Report running|stopped, socket path, and PID."},
+			{"name": "xdb daemon restart", "description": "Stop if running, then start."},
+			{"name": "xdb init", "description": "Create config and data dir, then start the daemon."},
+		},
+		"spawn_pattern": []string{
+			"Parent CLI loads config and checks PID file",
+			"Parent re-execs the binary with XDB_DAEMON_CHILD=1 and setsid",
+			"Child redirects stdout/stderr to the log file and writes the PID file",
+			"Child serves JSON-RPC on the Unix socket until SIGTERM/SIGINT",
+			"Parent waits up to 3s for the socket to accept connections, then exits",
+		},
+		"files": map[string]string{
+			"socket": "<dir>/" + defaultSocket + " — Unix socket for JSON-RPC",
+			"pid":    "<dir>/xdb.pid — PID of the running daemon",
+			"log":    "<dir>/xdb.log — daemon stdout/stderr",
+		},
+		"idempotency": "start is a no-op when already running; stop is a no-op when already stopped",
+		"related":     []string{"describe --config", "describe --methods"},
+	}
+
+	return formatOne(cmd, doc)
 }
 
 func (a *App) describeDataSchema(ctx context.Context, cmd *cli.Command, raw string) error {
