@@ -10,12 +10,16 @@ Filters narrow down record list results using [CEL](https://cel.dev/) (Common Ex
 
 A single filter string works across all store backends — in-memory stores evaluate CEL against records directly, while SQL stores push filters down as WHERE clauses.
 
+A filter is a **predicate primitive** of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md) — it composes with `--fields`, `--limit`, and `--offset` on any `list` action. Run `xdb describe --filter` for the live operator/function reference.
+
 ## Syntax
 
 ```bash
-xdb records list --uri xdb://myapp/posts --filter 'status == "published"'
-xdb records list --uri xdb://myapp/posts --filter 'status == "published" && views >= 100'
-xdb records list --uri xdb://myapp/posts --filter 'title.contains("hello")'
+xdb records list xdb://myapp/posts --filter 'status == "published"'
+xdb records list xdb://myapp/posts --filter 'status == "published" && views >= 100' --fields id,title --limit 10
+xdb records list xdb://myapp/posts --filter 'title.contains("hello")'
+xdb records list xdb://myapp/posts --filter 'status in ["active", "pending"]'
+xdb records list xdb://myapp/posts --filter '!(archived == true)' --fields id
 ```
 
 ## Operators

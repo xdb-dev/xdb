@@ -77,6 +77,12 @@ func NewApp() *cli.Command {
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			return ctx, a.connect(cmd)
 		},
+		ExitErrHandler: func(_ context.Context, cmd *cli.Command, err error) {
+			// Render the error using the live --output flag from the command
+			// that produced it, then let [main] set the exit code based on
+			// [ExitCodeFor] after app.Run returns.
+			WriteError(os.Stderr, cmd.Root().String("output"), err)
+		},
 		Commands: append(
 			[]*cli.Command{
 				a.recordsCmd(),
@@ -102,18 +108,27 @@ func NewApp() *cli.Command {
 
 // --- Helpers ---
 
-// readPayload reads a JSON payload from --json, --file, or stdin.
+// readPayload reads a JSON payload from --json, --file, an explicit `-` positional
+// token, or a piped stdin. An explicit `-` always reads stdin regardless of TTY.
 func readPayload(cmd *cli.Command) (json.RawMessage, error) {
+	if err := validateStdinInputs(cmd); err != nil {
+		return nil, err
+	}
+
 	jsonFlag := cmd.String("json")
 	fileFlag := cmd.String("file")
 
 	hasJSON := jsonFlag != ""
-	hasFile := fileFlag != ""
-	hasStdin := !hasJSON && !hasFile && !isTerminal(os.Stdin)
+	hasFile := fileFlag != "" && fileFlag != "-"
+	hasDashFile := fileFlag == "-"
+	hasDashArg := hasDashPositional(cmd)
+	hasPipedStdin := !hasJSON && !hasFile && !hasDashFile && !hasDashArg && !isTerminal(os.Stdin)
+	readStdin := hasDashFile || hasDashArg || hasPipedStdin
 
 	if err := validate.MutuallyExclusive(map[string]bool{
-		"json": hasJSON,
-		"file": hasFile,
+		"json":  hasJSON,
+		"file":  hasFile,
+		"stdin": readStdin,
 	}); err != nil {
 		return nil, err
 	}
@@ -133,7 +148,7 @@ func readPayload(cmd *cli.Command) (json.RawMessage, error) {
 		}
 
 		return json.RawMessage(data), nil
-	case hasStdin:
+	case readStdin:
 		data, readErr := io.ReadAll(os.Stdin)
 		if readErr != nil {
 			return nil, fmt.Errorf("read stdin: %w", readErr)
@@ -143,6 +158,53 @@ func readPayload(cmd *cli.Command) (json.RawMessage, error) {
 	default:
 		return nil, nil
 	}
+}
+
+// hasDashPositional returns true when any positional argument is the literal `-`.
+// `-` is the explicit "read from stdin" token.
+func hasDashPositional(cmd *cli.Command) bool {
+	args := cmd.Args().Slice()
+	for _, a := range args {
+		if a == "-" {
+			return true
+		}
+	}
+
+	return false
+}
+
+// validateStdinInputs returns an error when more than one input channel would
+// consume stdin. stdin can be read at most once per command; a double consumer
+// would silently truncate one of the inputs.
+//
+// Counted consumers: `--uri -`, `--file -`, and each positional `-` argument.
+func validateStdinInputs(cmd *cli.Command) error {
+	return checkStdinConsumers(cmd.String("uri"), cmd.String("file"), cmd.Args().Slice())
+}
+
+// checkStdinConsumers is the primitive form of [validateStdinInputs] used by tests.
+func checkStdinConsumers(uri, file string, args []string) error {
+	dashes := 0
+
+	if uri == "-" {
+		dashes++
+	}
+
+	if file == "-" {
+		dashes++
+	}
+
+	for _, a := range args {
+		if a == "-" {
+			dashes++
+		}
+	}
+
+	if dashes > 1 {
+		return fmt.Errorf("at most one input may use `-` (stdin); cannot read both URI and payload from stdin")
+	}
+
+	return nil
 }
 
 // formatOne writes a single value using the appropriate formatter.
@@ -183,19 +245,45 @@ func formatRawJSON(cmd *cli.Command, raw json.RawMessage) error {
 	return formatOne(cmd, m)
 }
 
-// getURI returns the URI from --uri flag or first positional argument.
+// getURI returns the URI from --uri flag, a positional argument, or stdin when
+// `-` is given. `-` is the explicit "read from stdin" token.
 func getURI(cmd *cli.Command) (string, error) {
+	if err := validateStdinInputs(cmd); err != nil {
+		return "", err
+	}
+
 	uri := cmd.String("uri")
+	if uri == "-" {
+		return readURIFromStdin()
+	}
+
 	if uri != "" {
 		return uri, nil
 	}
 
-	args := cmd.Args()
-	if args.Len() > 0 {
-		return args.First(), nil
+	args := cmd.Args().Slice()
+	for _, a := range args {
+		if a == "-" {
+			return readURIFromStdin()
+		}
+
+		if a != "" {
+			return a, nil
+		}
 	}
 
 	return "", fmt.Errorf("URI required (--uri flag or positional argument)")
+}
+
+// readURIFromStdin reads a single-line URI from stdin. Trailing whitespace and
+// newlines are stripped.
+func readURIFromStdin() (string, error) {
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return "", fmt.Errorf("read stdin: %w", err)
+	}
+
+	return strings.TrimSpace(string(data)), nil
 }
 
 // parseFields splits a comma-separated fields string into a slice.

@@ -20,6 +20,10 @@ func (f *jsonFormatter) FormatList(w io.Writer, items []any) error {
 }
 
 func (f *jsonFormatter) FormatError(w io.Writer, err error) error {
+	if env, ok := err.(*ErrorEnvelope); ok {
+		return writeIndentedJSON(w, env)
+	}
+
 	return writeIndentedJSON(w, map[string]string{"error": err.Error()})
 }
 
@@ -40,6 +44,10 @@ func (f *ndjsonFormatter) FormatList(w io.Writer, items []any) error {
 }
 
 func (f *ndjsonFormatter) FormatError(w io.Writer, err error) error {
+	if env, ok := err.(*ErrorEnvelope); ok {
+		return writeCompactJSON(w, env)
+	}
+
 	return writeCompactJSON(w, map[string]string{"error": err.Error()})
 }
 

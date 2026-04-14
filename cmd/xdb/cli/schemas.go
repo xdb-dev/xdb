@@ -58,16 +58,16 @@ func (a *App) schemasCmd() *cli.Command {
 func (a *App) schemaCreate(ctx context.Context, cmd *cli.Command) error {
 	data, err := readPayload(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("schemas", "create", err)
 	}
 
 	if data == nil {
-		return fmt.Errorf("create requires a payload (--json, --file, or stdin)")
+		return invalidArgError("schemas", "create", fmt.Errorf("create requires a payload (--json, --file, or stdin)"))
 	}
 
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("schemas", "create", err)
 	}
 
 	var resp api.CreateSchemaResponse
@@ -75,7 +75,7 @@ func (a *App) schemaCreate(ctx context.Context, cmd *cli.Command) error {
 		URI:  uri,
 		Data: data,
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("schemas", "create", uri, err)
 	}
 
 	return formatOne(cmd, resp.Data)
@@ -84,14 +84,14 @@ func (a *App) schemaCreate(ctx context.Context, cmd *cli.Command) error {
 func (a *App) schemaGet(ctx context.Context, cmd *cli.Command) error {
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("schemas", "get", err)
 	}
 
 	var resp api.GetSchemaResponse
 	if err := a.client.Call(ctx, "schemas.get", &api.GetSchemaRequest{
 		URI: uri,
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("schemas", "get", uri, err)
 	}
 
 	return formatOne(cmd, resp.Data)
@@ -107,7 +107,7 @@ func (a *App) schemaList(ctx context.Context, cmd *cli.Command) error {
 		Limit:  int(cmd.Int("limit")),
 		Offset: int(cmd.Int("offset")),
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("schemas", "list", uri, err)
 	}
 
 	items := make([]any, len(resp.Items))
@@ -121,16 +121,16 @@ func (a *App) schemaList(ctx context.Context, cmd *cli.Command) error {
 func (a *App) schemaUpdate(ctx context.Context, cmd *cli.Command) error {
 	data, err := readPayload(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("schemas", "update", err)
 	}
 
 	if data == nil {
-		return fmt.Errorf("update requires a payload (--json, --file, or stdin)")
+		return invalidArgError("schemas", "update", fmt.Errorf("update requires a payload (--json, --file, or stdin)"))
 	}
 
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("schemas", "update", err)
 	}
 
 	var resp api.UpdateSchemaResponse
@@ -138,7 +138,7 @@ func (a *App) schemaUpdate(ctx context.Context, cmd *cli.Command) error {
 		URI:  uri,
 		Data: data,
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("schemas", "update", uri, err)
 	}
 
 	return formatOne(cmd, resp.Data)
@@ -147,14 +147,14 @@ func (a *App) schemaUpdate(ctx context.Context, cmd *cli.Command) error {
 func (a *App) schemaDelete(ctx context.Context, cmd *cli.Command) error {
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("schemas", "delete", err)
 	}
 
 	if err := a.client.Call(ctx, "schemas.delete", &api.DeleteSchemaRequest{
 		URI:     uri,
 		Cascade: cmd.Bool("cascade"),
 	}, nil); err != nil {
-		return err
+		return wrapRPCError("schemas", "delete", uri, err)
 	}
 
 	return formatOne(cmd, map[string]string{

@@ -8,6 +8,16 @@ package: schema
 
 A **Schema** defines the structure of [Records](records.md) and groups them together. Schemas control which fields a record may contain, what types those fields must have, and whether unknown fields are allowed.
 
+## Schemas in the CLI
+
+Schemas are both a resource (`xdb schemas <action>`) and a type reference used by other actions:
+
+- Discover a live schema: `xdb describe --uri xdb://ns/schema`
+- Project fields on reads: `xdb records list xdb://ns/schema --fields id,title`
+- Create/update from JSON: `xdb schemas create xdb://ns/schema --json '{"fields":{...}}'`
+
+See the [CLI reference](../../cmd/xdb/cli/CONTEXT.md) for the full grammar.
+
 ## Schema Definition
 
 A schema definition (`Def`) contains:

@@ -33,5 +33,9 @@ func (f *yamlFormatter) FormatError(w io.Writer, err error) error {
 		return werr
 	}
 
+	if env, ok := err.(*ErrorEnvelope); ok {
+		return yaml.NewEncoder(w).Encode(env)
+	}
+
 	return yaml.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 }

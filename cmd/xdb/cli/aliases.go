@@ -13,7 +13,8 @@ func (a *App) aliasCommands() []*cli.Command {
 	return []*cli.Command{
 		{
 			Name:               "get",
-			Usage:              "Get a resource by URI",
+			Usage:              "Shorthand for <resource> get (records/schemas/namespaces by URI depth)",
+			Description:        "Dispatches to records/schemas/namespaces get based on URI depth.\n   Equivalent to `xdb <resource> get <uri>`.",
 			Category:           "aliases",
 			CustomHelpTemplate: commandHelpTemplate,
 			ArgsUsage:          "<uri>",
@@ -25,7 +26,8 @@ func (a *App) aliasCommands() []*cli.Command {
 		},
 		{
 			Name:               "put",
-			Usage:              "Upsert a record by URI",
+			Usage:              "Shorthand for records upsert",
+			Description:        "Equivalent to `xdb records upsert <uri> [--json|--file|-]`.",
 			Category:           "aliases",
 			CustomHelpTemplate: commandHelpTemplate,
 			ArgsUsage:          "<uri>",
@@ -38,7 +40,8 @@ func (a *App) aliasCommands() []*cli.Command {
 		},
 		{
 			Name:               "ls",
-			Usage:              "List resources by URI",
+			Usage:              "Shorthand for <resource> list (records/schemas/namespaces by URI depth)",
+			Description:        "Dispatches to records/schemas/namespaces list based on URI depth.\n   No URI lists namespaces. Equivalent to `xdb <resource> list [uri]`.",
 			Category:           "aliases",
 			CustomHelpTemplate: commandHelpTemplate,
 			ArgsUsage:          "[uri]",
@@ -51,7 +54,8 @@ func (a *App) aliasCommands() []*cli.Command {
 		},
 		{
 			Name:               "rm",
-			Usage:              "Delete a resource by URI",
+			Usage:              "Shorthand for <resource> delete (records or schemas by URI depth)",
+			Description:        "Dispatches to records/schemas delete based on URI depth.\n   Equivalent to `xdb <resource> delete <uri> --force`.",
 			Category:           "aliases",
 			CustomHelpTemplate: commandHelpTemplate,
 			ArgsUsage:          "<uri>",
@@ -63,7 +67,8 @@ func (a *App) aliasCommands() []*cli.Command {
 		},
 		{
 			Name:               "make-schema",
-			Usage:              "Create a schema",
+			Usage:              "Shorthand for schemas create",
+			Description:        "Equivalent to `xdb schemas create <uri> [--json|--file|-]`.",
 			Category:           "aliases",
 			CustomHelpTemplate: commandHelpTemplate,
 			ArgsUsage:          "<uri>",

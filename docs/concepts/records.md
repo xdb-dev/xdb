@@ -24,6 +24,8 @@ A **Record** is a group of [Tuples](tuples.md) that share the same path (Namespa
 
 Unlike tuples, records are **mutable** — you can add, update, and remove attributes after creation. Records are also **thread-safe**, using a read-write mutex for concurrent access.
 
+From the [CLI](../../cmd/xdb/cli/CONTEXT.md), records are what you read and write via `xdb records <action>`. Payloads are JSON; `create` is idempotent insert, `update` is patch merge, `upsert` is full replace.
+
 ## Creating Records
 
 ```go

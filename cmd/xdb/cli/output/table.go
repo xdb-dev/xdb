@@ -73,8 +73,42 @@ func (f *tableFormatter) FormatList(w io.Writer, items []any) error {
 }
 
 func (f *tableFormatter) FormatError(w io.Writer, err error) error {
-	_, werr := fmt.Fprintf(w, "Error: %s\n", err.Error())
-	return werr
+	env, ok := err.(*ErrorEnvelope)
+	if !ok {
+		_, werr := fmt.Fprintf(w, "Error: %s\n", err.Error())
+		return werr
+	}
+
+	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+
+	rows := [][2]string{
+		{"Error", env.Code},
+		{"Message", env.Message},
+	}
+
+	if env.Resource != "" {
+		rows = append(rows, [2]string{"Resource", env.Resource})
+	}
+
+	if env.Action != "" {
+		rows = append(rows, [2]string{"Action", env.Action})
+	}
+
+	if env.URI != "" {
+		rows = append(rows, [2]string{"URI", env.URI})
+	}
+
+	if env.Hint != "" {
+		rows = append(rows, [2]string{"Hint", env.Hint})
+	}
+
+	for _, r := range rows {
+		if _, werr := fmt.Fprintf(tw, "%s\t%s\n", r[0], r[1]); werr != nil {
+			return werr
+		}
+	}
+
+	return tw.Flush()
 }
 
 func writeMapTable(tw *tabwriter.Writer, items []any, first reflect.Value) error {

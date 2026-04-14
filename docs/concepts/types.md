@@ -24,7 +24,7 @@ The canonical user-facing type names are lowercase. Internally, type identifiers
 | `bytes`    | `[]byte`          | `BYTEA`            | `BLOB`    | Binary data             |
 | `array`    | `[]*Value`        | `[]T`              | `TEXT`    | Array of typed values   |
 
-The ordered list of user-facing types is available as `core.ValueTypes`.
+The ordered list of user-facing types is available as `core.ValueTypes`. From the [CLI](../../cmd/xdb/cli/CONTEXT.md), types are declared in schema field definitions (`{"fields":{"age":{"type":"integer"}}}`) and interpreted by filter predicates; run `xdb describe --value-types` for the live list.
 
 ## Type Identifiers
 

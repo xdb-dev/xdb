@@ -8,6 +8,8 @@ package: core
 
 A **Namespace** (NS) groups one or more [Schemas](schemas.md) together. Namespaces provide logical organization for your data, typically by domain, application, or tenant.
 
+From the [CLI](../../cmd/xdb/cli/CONTEXT.md): `xdb namespaces list` enumerates namespaces; `xdb describe --uri xdb://ns` describes one. Namespaces are implicit — created on first schema write — so the CLI does not expose `create`/`delete` actions for them today (`xdb describe --actions` is authoritative).
+
 ## Structure
 
 A namespace is an immutable identifier with a single field — its name.
