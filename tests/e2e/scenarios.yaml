@@ -1,0 +1,247 @@
+version: "0.1.0"
+
+# Real-world agent workflows for the xdb CLI.
+#
+# Templating (substituted before exec):
+#   $NS  - unique namespace per scenario, e.g. "e2e-blog-7f3a"
+#   $NOW - RFC3339 timestamp captured at suite start
+#
+# Assertion vocabulary:
+#   exit             - exact exit code
+#   stdout_contains  - substring match on stdout
+#   stderr_contains  - substring match on stderr
+#   json             - partial-match on parsed stdout JSON (every k/v must be present)
+#   ndjson_count     - number of NDJSON lines on stdout
+#   ndjson_ids       - unordered set of _id values across NDJSON lines
+#   error            - partial-match on the error envelope (code, resource, action)
+
+scenarios:
+  - name: "blog-publishing-flow"
+    description: "Author defines a posts schema, drafts and publishes posts, queries published only, retracts one."
+    steps:
+      - name: "create posts schema"
+        run: xdb schemas create --uri xdb://$NS/posts --json '{"fields":{"title":{"type":"string"},"body":{"type":"string"},"published":{"type":"boolean"},"created_at":{"type":"time"}}}'
+        expect: { exit: 0 }
+
+      - name: "create draft post"
+        run: xdb records create --uri xdb://$NS/posts/hello --json '{"title":"Hello","body":"first","published":false,"created_at":"2024-01-01T00:00:00Z"}' -o json
+        expect:
+          exit: 0
+          json: { _id: "hello", published: false }
+
+      - name: "publish via update — patch preserves untouched fields"
+        run: xdb records update --uri xdb://$NS/posts/hello --json '{"published":true}' -o json
+        expect:
+          exit: 0
+          json: { published: true, title: "Hello" }
+
+      - name: "create second post (already published)"
+        run: xdb records create --uri xdb://$NS/posts/world --json '{"title":"World","body":"second","published":true,"created_at":"2024-01-02T00:00:00Z"}'
+        expect: { exit: 0 }
+
+      - name: "filter list — published only"
+        run: xdb records list --uri xdb://$NS/posts --filter 'published == true' --fields _id,title -o ndjson
+        expect:
+          exit: 0
+          ndjson_count: 2
+          ndjson_ids: ["hello", "world"]
+
+      - name: "delete without --force is rejected"
+        run: xdb records delete --uri xdb://$NS/posts/world
+        expect:
+          exit_nonzero: true
+          stderr_contains: "force"
+
+      - name: "delete with --force"
+        run: xdb records delete --uri xdb://$NS/posts/world --force
+        expect: { exit: 0 }
+
+      - name: "list now shows one"
+        run: xdb records list --uri xdb://$NS/posts -o ndjson
+        expect:
+          exit: 0
+          ndjson_count: 1
+          ndjson_ids: ["hello"]
+
+  - name: "user-profile-crud"
+    description: "Upsert idempotency and partial-update semantics on a user profile schema."
+    steps:
+      - name: "create users schema"
+        run: xdb schemas create --uri xdb://$NS/users --json '{"fields":{"email":{"type":"string"},"name":{"type":"string"},"verified":{"type":"boolean"}}}'
+        expect: { exit: 0 }
+
+      - name: "first upsert creates"
+        run: xdb records upsert --uri xdb://$NS/users/u1 --json '{"email":"a@x.io","name":"Ada","verified":false}' -o json
+        expect:
+          exit: 0
+          json: { email: "a@x.io", name: "Ada", verified: false }
+
+      - name: "second upsert fully replaces (no name field → name absent or zero)"
+        run: xdb records upsert --uri xdb://$NS/users/u1 --json '{"email":"a@x.io","verified":true}' -o json
+        expect:
+          exit: 0
+          json: { email: "a@x.io", verified: true }
+
+      - name: "update is a patch — verifying email keeps verified=true"
+        run: xdb records update --uri xdb://$NS/users/u1 --json '{"name":"Ada Lovelace"}' -o json
+        expect:
+          exit: 0
+          json: { email: "a@x.io", verified: true, name: "Ada Lovelace" }
+
+      - name: "get reflects accumulated state"
+        run: xdb records get --uri xdb://$NS/users/u1 -o json
+        expect:
+          exit: 0
+          json: { _id: "u1", email: "a@x.io", verified: true, name: "Ada Lovelace" }
+
+  - name: "feature-flag-toggle"
+    description: "Boolean feature flags: toggle on/off, --quiet returns exit code only."
+    steps:
+      - name: "create flags schema"
+        run: xdb schemas create --uri xdb://$NS/flags --json '{"fields":{"enabled":{"type":"boolean"},"rollout":{"type":"integer"}}}'
+        expect: { exit: 0 }
+
+      - name: "create flag (off)"
+        run: xdb records create --uri xdb://$NS/flags/dark_mode --json '{"enabled":false,"rollout":0}'
+        expect: { exit: 0 }
+
+      - name: "toggle on"
+        run: xdb records update --uri xdb://$NS/flags/dark_mode --json '{"enabled":true,"rollout":50}' -o json
+        expect:
+          exit: 0
+          json: { enabled: true, rollout: 50 }
+
+      - name: "--quiet suppresses stdout"
+        run: xdb records get --uri xdb://$NS/flags/dark_mode --quiet
+        expect:
+          exit: 0
+          stdout_empty: true
+
+      - name: "list enabled flags via filter"
+        run: xdb records list --uri xdb://$NS/flags --filter 'enabled == true' -o ndjson
+        expect:
+          exit: 0
+          ndjson_count: 1
+          ndjson_ids: ["dark_mode"]
+
+  - name: "schema-evolution"
+    description: "Add a new field to an existing schema; old records remain readable."
+    steps:
+      - name: "v1 schema (title only)"
+        run: xdb schemas create --uri xdb://$NS/notes --json '{"fields":{"title":{"type":"string"}}}'
+        expect: { exit: 0 }
+
+      - name: "create note under v1"
+        run: xdb records create --uri xdb://$NS/notes/n1 --json '{"title":"old"}'
+        expect: { exit: 0 }
+
+      - name: "evolve schema — add body field"
+        run: xdb schemas update --uri xdb://$NS/notes --json '{"fields":{"title":{"type":"string"},"body":{"type":"string"}}}'
+        expect: { exit: 0 }
+
+      - name: "old record still readable"
+        run: xdb records get --uri xdb://$NS/notes/n1 -o json
+        expect:
+          exit: 0
+          json: { _id: "n1", title: "old" }
+
+      - name: "new record uses new field"
+        run: xdb records create --uri xdb://$NS/notes/n2 --json '{"title":"new","body":"with body"}' -o json
+        expect:
+          exit: 0
+          json: { title: "new", body: "with body" }
+
+  - name: "validation-rejects-bad-types"
+    description: "SCHEMA_VIOLATION fires when a record violates a typed field; envelope carries actionable info."
+    steps:
+      - name: "create typed schema"
+        run: xdb schemas create --uri xdb://$NS/items --json '{"fields":{"name":{"type":"string"},"qty":{"type":"integer"}}}'
+        expect: { exit: 0 }
+
+      - name: "qty as a string is rejected"
+        run: xdb records create --uri xdb://$NS/items/x --json '{"name":"widget","qty":"not-a-number"}' -o json
+        expect:
+          exit_nonzero: true
+          error:
+            code: "SCHEMA_VIOLATION"
+            resource: "records"
+            action: "create"
+
+      - name: "valid qty succeeds"
+        run: xdb records create --uri xdb://$NS/items/x --json '{"name":"widget","qty":42}' -o json
+        expect:
+          exit: 0
+          json: { name: "widget", qty: 42 }
+
+  - name: "not-found-and-recovery"
+    description: "Get on a missing record returns NOT_FOUND with a helpful hint; create then read succeeds."
+    steps:
+      - name: "schema for the lookup"
+        run: xdb schemas create --uri xdb://$NS/keys --json '{"fields":{"value":{"type":"string"}}}'
+        expect: { exit: 0 }
+
+      - name: "get missing record → NOT_FOUND"
+        run: xdb records get --uri xdb://$NS/keys/ghost -o json
+        expect:
+          exit: 1
+          error:
+            code: "NOT_FOUND"
+            resource: "records"
+            action: "get"
+
+      - name: "create it"
+        run: xdb records create --uri xdb://$NS/keys/ghost --json '{"value":"materialized"}'
+        expect: { exit: 0 }
+
+      - name: "now get succeeds"
+        run: xdb records get --uri xdb://$NS/keys/ghost -o json
+        expect:
+          exit: 0
+          json: { _id: "ghost", value: "materialized" }
+
+  - name: "agent-self-discovery"
+    description: "An agent uses describe to learn the surface, then introspects a live schema it just created."
+    steps:
+      - name: "list resource × action matrix"
+        run: xdb describe --actions
+        expect:
+          exit: 0
+          stdout_contains: "records"
+
+      - name: "describe records.list parameters"
+        run: xdb describe records.list
+        expect:
+          exit: 0
+          stdout_contains: "filter"
+
+      - name: "create a schema to introspect"
+        run: xdb schemas create --uri xdb://$NS/articles --json '{"fields":{"slug":{"type":"string"},"hits":{"type":"integer"}}}'
+        expect: { exit: 0 }
+
+      - name: "describe the live schema URI"
+        run: xdb describe --uri xdb://$NS/articles
+        expect:
+          exit: 0
+          stdout_contains: "slug"
+
+  - name: "bulk-import-via-stdin"
+    description: "Pipe NDJSON invocations into xdb batch -. Currently expected to fail with INTERNAL until batch.execute lands server-side."
+    skip_if_unimplemented: true
+    steps:
+      - name: "schema for the import"
+        run: xdb schemas create --uri xdb://$NS/events --json '{"fields":{"kind":{"type":"string"}}}'
+        expect: { exit: 0 }
+
+      - name: "pipe two creates"
+        run: |
+          printf '{"resource":"records","action":"create","uri":"xdb://%s/events/e1","payload":{"kind":"click"}}
+{"resource":"records","action":"create","uri":"xdb://%s/events/e2","payload":{"kind":"view"}}
+' "$NS" "$NS" | xdb batch -
+        expect: { exit: 0 }
+
+      - name: "list shows both"
+        run: xdb records list --uri xdb://$NS/events -o ndjson
+        expect:
+          exit: 0
+          ndjson_count: 2
+          ndjson_ids: ["e1", "e2"]

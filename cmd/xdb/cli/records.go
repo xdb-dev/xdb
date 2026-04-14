@@ -21,6 +21,7 @@ func (a *App) recordsCmd() *cli.Command {
 				Name:               "create",
 				Usage:              "Create a new record (idempotent)",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[URI]",
 				Flags:              recordMutationFlags(),
 				Action:             a.recordCreate,
 			},
@@ -28,6 +29,7 @@ func (a *App) recordsCmd() *cli.Command {
 				Name:               "get",
 				Usage:              "Retrieve a record by URI",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[URI]",
 				Flags:              recordReadFlags(),
 				Action:             a.recordGet,
 			},
@@ -35,6 +37,7 @@ func (a *App) recordsCmd() *cli.Command {
 				Name:               "list",
 				Usage:              "List records in a schema",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[SCHEMA_URI]",
 				Flags:              recordListFlags(),
 				Action:             a.recordList,
 			},
@@ -42,6 +45,7 @@ func (a *App) recordsCmd() *cli.Command {
 				Name:               "update",
 				Usage:              "Update a record (patch semantics)",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[URI]",
 				Flags:              recordMutationFlags(),
 				Action:             a.recordUpdate,
 			},
@@ -49,6 +53,7 @@ func (a *App) recordsCmd() *cli.Command {
 				Name:               "upsert",
 				Usage:              "Create or replace a record",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[URI]",
 				Flags:              recordMutationFlags(),
 				Action:             a.recordUpsert,
 			},
@@ -56,6 +61,7 @@ func (a *App) recordsCmd() *cli.Command {
 				Name:               "delete",
 				Usage:              "Delete a record (idempotent, requires --force)",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[URI]",
 				Flags:              recordDeleteFlags(),
 				Action:             a.recordDelete,
 			},
@@ -198,6 +204,10 @@ func (a *App) recordDelete(ctx context.Context, cmd *cli.Command) error {
 		return invalidArgError("records", "delete", err)
 	}
 
+	if !cmd.Bool("force") {
+		return invalidArgError("records", "delete", fmt.Errorf("delete requires --force to confirm"))
+	}
+
 	if err := a.client.Call(ctx, "records.delete", &api.DeleteRecordRequest{
 		URI: uri,
 	}, nil); err != nil {
@@ -216,7 +226,7 @@ func (a *App) recordDelete(ctx context.Context, cmd *cli.Command) error {
 
 func recordMutationFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "uri", Usage: "Record URI", Required: true},
+		&cli.StringFlag{Name: "uri", Usage: "Record URI"},
 		&cli.StringFlag{Name: "json", Usage: "Inline JSON payload"},
 		&cli.StringFlag{Name: "file", Aliases: []string{"f"}, Usage: "Path to input file"},
 		&cli.BoolFlag{Name: "dry-run", Usage: "Validate without writing"},
@@ -227,7 +237,7 @@ func recordMutationFlags() []cli.Flag {
 
 func recordReadFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "uri", Usage: "Record URI", Required: true},
+		&cli.StringFlag{Name: "uri", Usage: "Record URI"},
 		&cli.StringFlag{Name: "fields", Usage: "Comma-separated field mask"},
 		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 	}
@@ -235,7 +245,7 @@ func recordReadFlags() []cli.Flag {
 
 func recordListFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "uri", Usage: "Schema URI", Required: true},
+		&cli.StringFlag{Name: "uri", Usage: "Schema URI"},
 		&cli.StringFlag{Name: "filter", Usage: "Human-friendly filter expression"},
 		&cli.StringFlag{Name: "query", Usage: "Structured JSON query"},
 		&cli.StringFlag{Name: "fields", Usage: "Comma-separated field mask"},
@@ -248,8 +258,8 @@ func recordListFlags() []cli.Flag {
 
 func recordDeleteFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "uri", Usage: "Record URI", Required: true},
-		&cli.BoolFlag{Name: "force", Usage: "Confirm deletion", Required: true},
+		&cli.StringFlag{Name: "uri", Usage: "Record URI"},
+		&cli.BoolFlag{Name: "force", Usage: "Confirm deletion"},
 		&cli.BoolFlag{Name: "dry-run", Usage: "Validate without deleting"},
 		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 		&cli.BoolFlag{Name: "quiet", Usage: "Suppress output"},

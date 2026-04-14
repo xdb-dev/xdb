@@ -75,6 +75,11 @@ func NewApp() *cli.Command {
 			},
 		},
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+			// Skip connection for commands that manage configuration or daemon
+			cmdName := cmd.Name
+			if cmdName == "init" || cmdName == "daemon" {
+				return ctx, nil
+			}
 			return ctx, a.connect(cmd)
 		},
 		ExitErrHandler: func(_ context.Context, cmd *cli.Command, err error) {

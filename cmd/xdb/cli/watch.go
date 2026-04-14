@@ -14,7 +14,7 @@ func watchCmd() *cli.Command {
 		Category:           "operations",
 		CustomHelpTemplate: commandHelpTemplate,
 		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "uri", Usage: "URI to watch", Required: true},
+			&cli.StringFlag{Name: "uri", Usage: "URI to watch"},
 			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 		},
 		Action: watchAction,
