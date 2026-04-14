@@ -109,6 +109,10 @@ func (a *App) recordGet(ctx context.Context, cmd *cli.Command) error {
 		return wrapRPCError("records", "get", uri, err)
 	}
 
+	if cmd.Bool("quiet") {
+		return nil
+	}
+
 	return formatRawJSON(cmd, resp.Data)
 }
 
@@ -240,6 +244,7 @@ func recordReadFlags() []cli.Flag {
 		&cli.StringFlag{Name: "uri", Usage: "Record URI"},
 		&cli.StringFlag{Name: "fields", Usage: "Comma-separated field mask"},
 		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
+		&cli.BoolFlag{Name: "quiet", Usage: "Suppress output"},
 	}
 }
 

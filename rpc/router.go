@@ -108,7 +108,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusOK, NewErrorResponse(
 			rpcReq.ID,
-			InternalError(err.Error()),
+			MapError(err),
 		))
 
 		return
