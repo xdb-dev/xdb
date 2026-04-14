@@ -14,7 +14,11 @@ func initCmd() *cli.Command {
 		Usage:              "Initialize XDB and start the daemon",
 		Category:           "system",
 		CustomHelpTemplate: commandHelpTemplate,
-		Action:             initAction,
+		Before: func(ctx context.Context, _ *cli.Command) (context.Context, error) {
+			// init creates the config file, so it doesn't need to connect to the daemon first
+			return ctx, nil
+		},
+		Action: initAction,
 	}
 }
 

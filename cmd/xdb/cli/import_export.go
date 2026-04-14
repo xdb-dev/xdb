@@ -21,7 +21,7 @@ func (a *App) importCmd() *cli.Command {
 		Category:           "operations",
 		CustomHelpTemplate: commandHelpTemplate,
 		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "uri", Usage: "Target schema URI", Required: true},
+			&cli.StringFlag{Name: "uri", Usage: "Target schema URI"},
 			&cli.StringFlag{Name: "file", Aliases: []string{"f"}, Usage: "Path to NDJSON file"},
 			&cli.BoolFlag{Name: "create-only", Usage: "Use create instead of upsert"},
 		},
@@ -36,7 +36,7 @@ func (a *App) exportCmd() *cli.Command {
 		Category:           "operations",
 		CustomHelpTemplate: commandHelpTemplate,
 		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "uri", Usage: "Schema URI", Required: true},
+			&cli.StringFlag{Name: "uri", Usage: "Schema URI"},
 			&cli.StringFlag{Name: "fields", Usage: "Comma-separated field mask"},
 			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 		},

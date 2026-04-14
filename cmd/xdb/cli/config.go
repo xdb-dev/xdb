@@ -230,17 +230,17 @@ func EnsureConfigAt(configPath string) (bool, error) {
 func LoadConfig(configPath string) (*Config, error) {
 	if configPath == "" {
 		configPath = DefaultConfigPath()
-
-		if _, err := EnsureConfigAt(configPath); err != nil {
-			return nil, err
-		}
 	}
 
 	configPath = expandTilde(configPath)
 
+	if _, err := EnsureConfigAt(configPath); err != nil {
+		return nil, fmt.Errorf("ensure config: %w", err)
+	}
+
 	data, err := os.ReadFile(configPath) // #nosec G304 - configPath is from trusted CLI flag or hardcoded default
 	if err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
+		return nil, fmt.Errorf("read config (at %s): %w", configPath, err)
 	}
 
 	cfg := NewDefaultConfig()

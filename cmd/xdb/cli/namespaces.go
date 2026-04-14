@@ -31,7 +31,7 @@ func (a *App) namespacesCmd() *cli.Command {
 				Usage:              "Get namespace details",
 				CustomHelpTemplate: commandHelpTemplate,
 				Flags: []cli.Flag{
-					&cli.StringFlag{Name: "uri", Usage: "Namespace URI", Required: true},
+					&cli.StringFlag{Name: "uri", Usage: "Namespace URI"},
 					&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 				},
 				Action: a.namespaceGet,

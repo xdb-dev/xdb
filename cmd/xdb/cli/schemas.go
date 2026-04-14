@@ -20,6 +20,7 @@ func (a *App) schemasCmd() *cli.Command {
 				Name:               "create",
 				Usage:              "Create a new schema (idempotent)",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[URI]",
 				Flags:              schemaMutationFlags(),
 				Action:             a.schemaCreate,
 			},
@@ -27,6 +28,7 @@ func (a *App) schemasCmd() *cli.Command {
 				Name:               "get",
 				Usage:              "Retrieve a schema definition",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[URI]",
 				Flags:              schemaReadFlags(),
 				Action:             a.schemaGet,
 			},
@@ -34,6 +36,7 @@ func (a *App) schemasCmd() *cli.Command {
 				Name:               "list",
 				Usage:              "List schemas in a namespace",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[NAMESPACE_URI]",
 				Flags:              schemaListFlags(),
 				Action:             a.schemaList,
 			},
@@ -41,6 +44,7 @@ func (a *App) schemasCmd() *cli.Command {
 				Name:               "update",
 				Usage:              "Update a schema (patch semantics)",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[URI]",
 				Flags:              schemaMutationFlags(),
 				Action:             a.schemaUpdate,
 			},
@@ -48,6 +52,7 @@ func (a *App) schemasCmd() *cli.Command {
 				Name:               "delete",
 				Usage:              "Delete a schema (idempotent, requires --force)",
 				CustomHelpTemplate: commandHelpTemplate,
+				ArgsUsage:          "[URI]",
 				Flags:              schemaDeleteFlags(),
 				Action:             a.schemaDelete,
 			},
@@ -165,7 +170,7 @@ func (a *App) schemaDelete(ctx context.Context, cmd *cli.Command) error {
 
 func schemaMutationFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "uri", Usage: "Schema URI", Required: true},
+		&cli.StringFlag{Name: "uri", Usage: "Schema URI"},
 		&cli.StringFlag{Name: "json", Usage: "Inline JSON payload"},
 		&cli.StringFlag{Name: "file", Aliases: []string{"f"}, Usage: "Path to input file"},
 		&cli.BoolFlag{Name: "dry-run", Usage: "Validate without writing"},
@@ -175,7 +180,7 @@ func schemaMutationFlags() []cli.Flag {
 
 func schemaReadFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "uri", Usage: "Schema URI", Required: true},
+		&cli.StringFlag{Name: "uri", Usage: "Schema URI"},
 		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 	}
 }
@@ -191,8 +196,8 @@ func schemaListFlags() []cli.Flag {
 
 func schemaDeleteFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "uri", Usage: "Schema URI", Required: true},
-		&cli.BoolFlag{Name: "force", Usage: "Confirm deletion", Required: true},
+		&cli.StringFlag{Name: "uri", Usage: "Schema URI"},
+		&cli.BoolFlag{Name: "force", Usage: "Confirm deletion"},
 		&cli.BoolFlag{Name: "cascade", Usage: "Delete schema and all records"},
 		&cli.BoolFlag{Name: "dry-run", Usage: "Validate without deleting"},
 		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
