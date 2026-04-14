@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/urfave/cli/v3"
@@ -14,14 +15,17 @@ import (
 func (a *App) describeCmd() *cli.Command {
 	return &cli.Command{
 		Name:               "describe",
-		Usage:              "Introspect methods, types, and data schemas",
+		Usage:              "Introspect actions, types, filters, errors, and data schemas",
 		Category:           "agent",
 		CustomHelpTemplate: commandHelpTemplate,
-		ArgsUsage:          "[method.name | TypeName]",
+		ArgsUsage:          "[resource.action | TypeName]",
 		Flags: []cli.Flag{
-			&cli.BoolFlag{Name: "methods", Usage: "List all methods"},
+			&cli.BoolFlag{Name: "methods", Usage: "List all actions (dotted RPC form)"},
+			&cli.BoolFlag{Name: "actions", Usage: "Show action \u00d7 resource matrix"},
 			&cli.BoolFlag{Name: "types", Usage: "List all types"},
 			&cli.BoolFlag{Name: "value-types", Usage: "List supported value types"},
+			&cli.BoolFlag{Name: "filter", Usage: "Show CEL filter grammar"},
+			&cli.BoolFlag{Name: "errors", Usage: "List error codes"},
 			&cli.StringFlag{Name: "uri", Usage: "Data schema URI"},
 			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 		},
@@ -34,6 +38,10 @@ func (a *App) schemaInspect(ctx context.Context, cmd *cli.Command) error {
 		return a.listMethods(ctx, cmd)
 	}
 
+	if cmd.Bool("actions") {
+		return a.listActions(ctx, cmd)
+	}
+
 	if cmd.Bool("types") {
 		return a.listTypes(ctx, cmd)
 	}
@@ -42,13 +50,21 @@ func (a *App) schemaInspect(ctx context.Context, cmd *cli.Command) error {
 		return listValueTypes(cmd)
 	}
 
+	if cmd.Bool("filter") {
+		return listFilterGrammar(cmd)
+	}
+
+	if cmd.Bool("errors") {
+		return listErrorCodes(cmd)
+	}
+
 	if uri := cmd.String("uri"); uri != "" {
 		return a.describeDataSchema(ctx, cmd, uri)
 	}
 
 	args := cmd.Args()
 	if args.Len() == 0 {
-		return fmt.Errorf("specify a method name, type name, or use --methods/--types/--value-types")
+		return fmt.Errorf("specify a resource.action name, type name, or use --actions/--types/--value-types/--filter/--errors")
 	}
 
 	name := args.First()
@@ -157,6 +173,100 @@ func (a *App) describeType(ctx context.Context, cmd *cli.Command, name string) e
 		"type":        resp.Type,
 		"description": resp.Description,
 	})
+}
+
+// listActions returns the action x resource matrix derived from the live
+// introspect.methods response. Each row is one resource with a list of
+// supported actions and whether each is mutating.
+func (a *App) listActions(ctx context.Context, cmd *cli.Command) error {
+	var resp api.ListMethodsResponse
+	if err := a.client.Call(ctx, "introspect.methods", &api.ListMethodsRequest{}, &resp); err != nil {
+		return wrapRPCError("introspect", "methods", "", err)
+	}
+
+	type row struct {
+		Resource string   `json:"resource"`
+		Actions  []string `json:"actions"`
+		Mutating []string `json:"mutating"`
+	}
+
+	byResource := make(map[string]*row)
+
+	for _, m := range resp.Methods {
+		resource, action, ok := strings.Cut(m.Method, ".")
+		if !ok {
+			continue
+		}
+
+		r := byResource[resource]
+		if r == nil {
+			r = &row{Resource: resource}
+			byResource[resource] = r
+		}
+
+		r.Actions = append(r.Actions, action)
+	}
+
+	names := make([]string, 0, len(byResource))
+	for name := range byResource {
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+
+	items := make([]any, 0, len(names))
+	for _, name := range names {
+		r := byResource[name]
+		sort.Strings(r.Actions)
+		items = append(items, map[string]any{
+			"resource": r.Resource,
+			"actions":  r.Actions,
+		})
+	}
+
+	return formatList(cmd, items)
+}
+
+// listFilterGrammar returns the CEL operators and functions supported by
+// --filter. Static reference — no RPC call.
+func listFilterGrammar(cmd *cli.Command) error {
+	doc := map[string]any{
+		"kind":      "FilterGrammar",
+		"dialect":   "CEL (AIP-160)",
+		"operators": []string{"==", "!=", "<", "<=", ">", ">=", "&&", "||", "!", "in"},
+		"functions": []string{".contains(s)", ".startsWith(s)", ".endsWith(s)", "size(x)"},
+		"examples": []string{
+			`status == "published"`,
+			`age >= 18 && status == "active"`,
+			`title.contains("hello") || title.startsWith("Hi")`,
+			`status in ["active", "pending"]`,
+			`size(tags) > 0`,
+			`!(archived == true)`,
+		},
+	}
+
+	return formatOne(cmd, doc)
+}
+
+// listErrorCodes returns the error code catalog rendered by the CLI.
+// Static reference — matches the codes in [output.ErrorEnvelope].
+func listErrorCodes(cmd *cli.Command) error {
+	type entry struct {
+		Code        string `json:"code"`
+		Description string `json:"description"`
+		ExitCode    int    `json:"exit_code"`
+	}
+
+	items := []any{
+		entry{Code: CodeNotFound, Description: "Resource does not exist", ExitCode: ExitAppError},
+		entry{Code: CodeAlreadyExists, Description: "Resource already exists (use update or upsert)", ExitCode: ExitAppError},
+		entry{Code: CodeSchemaViolation, Description: "Payload violates schema constraints", ExitCode: ExitAppError},
+		entry{Code: CodeInvalidArgument, Description: "Invalid command-line arguments or RPC parameters", ExitCode: ExitInvalidArgs},
+		entry{Code: CodeConnectionRefused, Description: "Daemon is not reachable — run xdb daemon start", ExitCode: ExitConnection},
+		entry{Code: CodeInternal, Description: "Unexpected internal error", ExitCode: ExitInternal},
+	}
+
+	return formatList(cmd, items)
 }
 
 func (a *App) describeDataSchema(ctx context.Context, cmd *cli.Command, raw string) error {

@@ -1,115 +1,118 @@
 # XDB CLI Context
 
-Agent-first data layer. Model once, store anywhere. URI-addressed: `xdb://NAMESPACE/SCHEMA/ID#ATTR`.
+Agent-first data layer. Model once, store anywhere. URI-addressed: `xdb://NS/SCHEMA/ID#ATTR`.
 
-**Before you start:** `xdb describe --uri xdb://NS/SCHEMA` to discover schema. `xdb describe <resource>.<method>` to discover method params. `xdb describe --value-types` for supported field types. Always `--fields` and `--limit` to protect context window.
-
-## Syntax
+## Grammar
 
 ```
-xdb <resource> <method> [flags]        # structured
-xdb <alias> <uri> [flags]              # human shorthand
-xdb describe <resource.method | Type>  # introspection
+xdb <resource> <action> <URI> [--filter CEL] [--fields MASK] [--json|--file|-] [-o FMT]
 ```
 
-## Flags
+- **resource** — `records` / `schemas` / `namespaces`
+- **action** — `get | list | create | update | upsert | delete | watch`
+- **URI** — the noun; depth determines resource (`ns` / `ns/schema` / `ns/schema/id`)
+- **`-o`** — `json` / `ndjson` / `table` / `yaml` (auto: table on TTY, json on pipe)
 
-| Flag                  | Purpose                                            |
-| --------------------- | -------------------------------------------------- |
-| `-c, --config <PATH>` | Config file (default `~/.xdb/config.json`)         |
-| `-o, --output <FMT>`  | `json` (pipes) / `table` (TTY) / `yaml` / `ndjson` |
-| `--uri <URI>`         | Target resource                                    |
-| `--json '<JSON>'`     | Inline payload                                     |
-| `-f, --file <PATH>`   | Payload from file (stdin if omitted)               |
-| `--filter <CEL>`      | CEL filter expression (AIP-160)                    |
-| `--fields <MASK>`     | Field mask (`_id` always included)                 |
-| `--limit`, `--offset` | Pagination                                         |
-| `--dry-run`           | Validate without writing                           |
-| `--force`             | Required for deletes                               |
-| `--cascade`           | Delete schema and all its records                  |
-| `--quiet`             | Suppress output, exit code only                    |
-
-## Filter Syntax (CEL / AIP-160)
+**First-day moves — always do these:**
 
 ```bash
---filter 'status == "published"'
---filter 'status == "active" && age >= 18'
---filter 'title.contains("hello") || title.startsWith("Hi")'
---filter 'status in ["active", "pending"]'
---filter 'size(name) > 3'
---filter '!(archived == true)'
+xdb describe --actions                 # what actions exist on what resources
+xdb describe records.create            # parameters for one action
+xdb describe --uri xdb://ns/schema     # live data schema
 ```
 
-Operators: `==`, `!=`, `<`, `>`, `<=`, `>=`, `&&`, `||`, `!`, `in`
-Functions: `.contains()`, `.startsWith()`, `.endsWith()`, `size()`
+Always pass `--fields` and `--limit` to keep responses bounded.
 
-## Value Types
-
-`string`, `integer`, `unsigned`, `float`, `boolean`, `time`, `bytes`, `json`, `array`
-
-Use these in schema field definitions: `{"fields":{"age":{"type":"integer"}}}`. Run `xdb describe --value-types` for the full list.
-
-## Examples
+## Minimal examples
 
 ```bash
 # Read
-xdb records get --uri xdb://ns/schema/id --fields title,author
-xdb records list --uri xdb://ns/schema --filter 'status == "published"' --fields id,title --limit 10
-xdb records list --uri xdb://ns/schema --filter 'age > 30 && active == true' --fields id,name --limit 10
-xdb schemas list --uri xdb://ns
+xdb records get  xdb://ns/s/id --fields title,author
+xdb records list xdb://ns/s --filter 'status=="published"' --fields id,title --limit 10
 
-# Write (create=idempotent, update=patch merge, upsert=full replace)
-xdb records create --uri xdb://ns/schema/id --json '{"title":"Hello"}'
-xdb records update --uri xdb://ns/schema/id --json '{"title":"Updated"}'
-xdb records upsert --uri xdb://ns/schema/id --json '{"title":"Complete","author":"Bob"}'
+# Write — create = idempotent insert · update = patch · upsert = full replace
+xdb records create xdb://ns/s/id --json '{"title":"Hello"}'
+xdb records update xdb://ns/s/id --json '{"title":"Updated"}'
 
-# Bulk
-xdb export --uri xdb://ns/schema --fields id,title
-cat data.ndjson | xdb import --uri xdb://ns/schema
-xdb import --uri xdb://ns/schema --file data.ndjson --create-only
+# Delete requires --force
+xdb records delete xdb://ns/s/id --force
 
 # Schema
-xdb schemas create --uri xdb://ns/schema --json '{"fields":{"title":{"type":"string"}}}'
-xdb schemas delete --uri xdb://ns/schema --force --cascade  # delete schema and all records
-
-# Introspect
-xdb describe records.create       # method params
-xdb describe Record               # type definition
-xdb describe --methods            # all methods
-xdb describe --types              # all types
-xdb describe --value-types        # supported value types
-xdb describe --uri xdb://ns/schema  # data schema
+xdb schemas create xdb://ns/s --json '{"fields":{"title":{"type":"string"}}}'
 ```
 
-## Aliases
+## When you need more
 
-URI depth determines resource. Positional URI (no `--uri`):
+Everything else is retrievable from the CLI itself:
+
+| Need                           | Command                            |
+| ------------------------------ | ---------------------------------- |
+| Action × resource matrix       | `xdb describe --actions`           |
+| Parameters for an action       | `xdb describe <resource>.<action>` |
+| Type definition                | `xdb describe <Type>`              |
+| Live schema for a URI          | `xdb describe --uri <uri>`         |
+| CEL filter operators/functions | `xdb describe --filter`            |
+| Error code catalog             | `xdb describe --errors`            |
+| Supported value types          | `xdb describe --value-types`       |
+
+## Composition
+
+The CLI composes via stdin, stdout, and one error shape.
+
+**Stdin `-` is the pipe token** — any command taking a URI or payload accepts `-` for stdin:
 
 ```bash
-xdb get  xdb://ns/schema/id       # records get
-xdb get  xdb://ns/schema          # schemas get
-xdb get  xdb://ns                 # namespaces get
-xdb ls   xdb://ns/schema          # records list
-xdb ls   xdb://ns                 # schemas list
-xdb ls                            # namespaces list
-xdb put  xdb://ns/schema/id ...   # records upsert
-xdb rm   xdb://ns/schema/id --force  # records delete
-xdb rm   xdb://ns/schema --force  # schemas delete
-xdb make-schema xdb://ns/schema   # schemas create
+echo '{"title":"t"}' | xdb records create xdb://ns/s/id -
+xdb records list xdb://ns/s -o ndjson | xdb batch -
 ```
+
+Each NDJSON batch line is the serialized AST of one invocation: `{"resource","action","uri","payload"}`.
+
+> **Note:** `xdb batch` accepts the input shape today but the server's `batch.execute` is not yet implemented — invocations currently return `INTERNAL` ("batch.execute not implemented"). Use single-action calls until the server side lands.
+
+**Every error, every format, same shape:**
+
+```json
+{
+  "code": "NOT_FOUND",
+  "message": "...",
+  "resource": "records",
+  "action": "get",
+  "uri": "xdb://...",
+  "hint": "..."
+}
+```
+
+## Common flags (inherited)
+
+| Flag                  | Purpose                                    |
+| --------------------- | ------------------------------------------ |
+| `--uri` / positional  | Target resource                            |
+| `--json '<JSON>'`     | Inline payload                             |
+| `-f, --file <PATH>`   | Payload from file                          |
+| `-`                   | Read URI or payload from stdin             |
+| `--filter <CEL>`      | Filter expression (list only)              |
+| `--fields <MASK>`     | Field mask (`_id` always included)         |
+| `--limit`, `--offset` | Pagination                                 |
+| `--force`             | Required for deletes                       |
+| `--cascade`           | Delete schema and all its records          |
+| `--dry-run`           | Validate without writing                   |
+| `-o, --output`        | Output format                              |
+| `--quiet`             | Suppress output, exit code only            |
+| `-c, --config`        | Config path (default `~/.xdb/config.json`) |
+
+## Exit codes
+
+`0` ok · `1` app error (`NOT_FOUND`, `ALREADY_EXISTS`, `SCHEMA_VIOLATION`) · `2` connection · `3` invalid argument · `4` internal
 
 ## System
 
 ```bash
-xdb init                          # config + data dir + start daemon
-xdb skills list                   # available skills
-xdb skills get <name>             # skill document
+xdb init              # config + data dir + daemon
+xdb daemon status     # check daemon
+xdb skills list       # agent skills
 ```
 
-## Exit Codes
+---
 
-- `0` success
-- `1` app error (NOT_FOUND, ALREADY_EXISTS, SCHEMA_VIOLATION)
-- `2` connection error
-- `3` input validation error
-- `4` internal error
+Note: the RPC layer addresses actions as `<resource>.<action>` (e.g. `records.create`). User-facing docs, help, and `describe` call them **actions**; the dotted form is the stable identifier.

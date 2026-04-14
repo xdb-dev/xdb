@@ -66,12 +66,12 @@ func (a *App) recordsCmd() *cli.Command {
 func (a *App) recordCreate(ctx context.Context, cmd *cli.Command) error {
 	data, err := readPayload(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "create", err)
 	}
 
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "create", err)
 	}
 
 	var resp api.CreateRecordResponse
@@ -79,7 +79,7 @@ func (a *App) recordCreate(ctx context.Context, cmd *cli.Command) error {
 		URI:  uri,
 		Data: data,
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("records", "create", uri, err)
 	}
 
 	if cmd.Bool("quiet") {
@@ -92,7 +92,7 @@ func (a *App) recordCreate(ctx context.Context, cmd *cli.Command) error {
 func (a *App) recordGet(ctx context.Context, cmd *cli.Command) error {
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "get", err)
 	}
 
 	var resp api.GetRecordResponse
@@ -100,7 +100,7 @@ func (a *App) recordGet(ctx context.Context, cmd *cli.Command) error {
 		URI:    uri,
 		Fields: parseFields(cmd.String("fields")),
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("records", "get", uri, err)
 	}
 
 	return formatRawJSON(cmd, resp.Data)
@@ -109,7 +109,7 @@ func (a *App) recordGet(ctx context.Context, cmd *cli.Command) error {
 func (a *App) recordList(ctx context.Context, cmd *cli.Command) error {
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "list", err)
 	}
 
 	var resp api.ListRecordsResponse
@@ -120,7 +120,7 @@ func (a *App) recordList(ctx context.Context, cmd *cli.Command) error {
 		Limit:  int(cmd.Int("limit")),
 		Offset: int(cmd.Int("offset")),
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("records", "list", uri, err)
 	}
 
 	items := make([]any, len(resp.Items))
@@ -139,16 +139,16 @@ func (a *App) recordList(ctx context.Context, cmd *cli.Command) error {
 func (a *App) recordUpdate(ctx context.Context, cmd *cli.Command) error {
 	data, err := readPayload(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "update", err)
 	}
 
 	if data == nil {
-		return fmt.Errorf("update requires a payload (--json, --file, or stdin)")
+		return invalidArgError("records", "update", fmt.Errorf("update requires a payload (--json, --file, or stdin)"))
 	}
 
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "update", err)
 	}
 
 	var resp api.UpdateRecordResponse
@@ -156,7 +156,7 @@ func (a *App) recordUpdate(ctx context.Context, cmd *cli.Command) error {
 		URI:  uri,
 		Data: data,
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("records", "update", uri, err)
 	}
 
 	if cmd.Bool("quiet") {
@@ -169,12 +169,12 @@ func (a *App) recordUpdate(ctx context.Context, cmd *cli.Command) error {
 func (a *App) recordUpsert(ctx context.Context, cmd *cli.Command) error {
 	data, err := readPayload(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "upsert", err)
 	}
 
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "upsert", err)
 	}
 
 	var resp api.UpsertRecordResponse
@@ -182,7 +182,7 @@ func (a *App) recordUpsert(ctx context.Context, cmd *cli.Command) error {
 		URI:  uri,
 		Data: data,
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("records", "upsert", uri, err)
 	}
 
 	if cmd.Bool("quiet") {
@@ -195,13 +195,13 @@ func (a *App) recordUpsert(ctx context.Context, cmd *cli.Command) error {
 func (a *App) recordDelete(ctx context.Context, cmd *cli.Command) error {
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "delete", err)
 	}
 
 	if err := a.client.Call(ctx, "records.delete", &api.DeleteRecordRequest{
 		URI: uri,
 	}, nil); err != nil {
-		return err
+		return wrapRPCError("records", "delete", uri, err)
 	}
 
 	if cmd.Bool("quiet") {

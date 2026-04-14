@@ -46,7 +46,7 @@ func (a *App) namespaceList(ctx context.Context, cmd *cli.Command) error {
 		Limit:  int(cmd.Int("limit")),
 		Offset: int(cmd.Int("offset")),
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("namespaces", "list", "", err)
 	}
 
 	items := make([]any, len(resp.Items))
@@ -60,14 +60,14 @@ func (a *App) namespaceList(ctx context.Context, cmd *cli.Command) error {
 func (a *App) namespaceGet(ctx context.Context, cmd *cli.Command) error {
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("namespaces", "get", err)
 	}
 
 	var resp api.GetNamespaceResponse
 	if err := a.client.Call(ctx, "namespaces.get", &api.GetNamespaceRequest{
 		URI: uri,
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("namespaces", "get", uri, err)
 	}
 
 	return formatOne(cmd, map[string]string{

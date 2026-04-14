@@ -50,6 +50,10 @@ xdb://com.example/posts/123-456-789#title
 
 The more components present, the more specific the reference. Commands like `get`, `ls`, and `rm` use the URI level to determine what operation to perform.
 
+## URIs in the CLI
+
+The URI is the **noun** of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md). Every command is `xdb <resource> <action> <URI> [flags]`. URI depth picks the resource; the action set (`get/list/create/update/upsert/delete/watch`) applies uniformly. Run `xdb describe --actions` for the live action × resource matrix.
+
 ## Paths
 
 A **path** is the URI without the `xdb://` scheme:

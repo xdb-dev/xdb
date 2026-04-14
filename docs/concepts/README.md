@@ -1,6 +1,8 @@
 # Concepts
 
-This directory contains documentation for XDB's core concepts. Each document covers a single concept in depth, including its purpose, structure, and usage.
+This directory contains documentation for XDB's core concepts — the data model (URIs, tuples, records, schemas, namespaces, types) and the infrastructure around it (stores, encoding, config, daemon).
+
+The [CLI](../../cmd/xdb/cli/CONTEXT.md) exposes these concepts as the primitives of a small language: URIs are the noun, records/schemas/namespaces are what the nouns resolve to, and types define the value space filters and payloads operate on.
 
 ## Data Model
 

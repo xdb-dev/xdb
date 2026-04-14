@@ -194,6 +194,10 @@ func spawnDaemon(cfg *Config, configFlag string) error {
 		return fmt.Errorf("spawn daemon: %w", startErr)
 	}
 
+	// Capture the PID before releasing — Release() invalidates the handle and
+	// sets Pid to -1 on recent Go versions.
+	childPID := child.Process.Pid
+
 	// Release the child so it isn't reaped when we exit.
 	_ = child.Process.Release()
 	_ = logFile.Close()
@@ -205,7 +209,7 @@ func spawnDaemon(cfg *Config, configFlag string) error {
 		return fmt.Errorf("daemon started but not reachable: %w", waitErr)
 	}
 
-	fmt.Fprintf(os.Stderr, "Daemon started (PID %d)\n", child.Process.Pid)
+	fmt.Fprintf(os.Stderr, "Daemon started (PID %d)\n", childPID)
 	fmt.Fprintf(os.Stderr, "Listening on %s\n", socketPath)
 
 	return nil
