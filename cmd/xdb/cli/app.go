@@ -44,6 +44,63 @@ func (a *App) connect(cmd *cli.Command) error {
 	return nil
 }
 
+// NewEmbeddedCommand creates an xdb CLI sub-command suitable for embedding
+// inside another CLI (e.g. `lw db`). It omits lifecycle commands (daemon,
+// init) that the host process owns, and uses name as the command name.
+func NewEmbeddedCommand(name string) *cli.Command {
+	a := &App{}
+
+	return &cli.Command{
+		Name:  name,
+		Usage: "Query and manage xdb data",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "config",
+				Aliases: []string{"c"},
+				Usage:   "Path to config file",
+				Value:   "~/.xdb/config.json",
+			},
+			&cli.StringFlag{
+				Name:    "output",
+				Aliases: []string{"o"},
+				Usage:   "Output format (json, table, yaml, ndjson)",
+			},
+			&cli.BoolFlag{
+				Name:    "verbose",
+				Aliases: []string{"v"},
+				Usage:   "Enable verbose logging",
+			},
+			&cli.BoolFlag{
+				Name:  "debug",
+				Usage: "Enable debug logging",
+			},
+		},
+		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+			return ctx, a.connect(cmd)
+		},
+		ExitErrHandler: func(_ context.Context, cmd *cli.Command, err error) {
+			WriteError(os.Stderr, cmd.Root().String("output"), err)
+		},
+		Commands: append(
+			[]*cli.Command{
+				a.recordsCmd(),
+				a.schemasCmd(),
+				a.namespacesCmd(),
+				a.batchCmd(),
+				a.importCmd(),
+				a.exportCmd(),
+				a.describeCmd(),
+				skillsCmd(),
+			},
+			a.aliasCommands()...,
+		),
+		Action: func(_ context.Context, _ *cli.Command) error {
+			_, err := fmt.Fprint(os.Stdout, agentContext)
+			return err
+		},
+	}
+}
+
 // NewApp creates the root xdb CLI command.
 func NewApp() *cli.Command {
 	a := &App{}
