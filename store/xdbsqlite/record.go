@@ -570,9 +570,11 @@ func (s *Store) CreateRecord(ctx context.Context, record *core.Record) error {
 		return err
 	}
 
-	if err := s.validateAndEvolve(ctx, q, def, record.Tuples()); err != nil {
+	def, err = s.validateAndEvolve(ctx, q, def, record.Tuples())
+	if err != nil {
 		return err
 	}
+	refreshTableDef(rs, def)
 
 	if err := rs.CreateRecord(ctx, record); err != nil {
 		return err
@@ -595,9 +597,11 @@ func (s *Store) UpdateRecord(ctx context.Context, record *core.Record) error {
 		return err
 	}
 
-	if err := s.validateAndEvolve(ctx, q, def, record.Tuples()); err != nil {
+	def, err = s.validateAndEvolve(ctx, q, def, record.Tuples())
+	if err != nil {
 		return err
 	}
+	refreshTableDef(rs, def)
 
 	if err := rs.UpdateRecord(ctx, record); err != nil {
 		return err
@@ -620,15 +624,26 @@ func (s *Store) UpsertRecord(ctx context.Context, record *core.Record) error {
 		return err
 	}
 
-	if err := s.validateAndEvolve(ctx, q, def, record.Tuples()); err != nil {
+	def, err = s.validateAndEvolve(ctx, q, def, record.Tuples())
+	if err != nil {
 		return err
 	}
+	refreshTableDef(rs, def)
 
 	if err := rs.UpsertRecord(ctx, record); err != nil {
 		return err
 	}
 
 	return tx.Commit()
+}
+
+// refreshTableDef updates the schema def on a [RecordTableTx] after dynamic
+// schema evolution so the subsequent write sees the new columns. No-op for
+// KV-strategy tables.
+func refreshTableDef(rs store.RecordStore, def *schema.Def) {
+	if tx, ok := rs.(*RecordTableTx); ok {
+		tx.def = def
+	}
 }
 
 // DeleteRecord deletes a record by URI.

@@ -33,6 +33,7 @@ func (s *ModeStoreSuite) Run(t *testing.T) {
 	t.Run("Strict", s.testStrict)
 	t.Run("Dynamic", s.testDynamic)
 	t.Run("NoSchema", s.testNoSchema)
+	t.Run("ArrayElemType", s.testArrayElemType)
 }
 
 func (s *ModeStoreSuite) testFlexible(t *testing.T) {
@@ -208,6 +209,102 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 		durField, ok := got.Fields["duration"]
 		require.True(t, ok, "schema should have inferred 'duration' field")
 		assert.Equal(t, core.TIDFloat, durField.Type)
+	})
+}
+
+func (s *ModeStoreSuite) testArrayElemType(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("strict mode roundtrips typed array", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/strict_arrays")
+		def := &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.FieldDef{
+				"title": {Type: core.TIDString},
+				"tags":  {Type: core.TIDArray, ElemType: core.TIDString},
+			},
+		}
+		require.NoError(t, st.CreateSchema(ctx, uri, def))
+
+		r := core.NewRecord("com.example", "strict_arrays", "1")
+		r.Set("title", "hello")
+		r.Set("tags", core.ArrayVal(core.TIDString,
+			core.StringVal("go"),
+			core.StringVal("db"),
+		))
+		require.NoError(t, st.CreateRecord(ctx, r))
+
+		got, err := st.GetRecord(ctx, r.URI())
+		require.NoError(t, err)
+		tags, err := got.Get("tags").Value().AsArray()
+		require.NoError(t, err)
+		assert.Len(t, tags, 2)
+	})
+
+	t.Run("strict mode rejects mismatched elem type", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/strict_arrays_mismatch")
+		def := &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.FieldDef{
+				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			},
+		}
+		require.NoError(t, st.CreateSchema(ctx, uri, def))
+
+		r := core.NewRecord("com.example", "strict_arrays_mismatch", "1")
+		r.Set("tags", core.ArrayVal(core.TIDInteger, core.IntVal(1)))
+
+		err := st.CreateRecord(ctx, r)
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
+	})
+
+	t.Run("dynamic mode infers array elem type", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/dyn_arrays")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeDynamic,
+			Fields: map[string]schema.FieldDef{
+				"name": {Type: core.TIDString, Required: true},
+			},
+		}))
+
+		r := core.NewRecord("com.example", "dyn_arrays", "1")
+		r.Set("name", "click")
+		r.Set("tags", core.ArrayVal(core.TIDString,
+			core.StringVal("a"),
+			core.StringVal("b"),
+		))
+		require.NoError(t, st.CreateRecord(ctx, r))
+
+		got, err := st.GetSchema(ctx, uri)
+		require.NoError(t, err)
+		tags, ok := got.Fields["tags"]
+		require.True(t, ok)
+		assert.Equal(t, core.TIDArray, tags.Type)
+		assert.Equal(t, core.TIDString, tags.ElemType)
+	})
+
+	t.Run("dynamic mode rejects mismatched elem type on known field", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/dyn_arrays_mismatch")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeDynamic,
+			Fields: map[string]schema.FieldDef{
+				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			},
+		}))
+
+		r := core.NewRecord("com.example", "dyn_arrays_mismatch", "1")
+		r.Set("tags", core.ArrayVal(core.TIDInteger, core.IntVal(1)))
+
+		err := st.CreateRecord(ctx, r)
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
 	})
 }
 

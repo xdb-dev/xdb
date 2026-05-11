@@ -129,6 +129,9 @@ func (s *Store) CreateSchema(
 	uri *core.URI,
 	def *schema.Def,
 ) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return createInMap(s.schemas, uri.Path(), def)
@@ -140,8 +143,17 @@ func (s *Store) UpdateSchema(
 	uri *core.URI,
 	def *schema.Def,
 ) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	existing, ok := s.schemas[uri.Path()]
+	if ok {
+		if err := schema.ValidateUpdate(existing, def); err != nil {
+			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+		}
+	}
 	return updateInMap(s.schemas, uri.Path(), def)
 }
 
@@ -264,10 +276,21 @@ func (tx *txStore) ListSchemas(
 }
 
 func (tx *txStore) CreateSchema(_ context.Context, uri *core.URI, def *schema.Def) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
 	return createInMap(tx.store.schemas, uri.Path(), def)
 }
 
 func (tx *txStore) UpdateSchema(_ context.Context, uri *core.URI, def *schema.Def) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
+	if existing, ok := tx.store.schemas[uri.Path()]; ok {
+		if err := schema.ValidateUpdate(existing, def); err != nil {
+			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+		}
+	}
 	return updateInMap(tx.store.schemas, uri.Path(), def)
 }
 
@@ -315,43 +338,27 @@ func validateAndEvolve(
 		}
 
 	case schema.ModeDynamic:
+		newFields, err := schema.EvolveDynamic(def, record.Tuples())
+		if err != nil {
+			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+		}
+		if len(newFields) == 0 {
+			return nil
+		}
+
 		// Clone the def before mutating to avoid aliasing the cached pointer.
 		evolved := &schema.Def{
 			URI:    def.URI,
 			Mode:   def.Mode,
-			Fields: make(map[string]schema.FieldDef, len(def.Fields)),
+			Fields: make(map[string]schema.FieldDef, len(def.Fields)+len(newFields)),
 		}
 		for k, v := range def.Fields {
 			evolved.Fields[k] = v
 		}
-
-		changed := false
-		for _, tuple := range record.Tuples() {
-			attr := tuple.Attr().String()
-			field, known := evolved.Fields[attr]
-
-			if !known {
-				evolved.Fields[attr] = schema.FieldDef{
-					Type: tuple.Value().Type().ID(),
-				}
-				changed = true
-				continue
-			}
-
-			if field.Type != tuple.Value().Type().ID() {
-				return fmt.Errorf(
-					"%w: field %q: expected %s, got %s",
-					store.ErrSchemaViolation,
-					attr,
-					field.Type,
-					tuple.Value().Type().ID(),
-				)
-			}
+		for k, v := range newFields {
+			evolved.Fields[k] = v
 		}
-
-		if changed {
-			schemas[record.SchemaURI().Path()] = evolved
-		}
+		schemas[record.SchemaURI().Path()] = evolved
 	}
 
 	return nil

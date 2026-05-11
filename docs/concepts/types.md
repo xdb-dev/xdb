@@ -60,7 +60,7 @@ core.BoolVal(true)
 core.TimeVal(time.Now())
 core.JSONVal(json.RawMessage(`{"key":"val"}`))
 core.BytesVal([]byte{0x01, 0x02})
-core.ArrayVal(core.StringVal("a"), core.StringVal("b"))
+core.ArrayVal(core.TIDString, core.StringVal("a"), core.StringVal("b"))
 ```
 
 Dynamic constructor (uses reflection):
@@ -114,11 +114,14 @@ Arrays carry an element type:
 
 ```go
 arrType := core.NewArrayType(core.TIDString) // ARRAY<STRING>
-arrType.ID()       // TIDArray
-arrType.ElemType() // TIDString
+arrType.ID()           // TIDArray
+arrType.ElemTypeID()   // TIDString
 ```
 
-In [Schema](schemas.md) definitions, array fields specify the element type.
+In [Schema](schemas.md) definitions, every array field must declare its element
+type via the `elem_type` JSON property (or `FieldDef.ElemType` in Go). Element
+type is required in all modes and is immutable once set — see
+[Schemas → Array fields](schemas.md#array-fields).
 
 ## Type Codec
 

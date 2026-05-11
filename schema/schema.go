@@ -33,9 +33,21 @@ var validModes = map[Mode]struct{}{
 }
 
 // FieldDef describes a single field in a schema definition.
+// ElemType is only set when Type is [core.TIDArray]; it records the
+// element type so array values can be decoded back into typed arrays.
 type FieldDef struct {
 	Type     core.TID `json:"type"`
+	ElemType core.TID `json:"elem_type,omitempty"`
 	Required bool     `json:"required,omitempty"`
+}
+
+// CoreType returns the full [core.Type] for this field, preserving
+// the element type for arrays.
+func (f FieldDef) CoreType() core.Type {
+	if f.Type == core.TIDArray {
+		return core.NewArrayType(f.ElemType)
+	}
+	return core.NewType(f.Type)
 }
 
 // Def represents a schema definition.

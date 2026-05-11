@@ -30,14 +30,32 @@ A schema definition (`Def`) contains:
 
 ### Field Definitions
 
-Each field has a type and a required flag:
+Each field has a type, an optional element type (for arrays), and a required flag:
 
 ```go
 schema.FieldDef{
     Type:     core.TIDString,  // Expected value type
     Required: true,            // Whether the field must be present
 }
+
+// Array fields must also declare the element type:
+schema.FieldDef{
+    Type:     core.TIDArray,
+    ElemType: core.TIDString,  // ARRAY<STRING>
+}
 ```
+
+#### Array fields
+
+When `Type` is `core.TIDArray`, `ElemType` must be set. This rule applies in
+**every mode**, including `flexible` — `ElemType` is part of the field's
+declared shape, not a validation toggle. Schemas that omit it are rejected at
+`CreateSchema` / `UpdateSchema` with `ErrInvalidField` (wrapped as
+`store.ErrSchemaViolation`).
+
+Both `Type` and `ElemType` are **immutable** once a field exists. `UpdateSchema`
+rejects changes with `ErrImmutableField`. Adding new fields and removing
+existing fields are still allowed.
 
 ## Modes
 
@@ -59,7 +77,7 @@ xdb make-schema xdb://com.example/events
 
 ### Strict Mode
 
-Only declared fields are accepted. Values must match the declared type. Unknown fields produce `ErrUnknownField`.
+Only declared fields are accepted. Values must match the declared type. Unknown fields produce `ErrUnknownField`. For array fields, the value's element type must match the declared `elem_type`; mismatches produce `ErrTypeMismatch`.
 
 ```json
 {
@@ -68,36 +86,62 @@ Only declared fields are accepted. Values must match the declared type. Unknown 
     "fields": {
         "name":  { "type": "string",  "required": true  },
         "email": { "type": "string",  "required": true  },
-        "age":   { "type": "integer", "required": false }
+        "age":   { "type": "integer", "required": false },
+        "tags":  { "type": "array",   "elem_type": "string" }
     }
 }
 ```
 
 ### Dynamic Mode
 
-Like strict, declared fields are type-checked. But unknown fields are accepted and their types are inferred from the data, rather than being rejected.
+Like strict, declared fields are type-checked. But unknown fields are accepted and their types are inferred from the data, rather than being rejected. When the inferred type is `array`, the element type is captured from the value and persisted as part of the field — subsequent writes must use the same element type.
 
 ## Validation
 
-Schemas validate records at write time through the store layer.
+Schemas are validated at two boundaries:
+
+1. **Schema declaration** — when a schema is created or updated, the
+   declaration itself is checked for well-formedness and compatibility.
+2. **Record writes** — values are validated against the schema's field
+   definitions at write time through the store layer.
+
+### Declaration checks
+
+`CreateSchema` and `UpdateSchema` reject malformed or incompatible schemas:
+
+```go
+err := def.Validate()                    // well-formedness
+err := schema.ValidateUpdate(old, new)   // compatibility with existing
+```
+
+- **Well-formedness** — every `array` field must declare an `elem_type`.
+  Violations produce `ErrInvalidField`.
+- **Immutability** — on update, an existing field's `Type` and `ElemType`
+  cannot change. Violations produce `ErrImmutableField`. Adding new fields
+  and removing existing fields are allowed.
+
+Stores wrap these as `store.ErrSchemaViolation`.
+
+### Record write checks
 
 ```go
 err := schema.ValidateTuples(def, tuples)
 err := schema.ValidateRecords(def, records)
 ```
 
-Validation checks:
-1. **Field existence** — In strict and dynamic modes, unknown fields are flagged (strict rejects, dynamic accepts).
-2. **Type matching** — The value's type must match the field's declared type. Mismatches produce `ErrTypeMismatch`.
+1. **Field existence** — In strict and dynamic modes, unknown fields are flagged (strict rejects, dynamic infers).
+2. **Type matching** — The value's type must match the field's declared type, including the element type for arrays. Mismatches produce `ErrTypeMismatch`.
 3. **Required fields** — Fields marked `required: true` must be present.
 
 ### Errors
 
-| Error                | Meaning                                   |
-| -------------------- | ----------------------------------------- |
-| `ErrUnknownField`    | Field not declared in schema (strict mode) |
-| `ErrTypeMismatch`    | Value type does not match field type       |
-| `ErrSchemaViolation` | Store-level schema violation               |
+| Error                | Meaning                                              |
+| -------------------- | ---------------------------------------------------- |
+| `ErrUnknownField`    | Field not declared in schema (strict mode)           |
+| `ErrTypeMismatch`    | Value type or array element type does not match      |
+| `ErrInvalidField`    | Field declaration is malformed (e.g. array missing `elem_type`) |
+| `ErrImmutableField`  | Update would change an existing field's `Type` or `ElemType` |
+| `ErrSchemaViolation` | Store-level wrapper around any of the above          |
 
 ## JSON Representation
 

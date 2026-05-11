@@ -10,6 +10,7 @@ import (
 
 type jsonFieldDef struct {
 	Type     string `json:"type"`
+	ElemType string `json:"elem_type,omitempty"`
 	Required bool   `json:"required,omitempty"`
 }
 
@@ -34,10 +35,14 @@ func (d *Def) MarshalJSON() ([]byte, error) {
 	if len(d.Fields) > 0 {
 		jd.Fields = make(map[string]jsonFieldDef, len(d.Fields))
 		for name, field := range d.Fields {
-			jd.Fields[name] = jsonFieldDef{
+			jf := jsonFieldDef{
 				Type:     field.Type.Lower(),
 				Required: field.Required,
 			}
+			if field.Type == core.TIDArray && field.ElemType != "" {
+				jf.ElemType = field.ElemType.Lower()
+			}
+			jd.Fields[name] = jf
 		}
 	}
 
@@ -74,10 +79,18 @@ func (d *Def) UnmarshalJSON(data []byte) error {
 			if err != nil {
 				return err
 			}
-			d.Fields[name] = FieldDef{
+			field := FieldDef{
 				Type:     tid,
 				Required: jf.Required,
 			}
+			if tid == core.TIDArray && jf.ElemType != "" {
+				elemTID, err := core.ParseType(jf.ElemType)
+				if err != nil {
+					return err
+				}
+				field.ElemType = elemTID
+			}
+			d.Fields[name] = field
 		}
 	}
 

@@ -64,6 +64,10 @@ func (s *SchemaTx) ListSchemas(ctx context.Context, q *store.Query) (*store.Page
 }
 
 func (s *SchemaTx) CreateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
+
 	exists, err := s.q.SchemaExists(ctx, xsql.SchemaExistsParams{
 		Namespace: uri.NS().String(),
 		Schema:    uri.Schema().String(),
@@ -103,6 +107,10 @@ func (s *SchemaTx) CreateSchema(ctx context.Context, uri *core.URI, def *schema.
 }
 
 func (s *SchemaTx) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
+
 	oldDef, err := s.GetSchema(ctx, uri)
 	if err != nil {
 		return err // includes ErrNotFound
@@ -115,6 +123,10 @@ func (s *SchemaTx) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.
 			oldDef.Mode,
 			def.Mode,
 		)
+	}
+
+	if vErr := schema.ValidateUpdate(oldDef, def); vErr != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, vErr)
 	}
 
 	err = s.evolveSchema(ctx, uri, oldDef, def)

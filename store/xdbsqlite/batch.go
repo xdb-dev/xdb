@@ -16,7 +16,7 @@ func (s *Store) ExecuteBatch(ctx context.Context, fn func(tx store.Store) error)
 	if err != nil {
 		return err
 	}
-	defer sqlTx.Rollback()
+	defer sqlTx.Rollback() //nolint:errcheck
 
 	q := xsql.NewQueries(sqlTx)
 	tv := &storeTx{
@@ -66,9 +66,11 @@ func (t *storeTx) CreateRecord(ctx context.Context, record *core.Record) error {
 	if err != nil {
 		return err
 	}
-	if err := t.store.validateAndEvolve(ctx, t.q, def, record.Tuples()); err != nil {
+	def, err = t.store.validateAndEvolve(ctx, t.q, def, record.Tuples())
+	if err != nil {
 		return err
 	}
+	refreshTableDef(rs, def)
 	return rs.CreateRecord(ctx, record)
 }
 
@@ -77,9 +79,11 @@ func (t *storeTx) UpdateRecord(ctx context.Context, record *core.Record) error {
 	if err != nil {
 		return err
 	}
-	if err := t.store.validateAndEvolve(ctx, t.q, def, record.Tuples()); err != nil {
+	def, err = t.store.validateAndEvolve(ctx, t.q, def, record.Tuples())
+	if err != nil {
 		return err
 	}
+	refreshTableDef(rs, def)
 	return rs.UpdateRecord(ctx, record)
 }
 
@@ -88,9 +92,11 @@ func (t *storeTx) UpsertRecord(ctx context.Context, record *core.Record) error {
 	if err != nil {
 		return err
 	}
-	if err := t.store.validateAndEvolve(ctx, t.q, def, record.Tuples()); err != nil {
+	def, err = t.store.validateAndEvolve(ctx, t.q, def, record.Tuples())
+	if err != nil {
 		return err
 	}
+	refreshTableDef(rs, def)
 	return rs.UpsertRecord(ctx, record)
 }
 

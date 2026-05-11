@@ -32,6 +32,7 @@ func (s *SchemaStoreSuite) Run(t *testing.T) {
 	t.Run("Update", s.testUpdate)
 	t.Run("Delete", s.testDelete)
 	t.Run("List", s.testList)
+	t.Run("ArrayElemTypeEnforcement", s.testArrayElemTypeEnforcement)
 }
 
 func (s *SchemaStoreSuite) testCreate(t *testing.T) {
@@ -131,6 +132,111 @@ func (s *SchemaStoreSuite) testDelete(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/missing")
 		err := st.DeleteSchema(ctx, uri)
 		require.ErrorIs(t, err, store.ErrNotFound)
+	})
+}
+
+func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("create rejects array field without elem_type in every mode", func(t *testing.T) {
+		for _, mode := range []schema.Mode{
+			schema.ModeStrict,
+			schema.ModeDynamic,
+			schema.ModeFlexible,
+		} {
+			t.Run(string(mode), func(t *testing.T) {
+				st := s.newStore()
+				uri := core.MustParseURI(
+					"xdb://com.example/missing_elem_" + string(mode),
+				)
+				def := &schema.Def{
+					URI:  uri,
+					Mode: mode,
+					Fields: map[string]schema.FieldDef{
+						"tags": {Type: core.TIDArray},
+					},
+				}
+
+				err := st.CreateSchema(ctx, uri, def)
+				require.ErrorIs(t, err, store.ErrSchemaViolation)
+			})
+		}
+	})
+
+	t.Run("create accepts array field with elem_type", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/typed_arrays")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.FieldDef{
+				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			},
+		}))
+	})
+
+	t.Run("update rejects changing elem_type", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/immutable_tags")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.FieldDef{
+				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			},
+		}))
+
+		err := st.UpdateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.FieldDef{
+				"tags": {Type: core.TIDArray, ElemType: core.TIDInteger},
+			},
+		})
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
+	})
+
+	t.Run("update rejects array field without elem_type", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/update_missing_elem")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.FieldDef{
+				"name": {Type: core.TIDString},
+			},
+		}))
+
+		err := st.UpdateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.FieldDef{
+				"name": {Type: core.TIDString},
+				"tags": {Type: core.TIDArray}, // missing elem_type
+			},
+		})
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
+	})
+
+	t.Run("update rejects changing field type", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/immutable_type")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.FieldDef{
+				"name": {Type: core.TIDString},
+			},
+		}))
+
+		err := st.UpdateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.FieldDef{
+				"name": {Type: core.TIDInteger},
+			},
+		})
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
 	})
 }
 

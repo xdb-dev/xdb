@@ -112,6 +112,79 @@ func TestCreateSchema_ThenCreateRecord(t *testing.T) {
 	assert.Equal(t, "George Orwell", author)
 }
 
+func TestArrayField_Roundtrip(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("strict schema with typed array", func(t *testing.T) {
+		st := newTestStore(t)
+		uri := core.MustParseURI("xdb://test/posts")
+		def := &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.FieldDef{
+				"title": {Type: core.TIDString},
+				"tags":  {Type: core.TIDArray, ElemType: core.TIDString},
+			},
+		}
+		require.NoError(t, st.CreateSchema(ctx, uri, def))
+
+		r := core.NewRecord("test", "posts", "p1")
+		r.Set("title", "hello")
+		r.Set("tags", core.ArrayVal(core.TIDString,
+			core.StringVal("go"),
+			core.StringVal("db"),
+		))
+		require.NoError(t, st.CreateRecord(ctx, r))
+
+		got, err := st.GetRecord(ctx, r.URI())
+		require.NoError(t, err)
+		tags, err := got.Get("tags").Value().AsArray()
+		require.NoError(t, err)
+		require.Len(t, tags, 2)
+
+		page, err := st.ListRecords(ctx, &store.Query{URI: uri})
+		require.NoError(t, err)
+		require.Len(t, page.Items, 1)
+		listedTags, err := page.Items[0].Get("tags").Value().AsArray()
+		require.NoError(t, err)
+		require.Len(t, listedTags, 2)
+	})
+
+	t.Run("dynamic schema infers array elem type", func(t *testing.T) {
+		st := newTestStore(t)
+		uri := core.MustParseURI("xdb://test/events")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeDynamic,
+			Fields: map[string]schema.FieldDef{
+				"name": {Type: core.TIDString, Required: true},
+			},
+		}))
+
+		r := core.NewRecord("test", "events", "e1")
+		r.Set("name", "click")
+		r.Set("tags", core.ArrayVal(core.TIDString,
+			core.StringVal("a"),
+			core.StringVal("b"),
+		))
+		require.NoError(t, st.CreateRecord(ctx, r))
+
+		def, err := st.GetSchema(ctx, uri)
+		require.NoError(t, err)
+		tagsField, ok := def.Fields["tags"]
+		require.True(t, ok)
+		assert.Equal(t, core.TIDArray, tagsField.Type)
+		assert.Equal(t, core.TIDString, tagsField.ElemType)
+
+		page, err := st.ListRecords(ctx, &store.Query{URI: uri})
+		require.NoError(t, err)
+		require.Len(t, page.Items, 1)
+		listedTags, err := page.Items[0].Get("tags").Value().AsArray()
+		require.NoError(t, err)
+		require.Len(t, listedTags, 2)
+	})
+}
+
 func TestUpdateSchema_DDLEvolution(t *testing.T) {
 	ctx := context.Background()
 

@@ -88,6 +88,10 @@ func (s *Store) CreateSchema(
 	uri *core.URI,
 	def *schema.Def,
 ) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -111,16 +115,25 @@ func (s *Store) UpdateSchema(
 	uri *core.URI,
 	def *schema.Def,
 ) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	path := s.schemaPath(uri)
 
-	if _, err := os.Stat(path); err != nil {
+	existing, err := readSchemaFile(path)
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return store.ErrNotFound
 		}
-		return fmt.Errorf("fsstore: stat schema: %w", err)
+		return fmt.Errorf("fsstore: read existing schema: %w", err)
+	}
+
+	if err := schema.ValidateUpdate(existing, def); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 	}
 
 	return s.writeSchema(path, def)

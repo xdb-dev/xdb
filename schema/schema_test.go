@@ -233,6 +233,150 @@ func TestDef_JSON_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestFieldDef_CoreType(t *testing.T) {
+	t.Parallel()
+
+	t.Run("scalar field returns scalar type", func(t *testing.T) {
+		f := schema.FieldDef{Type: core.TIDString}
+		got := f.CoreType()
+		assert.Equal(t, core.TIDString, got.ID())
+		assert.Equal(t, core.TID(""), got.ElemTypeID())
+	})
+
+	t.Run("array field preserves elem type", func(t *testing.T) {
+		f := schema.FieldDef{Type: core.TIDArray, ElemType: core.TIDInteger}
+		got := f.CoreType()
+		assert.Equal(t, core.TIDArray, got.ID())
+		assert.Equal(t, core.TIDInteger, got.ElemTypeID())
+	})
+
+	t.Run("array field without elem type", func(t *testing.T) {
+		f := schema.FieldDef{Type: core.TIDArray}
+		got := f.CoreType()
+		assert.Equal(t, core.TIDArray, got.ID())
+		assert.Equal(t, core.TID(""), got.ElemTypeID())
+	})
+}
+
+func TestDef_JSON_Array(t *testing.T) {
+	t.Parallel()
+
+	t.Run("marshal emits elem_type for typed arrays", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://com.example/posts"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.FieldDef{
+				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			},
+		}
+
+		data, err := json.Marshal(def)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{
+			"uri": "xdb://com.example/posts",
+			"mode": "strict",
+			"fields": {
+				"tags": {"type": "array", "elem_type": "string"}
+			}
+		}`, string(data))
+	})
+
+	t.Run("marshal omits elem_type when unset", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://com.example/posts"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.FieldDef{
+				"tags": {Type: core.TIDArray},
+			},
+		}
+
+		data, err := json.Marshal(def)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{
+			"uri": "xdb://com.example/posts",
+			"mode": "strict",
+			"fields": {
+				"tags": {"type": "array"}
+			}
+		}`, string(data))
+	})
+
+	t.Run("unmarshal parses elem_type", func(t *testing.T) {
+		input := `{
+			"uri": "xdb://com.example/posts",
+			"mode": "strict",
+			"fields": {
+				"tags": {"type": "array", "elem_type": "string"}
+			}
+		}`
+
+		var def schema.Def
+		err := json.Unmarshal([]byte(input), &def)
+		require.NoError(t, err)
+
+		tags, ok := def.Fields["tags"]
+		require.True(t, ok)
+		assert.Equal(t, core.TIDArray, tags.Type)
+		assert.Equal(t, core.TIDString, tags.ElemType)
+	})
+
+	// Unmarshal is permissive; well-formedness is enforced by Def.Validate
+	// at the store boundary.
+	t.Run("unmarshal accepts array without elem_type", func(t *testing.T) {
+		input := `{
+			"uri": "xdb://com.example/posts",
+			"mode": "strict",
+			"fields": {
+				"tags": {"type": "array"}
+			}
+		}`
+
+		var def schema.Def
+		err := json.Unmarshal([]byte(input), &def)
+		require.NoError(t, err)
+
+		tags, ok := def.Fields["tags"]
+		require.True(t, ok)
+		assert.Equal(t, core.TIDArray, tags.Type)
+		assert.Equal(t, core.TID(""), tags.ElemType)
+	})
+
+	t.Run("unmarshal rejects invalid elem_type", func(t *testing.T) {
+		input := `{
+			"uri": "xdb://com.example/posts",
+			"mode": "strict",
+			"fields": {
+				"tags": {"type": "array", "elem_type": "NOPE"}
+			}
+		}`
+
+		var def schema.Def
+		err := json.Unmarshal([]byte(input), &def)
+		assert.Error(t, err)
+	})
+
+	t.Run("roundtrip preserves elem_type", func(t *testing.T) {
+		original := &schema.Def{
+			URI:  core.MustParseURI("xdb://com.example/posts"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.FieldDef{
+				"tags":   {Type: core.TIDArray, ElemType: core.TIDString},
+				"counts": {Type: core.TIDArray, ElemType: core.TIDInteger},
+			},
+		}
+
+		data, err := json.Marshal(original)
+		require.NoError(t, err)
+
+		var decoded schema.Def
+		err = json.Unmarshal(data, &decoded)
+		require.NoError(t, err)
+
+		assert.Equal(t, core.TIDString, decoded.Fields["tags"].ElemType)
+		assert.Equal(t, core.TIDInteger, decoded.Fields["counts"].ElemType)
+	})
+}
+
 func TestDef_UnmarshalJSON_Errors(t *testing.T) {
 	t.Parallel()
 

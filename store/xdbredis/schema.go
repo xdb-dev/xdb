@@ -125,6 +125,10 @@ func (s *Store) CreateSchema(
 	uri *core.URI,
 	def *schema.Def,
 ) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
+
 	key := s.schemaKey(uri)
 
 	// Check existence first.
@@ -160,14 +164,19 @@ func (s *Store) UpdateSchema(
 	uri *core.URI,
 	def *schema.Def,
 ) error {
+	if err := def.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+	}
+
 	key := s.schemaKey(uri)
 
-	exists, err := s.client.Exists(ctx, key).Result()
+	existing, err := s.GetSchema(ctx, uri)
 	if err != nil {
-		return fmt.Errorf("xdbredis: check schema exists: %w", err)
+		return err // includes ErrNotFound
 	}
-	if exists == 0 {
-		return store.ErrNotFound
+
+	if vErr := schema.ValidateUpdate(existing, def); vErr != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, vErr)
 	}
 
 	data, err := json.Marshal(def)

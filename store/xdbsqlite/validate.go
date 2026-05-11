@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -33,71 +34,57 @@ func (s *Store) resolveStrategy(
 
 // validateAndEvolve validates record tuples against the schema and,
 // for dynamic schemas, evolves the schema with new fields.
+// Returns the schema def to use for the subsequent write; in dynamic mode this
+// is the evolved def with the new columns, otherwise the original def is returned.
 // Returns [store.ErrSchemaViolation] on validation failure.
 func (s *Store) validateAndEvolve(
 	ctx context.Context,
 	q *xsql.Queries,
 	def *schema.Def,
 	tuples []*core.Tuple,
-) error {
+) (*schema.Def, error) {
 	if def == nil || def.Mode == schema.ModeFlexible {
-		return nil
+		return def, nil
 	}
 
 	switch def.Mode {
 	case schema.ModeStrict:
-		return validateStrict(def, tuples)
+		if err := schema.ValidateTuples(def, tuples); err != nil {
+			return nil, fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+		}
+		return def, nil
 
 	case schema.ModeDynamic:
 		return s.evolveDynamic(ctx, q, def, tuples)
 	}
 
-	return nil
-}
-
-// validateStrict validates tuples against a strict schema.
-// Unknown fields and type mismatches are rejected.
-func validateStrict(def *schema.Def, tuples []*core.Tuple) error {
-	if err := schema.ValidateTuples(def, tuples); err != nil {
-		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
-	}
-	return nil
+	return def, nil
 }
 
 // evolveDynamic validates known fields and adds new fields to the schema.
 // Known fields with wrong types are rejected; unknown fields are inferred and added.
-// The cached schema is invalidated so the next lookup re-reads from DB.
+// Returns the evolved def (or the original if no evolution was needed) and
+// invalidates the cache so concurrent readers re-fetch.
 func (s *Store) evolveDynamic(
 	ctx context.Context,
 	q *xsql.Queries,
 	def *schema.Def,
 	tuples []*core.Tuple,
-) error {
-	var newFields []schema.FieldDef
-	var newNames []string
-
-	for _, tuple := range tuples {
-		attr := tuple.Attr().String()
-		field, ok := def.Fields[attr]
-
-		if !ok {
-			// Unknown field — infer from tuple value type.
-			newFields = append(newFields, schema.FieldDef{
-				Type: tuple.Value().Type().ID(),
-			})
-			newNames = append(newNames, attr)
-			continue
-		}
-
-		// Known field — reject type mismatch.
-		if field.Type != tuple.Value().Type().ID() {
-			return store.ErrSchemaViolation
-		}
+) (*schema.Def, error) {
+	newFields, err := schema.EvolveDynamic(def, tuples)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 	}
-
 	if len(newFields) == 0 {
-		return nil
+		return def, nil
 	}
+
+	// Apply DDL in deterministic (alphabetical) order.
+	newNames := make([]string, 0, len(newFields))
+	for name := range newFields {
+		newNames = append(newNames, name)
+	}
+	sort.Strings(newNames)
 
 	// Build evolved copy — never mutate the cached original.
 	evolved := &schema.Def{
@@ -110,35 +97,33 @@ func (s *Store) evolveDynamic(
 	}
 
 	tableName := columnTableName(def.URI)
-	for i, name := range newNames {
-		err := q.AddColumn(ctx, xsql.AddColumnParams{
+	for _, name := range newNames {
+		field := newFields[name]
+		err = q.AddColumn(ctx, xsql.AddColumnParams{
 			Table: tableName,
 			Column: xsql.Column{
 				Name: name,
-				Type: xsql.SQLiteTypeName(string(newFields[i].Type)),
+				Type: xsql.SQLiteTypeName(string(field.Type)),
 			},
 		})
 		if err != nil {
-			return err
+			return nil, err
 		}
-		evolved.Fields[name] = newFields[i]
+		evolved.Fields[name] = field
 	}
 
 	data, err := json.Marshal(evolved)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = q.PutSchema(ctx, xsql.PutSchemaParams{
+	if err := q.PutSchema(ctx, xsql.PutSchemaParams{
 		Namespace: def.URI.NS().String(),
 		Schema:    def.URI.Schema().String(),
 		Data:      data,
-	})
-	if err != nil {
-		return err
+	}); err != nil {
+		return nil, err
 	}
 
-	// Invalidate cache — the committed schema will be re-read on next access.
 	s.invalidateSchema(def.URI)
-
-	return nil
+	return evolved, nil
 }

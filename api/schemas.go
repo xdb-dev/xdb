@@ -209,6 +209,13 @@ func unmarshalSchemaDef(data json.RawMessage, uri *core.URI) (schema.Def, error)
 			return schema.Def{}, err
 		}
 		field.Type = tid
+		if tid == core.TIDArray && field.ElemType != "" {
+			elemTID, err := core.ParseType(string(field.ElemType))
+			if err != nil {
+				return schema.Def{}, err
+			}
+			field.ElemType = elemTID
+		}
 		p.Fields[name] = field
 	}
 

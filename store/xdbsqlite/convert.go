@@ -52,7 +52,7 @@ func columnValues(def *schema.Def) []xsql.Value {
 	for i, name := range names {
 		vals[i] = xsql.Value{
 			Name: name,
-			Type: core.NewType(def.Fields[name].Type),
+			Type: def.Fields[name].CoreType(),
 		}
 	}
 	return vals
