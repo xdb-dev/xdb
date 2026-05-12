@@ -229,7 +229,7 @@ func unmarshalSchemaDef(data json.RawMessage, uri *core.URI) (schema.Def, error)
 // Delete deletes a schema by URI.
 // If the schema does not exist, the operation is treated as successful (idempotent).
 // When Cascade is true, all records belonging to the schema are deleted first.
-// If the store supports [store.BatchExecutor], cascade + delete runs atomically.
+// If the store supports [store.TX], cascade + delete runs atomically.
 func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*DeleteSchemaResponse, error) {
 	uri, err := core.ParseURI(req.URI)
 	if err != nil {
@@ -255,11 +255,11 @@ func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*
 }
 
 // cascadeDelete deletes all records and the schema itself.
-// Uses [store.BatchExecutor] for atomicity when available,
+// Uses [store.TX] for atomicity when available,
 // otherwise falls back to sequential operations.
 func (s *SchemaService) cascadeDelete(ctx context.Context, uri *core.URI) error {
-	if batch, ok := s.store.(store.BatchExecutor); ok {
-		return batch.ExecuteBatch(ctx, func(tx store.Store) error {
+	if tx, ok := s.store.(store.TX); ok {
+		return tx.Run(ctx, func(tx store.Store) error {
 			if err := tx.DeleteSchemaRecords(ctx, uri); err != nil {
 				return err
 			}

@@ -14,6 +14,7 @@ func TestStoreImplementsInterfaces(t *testing.T) {
 
 	var _ store.Store = s
 	var _ store.HealthChecker = s
+	var _ store.TX = s
 }
 
 func TestHealth(t *testing.T) {

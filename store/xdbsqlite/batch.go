@@ -9,9 +9,9 @@ import (
 	xsql "github.com/xdb-dev/xdb/store/xdbsqlite/internal/sql"
 )
 
-// ExecuteBatch runs fn within a SQLite transaction.
+// Run executes fn within a SQLite transaction.
 // If fn returns an error, all changes are rolled back.
-func (s *Store) ExecuteBatch(ctx context.Context, fn func(tx store.Store) error) error {
+func (s *Store) Run(ctx context.Context, fn func(tx store.Store) error) error {
 	sqlTx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err

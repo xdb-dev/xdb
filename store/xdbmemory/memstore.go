@@ -191,10 +191,10 @@ func (s *Store) ListNamespaces(
 	return listNamespaces(s.schemas, q), nil
 }
 
-// --- Batch ---
+// --- TX ---
 
-// ExecuteBatch runs fn within a transaction. On error, all changes are rolled back.
-func (s *Store) ExecuteBatch(
+// Run executes fn within a transaction. On error, all changes are rolled back.
+func (s *Store) Run(
 	ctx context.Context,
 	fn func(tx store.Store) error,
 ) error {
@@ -220,7 +220,7 @@ func (s *Store) ExecuteBatch(
 	return nil
 }
 
-// txStore is an unlocked view of Store used within ExecuteBatch.
+// txStore is an unlocked view of Store used within Run.
 // The parent Store's mutex is already held. All methods delegate
 // to the shared lock-free helpers.
 type txStore struct {

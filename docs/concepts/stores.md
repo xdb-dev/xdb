@@ -126,9 +126,9 @@ Implementations may also satisfy:
 | Interface         | Method                                              | Purpose                         |
 | ----------------- | --------------------------------------------------- | ------------------------------- |
 | `HealthChecker`   | `Health(ctx) error`                                 | Connectivity check (< 1 second) |
-| `BatchExecutor`   | `ExecuteBatch(ctx, func(tx Store) error) error`     | Transactional batch operations  |
+| `TX`              | `Run(ctx, func(tx Store) error) error`              | Transactional batch operations  |
 
-`BatchExecutor` runs a function within a transaction. If the function returns an error, all changes are rolled back. The `tx Store` passed to the function is a transactional view — reads see writes made within the same transaction.
+`TX` runs a function within a transaction. If the function returns an error, all changes are rolled back. The `tx Store` passed to the function is a transactional view — reads see writes made within the same transaction.
 
 ## Querying and Pagination
 
@@ -235,14 +235,14 @@ DeleteSchemaRecords
 ### Batch Operations
 
 ```
-ExecuteBatch
+TX.Run
 ├── OK                → all operations committed atomically
 ├── fn returns error  → all changes rolled back, error propagated
 ├── store error       → all changes rolled back, store error returned
 └── context error     → all changes rolled back
 ```
 
-If a store does not implement `BatchExecutor`, the service layer executes operations sequentially without transaction guarantees.
+If a store does not implement `TX`, the service layer executes operations sequentially without transaction guarantees.
 
 ### Backend-Specific Failures
 
@@ -270,7 +270,7 @@ store := xdbmemory.New()
 - All state is in memory — lost on process exit.
 - Thread-safe via `sync.RWMutex`.
 - Health check always succeeds.
-- Implements `BatchExecutor` via snapshot-and-rollback.
+- Implements `TX` via snapshot-and-rollback.
 
 ### Filesystem Store (`xdbfs`)
 
@@ -335,7 +335,7 @@ store, err := xdbsqlite.New(db)
 
 - **Column strategy** (strict schemas): One SQL column per schema attribute. Type-safe, indexed queries.
 - **KV strategy** (flexible schemas): Key-value rows per record. Accommodates any attribute set.
-- Implements `BatchExecutor` via SQLite transactions.
+- Implements `TX` via SQLite transactions.
 - Health check uses `PRAGMA quick_check`.
 - Single-file database — easy to back up and move.
 

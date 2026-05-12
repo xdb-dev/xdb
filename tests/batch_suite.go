@@ -11,10 +11,10 @@ import (
 	"github.com/xdb-dev/xdb/store"
 )
 
-// BatchStore combines [store.Store] and [store.BatchExecutor].
+// BatchStore combines [store.Store] and [store.TX].
 type BatchStore interface {
 	store.Store
-	store.BatchExecutor
+	store.TX
 }
 
 // BatchSuite runs a standard set of tests against a [BatchStore].
@@ -40,7 +40,7 @@ func (s *BatchSuite) testCommit(t *testing.T) {
 	ctx := context.Background()
 	st := s.newStore()
 
-	err := st.ExecuteBatch(ctx, func(tx store.Store) error {
+	err := st.Run(ctx, func(tx store.Store) error {
 		r1 := core.NewRecord("com.example", "posts", "batch-commit-1")
 		r1.Set("title", "First")
 		if err := tx.CreateRecord(ctx, r1); err != nil {
@@ -66,7 +66,7 @@ func (s *BatchSuite) testRollback(t *testing.T) {
 	existing := core.NewRecord("com.example", "posts", "batch-existing")
 	require.NoError(t, st.CreateRecord(ctx, existing))
 
-	err := st.ExecuteBatch(ctx, func(tx store.Store) error {
+	err := st.Run(ctx, func(tx store.Store) error {
 		r := core.NewRecord("com.example", "posts", "batch-rollback")
 		if err := tx.CreateRecord(ctx, r); err != nil {
 			return err

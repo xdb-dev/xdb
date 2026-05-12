@@ -140,11 +140,11 @@ type HealthChecker interface {
 	Health(ctx context.Context) error
 }
 
-// BatchExecutor is an optional interface for stores that support
-// atomic batch operations. The service layer falls back to
-// sequential execution if the store does not implement this.
-type BatchExecutor interface {
-	// ExecuteBatch runs fn within a transaction.
+// TX is an optional interface for stores that support atomic
+// transactions. The service layer falls back to sequential
+// execution if the store does not implement this.
+type TX interface {
+	// Run executes fn within a transaction.
 	// If fn returns an error, all changes are rolled back.
-	ExecuteBatch(ctx context.Context, fn func(tx Store) error) error
+	Run(ctx context.Context, fn func(tx Store) error) error
 }
