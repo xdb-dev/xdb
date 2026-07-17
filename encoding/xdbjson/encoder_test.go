@@ -187,6 +187,29 @@ func TestEncoder_ArrayTypes(t *testing.T) {
 	}
 }
 
+func TestEncoder_ObjectArray(t *testing.T) {
+	record := core.NewRecord("com.example", "orders", "o1").
+		Set("lines", core.ArrayVal(core.TIDJSON,
+			core.JSONVal([]byte(`{"qty":3,"sku":"A-1"}`)),
+			core.JSONVal([]byte(`{"qty":5,"sku":"B-2"}`)),
+		))
+
+	data, err := defaultEncoder.FromRecord(record)
+	require.NoError(t, err)
+
+	var m map[string]any
+	require.NoError(t, json.Unmarshal(data, &m))
+
+	lines, ok := m["lines"].([]any)
+	require.True(t, ok, "lines should be a JSON array")
+	require.Len(t, lines, 2)
+
+	first, ok := lines[0].(map[string]any)
+	require.True(t, ok, "each element should be a JSON object")
+	assert.Equal(t, "A-1", first["sku"])
+	assert.Equal(t, float64(3), first["qty"])
+}
+
 func TestEncoder_EmptyArray(t *testing.T) {
 	record := core.NewRecord("com.example", "test", "123").
 		Set("empty", []string{})

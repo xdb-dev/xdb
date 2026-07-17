@@ -1,7 +1,10 @@
 package schema
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"strings"
+	"time"
 
 	"github.com/gojekfarm/xtools/errors"
 
@@ -33,30 +36,53 @@ var (
 //   - the mode is non-empty and recognized;
 //   - every field name parses as an attribute path;
 //   - no scalar/JSON field name is a path-prefix of another field;
-//   - every array field declares an element type.
+//   - every array field declares an element type;
+//   - an ARRAY<JSON> field's Items are validated recursively, and Items is set
+//     only on ARRAY<JSON> fields.
 func (d *Def) Validate() error {
 	if _, ok := validModes[d.Mode]; !ok {
 		return errors.Wrap(ErrInvalidMode, "mode", string(d.Mode))
 	}
 
-	for name, field := range d.Fields {
+	return validateFields(d.Fields)
+}
+
+// validateFields checks a set of declared fields for well-formedness. It is
+// used for both the top-level schema fields and, recursively, for the Items of
+// object-array fields (which form a separate namespace).
+func validateFields(fields map[string]Field) error {
+	for name, field := range fields {
 		if !validFieldName(name) {
 			return errors.Wrap(ErrInvalidField,
 				"field", name,
 				"reason", "field name is not a valid attribute path",
 			)
 		}
-		if field.Type.ID() == core.TIDArray && field.Type.ElemTypeID() == "" {
+
+		isArray := field.Type.ID() == core.TIDArray
+		if isArray && field.Type.ElemTypeID() == "" {
 			return errors.Wrap(ErrInvalidField,
 				"field", name,
 				"reason", "array field requires elem_type",
 			)
 		}
+
+		if len(field.Items) > 0 {
+			if !isObjectArray(field) {
+				return errors.Wrap(ErrInvalidField,
+					"field", name,
+					"reason", "items is only valid on ARRAY<JSON> fields",
+				)
+			}
+			if err := validateFields(field.Items); err != nil {
+				return err
+			}
+		}
 	}
 
-	for outer := range d.Fields {
+	for outer := range fields {
 		prefix := outer + "."
-		for inner := range d.Fields {
+		for inner := range fields {
 			if inner == outer {
 				continue
 			}
@@ -71,6 +97,13 @@ func (d *Def) Validate() error {
 	}
 
 	return nil
+}
+
+// isObjectArray reports whether field is an array of JSON objects, i.e. its
+// type is ARRAY<JSON>. Only such fields may carry Items.
+func isObjectArray(field Field) bool {
+	return field.Type.ID() == core.TIDArray &&
+		field.Type.ElemTypeID() == core.TIDJSON
 }
 
 // validFieldName reports whether name parses as a single attribute path,
@@ -189,7 +222,186 @@ func ValidateField(attr string, field Field, v *core.Value) error {
 		)
 	}
 
+	if isObjectArray(field) && len(field.Items) > 0 {
+		return validateObjectArray(attr, field.Items, v)
+	}
+
 	return nil
+}
+
+// validateObjectArray checks that every element of an ARRAY<JSON> value is a
+// JSON object whose members type-check against items.
+func validateObjectArray(attr string, items map[string]Field, v *core.Value) error {
+	elems, err := v.AsArray()
+	if err != nil {
+		return err
+	}
+
+	for _, elem := range elems {
+		raw, err := elem.AsJSON()
+		if err != nil {
+			return errors.Wrap(ErrTypeMismatch,
+				"field", attr,
+				"reason", "array element is not a JSON object",
+			)
+		}
+		if err := validateElement(attr, items, raw); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateElement type-checks a single object-array element against items,
+// applying the same rules as top-level fields: unknown members are rejected,
+// each present member type-checks, and required members must be present. An
+// explicit-null member satisfies the requirement without a type check.
+func validateElement(attr string, items map[string]Field, raw json.RawMessage) error {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil || obj == nil {
+		return errors.Wrap(ErrTypeMismatch,
+			"field", attr,
+			"reason", "array element is not a JSON object",
+		)
+	}
+
+	for name, memberRaw := range obj {
+		field, ok := items[name]
+		if !ok {
+			return errors.Wrap(ErrUnknownField,
+				"field", attr,
+				"member", name,
+			)
+		}
+
+		if isJSONNull(memberRaw) {
+			continue
+		}
+
+		mv, err := jsonMemberValue(memberRaw, field.Type)
+		if err != nil {
+			return errors.Wrap(err,
+				"field", attr,
+				"member", name,
+			)
+		}
+		if err := ValidateField(name, field, mv); err != nil {
+			return err
+		}
+	}
+
+	for name, field := range items {
+		if !field.Required {
+			continue
+		}
+		if _, ok := obj[name]; !ok {
+			return errors.Wrap(ErrMissingRequired,
+				"field", attr,
+				"member", name,
+			)
+		}
+	}
+
+	return nil
+}
+
+// isJSONNull reports whether raw is the JSON null literal.
+func isJSONNull(raw json.RawMessage) bool {
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return false
+	}
+	return v == nil
+}
+
+// jsonMemberValue converts a JSON object member into a typed [core.Value]
+// according to the declared type t. It returns [ErrTypeMismatch] when the JSON
+// shape is incompatible with t. Object-array elements (ARRAY<JSON>) are wrapped
+// as JSON values so that ValidateField recurses one level further via Items.
+func jsonMemberValue(raw json.RawMessage, t core.Type) (*core.Value, error) {
+	switch t.ID() {
+	case core.TIDJSON:
+		return core.JSONVal(raw), nil
+	case core.TIDArray:
+		var rawElems []json.RawMessage
+		if err := json.Unmarshal(raw, &rawElems); err != nil {
+			return nil, ErrTypeMismatch
+		}
+		elemType := core.NewType(t.ElemTypeID())
+		elems := make([]*core.Value, 0, len(rawElems))
+		for _, re := range rawElems {
+			ev, err := jsonMemberValue(re, elemType)
+			if err != nil {
+				return nil, err
+			}
+			elems = append(elems, ev)
+		}
+		return core.ArrayVal(t.ElemTypeID(), elems...), nil
+	default:
+		return jsonScalarValue(raw, t.ID())
+	}
+}
+
+// jsonScalarValue converts a JSON scalar into a typed scalar [core.Value].
+// String-derived types (STRING, TIME, BYTES) are handled by jsonStringValue.
+func jsonScalarValue(raw json.RawMessage, tid core.TID) (*core.Value, error) {
+	switch tid {
+	case core.TIDBoolean:
+		var b bool
+		if err := json.Unmarshal(raw, &b); err != nil {
+			return nil, ErrTypeMismatch
+		}
+		return core.BoolVal(b), nil
+	case core.TIDInteger:
+		var i int64
+		if err := json.Unmarshal(raw, &i); err != nil {
+			return nil, ErrTypeMismatch
+		}
+		return core.IntVal(i), nil
+	case core.TIDUnsigned:
+		var u uint64
+		if err := json.Unmarshal(raw, &u); err != nil {
+			return nil, ErrTypeMismatch
+		}
+		return core.UintVal(u), nil
+	case core.TIDFloat:
+		var f float64
+		if err := json.Unmarshal(raw, &f); err != nil {
+			return nil, ErrTypeMismatch
+		}
+		return core.FloatVal(f), nil
+	default:
+		return jsonStringValue(raw, tid)
+	}
+}
+
+// jsonStringValue converts a JSON string into a STRING, TIME, or BYTES
+// [core.Value]. All three require the JSON member to be a string.
+func jsonStringValue(raw json.RawMessage, tid core.TID) (*core.Value, error) {
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, ErrTypeMismatch
+	}
+
+	switch tid {
+	case core.TIDString:
+		return core.StringVal(s), nil
+	case core.TIDTime:
+		ts, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			return nil, ErrTypeMismatch
+		}
+		return core.TimeVal(ts), nil
+	case core.TIDBytes:
+		b, err := base64.StdEncoding.DecodeString(s)
+		if err != nil {
+			return nil, ErrTypeMismatch
+		}
+		return core.BytesVal(b), nil
+	default:
+		return nil, ErrTypeMismatch
+	}
 }
 
 // InferField returns a [Field] that captures a value's type, including the

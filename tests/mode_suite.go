@@ -2,6 +2,7 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,6 +35,85 @@ func (s *ModeStoreSuite) Run(t *testing.T) {
 	t.Run("Dynamic", s.testDynamic)
 	t.Run("NoSchema", s.testNoSchema)
 	t.Run("ArrayElemType", s.testArrayElemType)
+	t.Run("ObjectArray", s.testObjectArray)
+}
+
+// mustJSONElem marshals a map to a canonical JSON object for use as an
+// ARRAY<JSON> element. json.Marshal sorts keys, so every backend round-trips
+// byte-identical bytes.
+func mustJSONElem(m map[string]any) *core.Value {
+	data, err := json.Marshal(m)
+	if err != nil {
+		panic(err)
+	}
+	return core.JSONVal(data)
+}
+
+func (s *ModeStoreSuite) testObjectArray(t *testing.T) {
+	ctx := context.Background()
+
+	objectArraySchema := func(uri *core.URI) *schema.Def {
+		return &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"lines": {
+					Type: core.NewArrayType(core.TIDJSON),
+					Items: map[string]schema.Field{
+						"sku": {Type: core.TypeString, Required: true},
+						"qty": {Type: core.TypeInt},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("round-trips object array", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/orders")
+		require.NoError(t, st.CreateSchema(ctx, uri, objectArraySchema(uri)))
+
+		r := core.NewRecord("com.example", "orders", "1")
+		r.Set("lines", core.ArrayVal(core.TIDJSON,
+			mustJSONElem(map[string]any{"sku": "A-1", "qty": int64(3)}),
+			mustJSONElem(map[string]any{"sku": "B-2", "qty": int64(5)}),
+		))
+		require.NoError(t, st.CreateRecord(ctx, r))
+
+		got, err := st.GetRecord(ctx, r.URI())
+		require.NoError(t, err)
+		AssertEqualRecord(t, r, got)
+	})
+
+	t.Run("rejects element member type mismatch", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/orders_mismatch")
+		require.NoError(t, st.CreateSchema(ctx, uri, objectArraySchema(uri)))
+
+		r := core.NewRecord("com.example", "orders_mismatch", "1")
+		r.Set("lines", core.ArrayVal(core.TIDJSON,
+			core.JSONVal(json.RawMessage(`{"sku":"A-1","qty":"three"}`)),
+		))
+
+		err := st.CreateRecord(ctx, r)
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		assert.Contains(t, err.Error(), "qty")
+	})
+
+	t.Run("rejects missing required member in element", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/orders_required")
+		require.NoError(t, st.CreateSchema(ctx, uri, objectArraySchema(uri)))
+
+		r := core.NewRecord("com.example", "orders_required", "1")
+		r.Set("lines", core.ArrayVal(core.TIDJSON,
+			core.JSONVal(json.RawMessage(`{"qty":3}`)),
+		))
+
+		err := st.CreateRecord(ctx, r)
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		assert.Contains(t, err.Error(), "sku")
+	})
 }
 
 func (s *ModeStoreSuite) testFlexible(t *testing.T) {

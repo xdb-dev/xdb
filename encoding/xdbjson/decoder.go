@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 // Decoder converts JSON to XDB records.
@@ -135,6 +136,12 @@ func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
 
 		if d.opts.def != nil {
 			if field, ok := d.opts.def.Fields[attr]; ok {
+				if isObjectArrayField(field) {
+					if v, ok := objectArrayValue(value, field.Items); ok {
+						record.Set(attr, v)
+					}
+					continue
+				}
 				value = convertToType(value, field.Type.ID())
 			}
 		}
@@ -177,6 +184,83 @@ func inferNumbers(value any) any {
 	default:
 		return value
 	}
+}
+
+// isObjectArrayField reports whether field is an ARRAY<JSON> carrying an
+// element object schema (Items).
+func isObjectArrayField(field schema.Field) bool {
+	return field.Type.ID() == core.TIDArray &&
+		field.Type.ElemTypeID() == core.TIDJSON &&
+		len(field.Items) > 0
+}
+
+// objectArrayValue builds an ARRAY<JSON> [core.Value] from a decoded JSON array
+// of objects, typing each element's members per items so that time.Time and
+// bytes are stored in typed JSON form. Returns false when value is not an array
+// of JSON objects.
+func objectArrayValue(value any, items map[string]schema.Field) (*core.Value, bool) {
+	arr, ok := value.([]any)
+	if !ok {
+		return nil, false
+	}
+
+	elems := make([]*core.Value, 0, len(arr))
+	for _, e := range arr {
+		raw, ok := convertElement(e, items)
+		if !ok {
+			return nil, false
+		}
+		elems = append(elems, core.JSONVal(raw))
+	}
+
+	return core.ArrayVal(core.TIDJSON, elems...), true
+}
+
+// convertElement types the members of a single object-array element per items
+// and re-marshals it to a typed JSON object.
+func convertElement(elem any, items map[string]schema.Field) (json.RawMessage, bool) {
+	obj, ok := elem.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+
+	out := make(map[string]any, len(obj))
+	for k, v := range obj {
+		field, ok := items[k]
+		if !ok {
+			out[k] = v
+			continue
+		}
+		out[k] = convertMember(v, field)
+	}
+
+	data, err := json.Marshal(out)
+	if err != nil {
+		return nil, false
+	}
+	return data, true
+}
+
+// convertMember types a single element member. Scalars are converted via
+// convertToType (time.Time, bytes, integers); nested object arrays recurse one
+// level further via the member's own Items.
+func convertMember(v any, field schema.Field) any {
+	if isObjectArrayField(field) {
+		arr, ok := v.([]any)
+		if !ok {
+			return v
+		}
+		out := make([]any, len(arr))
+		for i, e := range arr {
+			if raw, ok := convertElement(e, field.Items); ok {
+				out[i] = raw
+			} else {
+				out[i] = e
+			}
+		}
+		return out
+	}
+	return convertToType(v, field.Type.ID())
 }
 
 func convertToType(value any, fieldType core.TID) any {

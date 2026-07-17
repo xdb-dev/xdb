@@ -1,6 +1,7 @@
 package xdbjson_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -453,6 +454,108 @@ func TestDecoder_WithSchema_RoundTrip(t *testing.T) {
 	assert.Equal(t, vTime(original.Get("created_at").Value()), vTime(decoded.Get("created_at").Value()))
 	assert.Equal(t, vInt(original.Get("count").Value()), vInt(decoded.Get("count").Value()))
 	assert.Equal(t, vBytes(original.Get("data").Value()), vBytes(decoded.Get("data").Value()))
+}
+
+func objectArrayDef() *schema.Def {
+	return &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/orders"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"lines": {
+				Type: core.NewArrayType(core.TIDJSON),
+				Items: map[string]schema.Field{
+					"sku":    {Type: core.TypeString, Required: true},
+					"qty":    {Type: core.TypeInt},
+					"placed": {Type: core.TypeTime},
+				},
+			},
+		},
+	}
+}
+
+func TestDecoder_ObjectArray(t *testing.T) {
+	def := objectArrayDef()
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("orders"),
+		xdbjson.WithDef(def),
+	)
+
+	data := []byte(`{
+		"_id": "o1",
+		"lines": [
+			{"sku": "A-1", "qty": 3, "placed": "2026-07-17T10:00:00Z"},
+			{"sku": "B-2", "qty": 5, "placed": "2026-07-18T11:30:00Z"}
+		]
+	}`)
+
+	record, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	lines := record.Get("lines").Value()
+	assert.Equal(t, core.TIDArray, lines.Type().ID())
+	assert.Equal(t, core.TIDJSON, lines.Type().ElemTypeID())
+
+	elems, err := lines.AsArray()
+	require.NoError(t, err)
+	require.Len(t, elems, 2)
+
+	// Members are stored in typed JSON form: time as RFC3339, int as a number.
+	raw, err := elems[0].AsJSON()
+	require.NoError(t, err)
+
+	var obj map[string]any
+	require.NoError(t, json.Unmarshal(raw, &obj))
+	assert.Equal(t, "A-1", obj["sku"])
+	assert.Equal(t, float64(3), obj["qty"])
+
+	placed, err := time.Parse(time.RFC3339, obj["placed"].(string))
+	require.NoError(t, err)
+	assert.True(t, placed.Equal(time.Date(2026, 7, 17, 10, 0, 0, 0, time.UTC)))
+}
+
+// A time.Time nested inside an object-array element must round-trip typed
+// through encode -> decode: the decoded element re-parses to the same instant,
+// not to a raw or mangled string.
+func TestDecoder_ObjectArray_TimeRoundTrip(t *testing.T) {
+	def := objectArrayDef()
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("orders"),
+		xdbjson.WithDef(def),
+	)
+
+	want := time.Date(2026, 7, 17, 10, 0, 0, 0, time.UTC)
+
+	original, err := decoder.ToRecord([]byte(
+		`{"_id":"o1","lines":[{"sku":"A-1","qty":3,"placed":"2026-07-17T10:00:00Z"}]}`,
+	))
+	require.NoError(t, err)
+
+	encoder := xdbjson.New()
+	encoded, err := encoder.FromRecord(original)
+	require.NoError(t, err)
+
+	decoded, err := decoder.ToRecord(encoded)
+	require.NoError(t, err)
+
+	origElems, err := original.Get("lines").Value().AsArray()
+	require.NoError(t, err)
+	decElems, err := decoded.Get("lines").Value().AsArray()
+	require.NoError(t, err)
+	require.Len(t, decElems, len(origElems))
+
+	origRaw, err := origElems[0].AsJSON()
+	require.NoError(t, err)
+	decRaw, err := decElems[0].AsJSON()
+	require.NoError(t, err)
+	assert.JSONEq(t, string(origRaw), string(decRaw))
+
+	var obj map[string]any
+	require.NoError(t, json.Unmarshal(decRaw, &obj))
+	got, err := time.Parse(time.RFC3339, obj["placed"].(string))
+	require.NoError(t, err)
+	assert.True(t, want.Equal(got))
 }
 
 func TestDecoder_WithoutSchema_NoConversion(t *testing.T) {

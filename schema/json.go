@@ -12,11 +12,12 @@ import (
 // scalar type name plus an optional element type (arrays only), preserving
 // backward compatibility with schemas stored before core.Type existed.
 type jsonField struct {
-	Annotations map[string]string `json:"annotations,omitempty"`
-	Type        string            `json:"type"`
-	ElemType    string            `json:"elem_type,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Required    bool              `json:"required,omitempty"`
+	Annotations map[string]string    `json:"annotations,omitempty"`
+	Items       map[string]jsonField `json:"items,omitempty"`
+	Type        string               `json:"type"`
+	ElemType    string               `json:"elem_type,omitempty"`
+	Description string               `json:"description,omitempty"`
+	Required    bool                 `json:"required,omitempty"`
 }
 
 type jsonDef struct {
@@ -44,22 +45,32 @@ func (d *Def) MarshalJSON() ([]byte, error) {
 	}
 
 	if len(d.Fields) > 0 {
-		jd.Fields = make(map[string]jsonField, len(d.Fields))
-		for name, field := range d.Fields {
-			jf := jsonField{
-				Type:        field.Type.ID().Lower(),
-				Required:    field.Required,
-				Description: field.Description,
-				Annotations: field.Annotations,
-			}
-			if field.Type.ID() == core.TIDArray && field.Type.ElemTypeID() != "" {
-				jf.ElemType = field.Type.ElemTypeID().Lower()
-			}
-			jd.Fields[name] = jf
-		}
+		jd.Fields = marshalFields(d.Fields)
 	}
 
 	return json.Marshal(jd)
+}
+
+// marshalFields converts a set of [Field] values to their wire form,
+// recursing into the Items of object-array fields.
+func marshalFields(fields map[string]Field) map[string]jsonField {
+	out := make(map[string]jsonField, len(fields))
+	for name, field := range fields {
+		jf := jsonField{
+			Type:        field.Type.ID().Lower(),
+			Required:    field.Required,
+			Description: field.Description,
+			Annotations: field.Annotations,
+		}
+		if field.Type.ID() == core.TIDArray && field.Type.ElemTypeID() != "" {
+			jf.ElemType = field.Type.ElemTypeID().Lower()
+		}
+		if len(field.Items) > 0 {
+			jf.Items = marshalFields(field.Items)
+		}
+		out[name] = jf
+	}
+	return out
 }
 
 // UnmarshalJSON implements the [json.Unmarshaler] interface.
@@ -89,22 +100,41 @@ func (d *Def) UnmarshalJSON(data []byte) error {
 	d.Annotations = jd.Annotations
 
 	if len(jd.Fields) > 0 {
-		d.Fields = make(map[string]Field, len(jd.Fields))
-		for name, jf := range jd.Fields {
-			t, err := parseFieldType(jf)
-			if err != nil {
-				return err
-			}
-			d.Fields[name] = Field{
-				Type:        t,
-				Required:    jf.Required,
-				Description: jf.Description,
-				Annotations: jf.Annotations,
-			}
+		fields, err := unmarshalFields(jd.Fields)
+		if err != nil {
+			return err
 		}
+		d.Fields = fields
 	}
 
 	return nil
+}
+
+// unmarshalFields reconstructs a set of [Field] values from their wire form,
+// recursing into the Items of object-array fields.
+func unmarshalFields(jfs map[string]jsonField) (map[string]Field, error) {
+	out := make(map[string]Field, len(jfs))
+	for name, jf := range jfs {
+		t, err := parseFieldType(jf)
+		if err != nil {
+			return nil, err
+		}
+		field := Field{
+			Type:        t,
+			Required:    jf.Required,
+			Description: jf.Description,
+			Annotations: jf.Annotations,
+		}
+		if len(jf.Items) > 0 {
+			items, err := unmarshalFields(jf.Items)
+			if err != nil {
+				return nil, err
+			}
+			field.Items = items
+		}
+		out[name] = field
+	}
+	return out, nil
 }
 
 // parseFieldType reconstructs a [core.Type] from the wire representation,

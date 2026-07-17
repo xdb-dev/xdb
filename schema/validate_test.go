@@ -1,6 +1,7 @@
 package schema_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -448,6 +449,203 @@ func TestDef_Validate(t *testing.T) {
 			},
 		}
 		assert.NoError(t, def.Validate())
+	})
+
+	t.Run("object array with valid items is accepted", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"lines": {
+					Type: core.NewArrayType(core.TIDJSON),
+					Items: map[string]schema.Field{
+						"sku": {Type: core.TypeString},
+						"qty": {Type: core.TypeInt},
+					},
+				},
+			},
+		}
+		assert.NoError(t, def.Validate())
+	})
+
+	t.Run("object array with invalid item name is rejected", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"lines": {
+					Type: core.NewArrayType(core.TIDJSON),
+					Items: map[string]schema.Field{
+						"bad name!": {Type: core.TypeString},
+					},
+				},
+			},
+		}
+		err := def.Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidField)
+		assert.Contains(t, err.Error(), "bad name!")
+	})
+
+	t.Run("object array with nested array missing elem_type is rejected", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"lines": {
+					Type: core.NewArrayType(core.TIDJSON),
+					Items: map[string]schema.Field{
+						"tags": {Type: core.NewArrayType("")},
+					},
+				},
+			},
+		}
+		err := def.Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidField)
+		assert.Contains(t, err.Error(), "tags")
+	})
+
+	t.Run("items on a non-object-array field is rejected", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"name": {
+					Type:  core.TypeString,
+					Items: map[string]schema.Field{"x": {Type: core.TypeString}},
+				},
+			},
+		}
+		err := def.Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidField)
+		assert.Contains(t, err.Error(), "name")
+	})
+}
+
+func objectArrayDef(items map[string]schema.Field) *schema.Def {
+	return &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/orders"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"lines": {
+				Type:  core.NewArrayType(core.TIDJSON),
+				Items: items,
+			},
+		},
+	}
+}
+
+func objectArrayTuple(elems ...json.RawMessage) []*core.Tuple {
+	vals := make([]*core.Value, len(elems))
+	for i, e := range elems {
+		vals[i] = core.JSONVal(e)
+	}
+	return []*core.Tuple{
+		core.NewTuple(
+			"com.example/orders/1",
+			"lines",
+			core.ArrayVal(core.TIDJSON, vals...),
+		),
+	}
+}
+
+func TestValidateTuples_ObjectArray(t *testing.T) {
+	t.Parallel()
+
+	items := map[string]schema.Field{
+		"sku": {Type: core.TypeString, Required: true},
+		"qty": {Type: core.TypeInt},
+	}
+
+	t.Run("valid elements pass", func(t *testing.T) {
+		def := objectArrayDef(items)
+		tuples := objectArrayTuple(
+			json.RawMessage(`{"sku":"A-1","qty":3}`),
+			json.RawMessage(`{"sku":"B-2","qty":5}`),
+		)
+		assert.NoError(t, schema.ValidateTuples(def, tuples))
+	})
+
+	t.Run("member type mismatch is rejected", func(t *testing.T) {
+		def := objectArrayDef(items)
+		tuples := objectArrayTuple(json.RawMessage(`{"sku":"A-1","qty":"three"}`))
+		err := schema.ValidateTuples(def, tuples)
+		require.ErrorIs(t, err, schema.ErrTypeMismatch)
+		assert.Contains(t, err.Error(), "qty")
+	})
+
+	t.Run("missing required member is rejected", func(t *testing.T) {
+		def := objectArrayDef(items)
+		tuples := objectArrayTuple(json.RawMessage(`{"qty":3}`))
+		err := schema.ValidateTuples(def, tuples)
+		require.ErrorIs(t, err, schema.ErrMissingRequired)
+		assert.Contains(t, err.Error(), "sku")
+	})
+
+	t.Run("unknown member is rejected", func(t *testing.T) {
+		def := objectArrayDef(items)
+		tuples := objectArrayTuple(json.RawMessage(`{"sku":"A-1","extra":true}`))
+		err := schema.ValidateTuples(def, tuples)
+		require.ErrorIs(t, err, schema.ErrUnknownField)
+		assert.Contains(t, err.Error(), "extra")
+	})
+
+	t.Run("non-object element is rejected", func(t *testing.T) {
+		def := objectArrayDef(items)
+		tuples := objectArrayTuple(json.RawMessage(`"not-an-object"`))
+		err := schema.ValidateTuples(def, tuples)
+		require.ErrorIs(t, err, schema.ErrTypeMismatch)
+	})
+
+	t.Run("explicit null member satisfies required", func(t *testing.T) {
+		def := objectArrayDef(items)
+		tuples := objectArrayTuple(json.RawMessage(`{"sku":null,"qty":3}`))
+		assert.NoError(t, schema.ValidateTuples(def, tuples))
+	})
+
+	t.Run("typed scalar members validate", func(t *testing.T) {
+		def := objectArrayDef(map[string]schema.Field{
+			"placed": {Type: core.TypeTime, Required: true},
+			"blob":   {Type: core.TypeBytes},
+		})
+		tuples := objectArrayTuple(
+			json.RawMessage(`{"placed":"2026-07-17T10:00:00Z","blob":"SGVsbG8="}`),
+		)
+		assert.NoError(t, schema.ValidateTuples(def, tuples))
+	})
+
+	t.Run("bad time member is rejected", func(t *testing.T) {
+		def := objectArrayDef(map[string]schema.Field{
+			"placed": {Type: core.TypeTime},
+		})
+		tuples := objectArrayTuple(json.RawMessage(`{"placed":"not-a-time"}`))
+		err := schema.ValidateTuples(def, tuples)
+		require.ErrorIs(t, err, schema.ErrTypeMismatch)
+		assert.Contains(t, err.Error(), "placed")
+	})
+
+	t.Run("one level of nesting validates", func(t *testing.T) {
+		def := objectArrayDef(map[string]schema.Field{
+			"sku": {Type: core.TypeString},
+			"tags": {
+				Type:  core.NewArrayType(core.TIDJSON),
+				Items: map[string]schema.Field{"name": {Type: core.TypeString, Required: true}},
+			},
+		})
+
+		t.Run("valid nested", func(t *testing.T) {
+			tuples := objectArrayTuple(
+				json.RawMessage(`{"sku":"A","tags":[{"name":"x"},{"name":"y"}]}`),
+			)
+			assert.NoError(t, schema.ValidateTuples(def, tuples))
+		})
+
+		t.Run("nested missing required", func(t *testing.T) {
+			tuples := objectArrayTuple(
+				json.RawMessage(`{"sku":"A","tags":[{"other":"x"}]}`),
+			)
+			err := schema.ValidateTuples(def, tuples)
+			require.ErrorIs(t, err, schema.ErrUnknownField)
+		})
 	})
 }
 

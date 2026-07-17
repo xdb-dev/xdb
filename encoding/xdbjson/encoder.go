@@ -143,11 +143,26 @@ func convertValue(v *core.Value) any {
 	case core.TIDTime:
 		ts, _ := v.AsTime()
 		return ts.Format(time.RFC3339)
+	case core.TIDJSON:
+		return convertJSON(v)
 	case core.TIDArray:
 		return convertArray(v)
 	default:
 		return nil
 	}
+}
+
+// convertJSON renders a JSON value as its natural Go representation so that
+// object-array elements (and plain JSON fields) encode as nested objects rather
+// than opaque strings. Member values are already in typed JSON form
+// (time.Time as RFC3339, []byte as base64), so they round-trip unchanged.
+func convertJSON(v *core.Value) any {
+	raw, _ := v.AsJSON()
+	var out any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return string(raw)
+	}
+	return out
 }
 
 func convertArray(v *core.Value) []any {

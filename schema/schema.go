@@ -45,8 +45,16 @@ var validModes = map[Mode]struct{}{
 // Type is the full [core.Type], carrying the element type for arrays.
 // Build scalar fields with [core.NewType] and array fields with
 // [core.NewArrayType].
+//
+// Items declares the element object schema for an array of objects. It is set
+// ONLY when Type is ARRAY<JSON>: each array element must be a JSON object whose
+// members type-check against Items, using the same rules as top-level fields
+// (including Required within the element and one level of further nesting).
+// Items is arrays-of-objects only — a single nested object flattens to dotted
+// attributes (e.g. profile.name) and never uses Items.
 type Field struct {
 	Annotations map[string]string
+	Items       map[string]Field
 	Type        core.Type
 	Description string
 	Required    bool

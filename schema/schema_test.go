@@ -393,6 +393,79 @@ func TestDef_JSON_Array(t *testing.T) {
 	})
 }
 
+func TestDef_JSON_ObjectArrayItems(t *testing.T) {
+	t.Parallel()
+
+	t.Run("marshal emits nested items", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://com.example/orders"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"lines": {
+					Type: core.NewArrayType(core.TIDJSON),
+					Items: map[string]schema.Field{
+						"sku": {Type: core.TypeString, Required: true},
+						"qty": {Type: core.TypeInt},
+					},
+				},
+			},
+		}
+
+		data, err := json.Marshal(def)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{
+			"uri": "xdb://com.example/orders",
+			"mode": "strict",
+			"fields": {
+				"lines": {
+					"type": "array",
+					"elem_type": "json",
+					"items": {
+						"sku": {"type": "string", "required": true},
+						"qty": {"type": "integer"}
+					}
+				}
+			}
+		}`, string(data))
+	})
+
+	t.Run("roundtrip preserves items", func(t *testing.T) {
+		original := &schema.Def{
+			URI:  core.MustParseURI("xdb://com.example/orders"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"lines": {
+					Type: core.NewArrayType(core.TIDJSON),
+					Items: map[string]schema.Field{
+						"sku":    {Type: core.TypeString, Required: true},
+						"placed": {Type: core.TypeTime},
+						"tags": {
+							Type:  core.NewArrayType(core.TIDJSON),
+							Items: map[string]schema.Field{"name": {Type: core.TypeString}},
+						},
+					},
+				},
+			},
+		}
+
+		data, err := json.Marshal(original)
+		require.NoError(t, err)
+
+		var decoded schema.Def
+		require.NoError(t, json.Unmarshal(data, &decoded))
+
+		lines := decoded.Fields["lines"]
+		require.NotNil(t, lines.Items)
+		assert.Equal(t, core.TIDString, lines.Items["sku"].Type.ID())
+		assert.True(t, lines.Items["sku"].Required)
+		assert.Equal(t, core.TIDTime, lines.Items["placed"].Type.ID())
+
+		tags := lines.Items["tags"]
+		assert.Equal(t, core.TIDJSON, tags.Type.ElemTypeID())
+		assert.Equal(t, core.TIDString, tags.Items["name"].Type.ID())
+	})
+}
+
 func TestDef_UnmarshalJSON_Errors(t *testing.T) {
 	t.Parallel()
 
