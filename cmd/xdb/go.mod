@@ -9,6 +9,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.3.3
 	github.com/xdb-dev/xdb v0.0.0
+	github.com/xdb-dev/xdb/schema/jsonschemaimport v0.0.0-00010101000000-000000000000
 	github.com/xdb-dev/xdb/schema/protoimport v0.0.0-00010101000000-000000000000
 	github.com/xdb-dev/xdb/store/xdbredis v0.0.0-00010101000000-000000000000
 	github.com/xdb-dev/xdb/store/xdbsqlite v0.0.0-00010101000000-000000000000
@@ -24,6 +25,7 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/gojekfarm/xtools/errors v0.10.0 // indirect
 	github.com/google/cel-go v0.27.0 // indirect
+	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/ncruces/julianday v1.0.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/tetratelabs/wazero v1.11.0 // indirect
@@ -37,6 +39,7 @@ require (
 
 replace (
 	github.com/xdb-dev/xdb => ../..
+	github.com/xdb-dev/xdb/schema/jsonschemaimport => ../../schema/jsonschemaimport
 	github.com/xdb-dev/xdb/schema/protoimport => ../../schema/protoimport
 	github.com/xdb-dev/xdb/store/xdbredis => ../../store/xdbredis
 	github.com/xdb-dev/xdb/store/xdbsqlite => ../../store/xdbsqlite

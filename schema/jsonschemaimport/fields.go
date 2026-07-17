@@ -2,9 +2,11 @@ package jsonschemaimport
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
+	"github.com/google/jsonschema-go/jsonschema"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -12,7 +14,7 @@ import (
 
 // scalarField builds a leaf field for a scalar node, mapping its type (and
 // format) to a core type and recording constraints as annotations.
-func scalarField(n *node, ptr string) (schema.Field, error) {
+func scalarField(n *jsonschema.Schema, ptr string) (schema.Field, error) {
 	tid, err := scalarTID(n, ptr)
 	if err != nil {
 		return schema.Field{}, err
@@ -25,8 +27,8 @@ func scalarField(n *node, ptr string) (schema.Field, error) {
 
 // scalarTID resolves a scalar node's core type. string+format:date-time maps to
 // TIME. When type is absent it is inferred from enum/const values.
-func scalarTID(n *node, ptr string) (core.TID, error) {
-	types := n.Type.nonNull()
+func scalarTID(n *jsonschema.Schema, ptr string) (core.TID, error) {
+	types := nonNullTypes(n)
 
 	if len(types) > 1 {
 		return "", errors.Wrap(ErrUnsupported,
@@ -42,8 +44,8 @@ func scalarTID(n *node, ptr string) (core.TID, error) {
 		t = types[0]
 	case len(n.Enum) > 0:
 		t = inferJSONType(n.Enum[0])
-	case len(n.Const) > 0:
-		t = inferJSONType(n.Const)
+	case n.Const != nil:
+		t = inferJSONType(*n.Const)
 	default:
 		return "", errors.Wrap(ErrUnsupported,
 			"pointer", ptr,
@@ -88,9 +90,9 @@ func jsonField(extra map[string]string) schema.Field {
 
 // objectJSONField builds the opaque JSON field for an object that imports as a
 // map (typed additionalProperties) or as an element member.
-func objectJSONField(n *node) *schema.Field {
+func objectJSONField(n *jsonschema.Schema) *schema.Field {
 	extra := map[string]string{}
-	if n.typedAdditional() {
+	if typedAdditional(n) {
 		extra["jsonschema.additionalProperties"] = "schema"
 	}
 	f := jsonField(extra)
@@ -108,7 +110,7 @@ func arrayJSONField() schema.Field {
 
 // annotations collects the constraint keywords XDB does not enforce into a
 // fidelity-preserving annotation map. Returns nil when none are present.
-func annotations(n *node) map[string]string {
+func annotations(n *jsonschema.Schema) map[string]string {
 	ann := map[string]string{}
 
 	if n.Format != "" {
@@ -119,18 +121,20 @@ func annotations(n *node) map[string]string {
 			ann["jsonschema.enum"] = string(raw)
 		}
 	}
-	if len(n.Const) > 0 {
-		ann["jsonschema.const"] = string(n.Const)
+	if n.Const != nil {
+		if raw, err := json.Marshal(*n.Const); err == nil {
+			ann["jsonschema.const"] = string(raw)
+		}
 	}
 	if n.Pattern != "" {
 		ann["jsonschema.pattern"] = n.Pattern
 	}
-	addRaw(ann, "jsonschema.minimum", n.Minimum)
-	addRaw(ann, "jsonschema.maximum", n.Maximum)
-	addRaw(ann, "jsonschema.exclusiveMinimum", n.ExclusiveMinimum)
-	addRaw(ann, "jsonschema.exclusiveMaximum", n.ExclusiveMaximum)
-	addRaw(ann, "jsonschema.minLength", n.MinLength)
-	addRaw(ann, "jsonschema.maxLength", n.MaxLength)
+	addFloat(ann, "jsonschema.minimum", n.Minimum)
+	addFloat(ann, "jsonschema.maximum", n.Maximum)
+	addFloat(ann, "jsonschema.exclusiveMinimum", n.ExclusiveMinimum)
+	addFloat(ann, "jsonschema.exclusiveMaximum", n.ExclusiveMaximum)
+	addInt(ann, "jsonschema.minLength", n.MinLength)
+	addInt(ann, "jsonschema.maxLength", n.MaxLength)
 
 	if len(ann) == 0 {
 		return nil
@@ -138,19 +142,21 @@ func annotations(n *node) map[string]string {
 	return ann
 }
 
-func addRaw(ann map[string]string, key string, raw json.RawMessage) {
-	if len(raw) > 0 {
-		ann[key] = string(raw)
+func addFloat(ann map[string]string, key string, v *float64) {
+	if v != nil {
+		ann[key] = strconv.FormatFloat(*v, 'g', -1, 64)
 	}
 }
 
-// inferJSONType returns the JSON Schema type name of a raw JSON value, used when
-// enum/const are present without an explicit type.
-func inferJSONType(raw json.RawMessage) string {
-	var v any
-	if err := json.Unmarshal(raw, &v); err != nil {
-		return ""
+func addInt(ann map[string]string, key string, v *int) {
+	if v != nil {
+		ann[key] = strconv.Itoa(*v)
 	}
+}
+
+// inferJSONType returns the JSON Schema type name of a decoded JSON value, used
+// when enum/const are present without an explicit type.
+func inferJSONType(v any) string {
 	switch v.(type) {
 	case string:
 		return "string"
