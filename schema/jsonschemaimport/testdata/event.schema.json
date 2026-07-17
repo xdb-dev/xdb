@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/event.schema.json",
+  "title": "Event",
+  "description": "A calendar event with attendees",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "startsAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "organizer": {
+      "$ref": "#/$defs/person"
+    },
+    "attendees": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/attendee"
+      }
+    }
+  },
+  "required": [
+    "title",
+    "startsAt"
+  ],
+  "$defs": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        }
+      }
+    },
+    "attendee": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "rsvpAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "guests": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  }
+}
