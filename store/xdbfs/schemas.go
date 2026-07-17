@@ -106,6 +106,7 @@ func (s *Store) CreateSchema(
 		return fmt.Errorf("fsstore: create schema dir: %w", err)
 	}
 
+	def.Revision = 1
 	return s.writeSchema(path, def)
 }
 
@@ -132,9 +133,15 @@ func (s *Store) UpdateSchema(
 		return fmt.Errorf("fsstore: read existing schema: %w", err)
 	}
 
-	if err := schema.ValidateUpdate(existing, def); err != nil {
+	if err = schema.ValidateUpdate(existing, def); err != nil {
 		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 	}
+
+	next, err := schema.NextRevision(existing.Revision, def.Revision)
+	if err != nil {
+		return err
+	}
+	def.Revision = next
 
 	return s.writeSchema(path, def)
 }

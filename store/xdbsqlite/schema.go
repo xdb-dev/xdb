@@ -79,6 +79,8 @@ func (s *SchemaTx) CreateSchema(ctx context.Context, uri *core.URI, def *schema.
 		return store.ErrAlreadyExists
 	}
 
+	def.Revision = 1
+
 	data, err := json.Marshal(def)
 	if err != nil {
 		return err
@@ -128,6 +130,12 @@ func (s *SchemaTx) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.
 	if vErr := schema.ValidateUpdate(oldDef, def); vErr != nil {
 		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, vErr)
 	}
+
+	next, err := schema.NextRevision(oldDef.Revision, def.Revision)
+	if err != nil {
+		return err
+	}
+	def.Revision = next
 
 	err = s.evolveSchema(ctx, uri, oldDef, def)
 	if err != nil {

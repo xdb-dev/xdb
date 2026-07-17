@@ -98,7 +98,7 @@ func (s *Store) evolveDynamic(
 		URI:         def.URI,
 		Description: def.Description,
 		Mode:        def.Mode,
-		Revision:    def.Revision,
+		Revision:    def.Revision + 1,
 		Annotations: def.Annotations,
 		Fields:      make(map[string]schema.Field, len(def.Fields)+len(newFields)),
 	}

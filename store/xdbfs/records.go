@@ -244,7 +244,7 @@ func cloneDefWith(def *schema.Def, newFields map[string]schema.Field) *schema.De
 		URI:         def.URI,
 		Description: def.Description,
 		Mode:        def.Mode,
-		Revision:    def.Revision,
+		Revision:    def.Revision + 1,
 		Annotations: def.Annotations,
 		Fields:      make(map[string]schema.Field, len(def.Fields)+len(newFields)),
 	}

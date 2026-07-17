@@ -147,6 +147,20 @@ func ValidateUpdate(existing, updated *Def) error {
 	return nil
 }
 
+// NextRevision implements the optimistic-concurrency compare-and-swap for
+// schema updates. cur is the currently stored revision; want is the caller's
+// expected base revision (typically def.Revision).
+//
+// A want of 0 means an unconditional update. Otherwise want must equal cur or
+// the caller's base is stale and [core.ErrConflict] is returned. On success it
+// returns the next revision (cur + 1) to persist.
+func NextRevision(cur, want int64) (int64, error) {
+	if want != 0 && want != cur {
+		return 0, core.ErrConflict
+	}
+	return cur + 1, nil
+}
+
 // ValidateTuples type-checks tuples against the schema's declared fields.
 //
 // Declared fields are always type-checked. Undeclared attributes are governed

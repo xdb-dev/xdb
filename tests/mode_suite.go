@@ -271,6 +271,10 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 		countField, ok := got.Fields["count"]
 		require.True(t, ok, "schema should have inferred 'count' field")
 		assert.Equal(t, core.TIDInteger, countField.Type.ID())
+
+		// Dynamic evolution is a real schema change, so it bumps Revision
+		// (CreateSchema stamped 1; this first evolution makes it 2).
+		assert.Equal(t, int64(2), got.Revision)
 	})
 
 	t.Run("rejects wrong type for existing field", func(t *testing.T) {

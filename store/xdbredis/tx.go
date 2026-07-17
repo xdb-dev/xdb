@@ -151,6 +151,7 @@ func (t *txStore) CreateSchema(ctx context.Context, uri *core.URI, def *schema.D
 	if exists > 0 {
 		return store.ErrAlreadyExists
 	}
+	def.Revision = 1
 	data, err := json.Marshal(def)
 	if err != nil {
 		return fmt.Errorf("xdbredis: marshal schema: %w", err)
@@ -173,6 +174,13 @@ func (t *txStore) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.D
 	if vErr := schema.ValidateUpdate(existing, def); vErr != nil {
 		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, vErr)
 	}
+	// Best-effort optimistic-concurrency: the base-revision check reads live
+	// state before the queued Set; a concurrent writer can still last-write-win.
+	next, err := schema.NextRevision(existing.Revision, def.Revision)
+	if err != nil {
+		return err
+	}
+	def.Revision = next
 	data, err := json.Marshal(def)
 	if err != nil {
 		return fmt.Errorf("xdbredis: marshal schema: %w", err)

@@ -20,4 +20,11 @@ var (
 	// attribute typo bubbling out of a handler must not be mapped to the
 	// resource-not-found RPC code.
 	ErrAttrNotFound = errors.New("[xdb/core] attribute not found")
+
+	// ErrConflict is returned when an optimistic-concurrency compare-and-swap
+	// fails: the caller's expected base revision does not match the currently
+	// stored revision. It is the shared conflict sentinel for schema updates
+	// (and, in future, record _rev). It is deliberately standalone and must NOT
+	// wrap [ErrNotFound].
+	ErrConflict = errors.New("[xdb/core] revision conflict")
 )

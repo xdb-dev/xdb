@@ -743,3 +743,29 @@ func TestValidateTuples_AllTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestNextRevision(t *testing.T) {
+	t.Parallel()
+
+	t.Run("unconditional bumps from current", func(t *testing.T) {
+		next, err := schema.NextRevision(5, 0)
+		require.NoError(t, err)
+		assert.Equal(t, int64(6), next)
+	})
+
+	t.Run("matching base bumps", func(t *testing.T) {
+		next, err := schema.NextRevision(5, 5)
+		require.NoError(t, err)
+		assert.Equal(t, int64(6), next)
+	})
+
+	t.Run("stale base conflicts", func(t *testing.T) {
+		_, err := schema.NextRevision(5, 4)
+		require.ErrorIs(t, err, core.ErrConflict)
+	})
+
+	t.Run("conflict does not wrap ErrNotFound", func(t *testing.T) {
+		_, err := schema.NextRevision(5, 4)
+		assert.NotErrorIs(t, err, core.ErrNotFound)
+	})
+}

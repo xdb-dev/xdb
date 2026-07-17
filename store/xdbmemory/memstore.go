@@ -132,6 +132,7 @@ func (s *Store) CreateSchema(
 	if err := def.Validate(); err != nil {
 		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 	}
+	def.Revision = 1
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return createInMap(s.schemas, uri.Path(), def)
@@ -153,6 +154,11 @@ func (s *Store) UpdateSchema(
 		if err := schema.ValidateUpdate(existing, def); err != nil {
 			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 		}
+		next, err := schema.NextRevision(existing.Revision, def.Revision)
+		if err != nil {
+			return err
+		}
+		def.Revision = next
 	}
 	return updateInMap(s.schemas, uri.Path(), def)
 }
@@ -279,6 +285,7 @@ func (tx *txStore) CreateSchema(_ context.Context, uri *core.URI, def *schema.De
 	if err := def.Validate(); err != nil {
 		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 	}
+	def.Revision = 1
 	return createInMap(tx.store.schemas, uri.Path(), def)
 }
 
@@ -290,6 +297,11 @@ func (tx *txStore) UpdateSchema(_ context.Context, uri *core.URI, def *schema.De
 		if err := schema.ValidateUpdate(existing, def); err != nil {
 			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 		}
+		next, err := schema.NextRevision(existing.Revision, def.Revision)
+		if err != nil {
+			return err
+		}
+		def.Revision = next
 	}
 	return updateInMap(tx.store.schemas, uri.Path(), def)
 }
@@ -368,7 +380,7 @@ func cloneDefWith(def *schema.Def, newFields map[string]schema.Field) *schema.De
 		URI:         def.URI,
 		Description: def.Description,
 		Mode:        def.Mode,
-		Revision:    def.Revision,
+		Revision:    def.Revision + 1,
 		Annotations: def.Annotations,
 		Fields:      make(map[string]schema.Field, len(def.Fields)+len(newFields)),
 	}

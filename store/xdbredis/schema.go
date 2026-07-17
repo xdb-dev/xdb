@@ -140,6 +140,8 @@ func (s *Store) CreateSchema(
 		return store.ErrAlreadyExists
 	}
 
+	def.Revision = 1
+
 	data, err := json.Marshal(def)
 	if err != nil {
 		return fmt.Errorf("xdbredis: marshal schema: %w", err)
@@ -178,6 +180,16 @@ func (s *Store) UpdateSchema(
 	if vErr := schema.ValidateUpdate(existing, def); vErr != nil {
 		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, vErr)
 	}
+
+	// Optimistic-concurrency compare-and-swap. Redis has no cheap read-modify-
+	// write transaction here, so this load-check-set is best-effort: a
+	// concurrent writer between GetSchema and Set can still last-write-win.
+	// This matches xdbredis's existing best-effort posture for existence checks.
+	next, err := schema.NextRevision(existing.Revision, def.Revision)
+	if err != nil {
+		return err
+	}
+	def.Revision = next
 
 	data, err := json.Marshal(def)
 	if err != nil {

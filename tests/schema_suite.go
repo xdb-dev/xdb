@@ -33,6 +33,99 @@ func (s *SchemaStoreSuite) Run(t *testing.T) {
 	t.Run("Delete", s.testDelete)
 	t.Run("List", s.testList)
 	t.Run("ArrayElemTypeEnforcement", s.testArrayElemTypeEnforcement)
+	t.Run("Revision", s.testRevision)
+}
+
+// testRevision verifies schema optimistic-concurrency: CreateSchema stamps
+// Revision 1, UpdateSchema bumps it, a stale base revision returns
+// [core.ErrConflict], and a zero base revision updates unconditionally.
+func (s *SchemaStoreSuite) testRevision(t *testing.T) {
+	ctx := context.Background()
+
+	flexDef := func(uri *core.URI, fields ...string) *schema.Def {
+		fs := map[string]schema.Field{}
+		for _, name := range fields {
+			fs[name] = schema.Field{Type: core.TypeString}
+		}
+		return &schema.Def{URI: uri, Mode: schema.ModeFlexible, Fields: fs}
+	}
+
+	t.Run("create stamps revision 1", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/rev_create")
+		require.NoError(t, st.CreateSchema(ctx, uri, flexDef(uri, "title")))
+
+		got, err := st.GetSchema(ctx, uri)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), got.Revision)
+	})
+
+	t.Run("create normalizes client revision to 1", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/rev_norm")
+		def := flexDef(uri, "title")
+		def.Revision = 99
+		require.NoError(t, st.CreateSchema(ctx, uri, def))
+
+		got, err := st.GetSchema(ctx, uri)
+		require.NoError(t, err)
+		assert.Equal(t, int64(1), got.Revision)
+	})
+
+	t.Run("update with correct revision bumps", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/rev_bump")
+		require.NoError(t, st.CreateSchema(ctx, uri, flexDef(uri, "title")))
+
+		cur, err := st.GetSchema(ctx, uri)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), cur.Revision)
+
+		update := flexDef(uri, "title", "body")
+		update.Revision = cur.Revision
+		require.NoError(t, st.UpdateSchema(ctx, uri, update))
+
+		got, err := st.GetSchema(ctx, uri)
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), got.Revision)
+	})
+
+	t.Run("update with stale revision conflicts", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/rev_conflict")
+		require.NoError(t, st.CreateSchema(ctx, uri, flexDef(uri, "title")))
+
+		// Bump to revision 2 using the correct base.
+		bump := flexDef(uri, "title", "body")
+		bump.Revision = 1
+		require.NoError(t, st.UpdateSchema(ctx, uri, bump))
+
+		// Re-using the now-stale base revision 1 must conflict.
+		stale := flexDef(uri, "title", "body")
+		stale.Revision = 1
+		err := st.UpdateSchema(ctx, uri, stale)
+		require.ErrorIs(t, err, core.ErrConflict)
+	})
+
+	t.Run("update with zero revision is unconditional", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/rev_uncond")
+		require.NoError(t, st.CreateSchema(ctx, uri, flexDef(uri, "title")))
+
+		// Bump to revision 2.
+		bump := flexDef(uri, "title", "body")
+		bump.Revision = 1
+		require.NoError(t, st.UpdateSchema(ctx, uri, bump))
+
+		// Zero base revision updates regardless of the stored revision.
+		uncond := flexDef(uri, "title", "body", "extra")
+		uncond.Revision = 0
+		require.NoError(t, st.UpdateSchema(ctx, uri, uncond))
+
+		got, err := st.GetSchema(ctx, uri)
+		require.NoError(t, err)
+		assert.Equal(t, int64(3), got.Revision)
+	})
 }
 
 func (s *SchemaStoreSuite) testCreate(t *testing.T) {
