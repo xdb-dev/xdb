@@ -56,6 +56,8 @@ func (a *App) schemasCmd() *cli.Command {
 				Flags:              schemaDeleteFlags(),
 				Action:             a.schemaDelete,
 			},
+			a.schemaImportSubCmd(),
+			a.schemaDiffSubCmd(),
 		},
 	}
 }

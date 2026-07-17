@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package acme.user;
+
+// User gains an age field (a new proto number) in v2.
+message User {
+  string name = 1;
+  string email = 2;
+  int32 age = 3;
+}

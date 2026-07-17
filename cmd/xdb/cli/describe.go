@@ -10,6 +10,7 @@ import (
 
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 func (a *App) describeCmd() *cli.Command {
@@ -381,9 +382,67 @@ func (a *App) describeDataSchema(ctx context.Context, cmd *cli.Command, raw stri
 		return err
 	}
 
-	return formatOne(cmd, map[string]any{
-		"kind": "DataSchemaDescription",
-		"uri":  uri.String(),
-		"data": resp.Data,
-	})
+	return formatOne(cmd, dataSchemaDescription(uri.String(), resp.Data))
+}
+
+// dataSchemaDescription surfaces the schema-level fields agents read — the
+// description, mode, revision, and source annotations — alongside a per-field
+// breakdown (type, required, description, annotations, and element schema).
+func dataSchemaDescription(uri string, def *schema.Def) map[string]any {
+	doc := map[string]any{
+		"kind":     "DataSchemaDescription",
+		"uri":      uri,
+		"mode":     string(def.Mode),
+		"revision": def.Revision,
+	}
+
+	if def.Description != "" {
+		doc["description"] = def.Description
+	}
+	if len(def.Annotations) > 0 {
+		doc["annotations"] = def.Annotations
+	}
+
+	doc["fields"] = describeFields(def.Fields)
+
+	return doc
+}
+
+// describeFields renders a schema's fields into a stable, sorted list.
+func describeFields(fields map[string]schema.Field) []map[string]any {
+	names := make([]string, 0, len(fields))
+	for name := range fields {
+		names = append(names, name)
+	}
+
+	sort.Strings(names)
+
+	out := make([]map[string]any, 0, len(names))
+	for _, name := range names {
+		out = append(out, describeField(name, fields[name]))
+	}
+
+	return out
+}
+
+// describeField renders one field, including the object-array element schema
+// when present.
+func describeField(name string, f schema.Field) map[string]any {
+	entry := map[string]any{
+		"name":     name,
+		"type":     typeDisplay(f.Type),
+		"required": f.Required,
+	}
+
+	if f.Description != "" {
+		entry["description"] = f.Description
+	}
+	if len(f.Annotations) > 0 {
+		entry["annotations"] = f.Annotations
+	}
+	if len(f.Items) > 0 {
+		entry["items"] = describeFields(f.Items)
+	}
+
+	return entry
 }

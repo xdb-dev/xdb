@@ -23,6 +23,10 @@ The [CLI](../../cmd/xdb/cli/CONTEXT.md) exposes these concepts as the primitives
 
 - [Filters](filters.md) — CEL-based record filtering with SQL generation
 
+## Importing Types
+
+- [Bring Your Own Types](bring-your-own-types.md) — Import protobuf, JSON Schema, and Go struct types into a schema
+
 ## Storage & Encoding
 
 - [Stores](stores.md) — Storage interfaces and implementations

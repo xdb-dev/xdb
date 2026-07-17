@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package acme.user;
+
+// User is a minimal message used by the CLI schema-import tests.
+message User {
+  string name = 1;
+  string email = 2;
+}
