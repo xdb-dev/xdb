@@ -72,7 +72,7 @@ func buildEnv(def *schema.Def) (*cel.Env, error) {
 
 	opts := make([]cel.EnvOption, 0, len(def.Fields))
 	for name, fd := range def.Fields {
-		ct := celType(fd.Type)
+		ct := celType(fd.Type.ID())
 		opts = append(opts, cel.Variable(name, ct))
 	}
 

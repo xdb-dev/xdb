@@ -16,9 +16,9 @@ func TestValidateTuples_Strict_Valid(t *testing.T) {
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/users"),
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"name": {Type: core.TIDString},
-			"age":  {Type: core.TIDInteger},
+		Fields: map[string]schema.Field{
+			"name": {Type: core.TypeString},
+			"age":  {Type: core.TypeInt},
 		},
 	}
 
@@ -37,8 +37,8 @@ func TestValidateTuples_Strict_UnknownField(t *testing.T) {
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/users"),
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"name": {Type: core.TIDString},
+		Fields: map[string]schema.Field{
+			"name": {Type: core.TypeString},
 		},
 	}
 
@@ -56,8 +56,8 @@ func TestValidateTuples_Strict_TypeMismatch(t *testing.T) {
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/users"),
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"age": {Type: core.TIDInteger},
+		Fields: map[string]schema.Field{
+			"age": {Type: core.TypeInt},
 		},
 	}
 
@@ -69,80 +69,41 @@ func TestValidateTuples_Strict_TypeMismatch(t *testing.T) {
 	assert.ErrorIs(t, err, schema.ErrTypeMismatch)
 }
 
-func TestValidateTuples_Dynamic_Valid(t *testing.T) {
-	t.Parallel()
-
-	def := &schema.Def{
-		URI:  core.MustParseURI("xdb://com.example/users"),
-		Mode: schema.ModeDynamic,
-		Fields: map[string]schema.FieldDef{
-			"name": {Type: core.TIDString},
-		},
-	}
-
-	tuples := []*core.Tuple{
-		core.NewTuple("com.example/users/1", "name", "Alice"),
-	}
-
-	err := schema.ValidateTuples(def, tuples)
-	assert.NoError(t, err)
-}
-
-func TestValidateTuples_Dynamic_UnknownField(t *testing.T) {
-	t.Parallel()
-
-	def := &schema.Def{
-		URI:  core.MustParseURI("xdb://com.example/users"),
-		Mode: schema.ModeDynamic,
-		Fields: map[string]schema.FieldDef{
-			"name": {Type: core.TIDString},
-		},
-	}
-
-	tuples := []*core.Tuple{
-		core.NewTuple("com.example/users/1", "unknown", "value"),
-	}
-
-	err := schema.ValidateTuples(def, tuples)
-	assert.ErrorIs(t, err, schema.ErrUnknownField)
-}
-
-func TestValidateTuples_Dynamic_TypeMismatch(t *testing.T) {
-	t.Parallel()
-
-	def := &schema.Def{
-		URI:  core.MustParseURI("xdb://com.example/users"),
-		Mode: schema.ModeDynamic,
-		Fields: map[string]schema.FieldDef{
-			"age": {Type: core.TIDInteger},
-		},
-	}
-
-	tuples := []*core.Tuple{
-		core.NewTuple("com.example/users/1", "age", "not an int"),
-	}
-
-	err := schema.ValidateTuples(def, tuples)
-	assert.ErrorIs(t, err, schema.ErrTypeMismatch)
-}
-
-func TestValidateTuples_Flexible_AllowsUnknownFields(t *testing.T) {
+// Under the fixed mode semantics, declared fields type-check in every mode.
+func TestValidateTuples_Flexible_TypeChecksDeclaredFields(t *testing.T) {
 	t.Parallel()
 
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/users"),
 		Mode: schema.ModeFlexible,
-		Fields: map[string]schema.FieldDef{
-			"name": {Type: core.TIDString},
+		Fields: map[string]schema.Field{
+			"name": {Type: core.TypeString},
 		},
 	}
 
-	tuples := []*core.Tuple{
-		core.NewTuple("com.example/users/1", "unknown", "value"),
-	}
+	t.Run("rejects wrong type for declared field", func(t *testing.T) {
+		tuples := []*core.Tuple{
+			core.NewTuple("com.example/users/1", "name", int64(42)),
+		}
+		err := schema.ValidateTuples(def, tuples)
+		assert.ErrorIs(t, err, schema.ErrTypeMismatch)
+	})
 
-	err := schema.ValidateTuples(def, tuples)
-	assert.NoError(t, err)
+	t.Run("accepts correct type for declared field", func(t *testing.T) {
+		tuples := []*core.Tuple{
+			core.NewTuple("com.example/users/1", "name", "Alice"),
+		}
+		err := schema.ValidateTuples(def, tuples)
+		assert.NoError(t, err)
+	})
+
+	t.Run("ignores unknown fields", func(t *testing.T) {
+		tuples := []*core.Tuple{
+			core.NewTuple("com.example/users/1", "unknown", "value"),
+		}
+		err := schema.ValidateTuples(def, tuples)
+		assert.NoError(t, err)
+	})
 }
 
 func TestValidateTuples_Flexible_NilFields(t *testing.T) {
@@ -167,8 +128,8 @@ func TestValidateTuples_EmptyTuples(t *testing.T) {
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/users"),
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"name": {Type: core.TIDString},
+		Fields: map[string]schema.Field{
+			"name": {Type: core.TypeString},
 		},
 	}
 
@@ -176,55 +137,39 @@ func TestValidateTuples_EmptyTuples(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestValidateRecords(t *testing.T) {
+func TestCheckRequired(t *testing.T) {
 	t.Parallel()
 
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/users"),
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"name": {Type: core.TIDString},
-			"age":  {Type: core.TIDInteger},
+		Fields: map[string]schema.Field{
+			"name": {Type: core.TypeString, Required: true},
+			"age":  {Type: core.TypeInt},
 		},
 	}
 
-	t.Run("valid records", func(t *testing.T) {
-		r := core.NewRecord("com.example", "users", "1").
-			Set("name", "Alice").
-			Set("age", int64(30))
-
-		err := schema.ValidateRecords(def, []*core.Record{r})
-		assert.NoError(t, err)
+	t.Run("passes when required field present", func(t *testing.T) {
+		tuples := []*core.Tuple{
+			core.NewTuple("com.example/users/1", "name", "Alice"),
+		}
+		assert.NoError(t, schema.CheckRequired(def, tuples))
 	})
 
-	t.Run("unknown field in record", func(t *testing.T) {
-		r := core.NewRecord("com.example", "users", "1").
-			Set("name", "Alice").
-			Set("extra", "bad")
-
-		err := schema.ValidateRecords(def, []*core.Record{r})
-		assert.ErrorIs(t, err, schema.ErrUnknownField)
+	t.Run("explicit null satisfies required", func(t *testing.T) {
+		tuples := []*core.Tuple{
+			core.NewTuple("com.example/users/1", "name", nil),
+		}
+		assert.NoError(t, schema.CheckRequired(def, tuples))
 	})
 
-	t.Run("multiple records", func(t *testing.T) {
-		r1 := core.NewRecord("com.example", "users", "1").
-			Set("name", "Alice")
-		r2 := core.NewRecord("com.example", "users", "2").
-			Set("name", "Bob").
-			Set("age", int64(25))
-
-		err := schema.ValidateRecords(def, []*core.Record{r1, r2})
-		assert.NoError(t, err)
-	})
-
-	t.Run("type mismatch in second record", func(t *testing.T) {
-		r1 := core.NewRecord("com.example", "users", "1").
-			Set("name", "Alice")
-		r2 := core.NewRecord("com.example", "users", "2").
-			Set("age", "not a number")
-
-		err := schema.ValidateRecords(def, []*core.Record{r1, r2})
-		assert.ErrorIs(t, err, schema.ErrTypeMismatch)
+	t.Run("fails when required field missing", func(t *testing.T) {
+		tuples := []*core.Tuple{
+			core.NewTuple("com.example/users/1", "age", int64(30)),
+		}
+		err := schema.CheckRequired(def, tuples)
+		require.ErrorIs(t, err, schema.ErrMissingRequired)
+		assert.Contains(t, err.Error(), "name")
 	})
 }
 
@@ -234,8 +179,8 @@ func TestValidateTuples_Array_ElemTypeMismatch(t *testing.T) {
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/posts"),
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+		Fields: map[string]schema.Field{
+			"tags": {Type: core.NewArrayType(core.TIDString)},
 		},
 	}
 
@@ -259,8 +204,8 @@ func TestValidateTuples_Array_ElemTypeMatch(t *testing.T) {
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/posts"),
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+		Fields: map[string]schema.Field{
+			"tags": {Type: core.NewArrayType(core.TIDString)},
 		},
 	}
 
@@ -281,20 +226,20 @@ func TestInferField(t *testing.T) {
 
 	t.Run("scalar value", func(t *testing.T) {
 		f := schema.InferField(core.StringVal("hello"))
-		assert.Equal(t, core.TIDString, f.Type)
-		assert.Equal(t, core.TID(""), f.ElemType)
+		assert.Equal(t, core.TIDString, f.Type.ID())
+		assert.Equal(t, core.TID(""), f.Type.ElemTypeID())
 	})
 
 	t.Run("array value captures elem type", func(t *testing.T) {
 		f := schema.InferField(core.ArrayVal(core.TIDString, core.StringVal("a")))
-		assert.Equal(t, core.TIDArray, f.Type)
-		assert.Equal(t, core.TIDString, f.ElemType)
+		assert.Equal(t, core.TIDArray, f.Type.ID())
+		assert.Equal(t, core.TIDString, f.Type.ElemTypeID())
 	})
 
 	t.Run("array value of integers", func(t *testing.T) {
 		f := schema.InferField(core.ArrayVal(core.TIDInteger, core.IntVal(1)))
-		assert.Equal(t, core.TIDArray, f.Type)
-		assert.Equal(t, core.TIDInteger, f.ElemType)
+		assert.Equal(t, core.TIDArray, f.Type.ID())
+		assert.Equal(t, core.TIDInteger, f.Type.ElemTypeID())
 	})
 }
 
@@ -305,8 +250,8 @@ func TestEvolveDynamic(t *testing.T) {
 		def := &schema.Def{
 			URI:  core.MustParseURI("xdb://com.example/events"),
 			Mode: schema.ModeDynamic,
-			Fields: map[string]schema.FieldDef{
-				"name": {Type: core.TIDString},
+			Fields: map[string]schema.Field{
+				"name": {Type: core.TypeString},
 			},
 		}
 		tuples := []*core.Tuple{
@@ -322,7 +267,7 @@ func TestEvolveDynamic(t *testing.T) {
 		def := &schema.Def{
 			URI:    core.MustParseURI("xdb://com.example/events"),
 			Mode:   schema.ModeDynamic,
-			Fields: map[string]schema.FieldDef{},
+			Fields: map[string]schema.Field{},
 		}
 		tuples := []*core.Tuple{
 			core.NewTuple("com.example/events/1", "count", int64(5)),
@@ -331,14 +276,14 @@ func TestEvolveDynamic(t *testing.T) {
 		newFields, err := schema.EvolveDynamic(def, tuples)
 		require.NoError(t, err)
 		require.Len(t, newFields, 1)
-		assert.Equal(t, core.TIDInteger, newFields["count"].Type)
+		assert.Equal(t, core.TIDInteger, newFields["count"].Type.ID())
 	})
 
 	t.Run("infers new array field with elem type", func(t *testing.T) {
 		def := &schema.Def{
 			URI:    core.MustParseURI("xdb://com.example/events"),
 			Mode:   schema.ModeDynamic,
-			Fields: map[string]schema.FieldDef{},
+			Fields: map[string]schema.Field{},
 		}
 		tuples := []*core.Tuple{
 			core.NewTuple(
@@ -351,16 +296,16 @@ func TestEvolveDynamic(t *testing.T) {
 		newFields, err := schema.EvolveDynamic(def, tuples)
 		require.NoError(t, err)
 		require.Len(t, newFields, 1)
-		assert.Equal(t, core.TIDArray, newFields["tags"].Type)
-		assert.Equal(t, core.TIDString, newFields["tags"].ElemType)
+		assert.Equal(t, core.TIDArray, newFields["tags"].Type.ID())
+		assert.Equal(t, core.TIDString, newFields["tags"].Type.ElemTypeID())
 	})
 
 	t.Run("rejects mismatched elem type on known array field", func(t *testing.T) {
 		def := &schema.Def{
 			URI:  core.MustParseURI("xdb://com.example/events"),
 			Mode: schema.ModeDynamic,
-			Fields: map[string]schema.FieldDef{
-				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			Fields: map[string]schema.Field{
+				"tags": {Type: core.NewArrayType(core.TIDString)},
 			},
 		}
 		tuples := []*core.Tuple{
@@ -379,7 +324,7 @@ func TestEvolveDynamic(t *testing.T) {
 		def := &schema.Def{
 			URI:    core.MustParseURI("xdb://com.example/events"),
 			Mode:   schema.ModeDynamic,
-			Fields: map[string]schema.FieldDef{},
+			Fields: map[string]schema.Field{},
 		}
 		tuples := []*core.Tuple{
 			core.NewTuple("com.example/events/1", "x", int64(1)),
@@ -399,8 +344,19 @@ func TestDef_Validate(t *testing.T) {
 		def := &schema.Def{
 			URI:  core.MustParseURI("xdb://x/y"),
 			Mode: schema.ModeStrict,
-			Fields: map[string]schema.FieldDef{
-				"name": {Type: core.TIDString},
+			Fields: map[string]schema.Field{
+				"name": {Type: core.TypeString},
+			},
+		}
+		assert.NoError(t, def.Validate())
+	})
+
+	t.Run("dotted attr paths are valid", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"profile.name": {Type: core.TypeString},
 			},
 		}
 		assert.NoError(t, def.Validate())
@@ -410,8 +366,8 @@ func TestDef_Validate(t *testing.T) {
 		def := &schema.Def{
 			URI:  core.MustParseURI("xdb://x/y"),
 			Mode: schema.ModeStrict,
-			Fields: map[string]schema.FieldDef{
-				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			Fields: map[string]schema.Field{
+				"tags": {Type: core.NewArrayType(core.TIDString)},
 			},
 		}
 		assert.NoError(t, def.Validate())
@@ -427,8 +383,8 @@ func TestDef_Validate(t *testing.T) {
 				def := &schema.Def{
 					URI:  core.MustParseURI("xdb://x/y"),
 					Mode: mode,
-					Fields: map[string]schema.FieldDef{
-						"tags": {Type: core.TIDArray},
+					Fields: map[string]schema.Field{
+						"tags": {Type: core.NewArrayType("")},
 					},
 				}
 				err := def.Validate()
@@ -437,12 +393,68 @@ func TestDef_Validate(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("empty mode is rejected", func(t *testing.T) {
+		def := &schema.Def{
+			URI: core.MustParseURI("xdb://x/y"),
+		}
+		err := def.Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidMode)
+	})
+
+	t.Run("unrecognized mode is rejected", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.Mode("bogus"),
+		}
+		err := def.Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidMode)
+	})
+
+	t.Run("invalid field name is rejected", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"bad name!": {Type: core.TypeString},
+			},
+		}
+		err := def.Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidField)
+		assert.Contains(t, err.Error(), "bad name!")
+	})
+
+	t.Run("prefix conflict is rejected", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"profile":      {Type: core.TypeString},
+				"profile.name": {Type: core.TypeString},
+			},
+		}
+		err := def.Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidField)
+		assert.Contains(t, err.Error(), "profile")
+	})
+
+	t.Run("shared prefix without dot boundary is allowed", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"profile":     {Type: core.TypeString},
+				"profilename": {Type: core.TypeString},
+			},
+		}
+		assert.NoError(t, def.Validate())
+	})
 }
 
 func TestValidateUpdate(t *testing.T) {
 	t.Parallel()
 
-	mkDef := func(fields map[string]schema.FieldDef) *schema.Def {
+	mkDef := func(fields map[string]schema.Field) *schema.Def {
 		return &schema.Def{
 			URI:    core.MustParseURI("xdb://x/y"),
 			Mode:   schema.ModeStrict,
@@ -451,50 +463,50 @@ func TestValidateUpdate(t *testing.T) {
 	}
 
 	t.Run("adding a new field is allowed", func(t *testing.T) {
-		old := mkDef(map[string]schema.FieldDef{"a": {Type: core.TIDString}})
-		new := mkDef(map[string]schema.FieldDef{
-			"a": {Type: core.TIDString},
-			"b": {Type: core.TIDInteger},
+		old := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		updated := mkDef(map[string]schema.Field{
+			"a": {Type: core.TypeString},
+			"b": {Type: core.TypeInt},
 		})
-		assert.NoError(t, schema.ValidateUpdate(old, new))
+		assert.NoError(t, schema.ValidateUpdate(old, updated))
 	})
 
 	t.Run("removing a field is allowed", func(t *testing.T) {
-		old := mkDef(map[string]schema.FieldDef{
-			"a": {Type: core.TIDString},
-			"b": {Type: core.TIDInteger},
+		old := mkDef(map[string]schema.Field{
+			"a": {Type: core.TypeString},
+			"b": {Type: core.TypeInt},
 		})
-		new := mkDef(map[string]schema.FieldDef{"a": {Type: core.TIDString}})
-		assert.NoError(t, schema.ValidateUpdate(old, new))
+		updated := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		assert.NoError(t, schema.ValidateUpdate(old, updated))
 	})
 
 	t.Run("changing field type is rejected", func(t *testing.T) {
-		old := mkDef(map[string]schema.FieldDef{"a": {Type: core.TIDString}})
-		new := mkDef(map[string]schema.FieldDef{"a": {Type: core.TIDInteger}})
-		err := schema.ValidateUpdate(old, new)
+		old := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		updated := mkDef(map[string]schema.Field{"a": {Type: core.TypeInt}})
+		err := schema.ValidateUpdate(old, updated)
 		require.ErrorIs(t, err, schema.ErrImmutableField)
 	})
 
 	t.Run("changing array elem_type is rejected", func(t *testing.T) {
-		old := mkDef(map[string]schema.FieldDef{
-			"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+		old := mkDef(map[string]schema.Field{
+			"tags": {Type: core.NewArrayType(core.TIDString)},
 		})
-		new := mkDef(map[string]schema.FieldDef{
-			"tags": {Type: core.TIDArray, ElemType: core.TIDInteger},
+		updated := mkDef(map[string]schema.Field{
+			"tags": {Type: core.NewArrayType(core.TIDInteger)},
 		})
-		err := schema.ValidateUpdate(old, new)
+		err := schema.ValidateUpdate(old, updated)
 		require.ErrorIs(t, err, schema.ErrImmutableField)
 		assert.Contains(t, err.Error(), "elem_type")
 	})
 
 	t.Run("same elem_type is allowed", func(t *testing.T) {
-		old := mkDef(map[string]schema.FieldDef{
-			"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+		old := mkDef(map[string]schema.Field{
+			"tags": {Type: core.NewArrayType(core.TIDString)},
 		})
-		new := mkDef(map[string]schema.FieldDef{
-			"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+		updated := mkDef(map[string]schema.Field{
+			"tags": {Type: core.NewArrayType(core.TIDString)},
 		})
-		assert.NoError(t, schema.ValidateUpdate(old, new))
+		assert.NoError(t, schema.ValidateUpdate(old, updated))
 	})
 }
 
@@ -503,15 +515,15 @@ func TestValidateTuples_AllTypes(t *testing.T) {
 
 	cases := []struct {
 		name  string
-		tid   core.TID
+		typ   core.Type
 		value any
 	}{
-		{"boolean", core.TIDBoolean, true},
-		{"integer", core.TIDInteger, int64(42)},
-		{"unsigned", core.TIDUnsigned, uint64(42)},
-		{"float", core.TIDFloat, 3.14},
-		{"string", core.TIDString, "hello"},
-		{"bytes", core.TIDBytes, []byte("data")},
+		{"boolean", core.TypeBool, true},
+		{"integer", core.TypeInt, int64(42)},
+		{"unsigned", core.TypeUnsigned, uint64(42)},
+		{"float", core.TypeFloat, 3.14},
+		{"string", core.TypeString, "hello"},
+		{"bytes", core.TypeBytes, []byte("data")},
 	}
 
 	for _, tt := range cases {
@@ -519,8 +531,8 @@ func TestValidateTuples_AllTypes(t *testing.T) {
 			def := &schema.Def{
 				URI:  core.MustParseURI("xdb://com.example/test"),
 				Mode: schema.ModeStrict,
-				Fields: map[string]schema.FieldDef{
-					"field": {Type: tt.tid},
+				Fields: map[string]schema.Field{
+					"field": {Type: tt.typ},
 				},
 			}
 

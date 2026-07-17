@@ -8,16 +8,24 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-type jsonFieldDef struct {
-	Type     string `json:"type"`
-	ElemType string `json:"elem_type,omitempty"`
-	Required bool   `json:"required,omitempty"`
+// jsonField is the wire representation of a [Field]. The Type is split into a
+// scalar type name plus an optional element type (arrays only), preserving
+// backward compatibility with schemas stored before core.Type existed.
+type jsonField struct {
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Type        string            `json:"type"`
+	ElemType    string            `json:"elem_type,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Required    bool              `json:"required,omitempty"`
 }
 
 type jsonDef struct {
-	Fields map[string]jsonFieldDef `json:"fields,omitempty"`
-	URI    string                  `json:"uri"`
-	Mode   string                  `json:"mode"`
+	Fields      map[string]jsonField `json:"fields,omitempty"`
+	Annotations map[string]string    `json:"annotations,omitempty"`
+	URI         string               `json:"uri"`
+	Mode        string               `json:"mode"`
+	Description string               `json:"description,omitempty"`
+	Revision    int64                `json:"revision,omitempty"`
 }
 
 // MarshalJSON implements the [json.Marshaler] interface.
@@ -28,19 +36,24 @@ func (d *Def) MarshalJSON() ([]byte, error) {
 	}
 
 	jd := jsonDef{
-		URI:  d.URI.String(),
-		Mode: string(mode),
+		URI:         d.URI.String(),
+		Mode:        string(mode),
+		Description: d.Description,
+		Revision:    d.Revision,
+		Annotations: d.Annotations,
 	}
 
 	if len(d.Fields) > 0 {
-		jd.Fields = make(map[string]jsonFieldDef, len(d.Fields))
+		jd.Fields = make(map[string]jsonField, len(d.Fields))
 		for name, field := range d.Fields {
-			jf := jsonFieldDef{
-				Type:     field.Type.Lower(),
-				Required: field.Required,
+			jf := jsonField{
+				Type:        field.Type.ID().Lower(),
+				Required:    field.Required,
+				Description: field.Description,
+				Annotations: field.Annotations,
 			}
-			if field.Type == core.TIDArray && field.ElemType != "" {
-				jf.ElemType = field.ElemType.Lower()
+			if field.Type.ID() == core.TIDArray && field.Type.ElemTypeID() != "" {
+				jf.ElemType = field.Type.ElemTypeID().Lower()
 			}
 			jd.Fields[name] = jf
 		}
@@ -71,28 +84,48 @@ func (d *Def) UnmarshalJSON(data []byte) error {
 
 	d.URI = uri
 	d.Mode = mode
+	d.Description = jd.Description
+	d.Revision = jd.Revision
+	d.Annotations = jd.Annotations
 
 	if len(jd.Fields) > 0 {
-		d.Fields = make(map[string]FieldDef, len(jd.Fields))
+		d.Fields = make(map[string]Field, len(jd.Fields))
 		for name, jf := range jd.Fields {
-			tid, err := core.ParseType(jf.Type)
+			t, err := parseFieldType(jf)
 			if err != nil {
 				return err
 			}
-			field := FieldDef{
-				Type:     tid,
-				Required: jf.Required,
+			d.Fields[name] = Field{
+				Type:        t,
+				Required:    jf.Required,
+				Description: jf.Description,
+				Annotations: jf.Annotations,
 			}
-			if tid == core.TIDArray && jf.ElemType != "" {
-				elemTID, err := core.ParseType(jf.ElemType)
-				if err != nil {
-					return err
-				}
-				field.ElemType = elemTID
-			}
-			d.Fields[name] = field
 		}
 	}
 
 	return nil
+}
+
+// parseFieldType reconstructs a [core.Type] from the wire representation,
+// preserving the array element type when present.
+func parseFieldType(jf jsonField) (core.Type, error) {
+	tid, err := core.ParseType(jf.Type)
+	if err != nil {
+		return core.Type{}, err
+	}
+
+	if tid != core.TIDArray {
+		return core.NewType(tid), nil
+	}
+
+	if jf.ElemType == "" {
+		return core.NewArrayType(""), nil
+	}
+
+	elemTID, err := core.ParseType(jf.ElemType)
+	if err != nil {
+		return core.Type{}, err
+	}
+	return core.NewArrayType(elemTID), nil
 }

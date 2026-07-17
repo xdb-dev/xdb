@@ -6,22 +6,30 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-// ErrInvalidMode is returned when an unknown mode string is encountered.
+// ErrInvalidMode is returned when an empty or unrecognized mode is encountered.
 var ErrInvalidMode = errors.New("[xdb/schema] invalid mode")
 
-// Mode controls how a schema validates data.
+// Mode controls how a schema validates undeclared attributes.
+//
+// Declared fields ALWAYS type-check, in every mode. Mode governs only
+// attributes that are not declared in the schema:
+//
+//   - [ModeFlexible]: undeclared attributes are ignored.
+//   - [ModeStrict]: undeclared attributes are rejected.
+//   - [ModeDynamic]: undeclared attributes are inferred and the schema evolves.
 type Mode string
 
 const (
-	// ModeFlexible allows records to have arbitrary attributes
-	// without predefined structure.
+	// ModeFlexible type-checks declared fields and ignores
+	// undeclared attributes.
 	ModeFlexible Mode = "flexible"
 
-	// ModeStrict requires records to have attributes
-	// defined in the schema.
+	// ModeStrict type-checks declared fields and rejects
+	// undeclared attributes.
 	ModeStrict Mode = "strict"
 
-	// ModeDynamic automatically infers and adds new fields.
+	// ModeDynamic type-checks declared fields and infers new fields
+	// for undeclared attributes.
 	ModeDynamic Mode = "dynamic"
 )
 
@@ -32,27 +40,25 @@ var validModes = map[Mode]struct{}{
 	ModeDynamic:  {},
 }
 
-// FieldDef describes a single field in a schema definition.
-// ElemType is only set when Type is [core.TIDArray]; it records the
-// element type so array values can be decoded back into typed arrays.
-type FieldDef struct {
-	Type     core.TID `json:"type"`
-	ElemType core.TID `json:"elem_type,omitempty"`
-	Required bool     `json:"required,omitempty"`
+// Field describes a single field in a schema definition.
+//
+// Type is the full [core.Type], carrying the element type for arrays.
+// Build scalar fields with [core.NewType] and array fields with
+// [core.NewArrayType].
+type Field struct {
+	Annotations map[string]string
+	Type        core.Type
+	Description string
+	Required    bool
 }
 
-// CoreType returns the full [core.Type] for this field, preserving
-// the element type for arrays.
-func (f FieldDef) CoreType() core.Type {
-	if f.Type == core.TIDArray {
-		return core.NewArrayType(f.ElemType)
-	}
-	return core.NewType(f.Type)
-}
-
-// Def represents a schema definition.
+// Def represents a schema definition. It is the intermediate representation
+// that schema importers produce and that stores validate records against.
 type Def struct {
-	URI    *core.URI
-	Fields map[string]FieldDef
-	Mode   Mode
+	URI         *core.URI
+	Fields      map[string]Field
+	Annotations map[string]string
+	Description string
+	Mode        Mode
+	Revision    int64
 }

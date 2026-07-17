@@ -43,10 +43,10 @@ func TestColumnDefs(t *testing.T) {
 	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
-		Fields: map[string]schema.FieldDef{
-			"title":  {Type: core.TIDString},
-			"count":  {Type: core.TIDInteger},
-			"active": {Type: core.TIDBoolean},
+		Fields: map[string]schema.Field{
+			"title":  {Type: core.TypeString},
+			"count":  {Type: core.TypeInt},
+			"active": {Type: core.TypeBool},
 		},
 		Mode: schema.ModeStrict,
 	}
@@ -66,10 +66,10 @@ func TestSortedColumns(t *testing.T) {
 	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
-		Fields: map[string]schema.FieldDef{
-			"zebra": {Type: core.TIDString},
-			"alpha": {Type: core.TIDString},
-			"mid":   {Type: core.TIDString},
+		Fields: map[string]schema.Field{
+			"zebra": {Type: core.TypeString},
+			"alpha": {Type: core.TypeString},
+			"mid":   {Type: core.TypeString},
 		},
 	}
 
@@ -81,9 +81,9 @@ func TestRecordToValues(t *testing.T) {
 	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
-		Fields: map[string]schema.FieldDef{
-			"title": {Type: core.TIDString},
-			"count": {Type: core.TIDInteger},
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString},
+			"count": {Type: core.TypeInt},
 		},
 		Mode: schema.ModeStrict,
 	}
@@ -105,9 +105,9 @@ func TestRecordToValues_MissingColumn(t *testing.T) {
 	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
-		Fields: map[string]schema.FieldDef{
-			"title":   {Type: core.TIDString},
-			"missing": {Type: core.TIDString},
+		Fields: map[string]schema.Field{
+			"title":   {Type: core.TypeString},
+			"missing": {Type: core.TypeString},
 		},
 		Mode: schema.ModeStrict,
 	}

@@ -168,7 +168,7 @@ func (s *SchemaTx) evolveSchema(
 				Table: tableName,
 				Column: xsql.Column{
 					Name: name,
-					Type: xsql.SQLiteTypeName(string(newField.Type)),
+					Type: xsql.SQLiteTypeName(newField.Type.ID().String()),
 				},
 			})
 			if err != nil {

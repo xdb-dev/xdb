@@ -44,8 +44,8 @@ func (s *SchemaStoreSuite) testCreate(t *testing.T) {
 		def := &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"title": {Type: core.TIDString, Required: true},
+			Fields: map[string]schema.Field{
+				"title": {Type: core.TypeString, Required: true},
 			},
 		}
 
@@ -58,7 +58,7 @@ func (s *SchemaStoreSuite) testCreate(t *testing.T) {
 
 	t.Run("rejects duplicate", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/dup")
-		def := &schema.Def{URI: uri}
+		def := &schema.Def{URI: uri, Mode: schema.ModeFlexible}
 
 		require.NoError(t, st.CreateSchema(ctx, uri, def))
 
@@ -87,8 +87,8 @@ func (s *SchemaStoreSuite) testUpdate(t *testing.T) {
 		def := &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"title": {Type: core.TIDString},
+			Fields: map[string]schema.Field{
+				"title": {Type: core.TypeString},
 			},
 		}
 		require.NoError(t, st.CreateSchema(ctx, uri, def))
@@ -96,9 +96,9 @@ func (s *SchemaStoreSuite) testUpdate(t *testing.T) {
 		updated := &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"title": {Type: core.TIDString},
-				"body":  {Type: core.TIDString},
+			Fields: map[string]schema.Field{
+				"title": {Type: core.TypeString},
+				"body":  {Type: core.TypeString},
 			},
 		}
 		require.NoError(t, st.UpdateSchema(ctx, uri, updated))
@@ -110,7 +110,7 @@ func (s *SchemaStoreSuite) testUpdate(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/missing")
-		err := st.UpdateSchema(ctx, uri, &schema.Def{URI: uri})
+		err := st.UpdateSchema(ctx, uri, &schema.Def{URI: uri, Mode: schema.ModeFlexible})
 		require.ErrorIs(t, err, store.ErrNotFound)
 	})
 }
@@ -121,7 +121,7 @@ func (s *SchemaStoreSuite) testDelete(t *testing.T) {
 
 	t.Run("removes existing schema", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/posts")
-		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{URI: uri}))
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{URI: uri, Mode: schema.ModeFlexible}))
 		require.NoError(t, st.DeleteSchema(ctx, uri))
 
 		_, err := st.GetSchema(ctx, uri)
@@ -152,8 +152,8 @@ func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
 				def := &schema.Def{
 					URI:  uri,
 					Mode: mode,
-					Fields: map[string]schema.FieldDef{
-						"tags": {Type: core.TIDArray},
+					Fields: map[string]schema.Field{
+						"tags": {Type: core.NewArrayType("")},
 					},
 				}
 
@@ -169,8 +169,8 @@ func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
 		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			Fields: map[string]schema.Field{
+				"tags": {Type: core.NewArrayType(core.TIDString)},
 			},
 		}))
 	})
@@ -181,16 +181,16 @@ func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
 		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			Fields: map[string]schema.Field{
+				"tags": {Type: core.NewArrayType(core.TIDString)},
 			},
 		}))
 
 		err := st.UpdateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"tags": {Type: core.TIDArray, ElemType: core.TIDInteger},
+			Fields: map[string]schema.Field{
+				"tags": {Type: core.NewArrayType(core.TIDInteger)},
 			},
 		})
 		require.ErrorIs(t, err, store.ErrSchemaViolation)
@@ -202,17 +202,17 @@ func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
 		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"name": {Type: core.TIDString},
+			Fields: map[string]schema.Field{
+				"name": {Type: core.TypeString},
 			},
 		}))
 
 		err := st.UpdateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"name": {Type: core.TIDString},
-				"tags": {Type: core.TIDArray}, // missing elem_type
+			Fields: map[string]schema.Field{
+				"name": {Type: core.TypeString},
+				"tags": {Type: core.NewArrayType("")}, // missing elem_type
 			},
 		})
 		require.ErrorIs(t, err, store.ErrSchemaViolation)
@@ -224,16 +224,16 @@ func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
 		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"name": {Type: core.TIDString},
+			Fields: map[string]schema.Field{
+				"name": {Type: core.TypeString},
 			},
 		}))
 
 		err := st.UpdateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{
-				"name": {Type: core.TIDInteger},
+			Fields: map[string]schema.Field{
+				"name": {Type: core.TypeInt},
 			},
 		})
 		require.ErrorIs(t, err, store.ErrSchemaViolation)
@@ -248,11 +248,11 @@ func (s *SchemaStoreSuite) testList(t *testing.T) {
 
 		for _, name := range []string{"posts", "users", "comments"} {
 			uri := core.MustParseURI("xdb://com.example/" + name)
-			require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{URI: uri}))
+			require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{URI: uri, Mode: schema.ModeFlexible}))
 		}
 
 		otherURI := core.MustParseURI("xdb://com.other/posts")
-		require.NoError(t, st.CreateSchema(ctx, otherURI, &schema.Def{URI: otherURI}))
+		require.NoError(t, st.CreateSchema(ctx, otherURI, &schema.Def{URI: otherURI, Mode: schema.ModeFlexible}))
 
 		nsURI := core.MustParseURI("xdb://com.example")
 		page, err := st.ListSchemas(ctx, &store.Query{URI: nsURI})
@@ -266,10 +266,10 @@ func (s *SchemaStoreSuite) testList(t *testing.T) {
 
 		for _, name := range []string{"posts", "users"} {
 			uri := core.MustParseURI("xdb://com.example/" + name)
-			require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{URI: uri}))
+			require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{URI: uri, Mode: schema.ModeFlexible}))
 		}
 		otherURI := core.MustParseURI("xdb://com.other/posts")
-		require.NoError(t, st.CreateSchema(ctx, otherURI, &schema.Def{URI: otherURI}))
+		require.NoError(t, st.CreateSchema(ctx, otherURI, &schema.Def{URI: otherURI, Mode: schema.ModeFlexible}))
 
 		page, err := st.ListSchemas(ctx, &store.Query{})
 		require.NoError(t, err)

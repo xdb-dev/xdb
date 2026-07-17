@@ -88,9 +88,9 @@ func TestCreateSchema_ThenCreateRecord(t *testing.T) {
 	def := &schema.Def{
 		URI:  uri,
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"title":  {Type: core.TIDString},
-			"author": {Type: core.TIDString},
+		Fields: map[string]schema.Field{
+			"title":  {Type: core.TypeString},
+			"author": {Type: core.TypeString},
 		},
 	}
 	require.NoError(t, st.CreateSchema(ctx, uri, def))
@@ -121,9 +121,9 @@ func TestArrayField_Roundtrip(t *testing.T) {
 		def := &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeStrict,
-			Fields: map[string]schema.FieldDef{
-				"title": {Type: core.TIDString},
-				"tags":  {Type: core.TIDArray, ElemType: core.TIDString},
+			Fields: map[string]schema.Field{
+				"title": {Type: core.TypeString},
+				"tags":  {Type: core.NewArrayType(core.TIDString)},
 			},
 		}
 		require.NoError(t, st.CreateSchema(ctx, uri, def))
@@ -156,8 +156,8 @@ func TestArrayField_Roundtrip(t *testing.T) {
 		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeDynamic,
-			Fields: map[string]schema.FieldDef{
-				"name": {Type: core.TIDString, Required: true},
+			Fields: map[string]schema.Field{
+				"name": {Type: core.TypeString, Required: true},
 			},
 		}))
 
@@ -173,8 +173,8 @@ func TestArrayField_Roundtrip(t *testing.T) {
 		require.NoError(t, err)
 		tagsField, ok := def.Fields["tags"]
 		require.True(t, ok)
-		assert.Equal(t, core.TIDArray, tagsField.Type)
-		assert.Equal(t, core.TIDString, tagsField.ElemType)
+		assert.Equal(t, core.TIDArray, tagsField.Type.ID())
+		assert.Equal(t, core.TIDString, tagsField.Type.ElemTypeID())
 
 		page, err := st.ListRecords(ctx, &store.Query{URI: uri})
 		require.NoError(t, err)
@@ -188,7 +188,7 @@ func TestArrayField_Roundtrip(t *testing.T) {
 func TestUpdateSchema_DDLEvolution(t *testing.T) {
 	ctx := context.Background()
 
-	strictSchema := func(fields map[string]schema.FieldDef) *schema.Def {
+	strictSchema := func(fields map[string]schema.Field) *schema.Def {
 		return &schema.Def{
 			URI:    core.MustParseURI("xdb://com.test/evolve"),
 			Mode:   schema.ModeStrict,
@@ -200,13 +200,13 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 		st := newTestStore(t)
 		uri := core.MustParseURI("xdb://com.test/evolve")
 
-		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"title": {Type: core.TIDString},
+		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"title": {Type: core.TypeString},
 		})))
 
-		require.NoError(t, st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"title": {Type: core.TIDString},
-			"count": {Type: core.TIDInteger},
+		require.NoError(t, st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"title": {Type: core.TypeString},
+			"count": {Type: core.TypeInt},
 		})))
 
 		// Verify: write a record using the new column.
@@ -229,13 +229,13 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 		st := newTestStore(t)
 		uri := core.MustParseURI("xdb://com.test/evolve")
 
-		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"title": {Type: core.TIDString},
-			"extra": {Type: core.TIDString},
+		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"title": {Type: core.TypeString},
+			"extra": {Type: core.TypeString},
 		})))
 
-		require.NoError(t, st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"title": {Type: core.TIDString},
+		require.NoError(t, st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"title": {Type: core.TypeString},
 		})))
 
 		// Verify schema only has title.
@@ -249,14 +249,14 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 		st := newTestStore(t)
 		uri := core.MustParseURI("xdb://com.test/evolve")
 
-		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"a": {Type: core.TIDString},
-			"b": {Type: core.TIDInteger},
+		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"a": {Type: core.TypeString},
+			"b": {Type: core.TypeInt},
 		})))
 
-		require.NoError(t, st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"a": {Type: core.TIDString},
-			"c": {Type: core.TIDFloat},
+		require.NoError(t, st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"a": {Type: core.TypeString},
+			"c": {Type: core.TypeFloat},
 		})))
 
 		def, err := st.GetSchema(ctx, uri)
@@ -270,12 +270,12 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 		st := newTestStore(t)
 		uri := core.MustParseURI("xdb://com.test/evolve")
 
-		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"title": {Type: core.TIDString},
+		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"title": {Type: core.TypeString},
 		})))
 
-		err := st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"title": {Type: core.TIDInteger},
+		err := st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"title": {Type: core.TypeInt},
 		}))
 		require.ErrorIs(t, err, store.ErrSchemaViolation)
 	})
@@ -284,14 +284,14 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 		st := newTestStore(t)
 		uri := core.MustParseURI("xdb://com.test/evolve")
 
-		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"title": {Type: core.TIDString},
+		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"title": {Type: core.TypeString},
 		})))
 
 		err := st.UpdateSchema(ctx, uri, &schema.Def{
 			URI:    uri,
 			Mode:   schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{"title": {Type: core.TIDString}},
+			Fields: map[string]schema.Field{"title": {Type: core.TypeString}},
 		})
 		require.ErrorIs(t, err, store.ErrSchemaViolation)
 	})
@@ -309,7 +309,7 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 		require.NoError(t, st.UpdateSchema(ctx, uri, &schema.Def{
 			URI:    uri,
 			Mode:   schema.ModeFlexible,
-			Fields: map[string]schema.FieldDef{"x": {Type: core.TIDString}},
+			Fields: map[string]schema.Field{"x": {Type: core.TypeString}},
 		}))
 
 		def, err := st.GetSchema(ctx, uri)
@@ -322,17 +322,17 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.test/evolve")
 
 		// Create with one field, write a record.
-		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"title": {Type: core.TIDString},
+		require.NoError(t, st.CreateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"title": {Type: core.TypeString},
 		})))
 		r1 := core.NewRecord("com.test", "evolve", "r1")
 		r1.Set("title", "hello")
 		require.NoError(t, st.CreateRecord(ctx, r1))
 
 		// Evolve: add a field.
-		require.NoError(t, st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.FieldDef{
-			"title": {Type: core.TIDString},
-			"count": {Type: core.TIDInteger},
+		require.NoError(t, st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.Field{
+			"title": {Type: core.TypeString},
+			"count": {Type: core.TypeInt},
 		})))
 
 		// Old record should still be readable (count is null/zero).

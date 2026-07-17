@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
-	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
@@ -18,13 +17,20 @@ func newSchemaService() *api.SchemaService {
 	return api.NewSchemaService(xdbmemory.New())
 }
 
+// wireField is the JSON wire shape of a schema field, mirroring the schema
+// package's own format ({type, elem_type, ...}).
+type wireField struct {
+	Type     string `json:"type"`
+	Required bool   `json:"required,omitempty"`
+}
+
 // schemaData builds JSON data for a schema definition without the URI field.
-func schemaData(t *testing.T, fields map[string]schema.FieldDef, mode schema.Mode) json.RawMessage {
+func schemaData(t *testing.T, fields map[string]wireField, mode schema.Mode) json.RawMessage {
 	t.Helper()
 
 	payload := struct {
-		Fields map[string]schema.FieldDef `json:"Fields,omitempty"`
-		Mode   schema.Mode               `json:"Mode,omitempty"`
+		Fields map[string]wireField `json:"fields,omitempty"`
+		Mode   schema.Mode          `json:"mode,omitempty"`
 	}{
 		Fields: fields,
 		Mode:   mode,
@@ -39,8 +45,8 @@ func schemaData(t *testing.T, fields map[string]schema.FieldDef, mode schema.Mod
 func createTestSchema(t *testing.T, svc *api.SchemaService, uri string) *schema.Def {
 	t.Helper()
 
-	data := schemaData(t, map[string]schema.FieldDef{
-		"name": {Type: core.TIDString, Required: true},
+	data := schemaData(t, map[string]wireField{
+		"name": {Type: "string", Required: true},
 	}, schema.ModeStrict)
 
 	resp, err := svc.Create(context.Background(), &api.CreateSchemaRequest{
@@ -57,8 +63,8 @@ func TestSchemaService_Create(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
-		data := schemaData(t, map[string]schema.FieldDef{
-			"title": {Type: core.TIDString, Required: true},
+		data := schemaData(t, map[string]wireField{
+			"title": {Type: "string", Required: true},
 		}, schema.ModeStrict)
 
 		resp, err := svc.Create(ctx, &api.CreateSchemaRequest{
@@ -74,8 +80,8 @@ func TestSchemaService_Create(t *testing.T) {
 	})
 
 	t.Run("idempotent create returns existing", func(t *testing.T) {
-		data := schemaData(t, map[string]schema.FieldDef{
-			"name": {Type: core.TIDString, Required: true},
+		data := schemaData(t, map[string]wireField{
+			"name": {Type: "string", Required: true},
 		}, schema.ModeFlexible)
 
 		resp1, err := svc.Create(ctx, &api.CreateSchemaRequest{
@@ -194,8 +200,8 @@ func TestSchemaService_Update(t *testing.T) {
 	t.Run("patch merges fields", func(t *testing.T) {
 		createTestSchema(t, svc, "xdb://myapp/docs")
 
-		data := schemaData(t, map[string]schema.FieldDef{
-			"author": {Type: core.TIDString, Required: false},
+		data := schemaData(t, map[string]wireField{
+			"author": {Type: "string", Required: false},
 		}, "")
 
 		resp, err := svc.Update(ctx, &api.UpdateSchemaRequest{
@@ -211,7 +217,7 @@ func TestSchemaService_Update(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		data := schemaData(t, map[string]schema.FieldDef{}, "")
+		data := schemaData(t, map[string]wireField{}, "")
 
 		_, err := svc.Update(ctx, &api.UpdateSchemaRequest{
 			URI:  "xdb://myapp/missing",

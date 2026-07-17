@@ -28,7 +28,7 @@ func columnDefs(def *schema.Def) []xsql.Column {
 	for i, name := range names {
 		cols[i] = xsql.Column{
 			Name: name,
-			Type: xsql.SQLiteTypeName(string(def.Fields[name].Type)),
+			Type: xsql.SQLiteTypeName(def.Fields[name].Type.ID().String()),
 		}
 	}
 	return cols
@@ -52,7 +52,7 @@ func columnValues(def *schema.Def) []xsql.Value {
 	for i, name := range names {
 		vals[i] = xsql.Value{
 			Name: name,
-			Type: def.Fields[name].CoreType(),
+			Type: def.Fields[name].Type,
 		}
 	}
 	return vals

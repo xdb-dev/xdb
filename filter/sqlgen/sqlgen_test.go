@@ -12,12 +12,12 @@ import (
 )
 
 var testDef = &schema.Def{
-	Fields: map[string]schema.FieldDef{
-		"name":   {Type: core.TIDString},
-		"status": {Type: core.TIDString},
-		"age":    {Type: core.TIDInteger},
-		"score":  {Type: core.TIDFloat},
-		"active": {Type: core.TIDBoolean},
+	Fields: map[string]schema.Field{
+		"name":   {Type: core.TypeString},
+		"status": {Type: core.TypeString},
+		"age":    {Type: core.TypeInt},
+		"score":  {Type: core.TypeFloat},
+		"active": {Type: core.TypeBool},
 	},
 }
 

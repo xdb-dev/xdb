@@ -387,11 +387,11 @@ func TestDecoder_WithSchema_AllTypes(t *testing.T) {
 	uri := core.MustNewURI("com.example", "test")
 	def := &schema.Def{
 		URI: uri,
-		Fields: map[string]schema.FieldDef{
-			"timestamp": {Type: core.TIDTime},
-			"count":     {Type: core.TIDInteger},
-			"size":      {Type: core.TIDUnsigned},
-			"data":      {Type: core.TIDBytes},
+		Fields: map[string]schema.Field{
+			"timestamp": {Type: core.TypeTime},
+			"count":     {Type: core.TypeInt},
+			"size":      {Type: core.TypeUnsigned},
+			"data":      {Type: core.TypeBytes},
 		},
 	}
 
@@ -426,10 +426,10 @@ func TestDecoder_WithSchema_RoundTrip(t *testing.T) {
 	uri := core.MustNewURI("com.example", "test")
 	def := &schema.Def{
 		URI: uri,
-		Fields: map[string]schema.FieldDef{
-			"created_at": {Type: core.TIDTime},
-			"count":      {Type: core.TIDInteger},
-			"data":       {Type: core.TIDBytes},
+		Fields: map[string]schema.Field{
+			"created_at": {Type: core.TypeTime},
+			"count":      {Type: core.TypeInt},
+			"data":       {Type: core.TypeBytes},
 		},
 	}
 
@@ -494,10 +494,10 @@ func TestDecoder_WithNumberInference_DefTypesWin(t *testing.T) {
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/metrics"),
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"ratio": {Type: core.TIDFloat},
-			"size":  {Type: core.TIDUnsigned},
-			"count": {Type: core.TIDInteger},
+		Fields: map[string]schema.Field{
+			"ratio": {Type: core.TypeFloat},
+			"size":  {Type: core.TypeUnsigned},
+			"count": {Type: core.TypeInt},
 		},
 	}
 

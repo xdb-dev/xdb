@@ -135,7 +135,7 @@ func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
 
 		if d.opts.def != nil {
 			if field, ok := d.opts.def.Fields[attr]; ok {
-				value = convertToType(value, field.Type)
+				value = convertToType(value, field.Type.ID())
 			}
 		}
 

@@ -44,8 +44,8 @@ func (s *ModeStoreSuite) testFlexible(t *testing.T) {
 	def := &schema.Def{
 		URI:  schemaURI,
 		Mode: schema.ModeFlexible,
-		Fields: map[string]schema.FieldDef{
-			"title": {Type: core.TIDString, Required: true},
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString, Required: true},
 		},
 	}
 	require.NoError(t, st.CreateSchema(ctx, schemaURI, def))
@@ -63,10 +63,25 @@ func (s *ModeStoreSuite) testFlexible(t *testing.T) {
 		require.NoError(t, st.CreateRecord(ctx, r))
 	})
 
-	t.Run("accepts wrong type for defined field", func(t *testing.T) {
+	// Fixed mode semantics: declared fields type-check in every mode, so a
+	// flexible schema now rejects a type mismatch on a declared field.
+	t.Run("rejects wrong type for defined field", func(t *testing.T) {
 		r := core.NewRecord("com.example", "posts", "flex-3")
 		r.Set("title", 42) // schema says STRING, sending INTEGER
-		require.NoError(t, st.CreateRecord(ctx, r))
+
+		err := st.CreateRecord(ctx, r)
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		assert.Contains(t, err.Error(), "title")
+	})
+
+	// Required is a declared-field property enforced in every mode.
+	t.Run("rejects missing required field", func(t *testing.T) {
+		r := core.NewRecord("com.example", "posts", "flex-4")
+		r.Set("extra", "no title present")
+
+		err := st.CreateRecord(ctx, r)
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		assert.Contains(t, err.Error(), "title")
 	})
 }
 
@@ -78,9 +93,9 @@ func (s *ModeStoreSuite) testStrict(t *testing.T) {
 	def := &schema.Def{
 		URI:  schemaURI,
 		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"title":  {Type: core.TIDString, Required: true},
-			"rating": {Type: core.TIDFloat},
+		Fields: map[string]schema.Field{
+			"title":  {Type: core.TypeString, Required: true},
+			"rating": {Type: core.TypeFloat},
 		},
 	}
 	require.NoError(t, st.CreateSchema(ctx, schemaURI, def))
@@ -109,6 +124,15 @@ func (s *ModeStoreSuite) testStrict(t *testing.T) {
 		require.ErrorIs(t, err, store.ErrSchemaViolation)
 
 		// Error should include field-level detail.
+		assert.Contains(t, err.Error(), "title")
+	})
+
+	t.Run("rejects missing required field", func(t *testing.T) {
+		r := core.NewRecord("com.example", "articles", "strict-required")
+		r.Set("rating", 4.5) // title (required) missing
+
+		err := st.CreateRecord(ctx, r)
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
 		assert.Contains(t, err.Error(), "title")
 	})
 
@@ -142,8 +166,8 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 	def := &schema.Def{
 		URI:  schemaURI,
 		Mode: schema.ModeDynamic,
-		Fields: map[string]schema.FieldDef{
-			"name": {Type: core.TIDString, Required: true},
+		Fields: map[string]schema.Field{
+			"name": {Type: core.TypeString, Required: true},
 		},
 	}
 	require.NoError(t, st.CreateSchema(ctx, schemaURI, def))
@@ -166,7 +190,7 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 
 		countField, ok := got.Fields["count"]
 		require.True(t, ok, "schema should have inferred 'count' field")
-		assert.Equal(t, core.TIDInteger, countField.Type)
+		assert.Equal(t, core.TIDInteger, countField.Type.ID())
 	})
 
 	t.Run("rejects wrong type for existing field", func(t *testing.T) {
@@ -175,6 +199,15 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 
 		err := st.CreateRecord(ctx, r)
 		require.ErrorIs(t, err, store.ErrSchemaViolation)
+	})
+
+	t.Run("rejects missing required field", func(t *testing.T) {
+		r := core.NewRecord("com.example", "events", "dyn-required")
+		r.Set("count", int64(1)) // name (required) missing
+
+		err := st.CreateRecord(ctx, r)
+		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		assert.Contains(t, err.Error(), "name")
 	})
 
 	t.Run("evolves schema on upsert", func(t *testing.T) {
@@ -188,7 +221,7 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 
 		activeField, ok := got.Fields["active"]
 		require.True(t, ok, "schema should have inferred 'active' field")
-		assert.Equal(t, core.TIDBoolean, activeField.Type)
+		assert.Equal(t, core.TIDBoolean, activeField.Type.ID())
 	})
 
 	t.Run("evolves schema on update", func(t *testing.T) {
@@ -208,7 +241,7 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 
 		durField, ok := got.Fields["duration"]
 		require.True(t, ok, "schema should have inferred 'duration' field")
-		assert.Equal(t, core.TIDFloat, durField.Type)
+		assert.Equal(t, core.TIDFloat, durField.Type.ID())
 	})
 }
 
@@ -221,9 +254,9 @@ func (s *ModeStoreSuite) testArrayElemType(t *testing.T) {
 		def := &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeStrict,
-			Fields: map[string]schema.FieldDef{
-				"title": {Type: core.TIDString},
-				"tags":  {Type: core.TIDArray, ElemType: core.TIDString},
+			Fields: map[string]schema.Field{
+				"title": {Type: core.TypeString},
+				"tags":  {Type: core.NewArrayType(core.TIDString)},
 			},
 		}
 		require.NoError(t, st.CreateSchema(ctx, uri, def))
@@ -249,8 +282,8 @@ func (s *ModeStoreSuite) testArrayElemType(t *testing.T) {
 		def := &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeStrict,
-			Fields: map[string]schema.FieldDef{
-				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			Fields: map[string]schema.Field{
+				"tags": {Type: core.NewArrayType(core.TIDString)},
 			},
 		}
 		require.NoError(t, st.CreateSchema(ctx, uri, def))
@@ -268,8 +301,8 @@ func (s *ModeStoreSuite) testArrayElemType(t *testing.T) {
 		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeDynamic,
-			Fields: map[string]schema.FieldDef{
-				"name": {Type: core.TIDString, Required: true},
+			Fields: map[string]schema.Field{
+				"name": {Type: core.TypeString, Required: true},
 			},
 		}))
 
@@ -285,8 +318,8 @@ func (s *ModeStoreSuite) testArrayElemType(t *testing.T) {
 		require.NoError(t, err)
 		tags, ok := got.Fields["tags"]
 		require.True(t, ok)
-		assert.Equal(t, core.TIDArray, tags.Type)
-		assert.Equal(t, core.TIDString, tags.ElemType)
+		assert.Equal(t, core.TIDArray, tags.Type.ID())
+		assert.Equal(t, core.TIDString, tags.Type.ElemTypeID())
 	})
 
 	t.Run("dynamic mode rejects mismatched elem type on known field", func(t *testing.T) {
@@ -295,8 +328,8 @@ func (s *ModeStoreSuite) testArrayElemType(t *testing.T) {
 		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
 			URI:  uri,
 			Mode: schema.ModeDynamic,
-			Fields: map[string]schema.FieldDef{
-				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			Fields: map[string]schema.Field{
+				"tags": {Type: core.NewArrayType(core.TIDString)},
 			},
 		}))
 

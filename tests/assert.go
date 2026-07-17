@@ -78,7 +78,7 @@ func AssertDefEqual(t *testing.T, expected, actual *schema.Def) {
 	for name, expectedField := range expected.Fields {
 		actualField, ok := actual.Fields[name]
 		require.True(t, ok, "Def: field %s not found", name)
-		assert.Equal(t, expectedField.Type, actualField.Type, "FieldDef: type mismatch for %s", name)
-		assert.Equal(t, expectedField.Required, actualField.Required, "FieldDef: required mismatch for %s", name)
+		assert.Equal(t, expectedField.Type, actualField.Type, "Field: type mismatch for %s", name)
+		assert.Equal(t, expectedField.Required, actualField.Required, "Field: required mismatch for %s", name)
 	}
 }

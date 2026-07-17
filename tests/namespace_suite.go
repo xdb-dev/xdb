@@ -46,7 +46,7 @@ func (s *NamespaceStoreSuite) seedSchema(
 	t.Helper()
 	ctx := context.Background()
 	uri := core.MustParseURI(rawURI)
-	require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{URI: uri}))
+	require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{URI: uri, Mode: schema.ModeFlexible}))
 }
 
 func (s *NamespaceStoreSuite) testGet(t *testing.T) {

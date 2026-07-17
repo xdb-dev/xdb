@@ -24,8 +24,8 @@ func TestDef_MarshalJSON(t *testing.T) {
 			def: &schema.Def{
 				URI:  core.MustParseURI("xdb://com.example/posts"),
 				Mode: schema.ModeStrict,
-				Fields: map[string]schema.FieldDef{
-					"title": {Type: core.TIDString, Required: true},
+				Fields: map[string]schema.Field{
+					"title": {Type: core.TypeString, Required: true},
 				},
 			},
 			expected: `{
@@ -52,10 +52,10 @@ func TestDef_MarshalJSON(t *testing.T) {
 			def: &schema.Def{
 				URI:  core.MustParseURI("xdb://com.example/posts"),
 				Mode: schema.ModeStrict,
-				Fields: map[string]schema.FieldDef{
-					"title":  {Type: core.TIDString, Required: true},
-					"rating": {Type: core.TIDFloat},
-					"active": {Type: core.TIDBoolean},
+				Fields: map[string]schema.Field{
+					"title":  {Type: core.TypeString, Required: true},
+					"rating": {Type: core.TypeFloat},
+					"active": {Type: core.TypeBool},
 				},
 			},
 			expected: `{
@@ -65,6 +65,37 @@ func TestDef_MarshalJSON(t *testing.T) {
 					"title":  {"type": "string", "required": true},
 					"rating": {"type": "float"},
 					"active": {"type": "boolean"}
+				}
+			}`,
+		},
+		{
+			name: "description, annotations and revision",
+			def: &schema.Def{
+				URI:         core.MustParseURI("xdb://com.example/users"),
+				Mode:        schema.ModeStrict,
+				Description: "a user",
+				Revision:    7,
+				Annotations: map[string]string{"source": "proto"},
+				Fields: map[string]schema.Field{
+					"name": {
+						Type:        core.TypeString,
+						Description: "the name",
+						Annotations: map[string]string{"proto.number": "3"},
+					},
+				},
+			},
+			expected: `{
+				"uri": "xdb://com.example/users",
+				"mode": "strict",
+				"description": "a user",
+				"revision": 7,
+				"annotations": {"source": "proto"},
+				"fields": {
+					"name": {
+						"type": "string",
+						"description": "the name",
+						"annotations": {"proto.number": "3"}
+					}
 				}
 			}`,
 		},
@@ -173,7 +204,7 @@ func TestDef_UnmarshalJSON_FieldDetails(t *testing.T) {
 		"uri": "xdb://com.example/posts",
 		"mode": "strict",
 		"fields": {
-			"title":  {"type": "string", "required": true},
+			"title":  {"type": "string", "required": true, "description": "the title"},
 			"rating": {"type": "float"},
 			"active": {"type": "boolean"}
 		}
@@ -185,17 +216,18 @@ func TestDef_UnmarshalJSON_FieldDetails(t *testing.T) {
 
 	title, ok := def.Fields["title"]
 	require.True(t, ok)
-	assert.Equal(t, core.TIDString, title.Type)
+	assert.Equal(t, core.TIDString, title.Type.ID())
 	assert.True(t, title.Required)
+	assert.Equal(t, "the title", title.Description)
 
 	rating, ok := def.Fields["rating"]
 	require.True(t, ok)
-	assert.Equal(t, core.TIDFloat, rating.Type)
+	assert.Equal(t, core.TIDFloat, rating.Type.ID())
 	assert.False(t, rating.Required)
 
 	active, ok := def.Fields["active"]
 	require.True(t, ok)
-	assert.Equal(t, core.TIDBoolean, active.Type)
+	assert.Equal(t, core.TIDBoolean, active.Type.ID())
 	assert.False(t, active.Required)
 }
 
@@ -203,14 +235,17 @@ func TestDef_JSON_RoundTrip(t *testing.T) {
 	t.Parallel()
 
 	original := &schema.Def{
-		URI:  core.MustParseURI("xdb://com.example/posts"),
-		Mode: schema.ModeStrict,
-		Fields: map[string]schema.FieldDef{
-			"title":   {Type: core.TIDString, Required: true},
-			"content": {Type: core.TIDString},
-			"rating":  {Type: core.TIDFloat},
-			"active":  {Type: core.TIDBoolean},
-			"count":   {Type: core.TIDInteger},
+		URI:         core.MustParseURI("xdb://com.example/posts"),
+		Mode:        schema.ModeStrict,
+		Description: "a post",
+		Revision:    3,
+		Annotations: map[string]string{"source": "go"},
+		Fields: map[string]schema.Field{
+			"title":   {Type: core.TypeString, Required: true, Description: "d"},
+			"content": {Type: core.TypeString},
+			"rating":  {Type: core.TypeFloat},
+			"active":  {Type: core.TypeBool},
+			"count":   {Type: core.TypeInt, Annotations: map[string]string{"go.type": "int32"}},
 		},
 	}
 
@@ -223,6 +258,9 @@ func TestDef_JSON_RoundTrip(t *testing.T) {
 
 	assert.Equal(t, original.URI.String(), decoded.URI.String())
 	assert.Equal(t, original.Mode, decoded.Mode)
+	assert.Equal(t, original.Description, decoded.Description)
+	assert.Equal(t, original.Revision, decoded.Revision)
+	assert.Equal(t, original.Annotations, decoded.Annotations)
 	require.Len(t, decoded.Fields, len(original.Fields))
 
 	for name, expectedField := range original.Fields {
@@ -230,32 +268,9 @@ func TestDef_JSON_RoundTrip(t *testing.T) {
 		require.True(t, ok, "field %s not found", name)
 		assert.Equal(t, expectedField.Type, actualField.Type)
 		assert.Equal(t, expectedField.Required, actualField.Required)
+		assert.Equal(t, expectedField.Description, actualField.Description)
+		assert.Equal(t, expectedField.Annotations, actualField.Annotations)
 	}
-}
-
-func TestFieldDef_CoreType(t *testing.T) {
-	t.Parallel()
-
-	t.Run("scalar field returns scalar type", func(t *testing.T) {
-		f := schema.FieldDef{Type: core.TIDString}
-		got := f.CoreType()
-		assert.Equal(t, core.TIDString, got.ID())
-		assert.Equal(t, core.TID(""), got.ElemTypeID())
-	})
-
-	t.Run("array field preserves elem type", func(t *testing.T) {
-		f := schema.FieldDef{Type: core.TIDArray, ElemType: core.TIDInteger}
-		got := f.CoreType()
-		assert.Equal(t, core.TIDArray, got.ID())
-		assert.Equal(t, core.TIDInteger, got.ElemTypeID())
-	})
-
-	t.Run("array field without elem type", func(t *testing.T) {
-		f := schema.FieldDef{Type: core.TIDArray}
-		got := f.CoreType()
-		assert.Equal(t, core.TIDArray, got.ID())
-		assert.Equal(t, core.TID(""), got.ElemTypeID())
-	})
 }
 
 func TestDef_JSON_Array(t *testing.T) {
@@ -265,8 +280,8 @@ func TestDef_JSON_Array(t *testing.T) {
 		def := &schema.Def{
 			URI:  core.MustParseURI("xdb://com.example/posts"),
 			Mode: schema.ModeStrict,
-			Fields: map[string]schema.FieldDef{
-				"tags": {Type: core.TIDArray, ElemType: core.TIDString},
+			Fields: map[string]schema.Field{
+				"tags": {Type: core.NewArrayType(core.TIDString)},
 			},
 		}
 
@@ -285,8 +300,8 @@ func TestDef_JSON_Array(t *testing.T) {
 		def := &schema.Def{
 			URI:  core.MustParseURI("xdb://com.example/posts"),
 			Mode: schema.ModeStrict,
-			Fields: map[string]schema.FieldDef{
-				"tags": {Type: core.TIDArray},
+			Fields: map[string]schema.Field{
+				"tags": {Type: core.NewArrayType("")},
 			},
 		}
 
@@ -301,7 +316,8 @@ func TestDef_JSON_Array(t *testing.T) {
 		}`, string(data))
 	})
 
-	t.Run("unmarshal parses elem_type", func(t *testing.T) {
+	// Backward compatibility: schemas stored as {type, elem_type} still parse.
+	t.Run("unmarshal parses legacy type/elem_type", func(t *testing.T) {
 		input := `{
 			"uri": "xdb://com.example/posts",
 			"mode": "strict",
@@ -316,8 +332,8 @@ func TestDef_JSON_Array(t *testing.T) {
 
 		tags, ok := def.Fields["tags"]
 		require.True(t, ok)
-		assert.Equal(t, core.TIDArray, tags.Type)
-		assert.Equal(t, core.TIDString, tags.ElemType)
+		assert.Equal(t, core.TIDArray, tags.Type.ID())
+		assert.Equal(t, core.TIDString, tags.Type.ElemTypeID())
 	})
 
 	// Unmarshal is permissive; well-formedness is enforced by Def.Validate
@@ -337,8 +353,8 @@ func TestDef_JSON_Array(t *testing.T) {
 
 		tags, ok := def.Fields["tags"]
 		require.True(t, ok)
-		assert.Equal(t, core.TIDArray, tags.Type)
-		assert.Equal(t, core.TID(""), tags.ElemType)
+		assert.Equal(t, core.TIDArray, tags.Type.ID())
+		assert.Equal(t, core.TID(""), tags.Type.ElemTypeID())
 	})
 
 	t.Run("unmarshal rejects invalid elem_type", func(t *testing.T) {
@@ -359,9 +375,9 @@ func TestDef_JSON_Array(t *testing.T) {
 		original := &schema.Def{
 			URI:  core.MustParseURI("xdb://com.example/posts"),
 			Mode: schema.ModeStrict,
-			Fields: map[string]schema.FieldDef{
-				"tags":   {Type: core.TIDArray, ElemType: core.TIDString},
-				"counts": {Type: core.TIDArray, ElemType: core.TIDInteger},
+			Fields: map[string]schema.Field{
+				"tags":   {Type: core.NewArrayType(core.TIDString)},
+				"counts": {Type: core.NewArrayType(core.TIDInteger)},
 			},
 		}
 
@@ -372,8 +388,8 @@ func TestDef_JSON_Array(t *testing.T) {
 		err = json.Unmarshal(data, &decoded)
 		require.NoError(t, err)
 
-		assert.Equal(t, core.TIDString, decoded.Fields["tags"].ElemType)
-		assert.Equal(t, core.TIDInteger, decoded.Fields["counts"].ElemType)
+		assert.Equal(t, core.TIDString, decoded.Fields["tags"].Type.ElemTypeID())
+		assert.Equal(t, core.TIDInteger, decoded.Fields["counts"].Type.ElemTypeID())
 	})
 }
 

@@ -27,18 +27,23 @@ func (s *Store) validateAndEvolve(ctx context.Context, record *core.Record) erro
 		return err
 	}
 
-	if def.Mode == schema.ModeFlexible {
-		return nil
+	tuples := record.Tuples()
+
+	// Required is a declared-field property enforced on the full record in
+	// every mode. Today all write paths are full-record replaces, so this is
+	// correct for Create/Update/Upsert.
+	if err := schema.CheckRequired(def, tuples); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 	}
 
 	switch def.Mode {
-	case schema.ModeStrict:
-		if vErr := schema.ValidateTuples(def, record.Tuples()); vErr != nil {
+	case schema.ModeStrict, schema.ModeFlexible:
+		if vErr := schema.ValidateTuples(def, tuples); vErr != nil {
 			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, vErr)
 		}
 
 	case schema.ModeDynamic:
-		return s.evolveDynamic(ctx, schemaURI, def, record.Tuples())
+		return s.evolveDynamic(ctx, schemaURI, def, tuples)
 	}
 
 	return nil
@@ -63,9 +68,12 @@ func (s *Store) evolveDynamic(
 
 	// Build an evolved copy — never mutate the fetched def in place.
 	evolved := &schema.Def{
-		URI:    def.URI,
-		Mode:   def.Mode,
-		Fields: make(map[string]schema.FieldDef, len(def.Fields)+len(newFields)),
+		URI:         def.URI,
+		Description: def.Description,
+		Mode:        def.Mode,
+		Revision:    def.Revision,
+		Annotations: def.Annotations,
+		Fields:      make(map[string]schema.Field, len(def.Fields)+len(newFields)),
 	}
 	for k, v := range def.Fields {
 		evolved.Fields[k] = v

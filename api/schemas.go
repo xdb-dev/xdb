@@ -44,6 +44,9 @@ func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.create: %w", err)
 	}
+	if def.Mode == "" {
+		def.Mode = schema.ModeStrict
+	}
 
 	err = s.store.CreateSchema(ctx, uri, &def)
 	if errors.Is(err, store.ErrAlreadyExists) {
@@ -155,7 +158,7 @@ func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*
 
 	// Merge patch fields into existing.
 	if existing.Fields == nil {
-		existing.Fields = make(map[string]schema.FieldDef)
+		existing.Fields = make(map[string]schema.Field)
 	}
 	for name, field := range patch.Fields {
 		existing.Fields[name] = field
@@ -181,49 +184,79 @@ type DeleteSchemaRequest struct {
 // DeleteSchemaResponse is the response for schemas.delete.
 type DeleteSchemaResponse struct{}
 
+// schemaFieldPayload is the wire representation of a [schema.Field], mirroring
+// the schema package's own JSON format ({type, elem_type, ...}).
+type schemaFieldPayload struct {
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Type        string            `json:"type"`
+	ElemType    string            `json:"elem_type,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Required    bool              `json:"required,omitempty"`
+}
+
 // schemaDefPayload is the JSON-safe subset of [schema.Def] used for
 // Create and Update requests. It avoids unmarshaling the URI field
 // (which is provided separately in the request envelope).
 type schemaDefPayload struct {
-	Fields map[string]schema.FieldDef `json:"fields,omitempty"`
-	Mode   schema.Mode                `json:"mode,omitempty"`
+	Fields      map[string]schemaFieldPayload `json:"fields,omitempty"`
+	Annotations map[string]string             `json:"annotations,omitempty"`
+	Mode        schema.Mode                   `json:"mode,omitempty"`
+	Description string                        `json:"description,omitempty"`
 }
 
 // unmarshalSchemaDef decodes a schema definition payload and attaches
 // the given URI. This avoids Go's JSON decoder calling
-// [core.URI.UnmarshalJSON] on a missing or null URI field.
+// [core.URI.UnmarshalJSON] on a missing or null URI field. The Mode is
+// left as provided (possibly empty); callers normalize as needed.
 func unmarshalSchemaDef(data json.RawMessage, uri *core.URI) (schema.Def, error) {
 	var p schemaDefPayload
 	if err := json.Unmarshal(data, &p); err != nil {
 		return schema.Def{}, err
 	}
-	mode := p.Mode
-	if mode == "" {
-		mode = schema.ModeStrict
-	}
 
-	// Normalize type identifiers (e.g. "string" → "STRING").
-	for name, field := range p.Fields {
-		tid, err := core.ParseType(string(field.Type))
-		if err != nil {
-			return schema.Def{}, err
-		}
-		field.Type = tid
-		if tid == core.TIDArray && field.ElemType != "" {
-			elemTID, err := core.ParseType(string(field.ElemType))
+	var fields map[string]schema.Field
+	if len(p.Fields) > 0 {
+		fields = make(map[string]schema.Field, len(p.Fields))
+		for name, fp := range p.Fields {
+			t, err := fieldPayloadType(fp)
 			if err != nil {
 				return schema.Def{}, err
 			}
-			field.ElemType = elemTID
+			fields[name] = schema.Field{
+				Type:        t,
+				Required:    fp.Required,
+				Description: fp.Description,
+				Annotations: fp.Annotations,
+			}
 		}
-		p.Fields[name] = field
 	}
 
 	return schema.Def{
-		URI:    uri,
-		Fields: p.Fields,
-		Mode:   mode,
+		URI:         uri,
+		Fields:      fields,
+		Mode:        p.Mode,
+		Description: p.Description,
+		Annotations: p.Annotations,
 	}, nil
+}
+
+// fieldPayloadType reconstructs a [core.Type] from a wire field payload.
+func fieldPayloadType(fp schemaFieldPayload) (core.Type, error) {
+	tid, err := core.ParseType(fp.Type)
+	if err != nil {
+		return core.Type{}, err
+	}
+	if tid != core.TIDArray {
+		return core.NewType(tid), nil
+	}
+	if fp.ElemType == "" {
+		return core.NewArrayType(""), nil
+	}
+	elemTID, err := core.ParseType(fp.ElemType)
+	if err != nil {
+		return core.Type{}, err
+	}
+	return core.NewArrayType(elemTID), nil
 }
 
 // Delete deletes a schema by URI.

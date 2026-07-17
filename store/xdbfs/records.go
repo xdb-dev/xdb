@@ -209,43 +209,52 @@ func (s *Store) validateAndEvolve(record *core.Record) error {
 		return err
 	}
 
-	if def.Mode == schema.ModeFlexible {
-		return nil
+	tuples := record.Tuples()
+
+	if err := schema.CheckRequired(def, tuples); err != nil {
+		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 	}
 
 	switch def.Mode {
-	case schema.ModeStrict:
-		if err := schema.ValidateTuples(def, record.Tuples()); err != nil {
+	case schema.ModeStrict, schema.ModeFlexible:
+		if err := schema.ValidateTuples(def, tuples); err != nil {
 			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 		}
 
 	case schema.ModeDynamic:
-		newFields, err := schema.EvolveDynamic(def, record.Tuples())
+		newFields, err := schema.EvolveDynamic(def, tuples)
 		if err != nil {
 			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 		}
-		if len(newFields) == 0 {
-			return nil
-		}
-
-		evolved := &schema.Def{
-			URI:    def.URI,
-			Mode:   def.Mode,
-			Fields: make(map[string]schema.FieldDef, len(def.Fields)+len(newFields)),
-		}
-		for k, v := range def.Fields {
-			evolved.Fields[k] = v
-		}
-		for k, v := range newFields {
-			evolved.Fields[k] = v
-		}
-
-		if err := s.writeSchema(s.schemaPath(schemaURI), evolved); err != nil {
-			return err
+		if len(newFields) > 0 {
+			evolved := cloneDefWith(def, newFields)
+			if err := s.writeSchema(s.schemaPath(schemaURI), evolved); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
+}
+
+// cloneDefWith returns a copy of def with newFields merged in, preserving all
+// other schema metadata.
+func cloneDefWith(def *schema.Def, newFields map[string]schema.Field) *schema.Def {
+	evolved := &schema.Def{
+		URI:         def.URI,
+		Description: def.Description,
+		Mode:        def.Mode,
+		Revision:    def.Revision,
+		Annotations: def.Annotations,
+		Fields:      make(map[string]schema.Field, len(def.Fields)+len(newFields)),
+	}
+	for k, v := range def.Fields {
+		evolved.Fields[k] = v
+	}
+	for k, v := range newFields {
+		evolved.Fields[k] = v
+	}
+	return evolved
 }
 
 func (s *Store) writeRecord(path string, record *core.Record) error {
