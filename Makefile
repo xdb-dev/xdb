@@ -44,14 +44,19 @@ bench: ##@testing Run all benchmarks
 
 .PHONY: services-up services-down services-logs
 
-services-up: ##@services Start compose services
-	podman compose up -d
+REDIS_CONTAINER := xdb-redis
+REDIS_IMAGE := redis:8-alpine
 
-services-down: ##@services Stop compose services
-	podman compose down
+services-up: ##@services Start service containers (Apple container)
+	@container system start >/dev/null 2>&1 || true
+	@container rm -f $(REDIS_CONTAINER) >/dev/null 2>&1 || true
+	container run -d --name $(REDIS_CONTAINER) -p 6379:6379 $(REDIS_IMAGE)
 
-services-logs: ##@services Tail compose service logs
-	podman compose logs -f
+services-down: ##@services Stop and remove service containers
+	@container rm -f $(REDIS_CONTAINER) >/dev/null 2>&1 || true
+
+services-logs: ##@services Tail service container logs
+	container logs -f $(REDIS_CONTAINER)
 
 # COVERAGE
 

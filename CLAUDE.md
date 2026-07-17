@@ -22,9 +22,9 @@ Use `make` exclusively — never invoke `go test`, `go build`, `go vet`, `golang
 | `make tidy`          | Run go mod tidy                        |
 | `make coverage`      | Generate coverage report               |
 | `make report`        | Generate and open HTML coverage report |
-| `make services-up`   | Start compose services (podman)        |
-| `make services-down` | Stop compose services                  |
-| `make services-logs` | Tail compose service logs              |
+| `make services-up`   | Start service containers (Apple container) |
+| `make services-down` | Stop service containers                |
+| `make services-logs` | Tail service container logs            |
 
 ## Go Style
 
