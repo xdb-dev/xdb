@@ -2,6 +2,7 @@ package jsonschemaimport
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/gojekfarm/xtools/errors"
 
@@ -31,7 +32,7 @@ func scalarTID(n *node, ptr string) (core.TID, error) {
 		return "", errors.Wrap(ErrUnsupported,
 			"pointer", ptr,
 			"reason", "multiple non-null types are not supported",
-			"types", joinStrings(types),
+			"types", strings.Join(types, ","),
 		)
 	}
 
@@ -160,15 +161,4 @@ func inferJSONType(raw json.RawMessage) string {
 	default:
 		return ""
 	}
-}
-
-func joinStrings(s []string) string {
-	out := ""
-	for i, v := range s {
-		if i > 0 {
-			out += ","
-		}
-		out += v
-	}
-	return out
 }

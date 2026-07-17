@@ -487,3 +487,42 @@ func TestDef_UnmarshalJSON_Errors(t *testing.T) {
 		})
 	}
 }
+
+func TestDef_CloneWithFields(t *testing.T) {
+	uri, err := core.ParseURI("xdb://test/Post")
+	require.NoError(t, err)
+
+	def := &schema.Def{
+		URI:         uri,
+		Description: "posts",
+		Mode:        schema.ModeDynamic,
+		Revision:    3,
+		Annotations: map[string]string{"source": "test"},
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString, Required: true},
+		},
+	}
+
+	evolved := def.CloneWithFields(map[string]schema.Field{
+		"views": {Type: core.TypeInt},
+	})
+
+	// Metadata is preserved and the revision is bumped.
+	assert.Equal(t, def.URI, evolved.URI)
+	assert.Equal(t, def.Description, evolved.Description)
+	assert.Equal(t, def.Mode, evolved.Mode)
+	assert.Equal(t, def.Annotations, evolved.Annotations)
+	assert.Equal(t, int64(4), evolved.Revision)
+
+	// Existing and new fields are merged.
+	assert.Equal(t, map[string]schema.Field{
+		"title": {Type: core.TypeString, Required: true},
+		"views": {Type: core.TypeInt},
+	}, evolved.Fields)
+
+	// The original def and its field map are untouched.
+	assert.Equal(t, int64(3), def.Revision)
+	assert.Equal(t, map[string]schema.Field{
+		"title": {Type: core.TypeString, Required: true},
+	}, def.Fields)
+}

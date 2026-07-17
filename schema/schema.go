@@ -70,3 +70,25 @@ type Def struct {
 	Mode        Mode
 	Revision    int64
 }
+
+// CloneWithFields returns a copy of the [Def] with newFields merged into its
+// fields and Revision incremented, preserving all other schema metadata. The
+// receiver and its field map are never mutated. Stores use it to persist the
+// evolved schema after [EvolveDynamic] infers new fields.
+func (d *Def) CloneWithFields(newFields map[string]Field) *Def {
+	evolved := &Def{
+		URI:         d.URI,
+		Description: d.Description,
+		Mode:        d.Mode,
+		Revision:    d.Revision + 1,
+		Annotations: d.Annotations,
+		Fields:      make(map[string]Field, len(d.Fields)+len(newFields)),
+	}
+	for k, v := range d.Fields {
+		evolved.Fields[k] = v
+	}
+	for k, v := range newFields {
+		evolved.Fields[k] = v
+	}
+	return evolved
+}

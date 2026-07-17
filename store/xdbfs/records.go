@@ -227,7 +227,7 @@ func (s *Store) validateAndEvolve(record *core.Record) error {
 			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
 		}
 		if len(newFields) > 0 {
-			evolved := cloneDefWith(def, newFields)
+			evolved := def.CloneWithFields(newFields)
 			if err := s.writeSchema(s.schemaPath(schemaURI), evolved); err != nil {
 				return err
 			}
@@ -235,26 +235,6 @@ func (s *Store) validateAndEvolve(record *core.Record) error {
 	}
 
 	return nil
-}
-
-// cloneDefWith returns a copy of def with newFields merged in, preserving all
-// other schema metadata.
-func cloneDefWith(def *schema.Def, newFields map[string]schema.Field) *schema.Def {
-	evolved := &schema.Def{
-		URI:         def.URI,
-		Description: def.Description,
-		Mode:        def.Mode,
-		Revision:    def.Revision + 1,
-		Annotations: def.Annotations,
-		Fields:      make(map[string]schema.Field, len(def.Fields)+len(newFields)),
-	}
-	for k, v := range def.Fields {
-		evolved.Fields[k] = v
-	}
-	for k, v := range newFields {
-		evolved.Fields[k] = v
-	}
-	return evolved
 }
 
 func (s *Store) writeRecord(path string, record *core.Record) error {

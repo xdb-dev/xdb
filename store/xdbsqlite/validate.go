@@ -94,17 +94,7 @@ func (s *Store) evolveDynamic(
 	sort.Strings(newNames)
 
 	// Build evolved copy — never mutate the cached original.
-	evolved := &schema.Def{
-		URI:         def.URI,
-		Description: def.Description,
-		Mode:        def.Mode,
-		Revision:    def.Revision + 1,
-		Annotations: def.Annotations,
-		Fields:      make(map[string]schema.Field, len(def.Fields)+len(newFields)),
-	}
-	for k, v := range def.Fields {
-		evolved.Fields[k] = v
-	}
+	evolved := def.CloneWithFields(newFields)
 
 	tableName := columnTableName(def.URI)
 	for _, name := range newNames {
@@ -119,7 +109,6 @@ func (s *Store) evolveDynamic(
 		if err != nil {
 			return nil, err
 		}
-		evolved.Fields[name] = field
 	}
 
 	data, err := json.Marshal(evolved)

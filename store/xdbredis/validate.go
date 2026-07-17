@@ -67,20 +67,7 @@ func (s *Store) evolveDynamic(
 	}
 
 	// Build an evolved copy — never mutate the fetched def in place.
-	evolved := &schema.Def{
-		URI:         def.URI,
-		Description: def.Description,
-		Mode:        def.Mode,
-		Revision:    def.Revision + 1,
-		Annotations: def.Annotations,
-		Fields:      make(map[string]schema.Field, len(def.Fields)+len(newFields)),
-	}
-	for k, v := range def.Fields {
-		evolved.Fields[k] = v
-	}
-	for k, v := range newFields {
-		evolved.Fields[k] = v
-	}
+	evolved := def.CloneWithFields(newFields)
 
 	data, err := json.Marshal(evolved)
 	if err != nil {

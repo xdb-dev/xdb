@@ -410,12 +410,7 @@ func dataSchemaDescription(uri string, def *schema.Def) map[string]any {
 
 // describeFields renders a schema's fields into a stable, sorted list.
 func describeFields(fields map[string]schema.Field) []map[string]any {
-	names := make([]string, 0, len(fields))
-	for name := range fields {
-		names = append(names, name)
-	}
-
-	sort.Strings(names)
+	names := sortedFieldNames(fields)
 
 	out := make([]map[string]any, 0, len(names))
 	for _, name := range names {

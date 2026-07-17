@@ -3,6 +3,7 @@ package xdbstruct
 import (
 	"encoding/json"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -132,7 +133,7 @@ func buildEmbedded(f reflect.StructField, index int, stack []reflect.Type) ([]sp
 		return nil, nil
 	}
 
-	if contains(stack, et) {
+	if slices.Contains(stack, et) {
 		return nil, cycleErr(stack, et, f.Name)
 	}
 
@@ -200,7 +201,7 @@ func buildField(
 		return buildSlice(ft, s, stack)
 
 	case reflect.Struct:
-		if contains(stack, ft) {
+		if slices.Contains(stack, ft) {
 			return s, cycleErr(stack, ft, attr)
 		}
 		children, err := buildStruct(ft, appendType(stack, ft))
@@ -256,7 +257,7 @@ func buildSlice(ft reflect.Type, s spec, stack []reflect.Type) (spec, error) {
 	s.elemType = elem
 
 	if elem.Kind() == reflect.Struct && elem != timeType {
-		if contains(stack, elem) {
+		if slices.Contains(stack, elem) {
 			return s, cycleErr(stack, elem, s.attr)
 		}
 		children, err := buildStruct(elem, appendType(stack, elem))
@@ -320,16 +321,6 @@ func scalarElemTID(elem reflect.Type) (core.TID, bool) {
 // underlying scalar (e.g. `type UserID string`).
 func isNamed(ft reflect.Type) bool {
 	return ft.Name() != "" && ft.Name() != ft.Kind().String()
-}
-
-// contains reports whether t is present in stack.
-func contains(stack []reflect.Type, t reflect.Type) bool {
-	for _, s := range stack {
-		if s == t {
-			return true
-		}
-	}
-	return false
 }
 
 // appendType returns a fresh stack with t appended, never aliasing stack.

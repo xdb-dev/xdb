@@ -365,32 +365,12 @@ func validateAndEvolve(
 		}
 		if len(newFields) > 0 {
 			// Clone the def before mutating to avoid aliasing the cached pointer.
-			evolved := cloneDefWith(def, newFields)
+			evolved := def.CloneWithFields(newFields)
 			schemas[record.URI().SchemaURI().Path()] = evolved
 		}
 	}
 
 	return nil
-}
-
-// cloneDefWith returns a copy of def with newFields merged in, preserving all
-// other schema metadata.
-func cloneDefWith(def *schema.Def, newFields map[string]schema.Field) *schema.Def {
-	evolved := &schema.Def{
-		URI:         def.URI,
-		Description: def.Description,
-		Mode:        def.Mode,
-		Revision:    def.Revision + 1,
-		Annotations: def.Annotations,
-		Fields:      make(map[string]schema.Field, len(def.Fields)+len(newFields)),
-	}
-	for k, v := range def.Fields {
-		evolved.Fields[k] = v
-	}
-	for k, v := range newFields {
-		evolved.Fields[k] = v
-	}
-	return evolved
 }
 
 // --- Lock-free helpers ---

@@ -1,6 +1,8 @@
 package protoimport
 
 import (
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -129,7 +131,7 @@ func buildListPlan(
 			fp.kind = kindScalarArray
 			fp.cat = cat
 			fp.coreType = core.NewArrayType(ct.ID())
-			mergeAnn(fp.ann, ann)
+			maps.Copy(fp.ann, ann)
 			return fp, nil
 		}
 
@@ -176,7 +178,7 @@ func buildSingularPlan(
 			fp.cat = cat
 			fp.coreType = ct
 			fp.wrapped = isWrapper(md.FullName())
-			mergeAnn(fp.ann, ann)
+			maps.Copy(fp.ann, ann)
 			return fp, nil
 		}
 
@@ -214,7 +216,7 @@ func expandMessage(
 	allow map[protoreflect.FullName]bool,
 ) ([]fieldPlan, error) {
 	name := md.FullName()
-	if contains(stack, name) {
+	if slices.Contains(stack, name) {
 		return nil, errors.Wrap(ErrRecursive,
 			"field", field,
 			"cycle", cycleString(stack, name),
@@ -332,23 +334,6 @@ func mapSignature(fd protoreflect.FieldDescriptor) string {
 		val = string(fd.MapValue().Message().FullName())
 	}
 	return "map<" + key + ", " + val + ">"
-}
-
-// mergeAnn copies src into dst.
-func mergeAnn(dst, src map[string]string) {
-	for k, v := range src {
-		dst[k] = v
-	}
-}
-
-// contains reports whether name is present in stack.
-func contains(stack []protoreflect.FullName, name protoreflect.FullName) bool {
-	for _, s := range stack {
-		if s == name {
-			return true
-		}
-	}
-	return false
 }
 
 // cycleString renders the cycle from the first occurrence of name to name again.
