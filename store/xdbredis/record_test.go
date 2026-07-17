@@ -12,3 +12,9 @@ func TestRecords(t *testing.T) {
 		return newTestStore(t)
 	}).Run(t)
 }
+
+func TestModes(t *testing.T) {
+	tests.NewModeStoreSuite(func() store.Store {
+		return newTestStore(t)
+	}).Run(t)
+}

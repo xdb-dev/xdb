@@ -79,6 +79,9 @@ func (t *txStore) CreateRecord(ctx context.Context, record *core.Record) error {
 	if exists > 0 {
 		return store.ErrAlreadyExists
 	}
+	if err := t.store.validateAndEvolve(ctx, record); err != nil {
+		return err
+	}
 	return t.queueWriteRecord(ctx, record)
 }
 
@@ -91,10 +94,16 @@ func (t *txStore) UpdateRecord(ctx context.Context, record *core.Record) error {
 	if exists == 0 {
 		return store.ErrNotFound
 	}
+	if err := t.store.validateAndEvolve(ctx, record); err != nil {
+		return err
+	}
 	return t.queueWriteRecord(ctx, record)
 }
 
 func (t *txStore) UpsertRecord(ctx context.Context, record *core.Record) error {
+	if err := t.store.validateAndEvolve(ctx, record); err != nil {
+		return err
+	}
 	return t.queueWriteRecord(ctx, record)
 }
 

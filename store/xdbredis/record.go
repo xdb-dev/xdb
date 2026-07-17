@@ -149,6 +149,10 @@ func (s *Store) CreateRecord(ctx context.Context, record *core.Record) error {
 		return store.ErrAlreadyExists
 	}
 
+	if err := s.validateAndEvolve(ctx, record); err != nil {
+		return err
+	}
+
 	return s.writeRecord(ctx, record)
 }
 
@@ -164,11 +168,19 @@ func (s *Store) UpdateRecord(ctx context.Context, record *core.Record) error {
 		return store.ErrNotFound
 	}
 
+	if err := s.validateAndEvolve(ctx, record); err != nil {
+		return err
+	}
+
 	return s.writeRecord(ctx, record)
 }
 
 // UpsertRecord creates or updates a record unconditionally.
 func (s *Store) UpsertRecord(ctx context.Context, record *core.Record) error {
+	if err := s.validateAndEvolve(ctx, record); err != nil {
+		return err
+	}
+
 	return s.writeRecord(ctx, record)
 }
 

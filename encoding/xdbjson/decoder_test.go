@@ -464,3 +464,55 @@ func TestDecoder_WithoutSchema_NoConversion(t *testing.T) {
 
 	assert.Equal(t, core.TIDString, record.Get("created_at").Value().Type().ID())
 }
+
+func TestDecoder_WithNumberInference(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("events"),
+		xdbjson.WithNumberInference(),
+	)
+
+	data := []byte(`{"_id":"1","count":42,"rating":4.5,"tags":[1,2]}`)
+	record, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	assert.Equal(t, core.TIDInteger, record.Get("count").Value().Type().ID())
+	assert.Equal(t, core.TIDFloat, record.Get("rating").Value().Type().ID())
+
+	tags := record.Get("tags").Value()
+	assert.Equal(t, core.TIDArray, tags.Type().ID())
+	elems, err := tags.AsArray()
+	require.NoError(t, err)
+	require.Len(t, elems, 2)
+	assert.Equal(t, core.TIDInteger, elems[0].Type().ID())
+}
+
+// A declared FLOAT/UNSIGNED field holding an integral value (encoded as a bare
+// JSON number) must be typed by the schema, not by number inference — otherwise
+// inference would round an integral float down to INTEGER.
+func TestDecoder_WithNumberInference_DefTypesWin(t *testing.T) {
+	def := &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/metrics"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.FieldDef{
+			"ratio": {Type: core.TIDFloat},
+			"size":  {Type: core.TIDUnsigned},
+			"count": {Type: core.TIDInteger},
+		},
+	}
+
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithNumberInference(),
+		xdbjson.WithDef(def),
+	)
+
+	data := []byte(`{"_id":"1","ratio":5,"size":9,"count":42}`)
+	record, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	assert.Equal(t, core.TIDFloat, record.Get("ratio").Value().Type().ID())
+	assert.Equal(t, core.TIDUnsigned, record.Get("size").Value().Type().ID())
+	assert.Equal(t, core.TIDInteger, record.Get("count").Value().Type().ID())
+}

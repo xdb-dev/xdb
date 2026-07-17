@@ -12,6 +12,7 @@ import (
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
 	"github.com/xdb-dev/xdb/filter"
+	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 )
 
@@ -95,6 +96,10 @@ func (s *Store) CreateRecord(_ context.Context, record *core.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	if err := s.validateAndEvolve(record); err != nil {
+		return err
+	}
+
 	path := s.recordPath(record.URI())
 
 	if _, err := os.Stat(path); err == nil {
@@ -108,6 +113,10 @@ func (s *Store) CreateRecord(_ context.Context, record *core.Record) error {
 func (s *Store) UpdateRecord(_ context.Context, record *core.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if err := s.validateAndEvolve(record); err != nil {
+		return err
+	}
 
 	path := s.recordPath(record.URI())
 
@@ -125,6 +134,10 @@ func (s *Store) UpdateRecord(_ context.Context, record *core.Record) error {
 func (s *Store) UpsertRecord(_ context.Context, record *core.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if err := s.validateAndEvolve(record); err != nil {
+		return err
+	}
 
 	path := s.recordPath(record.URI())
 	return s.writeRecord(path, record)
@@ -162,17 +175,77 @@ func (s *Store) readRecord(uri *core.URI) (*core.Record, error) {
 		return nil, fmt.Errorf("fsstore: read record: %w", err)
 	}
 
-	dec := xdbjson.NewDecoder(
+	opts := []xdbjson.Option{
 		xdbjson.WithNS(uri.NS()),
 		xdbjson.WithSchema(uri.Schema()),
-	)
+		xdbjson.WithNumberInference(),
+	}
+	if def, derr := readSchemaFile(s.schemaPath(uri.SchemaURI())); derr == nil {
+		opts = append(opts, xdbjson.WithDef(def))
+	}
 
-	record, err := dec.ToRecord(data)
+	record, err := xdbjson.NewDecoder(opts...).ToRecord(data)
 	if err != nil {
 		return nil, fmt.Errorf("fsstore: decode record %s: %w", path, err)
 	}
 
 	return record, nil
+}
+
+// validateAndEvolve validates a record's tuples against its schema.
+// For strict schemas, unknown fields and type mismatches are rejected.
+// For dynamic schemas, unknown fields are inferred and persisted to the
+// schema file. For flexible schemas (or no schema), validation is skipped.
+//
+// Callers must hold s.mu.
+func (s *Store) validateAndEvolve(record *core.Record) error {
+	schemaURI := record.URI().SchemaURI()
+
+	def, err := readSchemaFile(s.schemaPath(schemaURI))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
+
+	if def.Mode == schema.ModeFlexible {
+		return nil
+	}
+
+	switch def.Mode {
+	case schema.ModeStrict:
+		if err := schema.ValidateTuples(def, record.Tuples()); err != nil {
+			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+		}
+
+	case schema.ModeDynamic:
+		newFields, err := schema.EvolveDynamic(def, record.Tuples())
+		if err != nil {
+			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
+		}
+		if len(newFields) == 0 {
+			return nil
+		}
+
+		evolved := &schema.Def{
+			URI:    def.URI,
+			Mode:   def.Mode,
+			Fields: make(map[string]schema.FieldDef, len(def.Fields)+len(newFields)),
+		}
+		for k, v := range def.Fields {
+			evolved.Fields[k] = v
+		}
+		for k, v := range newFields {
+			evolved.Fields[k] = v
+		}
+
+		if err := s.writeSchema(s.schemaPath(schemaURI), evolved); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Store) writeRecord(path string, record *core.Record) error {
@@ -204,7 +277,15 @@ func (s *Store) readRecordsInDir(si schemaInfo) ([]*core.Record, error) {
 		return nil, fmt.Errorf("fsstore: read schema dir: %w", err)
 	}
 
-	dec := xdbjson.NewDecoder(xdbjson.WithNS(si.ns), xdbjson.WithSchema(si.schema))
+	opts := []xdbjson.Option{
+		xdbjson.WithNS(si.ns),
+		xdbjson.WithSchema(si.schema),
+		xdbjson.WithNumberInference(),
+	}
+	if def, derr := readSchemaFile(filepath.Join(si.dir, schemaFileName)); derr == nil {
+		opts = append(opts, xdbjson.WithDef(def))
+	}
+	dec := xdbjson.NewDecoder(opts...)
 
 	var records []*core.Record
 	for _, e := range entries {

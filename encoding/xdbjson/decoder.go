@@ -1,9 +1,12 @@
 package xdbjson
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/xdb-dev/xdb/core"
@@ -23,9 +26,9 @@ func NewDecoder(opts ...Option) *Decoder {
 
 // ToRecord converts JSON bytes to a new core.Record.
 func (d *Decoder) ToRecord(data []byte) (*core.Record, error) {
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return nil, ErrInvalidJSON
+	m, err := d.unmarshal(data)
+	if err != nil {
+		return nil, err
 	}
 
 	id, err := d.extractID(m)
@@ -56,13 +59,33 @@ func (d *Decoder) ToExistingRecord(data []byte, record *core.Record) error {
 		return ErrNilRecord
 	}
 
-	var m map[string]any
-	if err := json.Unmarshal(data, &m); err != nil {
-		return ErrInvalidJSON
+	m, err := d.unmarshal(data)
+	if err != nil {
+		return err
 	}
 
 	d.populateRecord(record, m)
 	return nil
+}
+
+// unmarshal decodes JSON into a map. With number inference enabled, numbers
+// are decoded as [json.Number] so integer and float types can be preserved.
+func (d *Decoder) unmarshal(data []byte) (map[string]any, error) {
+	var m map[string]any
+
+	if d.opts.numberInference {
+		dec := json.NewDecoder(bytes.NewReader(data))
+		dec.UseNumber()
+		if err := dec.Decode(&m); err != nil {
+			return nil, ErrInvalidJSON
+		}
+		return m, nil
+	}
+
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, ErrInvalidJSON
+	}
+	return m, nil
 }
 
 func (d *Decoder) extractID(m map[string]any) (string, error) {
@@ -116,6 +139,10 @@ func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
 			}
 		}
 
+		if d.opts.numberInference {
+			value = inferNumbers(value)
+		}
+
 		// Skip values XDB cannot type, e.g. an empty or heterogeneous JSON
 		// array. Treated as absent, consistent with how null is handled.
 		v, err := core.NewSafeValue(value)
@@ -123,6 +150,32 @@ func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
 			continue
 		}
 		record.Set(attr, v)
+	}
+}
+
+// inferNumbers converts [json.Number] values into concrete int64 or float64,
+// recursing into arrays. A number with a fractional or exponent part becomes a
+// float; otherwise it becomes an integer.
+func inferNumbers(value any) any {
+	switch v := value.(type) {
+	case json.Number:
+		s := v.String()
+		if strings.ContainsAny(s, ".eE") {
+			f, _ := v.Float64()
+			return f
+		}
+		if i, err := v.Int64(); err == nil {
+			return i
+		}
+		f, _ := v.Float64()
+		return f
+	case []any:
+		for i := range v {
+			v[i] = inferNumbers(v[i])
+		}
+		return v
+	default:
+		return value
 	}
 }
 
@@ -135,12 +188,31 @@ func convertToType(value any, fieldType core.TID) any {
 			}
 		}
 	case core.TIDInteger:
-		if f, ok := value.(float64); ok {
-			return int64(f)
+		switch n := value.(type) {
+		case float64:
+			return int64(n)
+		case json.Number:
+			if i, err := n.Int64(); err == nil {
+				return i
+			}
 		}
 	case core.TIDUnsigned:
-		if f, ok := value.(float64); ok {
-			return uint64(f)
+		switch n := value.(type) {
+		case float64:
+			return uint64(n)
+		case json.Number:
+			if u, err := strconv.ParseUint(n.String(), 10, 64); err == nil {
+				return u
+			}
+		}
+	case core.TIDFloat:
+		switch n := value.(type) {
+		case float64:
+			return n
+		case json.Number:
+			if f, err := n.Float64(); err == nil {
+				return f
+			}
 		}
 	case core.TIDBytes:
 		if s, ok := value.(string); ok {

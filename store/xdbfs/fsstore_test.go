@@ -76,6 +76,12 @@ func TestCascade(t *testing.T) {
 	}).Run(t)
 }
 
+func TestModes(t *testing.T) {
+	tests.NewModeStoreSuite(func() store.Store {
+		return newTestStore(t)
+	}).Run(t)
+}
+
 // --- FS-specific tests ---
 
 func TestFileLayout_SchemaFile(t *testing.T) {
