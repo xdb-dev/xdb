@@ -77,7 +77,7 @@ func ValidateTuples(def *Def, tuples []*core.Tuple) error {
 	}
 
 	for _, tuple := range tuples {
-		attr := tuple.Attr().String()
+		attr := tuple.Attr()
 		field, ok := def.Fields[attr]
 
 		if !ok {
@@ -147,7 +147,7 @@ func EvolveDynamic(def *Def, tuples []*core.Tuple) (map[string]FieldDef, error) 
 	var newFields map[string]FieldDef
 
 	for _, tuple := range tuples {
-		attr := tuple.Attr().String()
+		attr := tuple.Attr()
 		field, known := def.Fields[attr]
 
 		if !known {

@@ -59,8 +59,8 @@ type SchemaWriter interface {
 
 ```go
 type NamespaceReader interface {
-    GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, error)
-    ListNamespaces(ctx context.Context, q *Query) (*Page[*core.NS], error)
+    GetNamespace(ctx context.Context, uri *core.URI) (string, error)
+    ListNamespaces(ctx context.Context, q *Query) (*Page[string], error)
 }
 ```
 

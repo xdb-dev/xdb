@@ -88,16 +88,10 @@ a, err := value.AsArray()  // []*Value
 
 If the value does not match the requested type, `ErrTypeMismatch` is returned.
 
-All accessors are **nil-safe** — calling them on a nil value returns the zero value for the type without error.
-
-### Must Accessors
-
-For cases where you are certain of the type, `Must*` methods panic on mismatch:
-
-```go
-s := value.MustStr()   // panics if not STRING
-n := value.MustInt()   // panics if not INTEGER
-```
+A nil `*Value` (an attribute explicitly set to null) returns the zero value
+with no error. The same `As*` methods on a [Tuple](tuples.md) instead return
+`ErrAttrNotFound` when the tuple itself is nil — i.e. the attribute is absent,
+which is distinct from an explicit null. See [Tuples](tuples.md#typed-value-accessors).
 
 ### Inspecting Values
 

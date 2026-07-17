@@ -21,13 +21,13 @@ func TestDecoder_BasicDecoding(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, record)
 
-	assert.Equal(t, "com.example", record.NS().String())
-	assert.Equal(t, "users", record.Schema().String())
-	assert.Equal(t, "123", record.ID().String())
+	assert.Equal(t, "com.example", record.URI().NS())
+	assert.Equal(t, "users", record.URI().Schema())
+	assert.Equal(t, "123", record.URI().ID())
 	assert.Equal(t, "xdb://com.example/users/123", record.URI().String())
 
-	assert.Equal(t, "John Doe", record.Get("name").Value().MustStr())
-	assert.Equal(t, "john@example.com", record.Get("email").Value().MustStr())
+	assert.Equal(t, "John Doe", vStr(record.Get("name").Value()))
+	assert.Equal(t, "john@example.com", vStr(record.Get("email").Value()))
 }
 
 func TestDecoder_WithMetadata(t *testing.T) {
@@ -38,10 +38,10 @@ func TestDecoder_WithMetadata(t *testing.T) {
 	record, err := decoder.ToRecord(data)
 	require.NoError(t, err)
 
-	assert.Equal(t, "custom.ns", record.NS().String())
-	assert.Equal(t, "custom_schema", record.Schema().String())
-	assert.Equal(t, "123", record.ID().String())
-	assert.Equal(t, "John Doe", record.Get("name").Value().MustStr())
+	assert.Equal(t, "custom.ns", record.URI().NS())
+	assert.Equal(t, "custom_schema", record.URI().Schema())
+	assert.Equal(t, "123", record.URI().ID())
+	assert.Equal(t, "John Doe", vStr(record.Get("name").Value()))
 }
 
 func TestDecoder_CustomFieldNames(t *testing.T) {
@@ -56,9 +56,9 @@ func TestDecoder_CustomFieldNames(t *testing.T) {
 	record, err := decoder.ToRecord(data)
 	require.NoError(t, err)
 
-	assert.Equal(t, "123", record.ID().String())
-	assert.Equal(t, "com.custom", record.NS().String())
-	assert.Equal(t, "accounts", record.Schema().String())
+	assert.Equal(t, "123", record.URI().ID())
+	assert.Equal(t, "com.custom", record.URI().NS())
+	assert.Equal(t, "accounts", record.URI().Schema())
 
 	assert.Nil(t, record.Get("userId"))
 	assert.Nil(t, record.Get("namespace"))
@@ -82,11 +82,11 @@ func TestDecoder_NestedObjects(t *testing.T) {
 	record, err := defaultDecoder.ToRecord(data)
 	require.NoError(t, err)
 
-	assert.Equal(t, "John Doe", record.Get("name").Value().MustStr())
-	assert.Equal(t, "123 Main St", record.Get("address.street").Value().MustStr())
-	assert.Equal(t, "Boston", record.Get("address.city").Value().MustStr())
-	assert.Equal(t, 42.3601, record.Get("address.location.lat").Value().MustFloat())
-	assert.Equal(t, -71.0589, record.Get("address.location.lon").Value().MustFloat())
+	assert.Equal(t, "John Doe", vStr(record.Get("name").Value()))
+	assert.Equal(t, "123 Main St", vStr(record.Get("address.street").Value()))
+	assert.Equal(t, "Boston", vStr(record.Get("address.city").Value()))
+	assert.Equal(t, 42.3601, vFloat(record.Get("address.location.lat").Value()))
+	assert.Equal(t, -71.0589, vFloat(record.Get("address.location.lon").Value()))
 
 	assert.Nil(t, record.Get("address"))
 	assert.Nil(t, record.Get("address.location"))
@@ -106,7 +106,7 @@ func TestDecoder_BasicTypes(t *testing.T) {
 			json:     `{"_id":"123","val":true}`,
 			attr:     "val",
 			typeID:   core.TIDBoolean,
-			getValue: func(t *core.Tuple) any { return t.Value().MustBool() },
+			getValue: func(t *core.Tuple) any { return vBool(t.Value()) },
 			expected: true,
 		},
 		{
@@ -114,7 +114,7 @@ func TestDecoder_BasicTypes(t *testing.T) {
 			json:     `{"_id":"123","val":false}`,
 			attr:     "val",
 			typeID:   core.TIDBoolean,
-			getValue: func(t *core.Tuple) any { return t.Value().MustBool() },
+			getValue: func(t *core.Tuple) any { return vBool(t.Value()) },
 			expected: false,
 		},
 		{
@@ -122,7 +122,7 @@ func TestDecoder_BasicTypes(t *testing.T) {
 			json:     `{"_id":"123","val":42}`,
 			attr:     "val",
 			typeID:   core.TIDFloat,
-			getValue: func(t *core.Tuple) any { return t.Value().MustFloat() },
+			getValue: func(t *core.Tuple) any { return vFloat(t.Value()) },
 			expected: float64(42),
 		},
 		{
@@ -130,7 +130,7 @@ func TestDecoder_BasicTypes(t *testing.T) {
 			json:     `{"_id":"123","val":3.14159}`,
 			attr:     "val",
 			typeID:   core.TIDFloat,
-			getValue: func(t *core.Tuple) any { return t.Value().MustFloat() },
+			getValue: func(t *core.Tuple) any { return vFloat(t.Value()) },
 			expected: 3.14159,
 		},
 		{
@@ -138,7 +138,7 @@ func TestDecoder_BasicTypes(t *testing.T) {
 			json:     `{"_id":"123","val":"hello"}`,
 			attr:     "val",
 			typeID:   core.TIDString,
-			getValue: func(t *core.Tuple) any { return t.Value().MustStr() },
+			getValue: func(t *core.Tuple) any { return vStr(t.Value()) },
 			expected: "hello",
 		},
 		{
@@ -146,7 +146,7 @@ func TestDecoder_BasicTypes(t *testing.T) {
 			json:     `{"_id":"123","val":""}`,
 			attr:     "val",
 			typeID:   core.TIDString,
-			getValue: func(t *core.Tuple) any { return t.Value().MustStr() },
+			getValue: func(t *core.Tuple) any { return vStr(t.Value()) },
 			expected: "",
 		},
 	}
@@ -194,9 +194,9 @@ func TestDecoder_EmptyArray(t *testing.T) {
 	record, err := defaultDecoder.ToRecord(data)
 	require.NoError(t, err)
 
-	empty := record.Get("empty")
-	require.NotNil(t, empty)
-	assert.Nil(t, empty.Value())
+	// An empty JSON array has no derivable element type, so it is skipped —
+	// the attribute is absent, consistent with how null values are handled.
+	assert.Nil(t, record.Get("empty"))
 }
 
 func TestDecoder_NullValue(t *testing.T) {
@@ -215,7 +215,7 @@ func TestDecoder_NumericID(t *testing.T) {
 	record, err := defaultDecoder.ToRecord(data)
 	require.NoError(t, err)
 
-	assert.Equal(t, "12345", record.ID().String())
+	assert.Equal(t, "12345", record.URI().ID())
 }
 
 func TestDecoder_ToExistingRecord(t *testing.T) {
@@ -227,11 +227,11 @@ func TestDecoder_ToExistingRecord(t *testing.T) {
 	err := defaultDecoder.ToExistingRecord(data, record)
 	require.NoError(t, err)
 
-	assert.Equal(t, "com.example", record.NS().String())
-	assert.Equal(t, "users", record.Schema().String())
-	assert.Equal(t, "123", record.ID().String())
-	assert.Equal(t, "John Doe", record.Get("name").Value().MustStr())
-	assert.Equal(t, "value", record.Get("existing").Value().MustStr())
+	assert.Equal(t, "com.example", record.URI().NS())
+	assert.Equal(t, "users", record.URI().Schema())
+	assert.Equal(t, "123", record.URI().ID())
+	assert.Equal(t, "John Doe", vStr(record.Get("name").Value()))
+	assert.Equal(t, "value", vStr(record.Get("existing").Value()))
 }
 
 func TestDecoder_FallbackToOptions(t *testing.T) {
@@ -279,8 +279,8 @@ func TestDecoder_FallbackToOptions(t *testing.T) {
 			record, err := decoder.ToRecord([]byte(tt.json))
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.expectedNS, record.NS().String())
-			assert.Equal(t, tt.expectedSc, record.Schema().String())
+			assert.Equal(t, tt.expectedNS, record.URI().NS())
+			assert.Equal(t, tt.expectedSc, record.URI().Schema())
 		})
 	}
 }
@@ -302,8 +302,8 @@ func TestDecoder_RoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, original.URI().String(), decoded.URI().String())
-	assert.Equal(t, original.Get("name").Value().MustStr(), decoded.Get("name").Value().MustStr())
-	assert.Equal(t, original.Get("address.city").Value().MustStr(), decoded.Get("address.city").Value().MustStr())
+	assert.Equal(t, vStr(original.Get("name").Value()), vStr(decoded.Get("name").Value()))
+	assert.Equal(t, vStr(original.Get("address.city").Value()), vStr(decoded.Get("address.city").Value()))
 }
 
 func TestDecoder_ErrorInvalidJSON(t *testing.T) {
@@ -384,7 +384,7 @@ func TestDecoder_ErrorToExistingRecordInvalidJSON(t *testing.T) {
 }
 
 func TestDecoder_WithSchema_AllTypes(t *testing.T) {
-	uri := core.New().NS("com.example").Schema("test").MustURI()
+	uri := core.MustNewURI("com.example", "test")
 	def := &schema.Def{
 		URI: uri,
 		Fields: map[string]schema.FieldDef{
@@ -423,7 +423,7 @@ func TestDecoder_WithSchema_AllTypes(t *testing.T) {
 }
 
 func TestDecoder_WithSchema_RoundTrip(t *testing.T) {
-	uri := core.New().NS("com.example").Schema("test").MustURI()
+	uri := core.MustNewURI("com.example", "test")
 	def := &schema.Def{
 		URI: uri,
 		Fields: map[string]schema.FieldDef{
@@ -450,9 +450,9 @@ func TestDecoder_WithSchema_RoundTrip(t *testing.T) {
 	assert.Equal(t, core.TIDInteger, decoded.Get("count").Value().Type().ID())
 	assert.Equal(t, core.TIDBytes, decoded.Get("data").Value().Type().ID())
 
-	assert.Equal(t, original.Get("created_at").Value().MustTime(), decoded.Get("created_at").Value().MustTime())
-	assert.Equal(t, original.Get("count").Value().MustInt(), decoded.Get("count").Value().MustInt())
-	assert.Equal(t, original.Get("data").Value().MustBytes(), decoded.Get("data").Value().MustBytes())
+	assert.Equal(t, vTime(original.Get("created_at").Value()), vTime(decoded.Get("created_at").Value()))
+	assert.Equal(t, vInt(original.Get("count").Value()), vInt(decoded.Get("count").Value()))
+	assert.Equal(t, vBytes(original.Get("data").Value()), vBytes(decoded.Get("data").Value()))
 }
 
 func TestDecoder_WithoutSchema_NoConversion(t *testing.T) {

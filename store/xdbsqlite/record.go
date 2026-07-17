@@ -33,8 +33,8 @@ func (r *RecordKVTx) ensureTable(ctx context.Context, uri *core.URI) error {
 	}
 
 	// Register a minimal flexible schema so namespace/schema listing works.
-	ns := uri.NS().String()
-	sc := uri.Schema().String()
+	ns := uri.NS()
+	sc := uri.Schema()
 
 	exists, err := r.q.SchemaExists(ctx, xsql.SchemaExistsParams{
 		Namespace: ns,
@@ -48,7 +48,7 @@ func (r *RecordKVTx) ensureTable(ctx context.Context, uri *core.URI) error {
 	}
 
 	data, err := json.Marshal(&schema.Def{
-		URI:  core.New().NS(ns).Schema(sc).MustURI(),
+		URI:  core.MustNewURI(ns, sc),
 		Mode: schema.ModeFlexible,
 	})
 	if err != nil {
@@ -69,7 +69,7 @@ func (r *RecordKVTx) GetRecord(ctx context.Context, uri *core.URI) (*core.Record
 
 	values, err := r.q.GetKVRecord(ctx, xsql.GetKVRecordParams{
 		Table: kvTableName(uri),
-		ID:    uri.ID().String(),
+		ID:    uri.ID(),
 	})
 	if err != nil {
 		return nil, err
@@ -126,11 +126,7 @@ func (r *RecordKVTx) ListRecords(ctx context.Context, q *store.Query) (*store.Pa
 
 	items := make([]*core.Record, len(rows))
 	for i, row := range rows {
-		rowURI := core.New().
-			NS(uri.NS().String()).
-			Schema(uri.Schema().String()).
-			ID(row.ID).
-			MustURI()
+		rowURI := core.MustNewURI(uri.NS(), uri.Schema(), row.ID)
 		items[i] = kvRecordFromValues(rowURI, row.Values)
 	}
 
@@ -149,7 +145,7 @@ func (r *RecordKVTx) CreateRecord(ctx context.Context, record *core.Record) erro
 	table := kvTableName(record.URI())
 	exists, err := r.q.KVRecordExists(ctx, xsql.KVRecordExistsParams{
 		Table: table,
-		ID:    record.URI().ID().String(),
+		ID:    record.URI().ID(),
 	})
 	if err != nil {
 		return err
@@ -160,7 +156,7 @@ func (r *RecordKVTx) CreateRecord(ctx context.Context, record *core.Record) erro
 
 	return r.q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table:  table,
-		ID:     record.URI().ID().String(),
+		ID:     record.URI().ID(),
 		Values: kvValues(record),
 	})
 }
@@ -173,7 +169,7 @@ func (r *RecordKVTx) UpdateRecord(ctx context.Context, record *core.Record) erro
 	table := kvTableName(record.URI())
 	exists, err := r.q.KVRecordExists(ctx, xsql.KVRecordExistsParams{
 		Table: table,
-		ID:    record.URI().ID().String(),
+		ID:    record.URI().ID(),
 	})
 	if err != nil {
 		return err
@@ -184,7 +180,7 @@ func (r *RecordKVTx) UpdateRecord(ctx context.Context, record *core.Record) erro
 
 	return r.q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table:  table,
-		ID:     record.URI().ID().String(),
+		ID:     record.URI().ID(),
 		Values: kvValues(record),
 	})
 }
@@ -196,7 +192,7 @@ func (r *RecordKVTx) UpsertRecord(ctx context.Context, record *core.Record) erro
 
 	return r.q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 		Table:  kvTableName(record.URI()),
-		ID:     record.URI().ID().String(),
+		ID:     record.URI().ID(),
 		Values: kvValues(record),
 	})
 }
@@ -209,7 +205,7 @@ func (r *RecordKVTx) DeleteRecord(ctx context.Context, uri *core.URI) error {
 	table := kvTableName(uri)
 	exists, err := r.q.KVRecordExists(ctx, xsql.KVRecordExistsParams{
 		Table: table,
-		ID:    uri.ID().String(),
+		ID:    uri.ID(),
 	})
 	if err != nil {
 		return err
@@ -220,7 +216,7 @@ func (r *RecordKVTx) DeleteRecord(ctx context.Context, uri *core.URI) error {
 
 	return r.q.DeleteKVRecord(ctx, xsql.DeleteKVRecordParams{
 		Table: table,
-		ID:    uri.ID().String(),
+		ID:    uri.ID(),
 	})
 }
 
@@ -233,7 +229,7 @@ type RecordTableTx struct {
 func (r *RecordTableTx) GetRecord(ctx context.Context, uri *core.URI) (*core.Record, error) {
 	values, err := r.q.GetRecord(ctx, xsql.GetRecordParams{
 		Table:   columnTableName(uri),
-		ID:      uri.ID().String(),
+		ID:      uri.ID(),
 		Columns: columnValues(r.def),
 	})
 	if err != nil {
@@ -243,7 +239,7 @@ func (r *RecordTableTx) GetRecord(ctx context.Context, uri *core.URI) (*core.Rec
 		return nil, store.ErrNotFound
 	}
 
-	record := core.NewRecord(uri.NS().String(), uri.Schema().String(), uri.ID().String())
+	record := core.NewRecord(uri.NS(), uri.Schema(), uri.ID())
 	for _, value := range values {
 		record.Set(value.Name, value.Val)
 	}
@@ -290,8 +286,8 @@ func (r *RecordTableTx) ListRecords(ctx context.Context, q *store.Query) (*store
 		return nil, err
 	}
 
-	ns := uri.NS().String()
-	sc := uri.Schema().String()
+	ns := uri.NS()
+	sc := uri.Schema()
 	items := make([]*core.Record, len(rows))
 	for i, row := range rows {
 		// First value is _id.
@@ -315,7 +311,7 @@ func (r *RecordTableTx) CreateRecord(ctx context.Context, record *core.Record) e
 
 	exists, err := r.q.RecordExists(ctx, xsql.RecordExistsParams{
 		Table: table,
-		ID:    record.URI().ID().String(),
+		ID:    record.URI().ID(),
 	})
 	if err != nil {
 		return err
@@ -326,7 +322,7 @@ func (r *RecordTableTx) CreateRecord(ctx context.Context, record *core.Record) e
 
 	return r.q.CreateRecord(ctx, xsql.CreateRecordParams{
 		Table:  table,
-		ID:     record.URI().ID().String(),
+		ID:     record.URI().ID(),
 		Values: recordToValues(r.def, record),
 	})
 }
@@ -336,7 +332,7 @@ func (r *RecordTableTx) UpdateRecord(ctx context.Context, record *core.Record) e
 
 	exists, err := r.q.RecordExists(ctx, xsql.RecordExistsParams{
 		Table: table,
-		ID:    record.URI().ID().String(),
+		ID:    record.URI().ID(),
 	})
 	if err != nil {
 		return err
@@ -347,7 +343,7 @@ func (r *RecordTableTx) UpdateRecord(ctx context.Context, record *core.Record) e
 
 	return r.q.UpdateRecord(ctx, xsql.UpdateRecordParams{
 		Table:  table,
-		ID:     record.URI().ID().String(),
+		ID:     record.URI().ID(),
 		Values: recordToValues(r.def, record),
 	})
 }
@@ -355,7 +351,7 @@ func (r *RecordTableTx) UpdateRecord(ctx context.Context, record *core.Record) e
 func (r *RecordTableTx) UpsertRecord(ctx context.Context, record *core.Record) error {
 	return r.q.UpsertRecord(ctx, xsql.UpsertRecordParams{
 		Table:  columnTableName(record.URI()),
-		ID:     record.URI().ID().String(),
+		ID:     record.URI().ID(),
 		Values: recordToValues(r.def, record),
 	})
 }
@@ -365,7 +361,7 @@ func (r *RecordTableTx) DeleteRecord(ctx context.Context, uri *core.URI) error {
 
 	exists, err := r.q.RecordExists(ctx, xsql.RecordExistsParams{
 		Table: table,
-		ID:    uri.ID().String(),
+		ID:    uri.ID(),
 	})
 	if err != nil {
 		return err
@@ -376,7 +372,7 @@ func (r *RecordTableTx) DeleteRecord(ctx context.Context, uri *core.URI) error {
 
 	return r.q.DeleteRecord(ctx, xsql.DeleteRecordParams{
 		Table: table,
-		ID:    uri.ID().String(),
+		ID:    uri.ID(),
 	})
 }
 
@@ -498,7 +494,7 @@ func (s *Store) ListRecords(
 	q := xsql.NewQueries(tx)
 
 	var res *store.Page[*core.Record]
-	if uri.Schema() == nil {
+	if uri.Schema() == "" {
 		res, err = s.listRecordsByNamespace(ctx, q, lq)
 	} else {
 		var rs store.RecordStore
@@ -525,7 +521,7 @@ func (s *Store) listRecordsByNamespace(
 	lq *store.Query,
 ) (*store.Page[*core.Record], error) {
 	uri := lq.URI
-	ns := uri.NS().String()
+	ns := uri.NS()
 	schemas, err := q.ListSchemas(ctx, xsql.ListSchemasParams{
 		Namespace: &ns,
 		Limit:     10000,
@@ -536,7 +532,7 @@ func (s *Store) listRecordsByNamespace(
 
 	var all []*core.Record
 	for _, sc := range schemas {
-		schemaURI := core.New().NS(ns).Schema(sc.Schema).MustURI()
+		schemaURI := core.MustNewURI(ns, sc.Schema)
 		rs, _, err := s.recordStore(ctx, q, schemaURI)
 		if err != nil {
 			return nil, err

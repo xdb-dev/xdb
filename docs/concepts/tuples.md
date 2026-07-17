@@ -6,17 +6,20 @@ package: core
 
 # Tuples
 
-A **Tuple** is the fundamental building block in XDB. Every piece of data in XDB is ultimately stored as a tuple.
+A **Tuple** is the fundamental building block in XDB — an addressable fact:
+`xdb://ns/schema/id#attr = value`. Every piece of data in XDB is ultimately a
+tuple, and every other structure is built from them. A [Record](records.md) is
+just the set of tuples that share a path.
 
 ## Structure
 
-A tuple combines four components:
+A tuple combines three components:
 
-| Component | Type    | Description                                       |
-| --------- | ------- | ------------------------------------------------- |
-| **Path**  | `*URI`  | References the record (NS + Schema + ID)          |
-| **Attr**  | `*Attr` | Attribute name, supports dot-separated nesting    |
-| **Value** | `*Value`| Typed value container                             |
+| Component | Type     | Description                                    |
+| --------- | -------- | ---------------------------------------------- |
+| **Path**  | `*URI`   | References the record (NS + Schema + ID)       |
+| **Attr**  | `string` | Attribute name, supports dot-separated nesting |
+| **Value** | `*Value` | Typed value container                          |
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -31,57 +34,49 @@ A tuple is **immutable** after creation. Its path, attribute, and value cannot c
 
 ## Creating Tuples
 
-### Using the Builder (recommended)
-
-The builder provides a fluent API for constructing tuples:
-
-```go
-tuple := core.New().
-    NS("com.example").
-    Schema("posts").
-    ID("post-123").
-    MustTuple("title", "Hello World")
-```
-
-Typed builder methods avoid reflection overhead:
-
-```go
-tuple := core.New().
-    NS("com.example").
-    Schema("posts").
-    ID("post-123").
-    Str("title", "Hello World")
-```
-
-Available typed methods: `Bool()`, `Int()`, `Uint()`, `Float()`, `Str()`, `Bytes()`, `Time()`, `JSON()`.
-
-### Using NewTuple
-
 ```go
 tuple := core.NewTuple("com.example/posts/post-123", "title", "Hello World")
 ```
 
-`NewTuple` panics on invalid input. The path argument is a URI path (without the `xdb://` scheme).
+`NewTuple` panics on invalid input. The path argument is a URI path (without
+the `xdb://` scheme). The value is inferred from its Go type; see
+[Types](types.md) for the supported types.
+
+Tuples are usually created through a [Record](records.md), which owns their
+shared path:
+
+```go
+record := core.NewRecord("com.example", "posts", "post-123").
+    Set("title", "Hello World")
+
+tuple := record.Get("title")
+```
 
 ## Accessing Data
 
 ### Path Components
 
 ```go
-tuple.NS()     // *NS     — namespace
-tuple.Schema() // *Schema — schema name
-tuple.ID()     // *ID     — record identifier
-tuple.Attr()   // *Attr   — attribute name
-tuple.URI()    // *URI    — full URI including attribute fragment
-tuple.Path()   // *URI    — record URI (without attribute)
+tuple.Path()   // *URI   — record URI (without attribute)
+tuple.Attr()   // string — attribute name
+tuple.URI()    // *URI   — full URI including attribute fragment
+tuple.Value()  // *Value — typed value
+
+tuple.Path().NS()     // string — namespace
+tuple.Path().Schema() // string — schema name
+tuple.Path().ID()     // string — record identifier
 ```
 
 ### Typed Value Accessors
 
-Tuples expose `As*` methods (`AsStr()`, `AsInt()`, `AsBool()`, etc.) for type-safe value extraction. All accessors are nil-safe and return `(T, error)`. See [Types](types.md) for the full list and details.
+Tuples expose `As*` methods (`AsStr()`, `AsInt()`, `AsBool()`, etc.) for
+type-safe value extraction. Each returns `(T, error)`. Reading a **missing**
+attribute (a nil tuple, e.g. `record.Get("tpyo")`) returns the zero value and
+[`ErrAttrNotFound`](../../core/errors.go), distinguishing a typo from an empty
+value. See [Types](types.md) for the full list and details.
 
 ```go
-title, err := tuple.AsStr()
+title, err := record.Get("title").AsStr()
 ```
 
 ## Dot-Separated Attributes

@@ -288,57 +288,6 @@ func TestAsArray(t *testing.T) {
 	})
 }
 
-// --- Must extractors ---
-
-func TestMustBool(t *testing.T) {
-	assert.True(t, BoolVal(true).MustBool())
-	assert.Panics(t, func() { IntVal(42).MustBool() })
-}
-
-func TestMustInt(t *testing.T) {
-	assert.Equal(t, int64(42), IntVal(42).MustInt())
-	assert.Panics(t, func() { BoolVal(true).MustInt() })
-}
-
-func TestMustUint(t *testing.T) {
-	assert.Equal(t, uint64(42), UintVal(42).MustUint())
-	assert.Panics(t, func() { BoolVal(true).MustUint() })
-}
-
-func TestMustFloat(t *testing.T) {
-	assert.InDelta(t, 3.14, FloatVal(3.14).MustFloat(), 0.001)
-	assert.Panics(t, func() { BoolVal(true).MustFloat() })
-}
-
-func TestMustStr(t *testing.T) {
-	assert.Equal(t, "hello", StringVal("hello").MustStr())
-	assert.Panics(t, func() { IntVal(42).MustStr() })
-}
-
-func TestMustBytes(t *testing.T) {
-	assert.Equal(t, []byte("hello"), BytesVal([]byte("hello")).MustBytes())
-	assert.Panics(t, func() { IntVal(42).MustBytes() })
-}
-
-func TestMustTime(t *testing.T) {
-	now := time.Now().UTC().Truncate(time.Millisecond)
-	assert.Equal(t, now, TimeVal(now).MustTime())
-	assert.Panics(t, func() { IntVal(42).MustTime() })
-}
-
-func TestMustJSON(t *testing.T) {
-	raw := json.RawMessage(`{"k":"v"}`)
-	assert.Equal(t, raw, JSONVal(raw).MustJSON())
-	assert.Panics(t, func() { IntVal(42).MustJSON() })
-}
-
-func TestMustArray(t *testing.T) {
-	v := ArrayVal(TIDString, StringVal("a"))
-	got := v.MustArray()
-	require.Len(t, got, 1)
-	assert.Panics(t, func() { IntVal(42).MustArray() })
-}
-
 // --- NewValue / NewSafeValue ---
 
 func TestNewSafeValueNil(t *testing.T) {
@@ -508,9 +457,59 @@ func TestNewSafeValueSliceInt(t *testing.T) {
 }
 
 func TestNewSafeValueEmptySlice(t *testing.T) {
+	// An empty typed slice is an empty array, not nil — the element type is
+	// derived from the slice's static element type.
 	v, err := NewSafeValue([]string{})
 	require.NoError(t, err)
-	assert.Nil(t, v)
+	require.NotNil(t, v)
+	assert.Equal(t, TIDArray, v.Type().ID())
+	assert.Equal(t, TIDString, v.Type().ElemTypeID())
+
+	elems, err := v.AsArray()
+	require.NoError(t, err)
+	assert.Empty(t, elems)
+}
+
+func TestNewSafeValueEmptySliceInt(t *testing.T) {
+	v, err := NewSafeValue([]int64{})
+	require.NoError(t, err)
+	require.NotNil(t, v)
+	assert.Equal(t, TIDArray, v.Type().ID())
+	assert.Equal(t, TIDInteger, v.Type().ElemTypeID())
+}
+
+func TestNewSafeValueEmptyAnySlice(t *testing.T) {
+	// An empty []any has no derivable element type.
+	_, err := NewSafeValue([]any{})
+	assert.ErrorIs(t, err, ErrUnsupportedValue)
+}
+
+func TestNewSafeValueHeterogeneousSlice(t *testing.T) {
+	// Mixed element types are rejected, wrapped with the offending index.
+	_, err := NewSafeValue([]any{1, "a"})
+	assert.ErrorIs(t, err, ErrUnsupportedValue)
+}
+
+func TestNewSafeValueHomogeneousAnySlice(t *testing.T) {
+	v, err := NewSafeValue([]any{int64(1), int64(2)})
+	require.NoError(t, err)
+	assert.Equal(t, TIDArray, v.Type().ID())
+	assert.Equal(t, TIDInteger, v.Type().ElemTypeID())
+}
+
+func TestNewSafeValueNestedSlice(t *testing.T) {
+	v, err := NewSafeValue([][]string{{"a"}, {"b"}})
+	require.NoError(t, err)
+	assert.Equal(t, TIDArray, v.Type().ID())
+	assert.Equal(t, TIDArray, v.Type().ElemTypeID())
+}
+
+func TestNewSafeValueSliceOfBytes(t *testing.T) {
+	// []byte is bytes; [][]byte is an array of bytes.
+	v, err := NewSafeValue([][]byte{[]byte("a"), []byte("b")})
+	require.NoError(t, err)
+	assert.Equal(t, TIDArray, v.Type().ID())
+	assert.Equal(t, TIDBytes, v.Type().ElemTypeID())
 }
 
 func TestNewSafeValueUnsupported(t *testing.T) {

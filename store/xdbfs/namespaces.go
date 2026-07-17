@@ -13,7 +13,7 @@ import (
 )
 
 // GetNamespace checks if any schema exists in the given namespace.
-func (s *Store) GetNamespace(_ context.Context, uri *core.URI) (*core.NS, error) {
+func (s *Store) GetNamespace(_ context.Context, uri *core.URI) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -23,14 +23,14 @@ func (s *Store) GetNamespace(_ context.Context, uri *core.URI) (*core.NS, error)
 		return uri.NS(), nil
 	}
 
-	return nil, store.ErrNotFound
+	return "", store.ErrNotFound
 }
 
 // ListNamespaces lists unique namespaces derived from schema directories.
 func (s *Store) ListNamespaces(
 	_ context.Context,
 	q *store.Query,
-) (*store.Page[*core.NS], error) {
+) (*store.Page[string], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -39,7 +39,7 @@ func (s *Store) ListNamespaces(
 		return nil, fmt.Errorf("fsstore: read root: %w", err)
 	}
 
-	var namespaces []*core.NS
+	var namespaces []string
 	for _, e := range entries {
 		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
@@ -47,13 +47,11 @@ func (s *Store) ListNamespaces(
 
 		nsDir := filepath.Join(s.root, e.Name())
 		if hasSchema(nsDir) {
-			namespaces = append(namespaces, core.NewNS(e.Name()))
+			namespaces = append(namespaces, e.Name())
 		}
 	}
 
-	sort.Slice(namespaces, func(i, j int) bool {
-		return namespaces[i].String() < namespaces[j].String()
-	})
+	sort.Strings(namespaces)
 
 	return store.Paginate(namespaces, q), nil
 }

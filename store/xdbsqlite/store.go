@@ -42,7 +42,7 @@ func New(db *sql.DB, opts ...Option) (*Store, error) {
 
 // cacheKey returns the schema cache key for a URI.
 func cacheKey(uri *core.URI) string {
-	return uri.NS().String() + "/" + uri.Schema().String()
+	return uri.NS() + "/" + uri.Schema()
 }
 
 // cachedSchema returns the schema definition for the given URI,
@@ -55,8 +55,8 @@ func (s *Store) cachedSchema(ctx context.Context, q *xsql.Queries, uri *core.URI
 	}
 
 	data, err := q.GetSchema(ctx, xsql.GetSchemaParams{
-		Namespace: uri.NS().String(),
-		Schema:    uri.Schema().String(),
+		Namespace: uri.NS(),
+		Schema:    uri.Schema(),
 	})
 	if err != nil {
 		return nil, err

@@ -58,11 +58,11 @@ func (t *txStore) ListSchemas(ctx context.Context, q *store.Query) (*store.Page[
 	return t.store.ListSchemas(ctx, q)
 }
 
-func (t *txStore) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, error) {
+func (t *txStore) GetNamespace(ctx context.Context, uri *core.URI) (string, error) {
 	return t.store.GetNamespace(ctx, uri)
 }
 
-func (t *txStore) ListNamespaces(ctx context.Context, q *store.Query) (*store.Page[*core.NS], error) {
+func (t *txStore) ListNamespaces(ctx context.Context, q *store.Query) (*store.Page[string], error) {
 	return t.store.ListNamespaces(ctx, q)
 }
 
@@ -109,7 +109,7 @@ func (t *txStore) DeleteRecord(ctx context.Context, uri *core.URI) error {
 	}
 
 	t.pipe.Del(ctx, key)
-	t.pipe.SRem(ctx, t.store.recordIndexKey(uri), uri.ID().String())
+	t.pipe.SRem(ctx, t.store.recordIndexKey(uri), uri.ID())
 	return nil
 }
 
@@ -125,8 +125,8 @@ func (t *txStore) queueWriteRecord(ctx context.Context, record *core.Record) err
 
 	t.pipe.Del(ctx, key)
 	t.pipe.HSet(ctx, key, fields)
-	t.pipe.SAdd(ctx, t.store.recordIndexKey(uri), record.ID().String())
-	t.pipe.SAdd(ctx, t.store.schemaIndexKey(uri), record.Schema().String())
+	t.pipe.SAdd(ctx, t.store.recordIndexKey(uri), record.URI().ID())
+	t.pipe.SAdd(ctx, t.store.schemaIndexKey(uri), record.URI().Schema())
 	return nil
 }
 
@@ -148,8 +148,8 @@ func (t *txStore) CreateSchema(ctx context.Context, uri *core.URI, def *schema.D
 	}
 
 	t.pipe.Set(ctx, key, data, 0)
-	t.pipe.SAdd(ctx, t.store.schemaIndexKey(uri), uri.Schema().String())
-	t.pipe.SAdd(ctx, t.store.nsIndexKey(), uri.NS().String())
+	t.pipe.SAdd(ctx, t.store.schemaIndexKey(uri), uri.Schema())
+	t.pipe.SAdd(ctx, t.store.nsIndexKey(), uri.NS())
 	return nil
 }
 
@@ -188,10 +188,10 @@ func (t *txStore) DeleteSchema(ctx context.Context, uri *core.URI) error {
 		return fmt.Errorf("xdbredis: list record index: %w", err)
 	}
 
-	ns := uri.NS().String()
-	schemaName := uri.Schema().String()
+	ns := uri.NS()
+	schemaName := uri.Schema()
 	for _, id := range recordIDs {
-		recURI := core.New().NS(ns).Schema(schemaName).ID(id).MustURI()
+		recURI := core.MustNewURI(ns, schemaName, id)
 		t.pipe.Del(ctx, t.store.recordKey(recURI))
 	}
 

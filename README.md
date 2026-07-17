@@ -45,7 +45,7 @@ A **Tuple** is the fundamental building block in XDB. It combines:
 
 ### Record
 
-One or more **Tuples**, with the same **ID**, make up a **Record**. Records are similar to objects, structs, or rows in a database. Records typically represent a single entity or object of domain data.
+One or more **Tuples**, with the same **path** (NS + Schema + ID), make up a **Record** — the ID alone does not group tuples; the full path does. A record _is_ its tuples: it adds no data of its own, and exists exactly when at least one tuple exists at its path. This is XDB's tuple-first framing — the tuple is the primitive, and every larger structure is built from tuples. Records are similar to objects, structs, or rows in a database, and typically represent a single entity of domain data.
 
 ### Namespace
 

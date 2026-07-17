@@ -32,7 +32,7 @@ func (s *Store) ListRecords(
 ) (*store.Page[*core.Record], error) {
 	uri := q.URI
 
-	if uri.Schema() != nil {
+	if uri.Schema() != "" {
 		return s.listRecordsBySchema(ctx, q)
 	}
 
@@ -44,7 +44,7 @@ func (s *Store) ListRecords(
 
 	var records []*core.Record
 	for _, name := range schemaNames {
-		schemaURI := core.New().NS(uri.NS().String()).Schema(name).MustURI()
+		schemaURI := core.MustNewURI(uri.NS(), name)
 		recs, err := s.fetchRecordsBySchema(ctx, schemaURI)
 		if err != nil {
 			return nil, err
@@ -112,12 +112,12 @@ func (s *Store) fetchRecordsBySchema(
 		return nil, fmt.Errorf("xdbredis: list record index: %w", err)
 	}
 
-	ns := uri.NS().String()
-	schemaName := uri.Schema().String()
+	ns := uri.NS()
+	schemaName := uri.Schema()
 
 	records := make([]*core.Record, 0, len(ids))
 	for _, id := range ids {
-		recURI := core.New().NS(ns).Schema(schemaName).ID(id).MustURI()
+		recURI := core.MustNewURI(ns, schemaName, id)
 
 		fields, err := s.client.HGetAll(ctx, s.recordKey(recURI)).Result()
 		if err != nil {
@@ -185,7 +185,7 @@ func (s *Store) DeleteRecord(ctx context.Context, uri *core.URI) error {
 	}
 
 	idxKey := s.recordIndexKey(uri)
-	id := uri.ID().String()
+	id := uri.ID()
 
 	pipe := s.client.TxPipeline()
 	pipe.Del(ctx, key)
@@ -205,7 +205,7 @@ const sentinelField = "_"
 func (s *Store) writeRecord(ctx context.Context, record *core.Record) error {
 	key := s.recordKey(record.URI())
 	idxKey := s.recordIndexKey(record.URI())
-	id := record.ID().String()
+	id := record.URI().ID()
 
 	fields, err := encodeRecord(record)
 	if err != nil {
@@ -216,7 +216,7 @@ func (s *Store) writeRecord(ctx context.Context, record *core.Record) error {
 	fields[sentinelField] = "1"
 
 	schemaIdxKey := s.schemaIndexKey(record.URI())
-	schemaName := record.Schema().String()
+	schemaName := record.URI().Schema()
 
 	pipe := s.client.TxPipeline()
 	pipe.Del(ctx, key)
@@ -241,11 +241,11 @@ func encodeRecord(record *core.Record) (map[string]any, error) {
 		if err != nil {
 			return nil, fmt.Errorf(
 				"xdbredis: encode field %s: %w",
-				t.Attr().String(),
+				t.Attr(),
 				err,
 			)
 		}
-		fields[t.Attr().String()] = encoded
+		fields[t.Attr()] = encoded
 	}
 
 	return fields, nil
@@ -257,9 +257,9 @@ func decodeRecord(
 	fields map[string]string,
 ) (*core.Record, error) {
 	record := core.NewRecord(
-		uri.NS().String(),
-		uri.Schema().String(),
-		uri.ID().String(),
+		uri.NS(),
+		uri.Schema(),
+		uri.ID(),
 	)
 
 	for attr, encoded := range fields {

@@ -13,4 +13,11 @@ var (
 
 	// ErrSchemaViolation is returned when data violates a schema constraint.
 	ErrSchemaViolation = errors.New("[xdb] schema violation")
+
+	// ErrAttrNotFound is returned when reading an attribute that has no tuple.
+	//
+	// It is deliberately standalone and must NOT wrap [ErrNotFound]: an
+	// attribute typo bubbling out of a handler must not be mapped to the
+	// resource-not-found RPC code.
+	ErrAttrNotFound = errors.New("[xdb/core] attribute not found")
 )

@@ -12,12 +12,12 @@ import (
 )
 
 func TestKVTableName(t *testing.T) {
-	uri := core.New().NS("myns").Schema("posts").ID("abc").MustURI()
+	uri := core.MustNewURI("myns", "posts", "abc")
 	assert.Equal(t, `"kv:myns/posts"`, kvTableName(uri))
 }
 
 func TestColumnTableName(t *testing.T) {
-	uri := core.New().NS("myns").Schema("posts").ID("abc").MustURI()
+	uri := core.MustNewURI("myns", "posts", "abc")
 	assert.Equal(t, `"t:myns/posts"`, columnTableName(uri))
 }
 
@@ -40,7 +40,7 @@ func TestSQLiteTypeName(t *testing.T) {
 }
 
 func TestColumnDefs(t *testing.T) {
-	uri := core.New().NS("myns").Schema("posts").MustURI()
+	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
 		Fields: map[string]schema.FieldDef{
@@ -63,7 +63,7 @@ func TestColumnDefs(t *testing.T) {
 }
 
 func TestSortedColumns(t *testing.T) {
-	uri := core.New().NS("myns").Schema("posts").MustURI()
+	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
 		Fields: map[string]schema.FieldDef{
@@ -78,7 +78,7 @@ func TestSortedColumns(t *testing.T) {
 }
 
 func TestRecordToValues(t *testing.T) {
-	uri := core.New().NS("myns").Schema("posts").MustURI()
+	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
 		Fields: map[string]schema.FieldDef{
@@ -102,7 +102,7 @@ func TestRecordToValues(t *testing.T) {
 }
 
 func TestRecordToValues_MissingColumn(t *testing.T) {
-	uri := core.New().NS("myns").Schema("posts").MustURI()
+	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
 		Fields: map[string]schema.FieldDef{

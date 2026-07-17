@@ -8,29 +8,114 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestIsValidComponent(t *testing.T) {
+func TestValidateComponent(t *testing.T) {
 	tests := []struct {
-		input string
-		valid bool
+		input      string
+		allowSlash bool
+		valid      bool
 	}{
-		{"abc", true},
-		{"ABC", true},
-		{"123", true},
-		{"a.b.c", true},
-		{"a_b", true},
-		{"a-b", true},
-		{"a/b", true},
-		{"", false},
-		{"a b", false},
-		{"a!b", false},
-		{"a@b", false},
+		{"abc", false, true},
+		{"ABC", false, true},
+		{"123", false, true},
+		{"a.b.c", false, true},
+		{"a_b", false, true},
+		{"a-b", false, true},
+		{"a/b", false, false}, // slash forbidden by default (NS/schema/attr)
+		{"a/b", true, true},   // slash allowed for IDs
+		{"", false, false},
+		{"", true, false},
+		{"a b", false, false},
+		{"a!b", false, false},
+		{"a@b", false, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			assert.Equal(t, tt.valid, isValidComponent(tt.input))
+			err := validateComponent("test", tt.input, tt.allowSlash)
+			if tt.valid {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorIs(t, err, ErrInvalidURI)
+			}
 		})
 	}
+}
+
+func TestNewURI(t *testing.T) {
+	tests := []struct {
+		name     string
+		ns       string
+		parts    []string
+		expected string
+		wantErr  bool
+	}{
+		{
+			name:     "namespace only",
+			ns:       "com.example",
+			expected: "xdb://com.example",
+		},
+		{
+			name:     "namespace and schema",
+			ns:       "com.example",
+			parts:    []string{"posts"},
+			expected: "xdb://com.example/posts",
+		},
+		{
+			name:     "namespace, schema, and ID",
+			ns:       "com.example",
+			parts:    []string{"posts", "123"},
+			expected: "xdb://com.example/posts/123",
+		},
+		{
+			name:    "invalid namespace",
+			ns:      "bad ns",
+			wantErr: true,
+		},
+		{
+			name:    "invalid schema",
+			ns:      "com.example",
+			parts:   []string{"bad schema"},
+			wantErr: true,
+		},
+		{
+			name:    "empty namespace",
+			ns:      "",
+			wantErr: true,
+		},
+		{
+			name:    "too many parts",
+			ns:      "com.example",
+			parts:   []string{"posts", "123", "extra"},
+			wantErr: true,
+		},
+		{
+			name:    "empty schema part",
+			ns:      "com.example",
+			parts:   []string{""},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uri, err := NewURI(tt.ns, tt.parts...)
+			if tt.wantErr {
+				assert.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, uri.String())
+		})
+	}
+}
+
+func TestMustNewURI(t *testing.T) {
+	uri := MustNewURI("com.example", "posts", "123")
+	assert.Equal(t, "xdb://com.example/posts/123", uri.String())
+
+	assert.Panics(t, func() {
+		MustNewURI("bad ns")
+	})
 }
 
 func TestParseURI(t *testing.T) {
@@ -82,28 +167,10 @@ func TestParseURI(t *testing.T) {
 			uri, err := ParseURI(tt.uri)
 			require.NoError(t, err)
 
-			assert.Equal(t, tt.ns, uri.NS().String())
-
-			if tt.schema != "" {
-				require.NotNil(t, uri.Schema())
-				assert.Equal(t, tt.schema, uri.Schema().String())
-			} else {
-				assert.Nil(t, uri.Schema())
-			}
-
-			if tt.id != "" {
-				require.NotNil(t, uri.ID())
-				assert.Equal(t, tt.id, uri.ID().String())
-			} else {
-				assert.Nil(t, uri.ID())
-			}
-
-			if tt.attr != "" {
-				require.NotNil(t, uri.Attr())
-				assert.Equal(t, tt.attr, uri.Attr().String())
-			} else {
-				assert.Nil(t, uri.Attr())
-			}
+			assert.Equal(t, tt.ns, uri.NS())
+			assert.Equal(t, tt.schema, uri.Schema())
+			assert.Equal(t, tt.id, uri.ID())
+			assert.Equal(t, tt.attr, uri.Attr())
 		})
 	}
 }
@@ -128,21 +195,58 @@ func TestParseURIErrors(t *testing.T) {
 	}
 }
 
+func TestURIRoundtripProperty(t *testing.T) {
+	uris := []string{
+		"xdb://com.example",
+		"xdb://com.example/posts",
+		"xdb://com.example/posts/123",
+		"xdb://com.example/posts/123#title",
+		"xdb://com.example/posts/a/b/c",
+		"xdb://com.example/posts/a/b/c#author.id",
+	}
+
+	for _, s := range uris {
+		t.Run(s, func(t *testing.T) {
+			u := MustParseURI(s)
+			require.Equal(t, s, u.String())
+
+			reparsed := MustParseURI(u.String())
+			assert.Equal(t, *u, *reparsed)
+		})
+	}
+}
+
+func TestParseURIErrorsExtra(t *testing.T) {
+	tests := []struct {
+		name string
+		uri  string
+	}{
+		{name: "slash in attr", uri: "xdb://com.example/posts/123#a/b"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ParseURI(tt.uri)
+			assert.Error(t, err)
+		})
+	}
+}
+
 func TestParsePath(t *testing.T) {
 	uri, err := ParsePath("com.example/posts/123#title")
 	require.NoError(t, err)
 
-	assert.Equal(t, "com.example", uri.NS().String())
-	assert.Equal(t, "posts", uri.Schema().String())
-	assert.Equal(t, "123", uri.ID().String())
-	assert.Equal(t, "title", uri.Attr().String())
+	assert.Equal(t, "com.example", uri.NS())
+	assert.Equal(t, "posts", uri.Schema())
+	assert.Equal(t, "123", uri.ID())
+	assert.Equal(t, "title", uri.Attr())
 }
 
 func TestMustParseURI(t *testing.T) {
 	uri := MustParseURI("xdb://com.example/posts/123")
-	assert.Equal(t, "com.example", uri.NS().String())
-	assert.Equal(t, "posts", uri.Schema().String())
-	assert.Equal(t, "123", uri.ID().String())
+	assert.Equal(t, "com.example", uri.NS())
+	assert.Equal(t, "posts", uri.Schema())
+	assert.Equal(t, "123", uri.ID())
 }
 
 func TestMustParseURIPanics(t *testing.T) {
@@ -197,8 +301,8 @@ func TestURIEquals(t *testing.T) {
 	b := MustParseURI("xdb://com.example/posts/123#title")
 	c := MustParseURI("xdb://com.example/posts/456")
 
-	assert.True(t, a.Equals(b))
-	assert.False(t, a.Equals(c))
+	assert.Equal(t, *a, *b)
+	assert.NotEqual(t, *a, *c)
 }
 
 func TestURIEqualsNilComponents(t *testing.T) {
@@ -206,18 +310,18 @@ func TestURIEqualsNilComponents(t *testing.T) {
 	b := MustParseURI("xdb://com.example")
 	c := MustParseURI("xdb://com.example/posts")
 
-	assert.True(t, a.Equals(b))
-	assert.False(t, a.Equals(c))
+	assert.Equal(t, *a, *b)
+	assert.NotEqual(t, *a, *c)
 }
 
 func TestURISchemaURI(t *testing.T) {
 	uri := MustParseURI("xdb://com.example/posts/123#title")
 	schemaURI := uri.SchemaURI()
 
-	assert.Equal(t, "com.example", schemaURI.NS().String())
-	assert.Equal(t, "posts", schemaURI.Schema().String())
-	assert.Nil(t, schemaURI.ID())
-	assert.Nil(t, schemaURI.Attr())
+	assert.Equal(t, "com.example", schemaURI.NS())
+	assert.Equal(t, "posts", schemaURI.Schema())
+	assert.Equal(t, "", schemaURI.ID())
+	assert.Equal(t, "", schemaURI.Attr())
 }
 
 func TestURIMarshalJSON(t *testing.T) {
@@ -233,9 +337,9 @@ func TestURIUnmarshalJSON(t *testing.T) {
 	err := json.Unmarshal([]byte(`"xdb://com.example/posts/123"`), &uri)
 	require.NoError(t, err)
 
-	assert.Equal(t, "com.example", uri.NS().String())
-	assert.Equal(t, "posts", uri.Schema().String())
-	assert.Equal(t, "123", uri.ID().String())
+	assert.Equal(t, "com.example", uri.NS())
+	assert.Equal(t, "posts", uri.Schema())
+	assert.Equal(t, "123", uri.ID())
 }
 
 func TestURIUnmarshalJSONErrors(t *testing.T) {
@@ -258,5 +362,5 @@ func TestURIRoundtrip(t *testing.T) {
 	err = json.Unmarshal(data, &decoded)
 	require.NoError(t, err)
 
-	assert.True(t, original.Equals(&decoded))
+	assert.Equal(t, *original, decoded)
 }

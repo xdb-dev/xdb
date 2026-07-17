@@ -155,7 +155,7 @@ func TestTypeEquals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.a.Equals(tt.b))
+			assert.Equal(t, tt.want, tt.a == tt.b)
 		})
 	}
 }
@@ -205,7 +205,7 @@ func TestTypeUnmarshalJSON(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			assert.True(t, tt.want.Equals(got))
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -234,7 +234,7 @@ func TestTypeRoundTrip(t *testing.T) {
 			err = json.Unmarshal(data, &got)
 			require.NoError(t, err)
 
-			assert.True(t, typ.Equals(got))
+			assert.Equal(t, typ, got)
 		})
 	}
 }

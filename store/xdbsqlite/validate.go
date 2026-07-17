@@ -117,8 +117,8 @@ func (s *Store) evolveDynamic(
 		return nil, err
 	}
 	if err := q.PutSchema(ctx, xsql.PutSchemaParams{
-		Namespace: def.URI.NS().String(),
-		Schema:    def.URI.Schema().String(),
+		Namespace: def.URI.NS(),
+		Schema:    def.URI.Schema(),
 		Data:      data,
 	}); err != nil {
 		return nil, err

@@ -16,10 +16,10 @@ func newTestTuple() *Tuple {
 func TestNewTuple(t *testing.T) {
 	tuple := newTestTuple()
 
-	assert.Equal(t, "com.example", tuple.NS().String())
-	assert.Equal(t, "posts", tuple.Schema().String())
-	assert.Equal(t, "123", tuple.ID().String())
-	assert.Equal(t, "title", tuple.Attr().String())
+	assert.Equal(t, "com.example", tuple.Path().NS())
+	assert.Equal(t, "posts", tuple.Path().Schema())
+	assert.Equal(t, "123", tuple.Path().ID())
+	assert.Equal(t, "title", tuple.Attr())
 	assert.Equal(t, "Hello", tuple.Value().Unwrap())
 }
 
@@ -40,28 +40,28 @@ func TestTuplePath(t *testing.T) {
 	path := tuple.Path()
 
 	require.NotNil(t, path)
-	assert.Equal(t, "com.example", path.NS().String())
-	assert.Equal(t, "posts", path.Schema().String())
-	assert.Equal(t, "123", path.ID().String())
+	assert.Equal(t, "com.example", path.NS())
+	assert.Equal(t, "posts", path.Schema())
+	assert.Equal(t, "123", path.ID())
 }
 
 func TestTupleSchemaURI(t *testing.T) {
 	tuple := newTestTuple()
-	schemaURI := tuple.SchemaURI()
+	schemaURI := tuple.Path().SchemaURI()
 
-	assert.Equal(t, "com.example", schemaURI.NS().String())
-	assert.Equal(t, "posts", schemaURI.Schema().String())
-	assert.Nil(t, schemaURI.ID())
+	assert.Equal(t, "com.example", schemaURI.NS())
+	assert.Equal(t, "posts", schemaURI.Schema())
+	assert.Equal(t, "", schemaURI.ID())
 }
 
 func TestTupleURI(t *testing.T) {
 	tuple := newTestTuple()
 	uri := tuple.URI()
 
-	assert.Equal(t, "com.example", uri.NS().String())
-	assert.Equal(t, "posts", uri.Schema().String())
-	assert.Equal(t, "123", uri.ID().String())
-	assert.Equal(t, "title", uri.Attr().String())
+	assert.Equal(t, "com.example", uri.NS())
+	assert.Equal(t, "posts", uri.Schema())
+	assert.Equal(t, "123", uri.ID())
+	assert.Equal(t, "title", uri.Attr())
 }
 
 func TestTupleGoString(t *testing.T) {
@@ -194,6 +194,15 @@ func TestTupleAs(t *testing.T) {
 
 	t.Run("NilReceiver", func(t *testing.T) {
 		var tuple *Tuple
+		v, err := tuple.AsStr()
+		require.ErrorIs(t, err, ErrAttrNotFound)
+		assert.Empty(t, v)
+	})
+
+	t.Run("PresentNilValue", func(t *testing.T) {
+		// An attribute explicitly set to nil reads as zero with no error,
+		// distinguishing an explicit null from an absent attribute.
+		tuple := NewTuple("com.example/posts/1", "title", nil)
 		v, err := tuple.AsStr()
 		require.NoError(t, err)
 		assert.Empty(t, v)

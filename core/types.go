@@ -11,8 +11,7 @@ import (
 var ErrUnknownType = errors.New("[xdb/core] unknown type")
 
 // TID represents the type of a value.
-// It is a string to allow defining custom type identifiers
-// beyond the built-in set.
+// It is a string; only the built-in identifiers below are recognized.
 type TID string
 
 // Built-in type identifiers.
@@ -107,11 +106,6 @@ func (t Type) String() string { return t.id.String() }
 // ElemTypeID returns the element [TID] for array types.
 // Returns an empty [TID] for non-array types.
 func (t Type) ElemTypeID() TID { return t.elemTypeID }
-
-// Equals returns true if this Type is equal to the other Type.
-func (t Type) Equals(other Type) bool {
-	return t.id == other.id && t.elemTypeID == other.elemTypeID
-}
 
 // Predefined scalar types.
 var (

@@ -13,21 +13,21 @@ type NamespaceTx struct {
 	q *xsql.Queries
 }
 
-func (n *NamespaceTx) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, error) {
+func (n *NamespaceTx) GetNamespace(ctx context.Context, uri *core.URI) (string, error) {
 	exists, err := n.q.NamespaceExists(ctx, xsql.NamespaceExistsParams{
-		Namespace: uri.NS().String(),
+		Namespace: uri.NS(),
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if !exists {
-		return nil, store.ErrNotFound
+		return "", store.ErrNotFound
 	}
 
-	return core.NewNS(uri.NS().String()), nil
+	return uri.NS(), nil
 }
 
-func (n *NamespaceTx) ListNamespaces(ctx context.Context, q *store.Query) (*store.Page[*core.NS], error) {
+func (n *NamespaceTx) ListNamespaces(ctx context.Context, q *store.Query) (*store.Page[string], error) {
 	names, err := n.q.ListNamespaces(ctx, xsql.ListNamespacesParams{
 		Limit: 10000,
 	})
@@ -35,21 +35,16 @@ func (n *NamespaceTx) ListNamespaces(ctx context.Context, q *store.Query) (*stor
 		return nil, err
 	}
 
-	nss := make([]*core.NS, len(names))
-	for i, name := range names {
-		nss[i] = core.NewNS(name)
-	}
-
-	return store.Paginate(nss, q), nil
+	return store.Paginate(names, q), nil
 }
 
 // --- Store delegation ---
 
 // GetNamespace checks if any schema exists in the given namespace.
-func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, error) {
+func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (string, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer tx.Rollback() //nolint:errcheck
 
@@ -57,11 +52,11 @@ func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, erro
 
 	res, err := ntx.GetNamespace(ctx, uri)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	return res, nil
@@ -71,7 +66,7 @@ func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, erro
 func (s *Store) ListNamespaces(
 	ctx context.Context,
 	q *store.Query,
-) (*store.Page[*core.NS], error) {
+) (*store.Page[string], error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err

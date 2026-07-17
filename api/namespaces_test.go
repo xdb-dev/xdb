@@ -25,7 +25,7 @@ func TestNamespaceService_Get(t *testing.T) {
 			URI: "xdb://testns",
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "testns", resp.Data.String())
+		assert.Equal(t, "testns", resp.Data)
 	})
 
 	t.Run("not found", func(t *testing.T) {

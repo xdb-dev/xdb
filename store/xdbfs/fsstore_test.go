@@ -84,7 +84,7 @@ func TestFileLayout_SchemaFile(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	uri := core.New().NS("myapp").Schema("users").MustURI()
+	uri := core.MustNewURI("myapp", "users")
 	def := &schema.Def{URI: uri}
 
 	err = s.CreateSchema(ctx, uri, def)
@@ -120,7 +120,7 @@ func TestDeleteSchema_CleansEmptyDirs(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	uri := core.New().NS("cleanup-ns").Schema("only-schema").MustURI()
+	uri := core.MustNewURI("cleanup-ns", "only-schema")
 	def := &schema.Def{URI: uri}
 
 	err = s.CreateSchema(ctx, uri, def)

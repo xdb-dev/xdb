@@ -106,17 +106,23 @@ func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
 	flatten(m, "", flat)
 
 	for attr, value := range flat {
-		if d.isMetadataField(attr) {
+		if d.isMetadataField(attr) || value == nil {
 			continue
 		}
-		if value != nil {
-			if d.opts.def != nil {
-				if field, ok := d.opts.def.Fields[attr]; ok {
-					value = convertToType(value, field.Type)
-				}
+
+		if d.opts.def != nil {
+			if field, ok := d.opts.def.Fields[attr]; ok {
+				value = convertToType(value, field.Type)
 			}
-			record.Set(attr, value)
 		}
+
+		// Skip values XDB cannot type, e.g. an empty or heterogeneous JSON
+		// array. Treated as absent, consistent with how null is handled.
+		v, err := core.NewSafeValue(value)
+		if err != nil || v == nil {
+			continue
+		}
+		record.Set(attr, v)
 	}
 }
 

@@ -199,7 +199,8 @@ func TestEncoder_EmptyArray(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Contains(t, m, "empty")
-	assert.Nil(t, m["empty"])
+	// An empty typed slice is a real empty array, encoded as [].
+	assert.Equal(t, []any{}, m["empty"])
 }
 
 func TestEncoder_IndentOutput(t *testing.T) {

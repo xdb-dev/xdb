@@ -6,7 +6,11 @@ package: core
 
 # Records
 
-A **Record** is a group of [Tuples](tuples.md) that share the same path (Namespace + Schema + ID). Records are similar to objects, structs, or rows in a database. They typically represent a single entity in your domain.
+A **Record** _is_ the set of [Tuples](tuples.md) that share the same path
+(Namespace + Schema + ID) — it adds no data of its own, it groups tuples. A
+record exists exactly when at least one tuple exists at its path. Records are
+similar to objects, structs, or rows in a database, and typically represent a
+single entity in your domain.
 
 ## Structure
 
@@ -32,15 +36,7 @@ From the [CLI](../../cmd/xdb/cli/CONTEXT.md), records are what you read and writ
 record := core.NewRecord("com.example", "posts", "post-123")
 ```
 
-### Using the Builder
-
-```go
-record := core.New().
-    NS("com.example").
-    Schema("posts").
-    ID("post-123").
-    MustRecord()
-```
+`NewRecord` panics on an invalid namespace, schema, or ID.
 
 ## Setting Attributes
 
@@ -68,7 +64,10 @@ if tuple != nil {
 }
 ```
 
-`Get` returns `nil` if the attribute does not exist.
+`Get` returns `nil` if the attribute does not exist. The `As*` accessors are
+safe to chain on that nil: `record.Get("title").AsStr()` returns the zero
+value and [`ErrAttrNotFound`](../../core/errors.go) when the attribute is
+absent, so a typo is distinguishable from an empty value.
 
 ### Get All Tuples
 
@@ -81,12 +80,12 @@ tuples := record.Tuples() // returns []*Tuple (copy)
 ## Record Metadata
 
 ```go
-record.URI()       // *URI — full record URI (xdb://com.example/posts/post-123)
-record.SchemaURI() // *URI — schema URI (xdb://com.example/posts)
-record.NS()        // *NS
-record.Schema()    // *Schema
-record.ID()        // *ID
-record.IsEmpty()   // bool — true if no tuples
+record.URI()              // *URI   — full record URI (xdb://com.example/posts/post-123)
+record.URI().SchemaURI()  // *URI   — schema URI (xdb://com.example/posts)
+record.URI().NS()         // string — namespace
+record.URI().Schema()     // string — schema name
+record.URI().ID()         // string — record identifier
+record.IsEmpty()          // bool   — true if no tuples
 ```
 
 ## Thread Safety

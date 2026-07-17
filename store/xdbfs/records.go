@@ -37,10 +37,10 @@ func (s *Store) ListRecords(
 	schemaScope := uri.Schema()
 
 	var schemaDirs []schemaInfo
-	if schemaScope != nil {
+	if schemaScope != "" {
 		schemaDirs = append(schemaDirs, schemaInfo{
-			ns:     ns.String(),
-			schema: schemaScope.String(),
+			ns:     ns,
+			schema: schemaScope,
 			dir:    s.schemaDir(uri),
 		})
 	} else {
@@ -55,7 +55,7 @@ func (s *Store) ListRecords(
 		for _, e := range entries {
 			if e.IsDir() {
 				schemaDirs = append(schemaDirs, schemaInfo{
-					ns:     ns.String(),
+					ns:     ns,
 					schema: e.Name(),
 					dir:    filepath.Join(nsDir, e.Name()),
 				})
@@ -163,8 +163,8 @@ func (s *Store) readRecord(uri *core.URI) (*core.Record, error) {
 	}
 
 	dec := xdbjson.NewDecoder(
-		xdbjson.WithNS(uri.NS().String()),
-		xdbjson.WithSchema(uri.Schema().String()),
+		xdbjson.WithNS(uri.NS()),
+		xdbjson.WithSchema(uri.Schema()),
 	)
 
 	record, err := dec.ToRecord(data)

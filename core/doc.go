@@ -24,14 +24,16 @@
 //
 // Core Types:
 //
-// Tuple is the fundamental building block in XDB. Each tuple contains:
+// Tuple is the fundamental building block in XDB — an addressable fact,
+// xdb://ns/schema/id#attr = value. Each tuple contains:
 //   - Path: A URI identifying the record (NS + SCHEMA + ID)
 //   - Attr: An attribute name (e.g., "name", "profile.email")
 //   - Value: A typed value containing the actual data
 //
-// Record is a group of tuples sharing the same path.
-// Records are similar to objects, structs, or rows in a database.
-// Records typically represent a single entity or object of domain data.
+// Record is the set of tuples that share the same path; it groups tuples and
+// adds no data of its own. A record exists exactly when at least one tuple
+// exists at its path. Records are similar to objects, structs, or rows in a
+// database, and typically represent a single entity of domain data.
 //
 // Schema defines the structure of records and groups them together.
 // Schemas can be "strict" or "flexible" and are uniquely identified by name within a namespace.
@@ -66,24 +68,15 @@
 //
 // Example usage:
 //
-//	// Create tuples using the builder pattern
-//	title := New().
-//		NS("com.example").
-//		Schema("posts").
-//		ID("123-456-789").
-//		MustTuple("title", "Hello World")
-//
-//	author := New().
-//		NS("com.example").
-//		Schema("posts").
-//		ID("123-456-789").
-//		MustTuple("author.id", "user-001")
-//
-//	// Get tuple URI
-//	uri := title.URI() // xdb://com.example/posts/123-456-789#title
-//
-//	// Create records with multiple tuples
+//	// A record is the set of tuples sharing a path; Set adds one tuple each.
 //	record := NewRecord("com.example", "posts", "123-456-789").
 //		Set("title", "Hello World").
-//		Set("author", "user-001")
+//		Set("author.id", "user-001")
+//
+//	// Read a tuple back; As* is safe to chain on a missing attribute.
+//	title, err := record.Get("title").AsStr()
+//
+//	// A standalone tuple, addressed by its path and attribute.
+//	tuple := NewTuple("com.example/posts/123-456-789", "title", "Hello World")
+//	uri := tuple.URI() // xdb://com.example/posts/123-456-789#title
 package core

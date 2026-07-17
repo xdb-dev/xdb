@@ -75,6 +75,10 @@ func JSONVal(v json.RawMessage) *Value {
 }
 
 // ArrayVal creates a new array [Value] with the given element type and elements.
+//
+// ArrayVal trusts its inputs: it does not verify that each element's type
+// matches elemTypeID. [NewValue] and [NewSafeValue] derive and validate the
+// element type when building arrays from Go slices.
 func ArrayVal(elemTypeID TID, elems ...*Value) *Value {
 	return &Value{
 		typ:  NewArrayType(elemTypeID),
@@ -252,89 +256,6 @@ func (v *Value) AsArray() ([]*Value, error) {
 	return v.data.([]*Value), nil
 }
 
-// --- Must extractors ---
-
-// MustBool returns the value as a bool or panics on type mismatch.
-func (v *Value) MustBool() bool {
-	b, err := v.AsBool()
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
-// MustInt returns the value as an int64 or panics on type mismatch.
-func (v *Value) MustInt() int64 {
-	i, err := v.AsInt()
-	if err != nil {
-		panic(err)
-	}
-	return i
-}
-
-// MustUint returns the value as a uint64 or panics on type mismatch.
-func (v *Value) MustUint() uint64 {
-	u, err := v.AsUint()
-	if err != nil {
-		panic(err)
-	}
-	return u
-}
-
-// MustFloat returns the value as a float64 or panics on type mismatch.
-func (v *Value) MustFloat() float64 {
-	f, err := v.AsFloat()
-	if err != nil {
-		panic(err)
-	}
-	return f
-}
-
-// MustStr returns the value as a string or panics on type mismatch.
-func (v *Value) MustStr() string {
-	s, err := v.AsStr()
-	if err != nil {
-		panic(err)
-	}
-	return s
-}
-
-// MustBytes returns the value as a []byte or panics on type mismatch.
-func (v *Value) MustBytes() []byte {
-	b, err := v.AsBytes()
-	if err != nil {
-		panic(err)
-	}
-	return b
-}
-
-// MustTime returns the value as a [time.Time] or panics on type mismatch.
-func (v *Value) MustTime() time.Time {
-	t, err := v.AsTime()
-	if err != nil {
-		panic(err)
-	}
-	return t
-}
-
-// MustJSON returns the value as a [json.RawMessage] or panics on type mismatch.
-func (v *Value) MustJSON() json.RawMessage {
-	j, err := v.AsJSON()
-	if err != nil {
-		panic(err)
-	}
-	return j
-}
-
-// MustArray returns the value as a slice of [*Value] or panics on type mismatch.
-func (v *Value) MustArray() []*Value {
-	a, err := v.AsArray()
-	if err != nil {
-		panic(err)
-	}
-	return a
-}
-
 // --- Dynamic constructors ---
 
 var (
@@ -417,20 +338,85 @@ func newSliceValue(iv reflect.Value) (*Value, error) {
 		return BytesVal(iv.Bytes()), nil
 	}
 
+	// Empty slice: an empty array whose element type comes from the slice's
+	// static element type. An empty []any has no derivable element type.
 	if iv.Len() == 0 {
-		return nil, nil
+		elemTID, err := elemTIDFromType(iv.Type().Elem())
+		if err != nil {
+			return nil, err
+		}
+		return ArrayVal(elemTID), nil
 	}
 
 	elems := make([]*Value, iv.Len())
+	var elemType Type
+	haveType := false
 	for i := range iv.Len() {
 		v, err := NewSafeValue(iv.Index(i).Interface())
 		if err != nil {
 			return nil, err
 		}
 		elems[i] = v
+
+		if v == nil {
+			continue // explicit nil element carries no type
+		}
+		if !haveType {
+			elemType = v.Type()
+			haveType = true
+			continue
+		}
+		if v.Type() != elemType {
+			return nil, errors.Wrap(ErrUnsupportedValue, "index", strconv.Itoa(i))
+		}
 	}
 
-	elemType := elems[0].Type().ID()
+	// All elements were nil: fall back to the static element type.
+	if !haveType {
+		elemTID, err := elemTIDFromType(iv.Type().Elem())
+		if err != nil {
+			return nil, err
+		}
+		return ArrayVal(elemTID, elems...), nil
+	}
 
-	return ArrayVal(elemType, elems...), nil
+	return ArrayVal(elemType.ID(), elems...), nil
+}
+
+// elemTIDFromType maps a static Go element type to its [TID].
+// Returns [ErrUnsupportedValue] for types with no XDB equivalent
+// (e.g. an interface element type, as in []any).
+func elemTIDFromType(t reflect.Type) (TID, error) {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+
+	switch t {
+	case timeType:
+		return TIDTime, nil
+	case rawMsgType:
+		return TIDJSON, nil
+	case byteSlice:
+		return TIDBytes, nil
+	}
+
+	switch t.Kind() {
+	case reflect.Bool:
+		return TIDBoolean, nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return TIDInteger, nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return TIDUnsigned, nil
+	case reflect.Float32, reflect.Float64:
+		return TIDFloat, nil
+	case reflect.String:
+		return TIDString, nil
+	case reflect.Slice, reflect.Array:
+		if t.Elem().Kind() == reflect.Uint8 {
+			return TIDBytes, nil
+		}
+		return TIDArray, nil
+	default:
+		return TIDUnknown, errors.Wrap(ErrUnsupportedValue, "type", t.String())
+	}
 }

@@ -11,13 +11,13 @@ import (
 // kvTableName returns the quoted table name for a KV-strategy schema.
 // Format: "kv:<ns>/<schema>".
 func kvTableName(uri *core.URI) string {
-	return `"kv:` + uri.NS().String() + `/` + uri.Schema().String() + `"`
+	return `"kv:` + uri.NS() + `/` + uri.Schema() + `"`
 }
 
 // columnTableName returns the quoted table name for a column-strategy schema.
 // Format: "t:<ns>/<schema>".
 func columnTableName(uri *core.URI) string {
-	return `"t:` + uri.NS().String() + `/` + uri.Schema().String() + `"`
+	return `"t:` + uri.NS() + `/` + uri.Schema() + `"`
 }
 
 // columnDefs builds sorted [xsql.Column] definitions from a schema.
@@ -77,7 +77,7 @@ func recordToValues(def *schema.Def, record *core.Record) []xsql.Value {
 // kvRecordFromValues builds a [*core.Record] from KV values, filtering out
 // the sentinel attribute used for empty records.
 func kvRecordFromValues(uri *core.URI, values []xsql.Value) *core.Record {
-	record := core.NewRecord(uri.NS().String(), uri.Schema().String(), uri.ID().String())
+	record := core.NewRecord(uri.NS(), uri.Schema(), uri.ID())
 	for _, v := range values {
 		if v.Name == "_" {
 			continue
@@ -101,7 +101,7 @@ func kvValues(record *core.Record) []xsql.Value {
 	vals := make([]xsql.Value, len(tuples))
 	for i, t := range tuples {
 		vals[i] = xsql.Value{
-			Name: t.Attr().String(),
+			Name: t.Attr(),
 			Val:  t.Value(),
 		}
 	}

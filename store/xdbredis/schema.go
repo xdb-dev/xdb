@@ -52,7 +52,7 @@ func (s *Store) ListSchemas(
 
 	var defs []*schema.Def
 	for _, ns := range namespaces {
-		nsURI := core.New().NS(ns).MustURI()
+		nsURI := core.MustNewURI(ns)
 		nsDefs, err := s.fetchSchemasByNS(ctx, nsURI)
 		if err != nil {
 			return nil, err
@@ -88,7 +88,7 @@ func (s *Store) listSchemasByNS(
 // fetchSchemasByNS fetches all schema definitions for a namespace URI.
 func (s *Store) fetchSchemasByNS(ctx context.Context, uri *core.URI) ([]*schema.Def, error) {
 	idxKey := s.schemaIndexKey(uri)
-	ns := uri.NS().String()
+	ns := uri.NS()
 
 	names, err := s.client.SMembers(ctx, idxKey).Result()
 	if err != nil {
@@ -97,7 +97,7 @@ func (s *Store) fetchSchemasByNS(ctx context.Context, uri *core.URI) ([]*schema.
 
 	defs := make([]*schema.Def, 0, len(names))
 	for _, name := range names {
-		schemaURI := core.New().NS(ns).Schema(name).MustURI()
+		schemaURI := core.MustNewURI(ns, name)
 		key := s.schemaKey(schemaURI)
 
 		data, err := s.client.Get(ctx, key).Bytes()
@@ -148,8 +148,8 @@ func (s *Store) CreateSchema(
 	// Atomic: set schema + update indexes.
 	pipe := s.client.TxPipeline()
 	pipe.Set(ctx, key, data, 0)
-	pipe.SAdd(ctx, s.schemaIndexKey(uri), uri.Schema().String())
-	pipe.SAdd(ctx, s.nsIndexKey(), uri.NS().String())
+	pipe.SAdd(ctx, s.schemaIndexKey(uri), uri.Schema())
+	pipe.SAdd(ctx, s.nsIndexKey(), uri.NS())
 
 	if _, err := pipe.Exec(ctx); err != nil {
 		return fmt.Errorf("xdbredis: create schema: %w", err)
@@ -214,14 +214,14 @@ func (s *Store) DeleteSchema(ctx context.Context, uri *core.URI) error {
 
 	// Delete all record keys.
 	for _, id := range recordIDs {
-		recURI := core.New().NS(uri.NS().String()).Schema(uri.Schema().String()).ID(id).MustURI()
+		recURI := core.MustNewURI(uri.NS(), uri.Schema(), id)
 		pipe.Del(ctx, s.recordKey(recURI))
 	}
 
 	// Delete schema, record index, and update schema/ns indexes.
 	pipe.Del(ctx, key)
 	pipe.Del(ctx, idxKey)
-	pipe.SRem(ctx, s.schemaIndexKey(uri), uri.Schema().String())
+	pipe.SRem(ctx, s.schemaIndexKey(uri), uri.Schema())
 
 	if _, execErr := pipe.Exec(ctx); execErr != nil {
 		return fmt.Errorf("xdbredis: delete schema: %w", execErr)
@@ -230,7 +230,7 @@ func (s *Store) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	// Clean up namespace index if no schemas remain.
 	remaining, cardErr := s.client.SCard(ctx, s.schemaIndexKey(uri)).Result()
 	if cardErr == nil && remaining == 0 {
-		s.client.SRem(ctx, s.nsIndexKey(), uri.NS().String())
+		s.client.SRem(ctx, s.nsIndexKey(), uri.NS())
 		s.client.Del(ctx, s.schemaIndexKey(uri))
 	}
 

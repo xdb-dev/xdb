@@ -12,7 +12,7 @@ From the [CLI](../../cmd/xdb/cli/CONTEXT.md): `xdb namespaces list` enumerates n
 
 ## Structure
 
-A namespace is an immutable identifier with a single field — its name.
+A namespace _is_ its name — a plain string, the shortest level of a [URI](uris.md).
 
 ```
 ┌──────────────────────────────────────────────┐
@@ -26,19 +26,19 @@ A namespace is an immutable identifier with a single field — its name.
 
 ## Naming Rules
 
-Namespace names must match: `[a-zA-Z0-9._/-]`
+Namespace names must match: `[a-zA-Z0-9._-]` (no `/` — unlike a record ID, a
+namespace is a single URI component).
 
-| Valid              | Invalid           |
-| ------------------ | ----------------- |
-| `com.example`      | `` (empty)        |
-| `acme-inc`         | `my namespace`    |
-| `tenant_123`       | `ns@special`      |
-| `org/team/project` | `ns!`             |
+| Valid         | Invalid           |
+| ------------- | ----------------- |
+| `com.example` | `` (empty)        |
+| `acme-inc`    | `my namespace`    |
+| `tenant_123`  | `ns@special`      |
+| `io.myapp`    | `org/team`        |
 
 Conventions:
 - **Reverse domain** — `com.example`, `io.myapp` — good for public or multi-tenant systems.
 - **Simple names** — `myapp`, `analytics` — fine for single-application use.
-- **Hierarchical** — `org/team/project` — for organizational grouping.
 
 ## Creating Namespaces
 
@@ -49,11 +49,11 @@ Namespaces are created implicitly when you create a schema within them:
 xdb make-schema xdb://com.example/posts --schema posts.json
 ```
 
-In Go code:
+In Go code a namespace is just the `NS` component of a [URI](uris.md):
 
 ```go
-ns := core.NewNS("com.example")         // panics on invalid
-ns, err := core.ParseNS("com.example")  // safe parsing
+uri := core.MustNewURI("com.example")  // xdb://com.example
+ns := uri.NS()                         // "com.example"
 ```
 
 ## URI Representation

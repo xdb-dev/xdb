@@ -175,7 +175,7 @@ func (s *Store) DeleteSchemaRecords(_ context.Context, uri *core.URI) error {
 // --- Namespaces ---
 
 // GetNamespace checks if any schema exists in the given namespace.
-func (s *Store) GetNamespace(_ context.Context, uri *core.URI) (*core.NS, error) {
+func (s *Store) GetNamespace(_ context.Context, uri *core.URI) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return getNamespace(s.schemas, uri)
@@ -185,7 +185,7 @@ func (s *Store) GetNamespace(_ context.Context, uri *core.URI) (*core.NS, error)
 func (s *Store) ListNamespaces(
 	_ context.Context,
 	q *store.Query,
-) (*store.Page[*core.NS], error) {
+) (*store.Page[string], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return listNamespaces(s.schemas, q), nil
@@ -303,14 +303,14 @@ func (tx *txStore) DeleteSchemaRecords(_ context.Context, uri *core.URI) error {
 	return nil
 }
 
-func (tx *txStore) GetNamespace(_ context.Context, uri *core.URI) (*core.NS, error) {
+func (tx *txStore) GetNamespace(_ context.Context, uri *core.URI) (string, error) {
 	return getNamespace(tx.store.schemas, uri)
 }
 
 func (tx *txStore) ListNamespaces(
 	_ context.Context,
 	q *store.Query,
-) (*store.Page[*core.NS], error) {
+) (*store.Page[string], error) {
 	return listNamespaces(tx.store.schemas, q), nil
 }
 
@@ -326,7 +326,7 @@ func validateAndEvolve(
 	schemas map[string]*schema.Def,
 	record *core.Record,
 ) error {
-	def, ok := schemas[record.SchemaURI().Path()]
+	def, ok := schemas[record.URI().SchemaURI().Path()]
 	if !ok || def.Mode == schema.ModeFlexible {
 		return nil
 	}
@@ -358,7 +358,7 @@ func validateAndEvolve(
 		for k, v := range newFields {
 			evolved.Fields[k] = v
 		}
-		schemas[record.SchemaURI().Path()] = evolved
+		schemas[record.URI().SchemaURI().Path()] = evolved
 	}
 
 	return nil
@@ -369,7 +369,7 @@ func validateAndEvolve(
 // (parent lock already held) delegate to these.
 
 func deleteRecordsBySchema(records map[string]*core.Record, uri *core.URI) {
-	prefix := uri.NS().String() + "/" + uri.Schema().String() + "/"
+	prefix := uri.NS() + "/" + uri.Schema() + "/"
 	for key := range records {
 		if len(key) > len(prefix) && key[:len(prefix)] == prefix {
 			delete(records, key)
@@ -398,10 +398,10 @@ func listRecords(
 
 	var matched []*core.Record
 	for _, r := range records {
-		if !r.NS().Equals(ns) {
+		if r.URI().NS() != ns {
 			continue
 		}
-		if schemaScope != nil && !r.Schema().Equals(schemaScope) {
+		if schemaScope != "" && r.URI().Schema() != schemaScope {
 			continue
 		}
 		matched = append(matched, r)
@@ -459,7 +459,7 @@ func listSchemas(
 	uri := q.URI
 	var matched []*schema.Def
 	for _, def := range schemas {
-		if uri != nil && !def.URI.NS().Equals(uri.NS()) {
+		if uri != nil && def.URI.NS() != uri.NS() {
 			continue
 		}
 		matched = append(matched, def)
@@ -473,33 +473,32 @@ func listSchemas(
 func getNamespace(
 	schemas map[string]*schema.Def,
 	uri *core.URI,
-) (*core.NS, error) {
+) (string, error) {
 	ns := uri.NS()
 	for _, def := range schemas {
-		if def.URI.NS().Equals(ns) {
+		if def.URI.NS() == ns {
 			return ns, nil
 		}
 	}
-	return nil, store.ErrNotFound
+	return "", store.ErrNotFound
 }
 
 func listNamespaces(
 	schemas map[string]*schema.Def,
 	q *store.Query,
-) *store.Page[*core.NS] {
-	seen := make(map[string]*core.NS)
+) *store.Page[string] {
+	seen := make(map[string]struct{})
 	for _, def := range schemas {
-		ns := def.URI.NS()
-		seen[ns.String()] = ns
+		seen[def.URI.NS()] = struct{}{}
 	}
 
-	items := make([]*core.NS, 0, len(seen))
-	for _, ns := range seen {
+	items := make([]string, 0, len(seen))
+	for ns := range seen {
 		items = append(items, ns)
 	}
 
-	return sortAndPaginate(items, func(ns *core.NS) string {
-		return ns.String()
+	return sortAndPaginate(items, func(ns string) string {
+		return ns
 	}, q)
 }
 

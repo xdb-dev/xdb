@@ -90,11 +90,11 @@ func uriDepth(raw string) (int, error) {
 	}
 
 	depth := 1
-	if uri.Schema() != nil {
+	if uri.Schema() != "" {
 		depth++
 	}
 
-	if uri.ID() != nil {
+	if uri.ID() != "" {
 		depth++
 	}
 

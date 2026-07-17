@@ -35,7 +35,7 @@ func buildActivation(record *core.Record) map[string]any {
 	env := make(map[string]any, len(tuples))
 
 	for _, tuple := range tuples {
-		env[tuple.Attr().String()] = nativeValue(tuple.Value())
+		env[tuple.Attr()] = nativeValue(tuple.Value())
 	}
 
 	return env

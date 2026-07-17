@@ -51,7 +51,7 @@ func (a *App) namespaceList(ctx context.Context, cmd *cli.Command) error {
 
 	items := make([]any, len(resp.Items))
 	for i, ns := range resp.Items {
-		items[i] = map[string]string{"namespace": ns.String()}
+		items[i] = map[string]string{"namespace": ns}
 	}
 
 	return formatList(cmd, items)
@@ -71,6 +71,6 @@ func (a *App) namespaceGet(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	return formatOne(cmd, map[string]string{
-		"namespace": resp.Data.String(),
+		"namespace": resp.Data,
 	})
 }

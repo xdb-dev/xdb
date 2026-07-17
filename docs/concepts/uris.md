@@ -6,7 +6,9 @@ package: core
 
 # URIs
 
-XDB **URIs** are valid Uniform Resource Identifiers following [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). Every resource in XDB — namespaces, schemas, records, and attributes — is uniquely identified by a URI.
+XDB **URIs** are valid Uniform Resource Identifiers following [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). Every resource in XDB — namespaces, schemas, records, and attributes — is uniquely identified by a URI, and every level addresses something real: a namespace groups schemas, a schema groups records, a path names a set of tuples, and `#attr` names one tuple.
+
+A `URI` is an immutable value type; construct one with `NewURI`, `ParseURI`, or `ParsePath`.
 
 ## Format
 
@@ -74,26 +76,28 @@ uri, err := core.ParsePath("com.example/posts/123")
 
 ## Component Access
 
+Accessors return plain strings; an absent component is the empty string.
+
 ```go
-uri.NS()        // *NS     — namespace
-uri.Schema()    // *Schema — schema (nil if namespace-only URI)
-uri.ID()        // *ID     — record ID (nil if schema-only URI)
-uri.Attr()      // *Attr   — attribute (nil if no fragment)
-uri.Path()      // string  — path without scheme
-uri.String()    // string  — full URI with scheme
-uri.SchemaURI() // *URI    — URI with only NS + Schema
+uri.NS()        // string — namespace
+uri.Schema()    // string — schema ("" if namespace-only URI)
+uri.ID()        // string — record ID ("" if schema-only URI)
+uri.Attr()      // string — attribute ("" if no fragment)
+uri.Path()      // string — path without scheme
+uri.String()    // string — full URI with scheme
+uri.SchemaURI() // *URI   — URI with only NS + Schema
 ```
 
 ## Constructing URIs
 
-### Builder (recommended)
+### NewURI
+
+`NewURI(ns, parts...)` builds a record- or schema-level URI from parts (the
+first part is the schema, the second the ID):
 
 ```go
-uri := core.New().
-    NS("com.example").
-    Schema("posts").
-    ID("123").
-    MustURI()
+uri, err := core.NewURI("com.example", "posts", "123")
+uri := core.MustNewURI("com.example", "posts", "123")
 // xdb://com.example/posts/123
 ```
 
@@ -104,14 +108,19 @@ uri, err := core.ParseURI("xdb://com.example/posts/123#title")
 uri := core.MustParseURI("xdb://com.example/posts/123#title")
 ```
 
+NS, Schema, and Attribute may not contain `/`; an ID may (trailing path
+segments join into the ID). Every valid URI round-trips:
+`ParseURI(u.String())` equals `u`.
+
 ## Equality
 
-Two URIs are equal if all their components match:
+URIs are comparable value types, so `==` on the dereferenced pointers checks
+component equality:
 
 ```go
 a := core.MustParseURI("xdb://com.example/posts/123")
 b := core.MustParseURI("xdb://com.example/posts/123")
-a.Equals(b) // true
+*a == *b // true
 ```
 
 ## JSON Serialization

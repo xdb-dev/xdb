@@ -81,10 +81,10 @@ func ExampleDecoder_ToRecord() {
 	}
 
 	fmt.Println("URI:", record.URI())
-	fmt.Println("Name:", record.Get("name").Value().MustStr())
+	fmt.Println("Name:", vStr(record.Get("name").Value()))
 
 	// JSON numbers decode as float64 without a schema definition.
-	fmt.Println("Age:", record.Get("age").Value().MustFloat())
+	fmt.Println("Age:", vFloat(record.Get("age").Value()))
 
 	// Output:
 	// URI: xdb://com.example/users/123
@@ -101,10 +101,10 @@ func ExampleDecoder_ToRecord_withMetadata() {
 		panic(err)
 	}
 
-	fmt.Println("NS:", record.NS().String())
-	fmt.Println("Schema:", record.Schema().String())
-	fmt.Println("ID:", record.ID().String())
-	fmt.Println("Name:", record.Get("name").Value().MustStr())
+	fmt.Println("NS:", record.URI().NS())
+	fmt.Println("Schema:", record.URI().Schema())
+	fmt.Println("ID:", record.URI().ID())
+	fmt.Println("Name:", vStr(record.Get("name").Value()))
 
 	// Output:
 	// NS: com.example
@@ -127,9 +127,9 @@ func ExampleDecoder_ToRecord_customFields() {
 		panic(err)
 	}
 
-	fmt.Println("ID:", record.ID().String())
-	fmt.Println("NS:", record.NS().String())
-	fmt.Println("Schema:", record.Schema().String())
+	fmt.Println("ID:", record.URI().ID())
+	fmt.Println("NS:", record.URI().NS())
+	fmt.Println("Schema:", record.URI().Schema())
 
 	// Output:
 	// ID: 123
@@ -153,9 +153,9 @@ func ExampleDecoder_ToRecord_nestedObject() {
 		panic(err)
 	}
 
-	fmt.Println("Name:", record.Get("name").Value().MustStr())
-	fmt.Println("Street:", record.Get("address.street").Value().MustStr())
-	fmt.Println("City:", record.Get("address.city").Value().MustStr())
+	fmt.Println("Name:", vStr(record.Get("name").Value()))
+	fmt.Println("Street:", vStr(record.Get("address.street").Value()))
+	fmt.Println("City:", vStr(record.Get("address.city").Value()))
 
 	// Output:
 	// Name: John Doe
@@ -182,10 +182,10 @@ func Example_roundTrip() {
 	}
 
 	fmt.Println("URI:", decoded.URI())
-	fmt.Println("Name:", decoded.Get("name").Value().MustStr())
+	fmt.Println("Name:", vStr(decoded.Get("name").Value()))
 
 	// JSON numbers decode as float64 without a schema definition.
-	fmt.Println("Score:", decoded.Get("score").Value().MustFloat())
+	fmt.Println("Score:", vFloat(decoded.Get("score").Value()))
 
 	// Output:
 	// URI: xdb://com.example/users/user-789

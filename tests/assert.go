@@ -16,15 +16,15 @@ import (
 func AssertEqualRecord(t *testing.T, expected, actual *core.Record) {
 	t.Helper()
 
-	require.True(t, expected.URI().Equals(actual.URI()), "record URI mismatch")
+	require.Equal(t, *expected.URI(), *actual.URI(), "record URI mismatch")
 
 	gotTuples := make(map[string]*core.Tuple)
 	for _, tuple := range actual.Tuples() {
-		gotTuples[tuple.Attr().String()] = tuple
+		gotTuples[tuple.Attr()] = tuple
 	}
 
 	for _, tuple := range expected.Tuples() {
-		attr := tuple.Attr().String()
+		attr := tuple.Attr()
 		gotTuple, ok := gotTuples[attr]
 
 		require.True(t, ok, "tuple %s not found", attr)
@@ -71,7 +71,7 @@ func AssertEqualValue(t *testing.T, expected, actual *core.Value) {
 func AssertDefEqual(t *testing.T, expected, actual *schema.Def) {
 	t.Helper()
 
-	assert.True(t, expected.URI.Equals(actual.URI), "Def: URI mismatch")
+	assert.Equal(t, *expected.URI, *actual.URI, "Def: URI mismatch")
 	assert.Equal(t, expected.Mode, actual.Mode, "Def: mode mismatch")
 	require.Len(t, actual.Fields, len(expected.Fields), "Def: fields length mismatch")
 

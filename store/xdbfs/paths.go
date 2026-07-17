@@ -11,9 +11,9 @@ import (
 func (s *Store) recordPath(uri *core.URI) string {
 	return filepath.Join(
 		s.root,
-		uri.NS().String(),
-		uri.Schema().String(),
-		uri.ID().String()+jsonExt,
+		uri.NS(),
+		uri.Schema(),
+		uri.ID()+jsonExt,
 	)
 }
 
@@ -22,8 +22,8 @@ func (s *Store) recordPath(uri *core.URI) string {
 func (s *Store) schemaPath(uri *core.URI) string {
 	return filepath.Join(
 		s.root,
-		uri.NS().String(),
-		uri.Schema().String(),
+		uri.NS(),
+		uri.Schema(),
 		schemaFileName,
 	)
 }
@@ -31,7 +31,7 @@ func (s *Store) schemaPath(uri *core.URI) string {
 // nsDir returns the directory for a namespace.
 // e.g., root/myapp/.
 func (s *Store) nsDir(uri *core.URI) string {
-	return filepath.Join(s.root, uri.NS().String())
+	return filepath.Join(s.root, uri.NS())
 }
 
 // schemaDir returns the directory for a schema.
@@ -39,7 +39,7 @@ func (s *Store) nsDir(uri *core.URI) string {
 func (s *Store) schemaDir(uri *core.URI) string {
 	return filepath.Join(
 		s.root,
-		uri.NS().String(),
-		uri.Schema().String(),
+		uri.NS(),
+		uri.Schema(),
 	)
 }

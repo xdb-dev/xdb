@@ -59,7 +59,7 @@ func (s *NamespaceStoreSuite) testGet(t *testing.T) {
 		nsURI := core.MustParseURI("xdb://com.example")
 		ns, err := st.GetNamespace(ctx, nsURI)
 		require.NoError(t, err)
-		assert.Equal(t, "com.example", ns.String())
+		assert.Equal(t, "com.example", ns)
 	})
 
 	t.Run("not found", func(t *testing.T) {

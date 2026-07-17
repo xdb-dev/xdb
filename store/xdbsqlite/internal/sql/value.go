@@ -24,26 +24,36 @@ func (v Value) Value() (driver.Value, error) {
 	if v.Val.IsNil() {
 		return nil, nil
 	}
+	// The type switch guarantees each As* call matches the value's type, so
+	// their (impossible) errors are discarded.
 	switch v.Val.Type() {
 	case core.TypeString:
-		return v.Val.MustStr(), nil
+		s, _ := v.Val.AsStr()
+		return s, nil
 	case core.TypeInt:
-		return v.Val.MustInt(), nil
+		i, _ := v.Val.AsInt()
+		return i, nil
 	case core.TypeFloat:
-		return v.Val.MustFloat(), nil
+		f, _ := v.Val.AsFloat()
+		return f, nil
 	case core.TypeBool:
-		if v.Val.MustBool() {
+		b, _ := v.Val.AsBool()
+		if b {
 			return int64(1), nil
 		}
 		return int64(0), nil
 	case core.TypeUnsigned:
-		return int64(v.Val.MustUint()), nil
+		u, _ := v.Val.AsUint()
+		return int64(u), nil
 	case core.TypeTime:
-		return v.Val.MustTime().UnixMilli(), nil
+		ts, _ := v.Val.AsTime()
+		return ts.UnixMilli(), nil
 	case core.TypeJSON:
-		return string(v.Val.MustJSON()), nil
+		j, _ := v.Val.AsJSON()
+		return string(j), nil
 	case core.TypeBytes:
-		return v.Val.MustBytes(), nil
+		b, _ := v.Val.AsBytes()
+		return b, nil
 	default:
 		if v.Val.Type().ID() == core.TIDArray {
 			b, err := marshalArray(v.Val)
@@ -167,23 +177,33 @@ func (v Value) MarshalBytes() ([]byte, error) {
 	if v.Val.IsNil() {
 		return nil, nil
 	}
+	// The type switch guarantees each As* call matches the value's type, so
+	// their (impossible) errors are discarded.
 	switch v.Val.Type() {
 	case core.TypeString:
-		return []byte(v.Val.MustStr()), nil
+		s, _ := v.Val.AsStr()
+		return []byte(s), nil
 	case core.TypeInt:
-		return strconv.AppendInt(nil, v.Val.MustInt(), 10), nil
+		i, _ := v.Val.AsInt()
+		return strconv.AppendInt(nil, i, 10), nil
 	case core.TypeUnsigned:
-		return strconv.AppendUint(nil, v.Val.MustUint(), 10), nil
+		u, _ := v.Val.AsUint()
+		return strconv.AppendUint(nil, u, 10), nil
 	case core.TypeFloat:
-		return strconv.AppendFloat(nil, v.Val.MustFloat(), 'g', -1, 64), nil
+		f, _ := v.Val.AsFloat()
+		return strconv.AppendFloat(nil, f, 'g', -1, 64), nil
 	case core.TypeBool:
-		return strconv.AppendBool(nil, v.Val.MustBool()), nil
+		b, _ := v.Val.AsBool()
+		return strconv.AppendBool(nil, b), nil
 	case core.TypeTime:
-		return strconv.AppendInt(nil, v.Val.MustTime().UnixMilli(), 10), nil
+		ts, _ := v.Val.AsTime()
+		return strconv.AppendInt(nil, ts.UnixMilli(), 10), nil
 	case core.TypeJSON:
-		return []byte(v.Val.MustJSON()), nil
+		j, _ := v.Val.AsJSON()
+		return []byte(j), nil
 	case core.TypeBytes:
-		return v.Val.MustBytes(), nil
+		b, _ := v.Val.AsBytes()
+		return b, nil
 	default:
 		if v.Val.Type().ID() == core.TIDArray {
 			return marshalArray(v.Val)
@@ -232,7 +252,7 @@ func (v *Value) UnmarshalBytes(typ core.Type, data []byte) error {
 
 // marshalArray JSON-encodes array elements by reusing MarshalBytes per element.
 func marshalArray(v *core.Value) ([]byte, error) {
-	elems := v.MustArray()
+	elems, _ := v.AsArray()
 	parts := make([]json.RawMessage, len(elems))
 	for i, e := range elems {
 		sv := Value{Val: e}

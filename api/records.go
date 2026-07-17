@@ -46,9 +46,9 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 	}
 
 	record := core.NewRecord(
-		uri.NS().String(),
-		uri.Schema().String(),
-		uri.ID().String(),
+		uri.NS(),
+		uri.Schema(),
+		uri.ID(),
 	)
 
 	if len(req.Data) > 0 {
@@ -237,9 +237,9 @@ func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*
 	}
 
 	record := core.NewRecord(
-		uri.NS().String(),
-		uri.Schema().String(),
-		uri.ID().String(),
+		uri.NS(),
+		uri.Schema(),
+		uri.ID(),
 	)
 
 	if len(req.Data) > 0 {
@@ -298,8 +298,8 @@ func (s *RecordService) Delete(ctx context.Context, req *DeleteRecordRequest) (*
 // Returns an error if the schema lookup fails for reasons other than not-found.
 func (s *RecordService) decoderOpts(ctx context.Context, uri *core.URI) ([]xdbjson.Option, error) {
 	opts := []xdbjson.Option{
-		xdbjson.WithNS(uri.NS().String()),
-		xdbjson.WithSchema(uri.Schema().String()),
+		xdbjson.WithNS(uri.NS()),
+		xdbjson.WithSchema(uri.Schema()),
 	}
 
 	def, err := s.schemas.GetSchema(ctx, uri)

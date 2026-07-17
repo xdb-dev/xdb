@@ -18,8 +18,8 @@ type SchemaTx struct {
 
 func (s *SchemaTx) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error) {
 	data, err := s.q.GetSchema(ctx, xsql.GetSchemaParams{
-		Namespace: uri.NS().String(),
-		Schema:    uri.Schema().String(),
+		Namespace: uri.NS(),
+		Schema:    uri.Schema(),
 	})
 	if err != nil {
 		return nil, err
@@ -39,7 +39,7 @@ func (s *SchemaTx) ListSchemas(ctx context.Context, q *store.Query) (*store.Page
 	uri := q.URI
 	var ns *string
 	if uri != nil {
-		n := uri.NS().String()
+		n := uri.NS()
 		ns = &n
 	}
 
@@ -69,8 +69,8 @@ func (s *SchemaTx) CreateSchema(ctx context.Context, uri *core.URI, def *schema.
 	}
 
 	exists, err := s.q.SchemaExists(ctx, xsql.SchemaExistsParams{
-		Namespace: uri.NS().String(),
-		Schema:    uri.Schema().String(),
+		Namespace: uri.NS(),
+		Schema:    uri.Schema(),
 	})
 	if err != nil {
 		return err
@@ -85,8 +85,8 @@ func (s *SchemaTx) CreateSchema(ctx context.Context, uri *core.URI, def *schema.
 	}
 
 	if err := s.q.PutSchema(ctx, xsql.PutSchemaParams{
-		Namespace: uri.NS().String(),
-		Schema:    uri.Schema().String(),
+		Namespace: uri.NS(),
+		Schema:    uri.Schema(),
 		Data:      data,
 	}); err != nil {
 		return err
@@ -140,8 +140,8 @@ func (s *SchemaTx) UpdateSchema(ctx context.Context, uri *core.URI, def *schema.
 	}
 
 	return s.q.PutSchema(ctx, xsql.PutSchemaParams{
-		Namespace: uri.NS().String(),
-		Schema:    uri.Schema().String(),
+		Namespace: uri.NS(),
+		Schema:    uri.Schema(),
 		Data:      data,
 	})
 }
@@ -205,8 +205,8 @@ func (s *SchemaTx) evolveSchema(
 
 func (s *SchemaTx) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	exists, err := s.q.SchemaExists(ctx, xsql.SchemaExistsParams{
-		Namespace: uri.NS().String(),
-		Schema:    uri.Schema().String(),
+		Namespace: uri.NS(),
+		Schema:    uri.Schema(),
 	})
 	if err != nil {
 		return err
@@ -216,8 +216,8 @@ func (s *SchemaTx) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	}
 
 	return s.q.DeleteSchema(ctx, xsql.DeleteSchemaParams{
-		Namespace: uri.NS().String(),
-		Schema:    uri.Schema().String(),
+		Namespace: uri.NS(),
+		Schema:    uri.Schema(),
 	})
 }
 

@@ -25,7 +25,7 @@ type GetNamespaceRequest struct {
 
 // GetNamespaceResponse is the response for namespaces.get.
 type GetNamespaceResponse struct {
-	Data *core.NS `json:"data"`
+	Data string `json:"data"`
 }
 
 // Get retrieves namespace metadata by URI.
@@ -51,9 +51,9 @@ type ListNamespacesRequest struct {
 
 // ListNamespacesResponse is the response for namespaces.list.
 type ListNamespacesResponse struct {
-	Items      []*core.NS `json:"items"`
-	NextOffset int        `json:"next_offset,omitempty"`
-	Total      int        `json:"total"`
+	Items      []string `json:"items"`
+	NextOffset int      `json:"next_offset,omitempty"`
+	Total      int      `json:"total"`
 }
 
 // List lists all known namespaces.

@@ -49,9 +49,9 @@ func New(client redis.UniversalClient, opts ...Option) *Store {
 func (s *Store) recordKey(uri *core.URI) string {
 	return fmt.Sprintf("%s:%s:%s:%s",
 		s.prefix,
-		uri.NS().String(),
-		uri.Schema().String(),
-		uri.ID().String(),
+		uri.NS(),
+		uri.Schema(),
+		uri.ID(),
 	)
 }
 
@@ -59,8 +59,8 @@ func (s *Store) recordKey(uri *core.URI) string {
 func (s *Store) schemaKey(uri *core.URI) string {
 	return fmt.Sprintf("%s:%s:%s:_schema",
 		s.prefix,
-		uri.NS().String(),
-		uri.Schema().String(),
+		uri.NS(),
+		uri.Schema(),
 	)
 }
 
@@ -68,14 +68,14 @@ func (s *Store) schemaKey(uri *core.URI) string {
 func (s *Store) recordIndexKey(uri *core.URI) string {
 	return fmt.Sprintf("%s:%s:%s:_idx",
 		s.prefix,
-		uri.NS().String(),
-		uri.Schema().String(),
+		uri.NS(),
+		uri.Schema(),
 	)
 }
 
 // schemaIndexKey returns the key for the schema index set: {prefix}:{ns}:_idx.
 func (s *Store) schemaIndexKey(uri *core.URI) string {
-	return fmt.Sprintf("%s:%s:_idx", s.prefix, uri.NS().String())
+	return fmt.Sprintf("%s:%s:_idx", s.prefix, uri.NS())
 }
 
 // nsIndexKey returns the key for the namespace index set: {prefix}:_idx.

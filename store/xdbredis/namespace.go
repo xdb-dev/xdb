@@ -10,15 +10,15 @@ import (
 )
 
 // GetNamespace checks if a namespace exists.
-func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, error) {
+func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (string, error) {
 	ns := uri.NS()
 
-	exists, err := s.client.SIsMember(ctx, s.nsIndexKey(), ns.String()).Result()
+	exists, err := s.client.SIsMember(ctx, s.nsIndexKey(), ns).Result()
 	if err != nil {
-		return nil, fmt.Errorf("xdbredis: check namespace: %w", err)
+		return "", fmt.Errorf("xdbredis: check namespace: %w", err)
 	}
 	if !exists {
-		return nil, store.ErrNotFound
+		return "", store.ErrNotFound
 	}
 
 	return ns, nil
@@ -28,7 +28,7 @@ func (s *Store) GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, erro
 func (s *Store) ListNamespaces(
 	ctx context.Context,
 	q *store.Query,
-) (*store.Page[*core.NS], error) {
+) (*store.Page[string], error) {
 	names, err := s.client.SMembers(ctx, s.nsIndexKey()).Result()
 	if err != nil {
 		return nil, fmt.Errorf("xdbredis: list namespaces: %w", err)
@@ -36,14 +36,5 @@ func (s *Store) ListNamespaces(
 
 	sort.Strings(names)
 
-	items := make([]*core.NS, len(names))
-	for i, name := range names {
-		ns, err := core.ParseNS(name)
-		if err != nil {
-			return nil, fmt.Errorf("xdbredis: parse namespace %s: %w", name, err)
-		}
-		items[i] = ns
-	}
-
-	return store.Paginate(items, q), nil
+	return store.Paginate(names, q), nil
 }

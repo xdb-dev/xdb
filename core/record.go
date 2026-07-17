@@ -5,7 +5,9 @@ import (
 	"sync"
 )
 
-// Record is a group of tuples that share the same path (NS + SCHEMA + ID).
+// Record is the set of tuples that share the same path (NS + SCHEMA + ID).
+// It groups tuples and holds no data of its own; a record exists exactly when
+// at least one tuple exists at its path.
 // Records are mutable and thread-safe, similar to database rows.
 type Record struct {
 	path   *URI
@@ -15,8 +17,7 @@ type Record struct {
 
 // NewRecord creates a new Record.
 func NewRecord(ns, schema, id string) *Record {
-	path := New().NS(ns).Schema(schema).ID(id).MustURI()
-	return newRecord(path)
+	return newRecord(MustNewURI(ns, schema, id))
 }
 
 func newRecord(path *URI) *Record {
@@ -26,25 +27,8 @@ func newRecord(path *URI) *Record {
 	}
 }
 
-// NS returns the namespace of the record.
-func (r *Record) NS() *NS { return r.path.NS() }
-
-// Schema returns the schema of the record.
-func (r *Record) Schema() *Schema { return r.path.Schema() }
-
-// ID returns the ID of the record.
-func (r *Record) ID() *ID { return r.path.ID() }
-
 // URI returns a URI that references this Record.
 func (r *Record) URI() *URI { return r.path }
-
-// SchemaURI returns the schema URI of the record.
-func (r *Record) SchemaURI() *URI {
-	return &URI{
-		ns:     r.path.NS(),
-		schema: r.path.Schema(),
-	}
-}
 
 // GoString returns Go syntax of the Record.
 func (r *Record) GoString() string {
@@ -57,13 +41,12 @@ func (r *Record) Set(attr string, value any) *Record {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	a, err := ParseAttr(attr)
-	if err != nil {
+	if err := validateComponent("attr", attr, false); err != nil {
 		panic(err)
 	}
 
-	t := newTuple(r.path, a, value)
-	r.tuples[t.Attr().String()] = t
+	t := newTuple(r.path, attr, value)
+	r.tuples[attr] = t
 
 	return r
 }

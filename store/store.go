@@ -109,12 +109,12 @@ type SchemaStore interface {
 // NamespaceReader reads namespaces from the store.
 // Namespaces are derived from schemas — there is no writer interface.
 type NamespaceReader interface {
-	// GetNamespace retrieves namespace metadata by URI.
+	// GetNamespace retrieves the namespace name by URI.
 	// Returns [ErrNotFound] if the namespace does not exist.
-	GetNamespace(ctx context.Context, uri *core.URI) (*core.NS, error)
+	GetNamespace(ctx context.Context, uri *core.URI) (string, error)
 
-	// ListNamespaces lists all known namespaces.
-	ListNamespaces(ctx context.Context, q *Query) (*Page[*core.NS], error)
+	// ListNamespaces lists all known namespace names.
+	ListNamespaces(ctx context.Context, q *Query) (*Page[string], error)
 }
 
 // Closer is implemented by stores that hold resources requiring cleanup.

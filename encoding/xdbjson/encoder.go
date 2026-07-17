@@ -64,23 +64,24 @@ func (e *Encoder) FromRecord(record *core.Record, opts ...EncodeOption) ([]byte,
 func (e *Encoder) buildMap(record *core.Record) map[string]any {
 	result := make(map[string]any)
 
-	result[e.opts.idField] = record.ID().String()
+	uri := record.URI()
+	result[e.opts.idField] = uri.ID()
 
 	if e.opts.includeNS {
-		result[e.opts.nsField] = record.NS().String()
+		result[e.opts.nsField] = uri.NS()
 	}
 
 	if e.opts.includeSchema {
-		result[e.opts.schemaField] = record.Schema().String()
+		result[e.opts.schemaField] = uri.Schema()
 	}
 
 	tuples := record.Tuples()
 	sort.Slice(tuples, func(i, j int) bool {
-		return tuples[i].Attr().String() < tuples[j].Attr().String()
+		return tuples[i].Attr() < tuples[j].Attr()
 	})
 
 	for _, tuple := range tuples {
-		attr := tuple.Attr().String()
+		attr := tuple.Attr()
 		value := convertValue(tuple.Value())
 		setNested(result, attr, value)
 	}
@@ -112,6 +113,9 @@ func setNested(m map[string]any, path string, value any) {
 	m[parts[len(parts)-1]] = value
 }
 
+// convertValue converts a [core.Value] to its JSON representation.
+// The type switch guarantees each As* call matches the value's type, so
+// their (impossible) errors are discarded.
 func convertValue(v *core.Value) any {
 	if v == nil || v.IsNil() {
 		return nil
@@ -119,19 +123,26 @@ func convertValue(v *core.Value) any {
 
 	switch v.Type().ID() {
 	case core.TIDBoolean:
-		return v.MustBool()
+		b, _ := v.AsBool()
+		return b
 	case core.TIDInteger:
-		return v.MustInt()
+		i, _ := v.AsInt()
+		return i
 	case core.TIDUnsigned:
-		return v.MustUint()
+		u, _ := v.AsUint()
+		return u
 	case core.TIDFloat:
-		return v.MustFloat()
+		f, _ := v.AsFloat()
+		return f
 	case core.TIDString:
-		return v.MustStr()
+		s, _ := v.AsStr()
+		return s
 	case core.TIDBytes:
-		return base64.StdEncoding.EncodeToString(v.MustBytes())
+		b, _ := v.AsBytes()
+		return base64.StdEncoding.EncodeToString(b)
 	case core.TIDTime:
-		return v.MustTime().Format(time.RFC3339)
+		ts, _ := v.AsTime()
+		return ts.Format(time.RFC3339)
 	case core.TIDArray:
 		return convertArray(v)
 	default:
@@ -140,7 +151,7 @@ func convertValue(v *core.Value) any {
 }
 
 func convertArray(v *core.Value) []any {
-	raw := v.MustArray()
+	raw, _ := v.AsArray()
 	result := make([]any, len(raw))
 	for i, elem := range raw {
 		result[i] = convertValue(elem)

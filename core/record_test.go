@@ -14,9 +14,9 @@ func newTestRecord() *Record {
 func TestNewRecord(t *testing.T) {
 	r := newTestRecord()
 
-	assert.Equal(t, "com.example", r.NS().String())
-	assert.Equal(t, "posts", r.Schema().String())
-	assert.Equal(t, "123", r.ID().String())
+	assert.Equal(t, "com.example", r.URI().NS())
+	assert.Equal(t, "posts", r.URI().Schema())
+	assert.Equal(t, "123", r.URI().ID())
 	assert.True(t, r.IsEmpty())
 }
 
@@ -38,6 +38,19 @@ func TestRecordSetAndGet(t *testing.T) {
 func TestRecordGetMissing(t *testing.T) {
 	r := newTestRecord()
 	assert.Nil(t, r.Get("nonexistent"))
+}
+
+func TestRecordGetMissingAsReturnsAttrNotFound(t *testing.T) {
+	r := newTestRecord()
+
+	// Reading a missing attribute is distinguishable from an empty string:
+	// it returns the zero value and ErrAttrNotFound.
+	v, err := r.Get("tpyo").AsStr()
+	require.ErrorIs(t, err, ErrAttrNotFound)
+	assert.Empty(t, v)
+
+	// ErrAttrNotFound must not be mistaken for a resource-not-found error.
+	assert.NotErrorIs(t, err, ErrNotFound)
 }
 
 func TestRecordSetOverwrite(t *testing.T) {
@@ -87,11 +100,11 @@ func TestRecordURI(t *testing.T) {
 
 func TestRecordSchemaURI(t *testing.T) {
 	r := newTestRecord()
-	uri := r.SchemaURI()
+	uri := r.URI().SchemaURI()
 
-	assert.Equal(t, "com.example", uri.NS().String())
-	assert.Equal(t, "posts", uri.Schema().String())
-	assert.Nil(t, uri.ID())
+	assert.Equal(t, "com.example", uri.NS())
+	assert.Equal(t, "posts", uri.Schema())
+	assert.Equal(t, "", uri.ID())
 }
 
 func TestRecordGoString(t *testing.T) {
@@ -113,8 +126,8 @@ func TestRecordTupleAccessors(t *testing.T) {
 	tuple := r.Get("title")
 	require.NotNil(t, tuple)
 
-	assert.Equal(t, "com.example", tuple.NS().String())
-	assert.Equal(t, "posts", tuple.Schema().String())
-	assert.Equal(t, "123", tuple.ID().String())
-	assert.Equal(t, "title", tuple.Attr().String())
+	assert.Equal(t, "com.example", tuple.Path().NS())
+	assert.Equal(t, "posts", tuple.Path().Schema())
+	assert.Equal(t, "123", tuple.Path().ID())
+	assert.Equal(t, "title", tuple.Attr())
 }
