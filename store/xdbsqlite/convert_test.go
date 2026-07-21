@@ -77,7 +77,7 @@ func TestSortedColumns(t *testing.T) {
 	require.Equal(t, []string{"alpha", "mid", "zebra"}, cols)
 }
 
-func TestRecordToValues(t *testing.T) {
+func TestValuesFromTuples(t *testing.T) {
 	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
@@ -88,20 +88,25 @@ func TestRecordToValues(t *testing.T) {
 		Mode: schema.ModeStrict,
 	}
 
-	record := core.NewRecord("myns", "posts", "abc")
-	record.Set("title", "hello")
-	record.Set("count", 42)
+	tuples := []*core.Tuple{
+		core.NewTuple("myns/posts/abc", "title", "hello"),
+		core.NewTuple("myns/posts/abc", "count", 42),
+	}
 
-	vals := recordToValues(def, record)
+	vals := valuesFromTuples(def, tuples)
 
 	require.Len(t, vals, 2)
 	assert.Equal(t, "count", vals[0].Name)
-	assert.Equal(t, int64(42), vals[0].Val.Unwrap())
+	count, err := vals[0].Val.AsInt()
+	require.NoError(t, err)
+	assert.Equal(t, int64(42), count)
 	assert.Equal(t, "title", vals[1].Name)
-	assert.Equal(t, "hello", vals[1].Val.Unwrap())
+	title, err := vals[1].Val.AsStr()
+	require.NoError(t, err)
+	assert.Equal(t, "hello", title)
 }
 
-func TestRecordToValues_MissingColumn(t *testing.T) {
+func TestValuesFromTuples_MissingColumn(t *testing.T) {
 	uri := core.MustNewURI("myns", "posts")
 	def := &schema.Def{
 		URI: uri,
@@ -112,14 +117,17 @@ func TestRecordToValues_MissingColumn(t *testing.T) {
 		Mode: schema.ModeStrict,
 	}
 
-	record := core.NewRecord("myns", "posts", "abc")
-	record.Set("title", "hello")
+	tuples := []*core.Tuple{
+		core.NewTuple("myns/posts/abc", "title", "hello"),
+	}
 
-	vals := recordToValues(def, record)
+	vals := valuesFromTuples(def, tuples)
 
 	require.Len(t, vals, 2)
 	assert.Equal(t, "missing", vals[0].Name)
 	assert.Nil(t, vals[0].Val)
 	assert.Equal(t, "title", vals[1].Name)
-	assert.Equal(t, "hello", vals[1].Val.Unwrap())
+	title, err := vals[1].Val.AsStr()
+	require.NoError(t, err)
+	assert.Equal(t, "hello", title)
 }

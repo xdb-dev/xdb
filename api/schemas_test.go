@@ -10,11 +10,12 @@ import (
 
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
 func newSchemaService() *api.SchemaService {
-	return api.NewSchemaService(xdbmemory.New())
+	return api.NewSchemaService(store.New(xdbmemory.NewDriver()))
 }
 
 // wireField is the JSON wire shape of a schema field, mirroring the schema

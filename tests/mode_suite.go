@@ -96,7 +96,7 @@ func (s *ModeStoreSuite) testObjectArray(t *testing.T) {
 		))
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 		assert.Contains(t, err.Error(), "qty")
 	})
 
@@ -111,7 +111,7 @@ func (s *ModeStoreSuite) testObjectArray(t *testing.T) {
 		))
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 		assert.Contains(t, err.Error(), "sku")
 	})
 }
@@ -150,7 +150,7 @@ func (s *ModeStoreSuite) testFlexible(t *testing.T) {
 		r.Set("title", 42) // schema says STRING, sending INTEGER
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 		assert.Contains(t, err.Error(), "title")
 	})
 
@@ -160,7 +160,7 @@ func (s *ModeStoreSuite) testFlexible(t *testing.T) {
 		r.Set("extra", "no title present")
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 		assert.Contains(t, err.Error(), "title")
 	})
 }
@@ -193,7 +193,7 @@ func (s *ModeStoreSuite) testStrict(t *testing.T) {
 		r.Set("extra", "not in schema")
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 
 	t.Run("rejects wrong type", func(t *testing.T) {
@@ -201,7 +201,7 @@ func (s *ModeStoreSuite) testStrict(t *testing.T) {
 		r.Set("title", 42) // schema says STRING
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 
 		// Error should include field-level detail.
 		assert.Contains(t, err.Error(), "title")
@@ -212,7 +212,7 @@ func (s *ModeStoreSuite) testStrict(t *testing.T) {
 		r.Set("rating", 4.5) // title (required) missing
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 		assert.Contains(t, err.Error(), "title")
 	})
 
@@ -225,8 +225,8 @@ func (s *ModeStoreSuite) testStrict(t *testing.T) {
 		updated.Set("title", "Still Valid")
 		updated.Set("extra", "not allowed")
 
-		err := st.UpdateRecord(ctx, updated)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		err := st.UpsertRecord(ctx, updated)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 
 	t.Run("rejects on upsert", func(t *testing.T) {
@@ -234,7 +234,7 @@ func (s *ModeStoreSuite) testStrict(t *testing.T) {
 		r.Set("extra", "not in schema")
 
 		err := st.UpsertRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 }
 
@@ -282,7 +282,7 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 		r.Set("name", 42) // schema says STRING
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 
 	t.Run("rejects missing required field", func(t *testing.T) {
@@ -290,7 +290,7 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 		r.Set("count", int64(1)) // name (required) missing
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 		assert.Contains(t, err.Error(), "name")
 	})
 
@@ -318,7 +318,7 @@ func (s *ModeStoreSuite) testDynamic(t *testing.T) {
 		updated := core.NewRecord("com.example", "events", "dyn-5")
 		updated.Set("name", "hover")
 		updated.Set("duration", 3.14)
-		require.NoError(t, st.UpdateRecord(ctx, updated))
+		require.NoError(t, st.UpsertRecord(ctx, updated))
 
 		got, err := st.GetSchema(ctx, schemaURI)
 		require.NoError(t, err)
@@ -376,7 +376,7 @@ func (s *ModeStoreSuite) testArrayElemType(t *testing.T) {
 		r.Set("tags", core.ArrayVal(core.TIDInteger, core.IntVal(1)))
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 
 	t.Run("dynamic mode infers array elem type", func(t *testing.T) {
@@ -421,7 +421,7 @@ func (s *ModeStoreSuite) testArrayElemType(t *testing.T) {
 		r.Set("tags", core.ArrayVal(core.TIDInteger, core.IntVal(1)))
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 }
 
@@ -461,6 +461,6 @@ func (s *ModeStoreSuite) testNoSchema(t *testing.T) {
 		updated := core.NewRecord("com.example", "unschematized", "no-schema-3")
 		updated.Set("field", "new value")
 		updated.Set("extra", true)
-		require.NoError(t, st.UpdateRecord(ctx, updated))
+		require.NoError(t, st.UpsertRecord(ctx, updated))
 	})
 }

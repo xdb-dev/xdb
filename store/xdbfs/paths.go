@@ -8,9 +8,9 @@ import (
 
 // recordPath returns the file path for a record.
 // e.g., root/myapp/users/user-1.json.
-func (s *Store) recordPath(uri *core.URI) string {
+func (d *Driver) recordPath(uri *core.URI) string {
 	return filepath.Join(
-		s.root,
+		d.root,
 		uri.NS(),
 		uri.Schema(),
 		uri.ID()+jsonExt,
@@ -19,9 +19,9 @@ func (s *Store) recordPath(uri *core.URI) string {
 
 // schemaPath returns the file path for a schema definition.
 // e.g., root/myapp/users/_schema.json.
-func (s *Store) schemaPath(uri *core.URI) string {
+func (d *Driver) schemaPath(uri *core.URI) string {
 	return filepath.Join(
-		s.root,
+		d.root,
 		uri.NS(),
 		uri.Schema(),
 		schemaFileName,
@@ -30,15 +30,15 @@ func (s *Store) schemaPath(uri *core.URI) string {
 
 // nsDir returns the directory for a namespace.
 // e.g., root/myapp/.
-func (s *Store) nsDir(uri *core.URI) string {
-	return filepath.Join(s.root, uri.NS())
+func (d *Driver) nsDir(uri *core.URI) string {
+	return filepath.Join(d.root, uri.NS())
 }
 
 // schemaDir returns the directory for a schema.
 // e.g., root/myapp/users/.
-func (s *Store) schemaDir(uri *core.URI) string {
+func (d *Driver) schemaDir(uri *core.URI) string {
 	return filepath.Join(
-		s.root,
+		d.root,
 		uri.NS(),
 		uri.Schema(),
 	)

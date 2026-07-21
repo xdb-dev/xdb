@@ -23,7 +23,7 @@ import (
 func OpenStore(cfg *Config) (store.Store, error) {
 	switch cfg.Store.backendName() {
 	case "memory":
-		return xdbmemory.New(), nil
+		return store.New(xdbmemory.NewDriver()), nil
 	case "sqlite":
 		return openSQLiteStore(cfg)
 	case "redis":
@@ -52,13 +52,13 @@ func openSQLiteStore(cfg *Config) (store.Store, error) {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
 
-	s, err := xdbsqlite.New(db)
+	d, err := xdbsqlite.NewDriver(db)
 	if err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("init sqlite store: %w", err)
 	}
 
-	return s, nil
+	return store.New(d), nil
 }
 
 func openRedisStore(cfg *Config) (store.Store, error) {
@@ -68,7 +68,7 @@ func openRedisStore(cfg *Config) (store.Store, error) {
 		DB:       cfg.Store.Redis.DB,
 	})
 
-	return xdbredis.New(client), nil
+	return store.New(xdbredis.NewDriver(client)), nil
 }
 
 func openFSStore(cfg *Config) (store.Store, error) {
@@ -77,10 +77,10 @@ func openFSStore(cfg *Config) (store.Store, error) {
 		dir = cfg.DataDir()
 	}
 
-	s, err := xdbfs.New(dir, xdbfs.Options{})
+	d, err := xdbfs.NewDriver(dir, xdbfs.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("init fs store: %w", err)
 	}
 
-	return s, nil
+	return store.New(d), nil
 }

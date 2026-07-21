@@ -7,15 +7,6 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-// Re-exported sentinel errors from [core] for backward compatibility.
-// New code should prefer [core.ErrNotFound], [core.ErrAlreadyExists],
-// and [core.ErrSchemaViolation] directly.
-var (
-	ErrNotFound        = core.ErrNotFound
-	ErrAlreadyExists   = core.ErrAlreadyExists
-	ErrSchemaViolation = core.ErrSchemaViolation
-)
-
 // Page is a paginated list of items.
 type Page[T any] struct {
 	Items      []T
@@ -32,66 +23,50 @@ type Query struct {
 	Offset int
 }
 
-// RecordReader reads records from the store.
-type RecordReader interface {
+// RecordStore combines read and write access for records.
+type RecordStore interface {
 	// GetRecord retrieves a single record by URI.
 	// The URI must contain ns, schema, and id components.
-	// Returns [ErrNotFound] if the record does not exist.
+	// Returns [core.ErrNotFound] if the record does not exist.
 	GetRecord(ctx context.Context, uri *core.URI) (*core.Record, error)
 
 	// ListRecords lists records matching the given query.
 	// Query.URI determines the scope: ns-only lists all records in the namespace,
 	// ns+schema lists records for that schema.
 	ListRecords(ctx context.Context, q *Query) (*Page[*core.Record], error)
-}
 
-// RecordWriter writes records to the store.
-type RecordWriter interface {
 	// CreateRecord creates a new record.
-	// Returns [ErrAlreadyExists] if a record with the same URI exists.
+	// Returns [core.ErrAlreadyExists] if a record with the same URI exists.
 	CreateRecord(ctx context.Context, record *core.Record) error
 
-	// UpdateRecord updates an existing record.
-	// Returns [ErrNotFound] if the record does not exist.
-	UpdateRecord(ctx context.Context, record *core.Record) error
-
-	// UpsertRecord creates or updates a record.
+	// UpsertRecord creates or replaces a record (full-record put).
 	UpsertRecord(ctx context.Context, record *core.Record) error
 
 	// DeleteRecord deletes a record by URI.
-	// Returns [ErrNotFound] if the record does not exist.
+	// Returns [core.ErrNotFound] if the record does not exist.
 	DeleteRecord(ctx context.Context, uri *core.URI) error
 }
 
-// RecordStore combines read and write access for records.
-type RecordStore interface {
-	RecordReader
-	RecordWriter
-}
-
-// SchemaReader reads schema definitions from the store.
-type SchemaReader interface {
+// SchemaStore combines read and write access for schemas.
+type SchemaStore interface {
 	// GetSchema retrieves a schema definition by URI (ns + schema).
-	// Returns [ErrNotFound] if the schema does not exist.
+	// Returns [core.ErrNotFound] if the schema does not exist.
 	GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error)
 
 	// ListSchemas lists schemas matching the given query.
 	// Query.URI scopes the listing by namespace.
 	ListSchemas(ctx context.Context, q *Query) (*Page[*schema.Def], error)
-}
 
-// SchemaWriter writes schema definitions to the store.
-type SchemaWriter interface {
 	// CreateSchema creates a new schema definition.
-	// Returns [ErrAlreadyExists] if the schema already exists.
+	// Returns [core.ErrAlreadyExists] if the schema already exists.
 	CreateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error
 
 	// UpdateSchema updates an existing schema definition.
-	// Returns [ErrNotFound] if the schema does not exist.
+	// Returns [core.ErrNotFound] if the schema does not exist.
 	UpdateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error
 
 	// DeleteSchema deletes a schema by URI.
-	// Returns [ErrNotFound] if the schema does not exist.
+	// Returns [core.ErrNotFound] if the schema does not exist.
 	DeleteSchema(ctx context.Context, uri *core.URI) error
 
 	// DeleteSchemaRecords deletes all records belonging to a schema.
@@ -100,21 +75,38 @@ type SchemaWriter interface {
 	DeleteSchemaRecords(ctx context.Context, uri *core.URI) error
 }
 
-// SchemaStore combines read and write access for schemas.
-type SchemaStore interface {
-	SchemaReader
-	SchemaWriter
-}
-
 // NamespaceReader reads namespaces from the store.
 // Namespaces are derived from schemas — there is no writer interface.
 type NamespaceReader interface {
 	// GetNamespace retrieves the namespace name by URI.
-	// Returns [ErrNotFound] if the namespace does not exist.
+	// Returns [core.ErrNotFound] if the namespace does not exist.
 	GetNamespace(ctx context.Context, uri *core.URI) (string, error)
 
 	// ListNamespaces lists all known namespace names.
 	ListNamespaces(ctx context.Context, q *Query) (*Page[string], error)
+}
+
+// TupleStore is attr-level access on a store: every record attribute
+// is addressable as xdb://ns/schema/id#attr. Writes are merges — a
+// record springs into existence when its first tuples are put, and
+// disappears when its last tuple is deleted.
+type TupleStore interface {
+	// GetTuple retrieves a single tuple by attr-level URI.
+	// Returns [core.ErrNotFound] if the record or the attr is absent.
+	GetTuple(ctx context.Context, uri *core.URI) (*core.Tuple, error)
+
+	// GetTuples retrieves tuples by attr-level URIs. Absent attrs
+	// are omitted — batch reads don't error on absence.
+	GetTuples(ctx context.Context, uris ...*core.URI) ([]*core.Tuple, error)
+
+	// PutTuples merges tuples into their records, leaving other
+	// attrs untouched. Tuples may span records.
+	PutTuples(ctx context.Context, tuples ...*core.Tuple) error
+
+	// DeleteTuples removes the tuples at the given attr-level URIs.
+	// Idempotent: absent tuples are not an error. Removing a
+	// record's last tuple removes the record.
+	DeleteTuples(ctx context.Context, uris ...*core.URI) error
 }
 
 // Closer is implemented by stores that hold resources requiring cleanup.
@@ -129,6 +121,7 @@ type Store interface {
 	RecordStore
 	SchemaStore
 	NamespaceReader
+	TupleStore
 }
 
 // HealthChecker is an optional interface stores can implement

@@ -706,6 +706,22 @@ func TestValidateUpdate(t *testing.T) {
 		})
 		assert.NoError(t, schema.ValidateUpdate(old, updated))
 	})
+
+	t.Run("changing mode is rejected", func(t *testing.T) {
+		old := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		updated := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		updated.Mode = schema.ModeFlexible
+
+		err := schema.ValidateUpdate(old, updated)
+		require.ErrorIs(t, err, schema.ErrImmutableMode)
+		assert.Contains(t, err.Error(), "mode")
+	})
+
+	t.Run("same mode is allowed", func(t *testing.T) {
+		old := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		updated := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		assert.NoError(t, schema.ValidateUpdate(old, updated))
+	})
 }
 
 func TestValidateTuples_AllTypes(t *testing.T) {

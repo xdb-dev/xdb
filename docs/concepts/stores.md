@@ -1,78 +1,102 @@
 ---
 title: Stores
-description: Storage interfaces and implementations for persisting records, schemas, and namespaces.
+description: The store facade, enforcement middleware, and drivers that persist records, schemas, and namespaces across backends.
 package: store, store/xdbmemory, store/xdbfs, store/xdbredis, store/xdbsqlite
 ---
 
 # Stores
 
-A **Store** is the persistence layer in XDB. The store package defines interfaces for reading and writing [Records](records.md), [Schemas](schemas.md), and [Namespaces](namespaces.md). Multiple implementations allow the same data model to work across different storage backends.
+A **Store** is the persistence layer in XDB. It reads and writes [Records](records.md), [Tuples](tuples.md), [Schemas](schemas.md), and [Namespaces](namespaces.md) with identical semantics on every backend.
+
+The store is split into two layers:
+
+- The **facade + middleware** (`store` package) own all policy: schema validation, mode enforcement, dynamic evolution, revision CAS, record assembly, filtering, pagination, namespace derivation, and transaction orchestration.
+- **[Drivers](drivers.md)** (`store/xdbmemory`, `store/xdbfs`, `store/xdbredis`, `store/xdbsqlite`) are pure storage: they read tuples, apply mutations, and store schema definitions verbatim.
+
+```
+        Store facade   record + tuple + schema verbs, all writes compiled
+                       to mutations; record assembly from tuples; namespace
+                       derivation; tx orchestration
+  ┌──────────────────────┐
+  │  logging             │  observes            (opt-in)
+  │  schema cache        │  accelerates         (opt-in)
+  │  schema enforcement  │  modes, Required, dynamic evolve,
+  │                      │  Def.Validate, revision CAS   (ALWAYS installed)
+  └──────────────────────┘
+        Driver           pure storage: memory | fs | redis | sqlite
+```
+
+## Constructing a Store
+
+`store.New` is the **only** way to obtain a `Store`. It installs the schema enforcement middleware unconditionally — a Store that skips validation cannot be constructed:
+
+```go
+// In-memory (reference, testing, embedded)
+st := store.New(xdbmemory.NewDriver())
+
+// Filesystem
+d, err := xdbfs.NewDriver("/path/to/data", xdbfs.Options{})
+st := store.New(d)
+
+// Redis
+st := store.New(xdbredis.NewDriver(client))
+
+// SQLite
+d, err := xdbsqlite.NewDriver(db)
+st := store.New(d)
+```
+
+Options add observability and acceleration around enforcement:
+
+```go
+st := store.New(d,
+    store.WithLogger(logger),      // logs driver writes
+    store.WithSchemaCache(),       // read-through cache for schema defs
+)
+```
+
+`WithSchemaCache` removes a driver round-trip per write for remote backends (enforcement reads the record's schema on every write). The facade keeps the cache coherent across transactional writes and dynamic-mode evolutions.
 
 ## Interface Hierarchy
 
-The store interfaces are layered and composable:
-
 ```
 Store
+├── Closer
 ├── RecordStore
-│   ├── RecordReader
-│   └── RecordWriter
 ├── SchemaStore
-│   ├── SchemaReader
-│   └── SchemaWriter
-└── NamespaceReader
+├── NamespaceReader
+└── TupleStore
 ```
 
-### RecordStore
+Record, schema, and namespace verbs keep their long-standing shapes (see the operation tables below). `TupleStore` is the attr-level surface:
 
 ```go
-type RecordReader interface {
-    GetRecord(ctx context.Context, uri *core.URI) (*core.Record, error)
-    ListRecords(ctx context.Context, q *Query) (*Page[*core.Record], error)
-}
-
-type RecordWriter interface {
-    CreateRecord(ctx context.Context, record *core.Record) error
-    UpdateRecord(ctx context.Context, record *core.Record) error
-    UpsertRecord(ctx context.Context, record *core.Record) error
-    DeleteRecord(ctx context.Context, uri *core.URI) error
+type TupleStore interface {
+    GetTuple(ctx context.Context, uri *core.URI) (*core.Tuple, error)
+    GetTuples(ctx context.Context, uris ...*core.URI) ([]*core.Tuple, error)
+    PutTuples(ctx context.Context, tuples ...*core.Tuple) error
+    DeleteTuples(ctx context.Context, uris ...*core.URI) error
 }
 ```
 
-### SchemaStore
+## One Write Primitive
 
-```go
-type SchemaReader interface {
-    GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, error)
-    ListSchemas(ctx context.Context, q *Query) (*Page[*schema.Def], error)
-}
+Every write verb on the facade compiles to a mutation with explicit intent — the four-op table in [Drivers](drivers.md):
 
-type SchemaWriter interface {
-    CreateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error
-    UpdateSchema(ctx context.Context, uri *core.URI, def *schema.Def) error
-    DeleteSchema(ctx context.Context, uri *core.URI) error
-    DeleteSchemaRecords(ctx context.Context, uri *core.URI) error
-}
-```
+| Facade verb          | Compiles to                                     |
+| -------------------- | ----------------------------------------------- |
+| `CreateRecord(r)`    | `{Path, OpCreate, r.Tuples()}`                  |
+| `UpsertRecord(r)`    | `{Path, OpPut, r.Tuples()}`                 |
+| `DeleteRecord(uri)`  | `{Path, OpDelete}`                              |
+| `PutTuples(ts...)`   | `{Path, OpPatch, ts}` per record path           |
+| `DeleteTuples(uris)` | `{Path, OpDelete, Attrs}` per record path       |
+| `GetRecord(uri)`     | tuple scan of the path → assemble; empty = NotFound |
+| `GetTuple(uri)`      | point read → absence = NotFound                 |
 
-### NamespaceReader
+Two consequences worth knowing:
 
-```go
-type NamespaceReader interface {
-    GetNamespace(ctx context.Context, uri *core.URI) (string, error)
-    ListNamespaces(ctx context.Context, q *Query) (*Page[string], error)
-}
-```
-
-### Full Store
-
-```go
-type Store interface {
-    RecordStore
-    SchemaStore
-    NamespaceReader
-}
-```
+- **Records are tuple sets.** A record springs into existence when its first tuples are written and ceases to exist when its last tuple is removed. A record with zero tuples is unrepresentable — creating an empty record stores nothing.
+- **`PutTuples` is a merge** (patch), not a replace: other attrs of the record are untouched. `UpsertRecord` is a full replace (put).
 
 ## Operation Behavior
 
@@ -83,21 +107,17 @@ type Store interface {
 | `GetRecord` | Returns record | `ErrNotFound` | Read by URI (ns + schema + id) |
 | `ListRecords` | Returns page of records | Empty page (no error) | URI scope: ns-only or ns+schema |
 | `CreateRecord` | `ErrAlreadyExists` | Creates record | Insert only — rejects duplicates |
-| `UpdateRecord` | Full replace | `ErrNotFound` | Replaces the entire record (all tuples) |
-| `UpsertRecord` | Full replace | Creates record | Unconditional write — always succeeds |
+| `UpsertRecord` | Full replace | Creates record | Unconditional write (put) — always succeeds |
 | `DeleteRecord` | Deletes record | `ErrNotFound` | Remove by URI |
 
-**Current update semantics:** All store implementations treat `UpdateRecord` and `UpsertRecord` as **full replacement** — the caller provides a complete `*core.Record` and the entire stored record is replaced. No partial merge occurs at the store level.
+### Tuple Operations
 
-The service layer (planned) will implement **patch semantics** on top of `UpdateRecord` by reading the existing record, merging supplied fields, and writing back the full record. See the [CLI plan](../plans/2026-03-09-agent-first-cli.md) for details.
-
-**How full replacement works in each backend:**
-
-- **Memory:** Direct map assignment (`records[key] = record`)
-- **Filesystem:** Overwrites the JSON file
-- **Redis:** Deletes the hash key, then writes all fields
-- **SQLite (KV):** Deletes all rows for the ID, then inserts new rows
-- **SQLite (column):** `UPDATE ... SET col1=?, col2=?, ...` with nil for missing columns
+| Operation | Exists | Not Exists | Semantics |
+|-----------|--------|------------|-----------|
+| `GetTuple` | Returns tuple | `ErrNotFound` | Read by attr-level URI (`…#attr`) |
+| `GetTuples` | Returns present tuples | Omitted (no error) | Batch point reads |
+| `PutTuples` | Overwrites those attrs | Creates record | Merge — other attrs untouched |
+| `DeleteTuples` | Removes those attrs | No-op (idempotent) | Last tuple removed = record removed |
 
 ### Schema Operations
 
@@ -105,10 +125,12 @@ The service layer (planned) will implement **patch semantics** on top of `Update
 |-----------|--------|------------|-----------|
 | `GetSchema` | Returns schema def | `ErrNotFound` | Read by URI (ns + schema) |
 | `ListSchemas` | Returns page of schemas | Empty page (no error) | Optional namespace scope |
-| `CreateSchema` | `ErrAlreadyExists` | Creates schema | Insert only — rejects duplicates |
-| `UpdateSchema` | Full replace | `ErrNotFound` | Replaces the schema definition |
+| `CreateSchema` | `ErrAlreadyExists` | Creates schema (revision 1) | Insert only |
+| `UpdateSchema` | Replace + revision CAS | `ErrNotFound` | Mode and field types are immutable |
 | `DeleteSchema` | Deletes schema | `ErrNotFound` | Remove by URI |
-| `DeleteSchemaRecords` | Deletes all records | No-op if none exist | Drop backing tables/records |
+| `DeleteSchemaRecords` | Deletes all records | No-op if none exist | Record cleanup; the schema def stays |
+
+`UpdateSchema` applies an optimistic-concurrency check: a def with `Revision` N updates only if the stored revision is N (0 means unconditional). On success the stored revision becomes N+1. Concurrent conflicting updates fail with `core.ErrConflict`.
 
 ### Namespace Operations
 
@@ -117,18 +139,36 @@ The service layer (planned) will implement **patch semantics** on top of `Update
 | `GetNamespace` | Returns namespace | `ErrNotFound` | Read by URI (ns only) |
 | `ListNamespaces` | Returns page of namespaces | Empty page (no error) | Lists all known namespaces |
 
-Namespaces are derived from schemas — there is no writer interface. A namespace exists when at least one schema exists within it.
+Namespaces are derived from schemas — there is no writer interface. A namespace exists when at least one schema exists within it. The derivation lives in the facade; drivers know nothing about namespaces.
 
-## Optional Interfaces
+## Enforcement
 
-Implementations may also satisfy:
+Schema policy is enforced by middleware that `store.New` always installs — **uniformly on every backend**:
+
+- Declared fields are type-checked on every write, per the schema [mode](schemas.md): strict rejects undeclared attrs, flexible ignores them, dynamic infers and evolves the schema.
+- `Required` fields are checked on full-record writes, and on merges that create a record.
+- `DeleteTuples` cannot strip a `Required` attr from a record (deleting the whole record is fine).
+- Schema updates validate compatibility (`ValidateUpdate`) and apply the revision CAS.
+
+Violations are reported as `core.ErrSchemaViolation` (wrapping the specific schema error).
+
+## Optional Capabilities
 
 | Interface         | Method                                              | Purpose                         |
 | ----------------- | --------------------------------------------------- | ------------------------------- |
 | `HealthChecker`   | `Health(ctx) error`                                 | Connectivity check (< 1 second) |
 | `TX`              | `Run(ctx, func(tx Store) error) error`              | Transactional batch operations  |
 
-`TX` runs a function within a transaction. If the function returns an error, all changes are rolled back. The `tx Store` passed to the function is a transactional view — reads see writes made within the same transaction.
+The Store returned by `store.New` implements `TX` when the driver supports native transactions (memory, sqlite). On such stores, **every** write verb runs inside a transaction, so enforcement checks and the write are atomic. Drivers without transactions (fs, redis) fall back to sequential execution.
+
+```go
+if tx, ok := st.(store.TX); ok {
+    err := tx.Run(ctx, func(txs store.Store) error {
+        // reads see writes made within the same transaction
+        return txs.CreateRecord(ctx, record)
+    })
+}
+```
 
 ## Querying and Pagination
 
@@ -157,40 +197,35 @@ type Page[T any] struct {
 - `NextOffset` is 0 when there are no more pages
 - `Total` is the total count of matching items (not just the current page)
 
+The facade synthesizes lists from tuple scans, filters in-process, and paginates. Drivers with native filter pushdown (sqlite compiles CEL to SQL WHERE clauses) handle schema-scoped queries in the database instead.
+
 ## Errors
 
 | Error                  | Returned By | Meaning                                      |
 | ---------------------- | ----------- | -------------------------------------------- |
-| `ErrNotFound`          | Get, Update, Delete | Requested resource does not exist    |
-| `ErrAlreadyExists`     | Create | Resource already exists                       |
-| `ErrSchemaViolation`   | Create, Update, Upsert | Data violates the schema definition |
+| `core.ErrNotFound`          | Get, Update, Delete | Requested resource does not exist    |
+| `core.ErrAlreadyExists`     | Create | Resource already exists                       |
+| `core.ErrSchemaViolation`   | Create, Update, Upsert, PutTuples | Data violates the schema definition |
+| `core.ErrConflict`          | UpdateSchema | Revision CAS failed — the caller's base is stale |
 
-All errors are sentinel values — use `errors.Is(err, store.ErrNotFound)` to check.
+All errors are sentinel values — use `errors.Is(err, core.ErrNotFound)` to check. (The `store.Err*` aliases are deprecated re-exports of the `core` sentinels.)
 
-> **Note:** `ErrSchemaViolation` is enforced by schema-aware backends (xdbsqlite, xdbmemory). Other backends (xdbfs, xdbredis) store data without schema validation.
+Batch tuple-write failures (`PutTuples`, `DeleteTuples`) are attributed by the facade: a `store.MutationError` names the failing mutation's index and record path and wraps the sentinel. Drivers themselves return bare sentinels.
 
 ## Failure Modes
 
-> `ErrSchemaViolation` paths below apply to schema-aware backends (xdbsqlite, xdbmemory). Other backends skip validation.
-
-### Record Operations
+### Record and Tuple Operations
 
 ```
 CreateRecord
 ├── OK                → record stored
 ├── ErrAlreadyExists  → record with same URI exists, nothing changed
-├── ErrSchemaViolation→ strict schema active, payload has wrong types or missing required attrs
+├── ErrSchemaViolation→ payload has wrong types, undeclared attrs (strict), or missing required attrs
 └── context error     → timeout or cancellation, record may or may not be stored
-
-UpdateRecord
-├── OK                → record fully replaced
-├── ErrNotFound       → no record at this URI, nothing changed
-├── ErrSchemaViolation→ new data violates strict schema, original record unchanged
-└── context error     → timeout or cancellation, record may be partially written (backend-dependent)
 
 UpsertRecord
 ├── OK                → record stored (created or replaced)
-├── ErrSchemaViolation→ data violates strict schema, nothing changed
+├── ErrSchemaViolation→ data violates the schema, nothing changed
 └── context error     → timeout or cancellation
 
 DeleteRecord
@@ -198,13 +233,15 @@ DeleteRecord
 ├── ErrNotFound       → no record at this URI, nothing changed
 └── context error     → timeout or cancellation
 
-GetRecord
-├── OK                → record returned
-├── ErrNotFound       → no record at this URI
+PutTuples
+├── OK                → tuples merged (records created as needed)
+├── ErrSchemaViolation→ type mismatch, undeclared attr (strict), or merge-that-creates
+│                       missing required attrs
 └── context error     → timeout or cancellation
 
-ListRecords
-├── OK                → page returned (may be empty — empty page is not an error)
+DeleteTuples
+├── OK                → tuples removed (no-op for absent ones)
+├── ErrSchemaViolation→ attempted to delete a required attr
 └── context error     → timeout or cancellation
 ```
 
@@ -212,14 +249,16 @@ ListRecords
 
 ```
 CreateSchema
-├── OK                → schema stored
+├── OK                → schema stored with revision 1
 ├── ErrAlreadyExists  → schema with same URI exists, nothing changed
+├── ErrSchemaViolation→ malformed definition
 └── context error     → timeout or cancellation
 
 UpdateSchema
-├── OK                → schema definition replaced
+├── OK                → schema replaced, revision bumped
 ├── ErrNotFound       → no schema at this URI, nothing changed
 ├── ErrSchemaViolation→ mode change or field type change attempted
+├── ErrConflict       → revision CAS failed
 └── context error     → timeout or cancellation
 
 DeleteSchema
@@ -242,8 +281,6 @@ TX.Run
 └── context error     → all changes rolled back
 ```
 
-If a store does not implement `TX`, the service layer executes operations sequentially without transaction guarantees.
-
 ### Backend-Specific Failures
 
 | Backend | Additional Failure Modes |
@@ -255,102 +292,42 @@ If a store does not implement `TX`, the service layer executes operations sequen
 
 Backend-specific errors are not wrapped as store sentinel errors — they propagate as-is. The service layer maps them to appropriate RPC error codes.
 
-## Implementations
+## Backends
 
-### In-Memory Store (`xdbmemory`)
+See [Drivers](drivers.md) for the contract backends implement and how each maps tuples onto its storage. In brief:
 
-**Package:** `store/xdbmemory`
+| Driver | Storage | TX | Filter pushdown |
+|--------|---------|----|-----------------|
+| `xdbmemory` | Go maps | yes | — |
+| `xdbfs` | JSON file per record | — | — |
+| `xdbredis` | hash per record | — | — |
+| `xdbsqlite` | column or KV tables per schema | yes | CEL → SQL |
 
-A reference implementation that holds all data in Go maps. Useful for testing and embedded use.
+## Migrating from pre-driver constructors
 
-```go
-store := xdbmemory.New()
-```
+Driver packages export Drivers, not Stores — deliberately, so a Store that skips enforcement cannot be built:
 
-- All state is in memory — lost on process exit.
-- Thread-safe via `sync.RWMutex`.
-- Health check always succeeds.
-- Implements `TX` via snapshot-and-rollback.
-
-### Filesystem Store (`xdbfs`)
-
-**Package:** `store/xdbfs`
-
-Persists data as JSON files on the local filesystem. Good for development, CLI tools, and local workflows.
-
-```go
-store, err := xdbfs.New("/path/to/data", xdbfs.Options{
-    Indent:      "  ",     // Pretty-print JSON (default)
-    CompactJSON: false,    // Set true for compact output
-})
-```
-
-**Directory layout:**
-
-```
-<root>/
-├── <namespace>/
-│   ├── <schema>/
-│   │   ├── _schema.json    # Schema definition
-│   │   ├── <id>.json       # Record files
-│   │   └── <id>.json
-│   └── <schema>/
-└── <namespace>/
-```
-
-- Thread-safe via `sync.RWMutex`.
-- Atomic writes (temp file + rename).
-- Health check verifies the root directory exists and is writable.
-- JSON files are human-readable and inspectable.
-
-### Redis Store (`xdbredis`)
-
-**Package:** `store/xdbredis`
-
-A Redis-backed store using hashes for structured storage. Suitable for production use with high throughput.
-
-```go
-store, err := xdbredis.New(ctx, xdbredis.Options{
-    Addr: "localhost:6379",
-})
-```
-
-- Records stored as Redis hashes, one hash per record.
-- Schemas stored as JSON strings in Redis keys.
-- Namespaces derived from key prefixes.
-- Uses transaction pipelines for atomic individual operations.
-- Health check uses `PING`.
-- Requires a running Redis instance (`make services-up`).
-
-### SQLite Store (`xdbsqlite`)
-
-**Package:** `store/xdbsqlite`
-
-A SQLite-backed store with two storage strategies based on schema mode.
-
-```go
-db, err := sql.Open("sqlite3", "xdb.db")
-store, err := xdbsqlite.New(db)
-```
-
-- **Column strategy** (strict schemas): One SQL column per schema attribute. Type-safe, indexed queries.
-- **KV strategy** (flexible schemas): Key-value rows per record. Accommodates any attribute set.
-- Implements `TX` via SQLite transactions.
-- Health check uses `PRAGMA quick_check`.
-- Single-file database — easy to back up and move.
+| Before | After |
+| ------ | ----- |
+| `xdbmemory.New()` | `store.New(xdbmemory.NewDriver())` |
+| `xdbfs.New(root, opts)` | `d, err := xdbfs.NewDriver(root, opts)` then `store.New(d)` |
+| `xdbredis.New(client, opts...)` | `store.New(xdbredis.NewDriver(client, opts...))` |
+| `xdbsqlite.New(db, opts...)` | `d, err := xdbsqlite.NewDriver(db, opts...)` then `store.New(d)` |
 
 ## Configuration
 
 The store backend is configured via `~/.xdb/config.json`. See the [README](../../README.md) for configuration examples.
 
-## Shared Test Suite
+## Shared Test Suites
 
-The `tests/` package provides shared test suites that validate any `Store` implementation against the expected behavior. All implementations must pass these suites.
+The `tests/` package provides shared suites that pin store behavior. The record/schema/namespace/mode/cascade/tuple suites run against every backend **through the facade**, proving identical semantics; the driver suite (`tests.NewDriverSuite`) pins the raw [driver contract](drivers.md).
 
 ## Related Concepts
 
-- [Records](records.md) — The primary data stored
-- [Schemas](schemas.md) — Structure definitions stored alongside records
+- [Drivers](drivers.md) — The storage contract backends implement
+- [Records](records.md) — Assembled views over tuples
+- [Tuples](tuples.md) — The unit of storage and addressing
+- [Schemas](schemas.md) — Structure definitions and modes
 - [Namespaces](namespaces.md) — Organizational grouping
 - [Filters](filters.md) — CEL-based record filtering for list operations
 - [Encoding](encoding.md) — How records are serialized for storage

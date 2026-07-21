@@ -13,12 +13,17 @@ import (
 
 // SchemaService provides schema operations.
 type SchemaService struct {
-	store store.SchemaStore
+	store store.Store
+	tx    store.TX // nil when the store does not support transactions
 }
 
-// NewSchemaService creates a [SchemaService] backed by the given [store.SchemaStore].
-func NewSchemaService(s store.SchemaStore) *SchemaService {
-	return &SchemaService{store: s}
+// NewSchemaService creates a [SchemaService] backed by the given [store.Store].
+func NewSchemaService(s store.Store) *SchemaService {
+	svc := &SchemaService{store: s}
+	if tx, ok := s.(store.TX); ok {
+		svc.tx = tx
+	}
+	return svc
 }
 
 // CreateSchemaRequest is the request for schemas.create.
@@ -49,7 +54,7 @@ func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*
 	}
 
 	err = s.store.CreateSchema(ctx, uri, &def)
-	if errors.Is(err, store.ErrAlreadyExists) {
+	if errors.Is(err, core.ErrAlreadyExists) {
 		existing, getErr := s.store.GetSchema(ctx, uri)
 		if getErr != nil {
 			return nil, fmt.Errorf("api: schemas.create: %w", getErr)
@@ -140,20 +145,44 @@ type UpdateSchemaResponse struct {
 
 // Update updates an existing schema definition with patch semantics.
 // Patch fields are merged into the existing definition.
+// The read-merge-write runs inside a transaction when the store
+// supports [store.TX]; otherwise it falls back to sequential
+// (non-atomic) operations.
 func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*UpdateSchemaResponse, error) {
 	uri, err := core.ParseURI(req.URI)
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.update: %w", err)
 	}
 
-	existing, err := s.store.GetSchema(ctx, uri)
+	var updated *schema.Def
+	err = runAtomic(ctx, s.tx, s.store, func(st store.Store) error {
+		var patchErr error
+		updated, patchErr = applySchemaPatch(ctx, st, uri, req.Data)
+		return patchErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.update: %w", err)
 	}
 
-	patch, err := unmarshalSchemaDef(req.Data, uri)
+	return &UpdateSchemaResponse{Data: updated}, nil
+}
+
+// applySchemaPatch fetches the schema, merges the patch data into it,
+// and writes it back through the given store.
+func applySchemaPatch(
+	ctx context.Context,
+	schemas store.SchemaStore,
+	uri *core.URI,
+	data json.RawMessage,
+) (*schema.Def, error) {
+	existing, err := schemas.GetSchema(ctx, uri)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.update: %w", err)
+		return nil, err
+	}
+
+	patch, err := unmarshalSchemaDef(data, uri)
+	if err != nil {
+		return nil, err
 	}
 
 	// Merge patch fields into existing.
@@ -168,11 +197,11 @@ func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*
 		existing.Mode = patch.Mode
 	}
 
-	if err := s.store.UpdateSchema(ctx, uri, existing); err != nil {
-		return nil, fmt.Errorf("api: schemas.update: %w", err)
+	if err := schemas.UpdateSchema(ctx, uri, existing); err != nil {
+		return nil, err
 	}
 
-	return &UpdateSchemaResponse{Data: existing}, nil
+	return existing, nil
 }
 
 // DeleteSchemaRequest is the request for schemas.delete.
@@ -277,7 +306,7 @@ func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*
 	}
 
 	err = s.store.DeleteSchema(ctx, uri)
-	if errors.Is(err, store.ErrNotFound) {
+	if errors.Is(err, core.ErrNotFound) {
 		return &DeleteSchemaResponse{}, nil
 	}
 	if err != nil {
@@ -287,30 +316,17 @@ func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*
 	return &DeleteSchemaResponse{}, nil
 }
 
-// cascadeDelete deletes all records and the schema itself.
-// Uses [store.TX] for atomicity when available,
-// otherwise falls back to sequential operations.
+// cascadeDelete deletes all records and the schema itself. Atomic when
+// the store supports [store.TX], sequential (non-atomic) otherwise.
 func (s *SchemaService) cascadeDelete(ctx context.Context, uri *core.URI) error {
-	if tx, ok := s.store.(store.TX); ok {
-		return tx.Run(ctx, func(tx store.Store) error {
-			if err := tx.DeleteSchemaRecords(ctx, uri); err != nil {
-				return err
-			}
-			err := tx.DeleteSchema(ctx, uri)
-			if errors.Is(err, store.ErrNotFound) {
-				return nil
-			}
+	return runAtomic(ctx, s.tx, s.store, func(st store.Store) error {
+		if err := st.DeleteSchemaRecords(ctx, uri); err != nil {
 			return err
-		})
-	}
-
-	// Fallback: sequential (non-atomic).
-	if err := s.store.DeleteSchemaRecords(ctx, uri); err != nil {
+		}
+		err := st.DeleteSchema(ctx, uri)
+		if errors.Is(err, core.ErrNotFound) {
+			return nil
+		}
 		return err
-	}
-	err := s.store.DeleteSchema(ctx, uri)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	return err
+	})
 }

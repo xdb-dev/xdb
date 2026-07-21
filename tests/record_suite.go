@@ -28,7 +28,6 @@ func (s *RecordStoreSuite) Run(t *testing.T) {
 
 	t.Run("Create", s.testCreate)
 	t.Run("Get", s.testGet)
-	t.Run("Update", s.testUpdate)
 	t.Run("Upsert", s.testUpsert)
 	t.Run("Delete", s.testDelete)
 	t.Run("List", s.testList)
@@ -52,7 +51,7 @@ func (s *RecordStoreSuite) testCreate(t *testing.T) {
 		require.NoError(t, st.CreateRecord(ctx, r))
 
 		err := st.CreateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrAlreadyExists)
+		require.ErrorIs(t, err, core.ErrAlreadyExists)
 	})
 }
 
@@ -63,34 +62,7 @@ func (s *RecordStoreSuite) testGet(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/posts/missing")
 		_, err := st.GetRecord(ctx, uri)
-		require.ErrorIs(t, err, store.ErrNotFound)
-	})
-}
-
-func (s *RecordStoreSuite) testUpdate(t *testing.T) {
-	ctx := context.Background()
-	st := s.newStore()
-
-	t.Run("replaces existing record", func(t *testing.T) {
-		r := FakePost("update-1")
-		require.NoError(t, st.CreateRecord(ctx, r))
-
-		updated := core.NewRecord("com.example", "posts", "update-1")
-		updated.Set("title", "Updated Title")
-		require.NoError(t, st.UpdateRecord(ctx, updated))
-
-		got, err := st.GetRecord(ctx, r.URI())
-		require.NoError(t, err)
-
-		title, err := got.Get("title").AsStr()
-		require.NoError(t, err)
-		assert.Equal(t, "Updated Title", title)
-	})
-
-	t.Run("not found", func(t *testing.T) {
-		r := core.NewRecord("com.example", "posts", "update-missing")
-		err := st.UpdateRecord(ctx, r)
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.ErrorIs(t, err, core.ErrNotFound)
 	})
 }
 
@@ -134,13 +106,13 @@ func (s *RecordStoreSuite) testDelete(t *testing.T) {
 		require.NoError(t, st.DeleteRecord(ctx, r.URI()))
 
 		_, err := st.GetRecord(ctx, r.URI())
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.ErrorIs(t, err, core.ErrNotFound)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/posts/delete-missing")
 		err := st.DeleteRecord(ctx, uri)
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.ErrorIs(t, err, core.ErrNotFound)
 	})
 }
 
@@ -152,10 +124,12 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 
 		for _, id := range []string{"p1", "p2", "p3"} {
 			r := core.NewRecord("com.example", "posts", id)
+			r.Set("title", "Post "+id)
 			require.NoError(t, st.CreateRecord(ctx, r))
 		}
 		// Different schema — should not appear.
 		other := core.NewRecord("com.example", "users", "u1")
+		other.Set("name", "Alice")
 		require.NoError(t, st.CreateRecord(ctx, other))
 
 		uri := core.MustParseURI("xdb://com.example/posts")
@@ -168,9 +142,9 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 	t.Run("by namespace", func(t *testing.T) {
 		st := s.newStore()
 
-		require.NoError(t, st.CreateRecord(ctx, core.NewRecord("com.example", "posts", "p1")))
-		require.NoError(t, st.CreateRecord(ctx, core.NewRecord("com.example", "users", "u1")))
-		require.NoError(t, st.CreateRecord(ctx, core.NewRecord("com.other", "posts", "p1")))
+		require.NoError(t, st.CreateRecord(ctx, core.NewRecord("com.example", "posts", "p1").Set("title", "A")))
+		require.NoError(t, st.CreateRecord(ctx, core.NewRecord("com.example", "users", "u1").Set("name", "B")))
+		require.NoError(t, st.CreateRecord(ctx, core.NewRecord("com.other", "posts", "p1").Set("title", "C")))
 
 		uri := core.MustParseURI("xdb://com.example")
 		page, err := st.ListRecords(ctx, &store.Query{URI: uri})
@@ -270,6 +244,7 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 
 		for i := range 5 {
 			r := core.NewRecord("com.example", "posts", string(rune('a'+i)))
+			r.Set("title", "Post "+string(rune('a'+i)))
 			require.NoError(t, st.CreateRecord(ctx, r))
 		}
 

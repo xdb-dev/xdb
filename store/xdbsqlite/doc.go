@@ -1,6 +1,11 @@
-// Package xdbsqlite provides a SQLite-backed implementation of [store.Store].
+// Package xdbsqlite provides a SQLite-backed implementation of
+// [store.Driver], with native transactions ([store.TxDriver]) and CEL
+// filter pushdown ([store.QueryDriver]). It is pure storage — no
+// validation, mode enforcement, or revision logic; that policy lives in
+// the store facade. Construct a usable store with
+// store.New(xdbsqlite.NewDriver(db)).
 //
-// The store uses a dual storage strategy based on schema mode:
+// The driver uses a dual storage strategy based on schema mode:
 //
 //   - Flexible schemas (and schema-less records) use per-schema KV tables
 //     where each row stores one attribute of one record.

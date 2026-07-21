@@ -12,7 +12,7 @@ import (
 	"github.com/xdb-dev/xdb/store"
 )
 
-// CascadeStoreSuite runs tests that verify [store.SchemaWriter.DeleteSchemaRecords]
+// CascadeStoreSuite runs tests that verify [store.SchemaStore.DeleteSchemaRecords]
 // across all store implementations.
 type CascadeStoreSuite struct {
 	newStore func() store.Store
@@ -60,7 +60,7 @@ func (s *CascadeStoreSuite) testDeleteSchemaRecords(t *testing.T) {
 
 	// Schema should be gone.
 	_, err = st.GetSchema(ctx, uri)
-	require.ErrorIs(t, err, store.ErrNotFound)
+	require.ErrorIs(t, err, core.ErrNotFound)
 }
 
 func (s *CascadeStoreSuite) testDeleteSchemaRecordsEmpty(t *testing.T) {
@@ -108,7 +108,7 @@ func (s *CascadeStoreSuite) testPreservesOtherSchemas(t *testing.T) {
 
 	// Posts schema gone.
 	_, postSchemaErr := st.GetSchema(ctx, postsURI)
-	require.ErrorIs(t, postSchemaErr, store.ErrNotFound)
+	require.ErrorIs(t, postSchemaErr, core.ErrNotFound)
 
 	// Users schema and record still exist.
 	_, usersSchemaErr := st.GetSchema(ctx, usersURI)

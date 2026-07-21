@@ -11,51 +11,77 @@ import (
 	"github.com/xdb-dev/xdb/tests"
 )
 
+// newStore builds a full store over the in-memory driver, the way
+// every consumer does: through [store.New], which installs the
+// enforcement middleware. The suites therefore exercise the whole
+// facade + middleware + driver stack.
+func newStore() store.Store {
+	return store.New(xdbmemory.NewDriver())
+}
+
 func TestStoreImplementsInterfaces(t *testing.T) {
-	s := xdbmemory.New()
+	s := newStore()
 
 	var _ store.Store = s
-	var _ store.HealthChecker = s
-	var _ store.TX = s
+
+	_, ok := s.(store.HealthChecker)
+	require.True(t, ok, "store over memory driver must report health")
+
+	_, ok = s.(store.TX)
+	require.True(t, ok, "store over memory driver must support TX")
 }
 
 func TestHealth(t *testing.T) {
-	s := xdbmemory.New()
-	require.NoError(t, s.Health(context.Background()))
+	s := newStore()
+	h, ok := s.(store.HealthChecker)
+	require.True(t, ok)
+	require.NoError(t, h.Health(context.Background()))
 }
 
 func TestRecords(t *testing.T) {
 	tests.NewRecordStoreSuite(func() store.RecordStore {
-		return xdbmemory.New()
+		return newStore()
 	}).Run(t)
 }
 
 func TestSchemas(t *testing.T) {
 	tests.NewSchemaStoreSuite(func() store.SchemaStore {
-		return xdbmemory.New()
+		return newStore()
 	}).Run(t)
 }
 
 func TestNamespaces(t *testing.T) {
 	tests.NewNamespaceStoreSuite(func() tests.NamespaceStore {
-		return xdbmemory.New()
+		return newStore()
 	}).Run(t)
 }
 
 func TestBatch(t *testing.T) {
 	tests.NewBatchSuite(func() tests.BatchStore {
-		return xdbmemory.New()
+		return newStore().(tests.BatchStore)
+	}).Run(t)
+}
+
+func TestTuples(t *testing.T) {
+	tests.NewTupleStoreSuite(func() store.Store {
+		return newStore()
 	}).Run(t)
 }
 
 func TestModes(t *testing.T) {
 	tests.NewModeStoreSuite(func() store.Store {
-		return xdbmemory.New()
+		return newStore()
 	}).Run(t)
 }
 
 func TestCascade(t *testing.T) {
 	tests.NewCascadeStoreSuite(func() store.Store {
-		return xdbmemory.New()
+		return newStore()
+	}).Run(t)
+}
+
+func TestTypes(t *testing.T) {
+	tests.NewTypesStoreSuite(func() store.Store {
+		return newStore()
 	}).Run(t)
 }

@@ -25,7 +25,6 @@ func (s *BenchmarkSuite) Run(b *testing.B) {
 
 	b.Run("CreateRecord", s.benchCreateRecord)
 	b.Run("GetRecord", s.benchGetRecord)
-	b.Run("UpdateRecord", s.benchUpdateRecord)
 	b.Run("UpsertRecord", s.benchUpsertRecord)
 	b.Run("DeleteRecord", s.benchDeleteRecord)
 	b.Run("ListRecords/10", func(b *testing.B) { s.benchListRecords(b, 10) })
@@ -64,26 +63,6 @@ func (s *BenchmarkSuite) benchGetRecord(b *testing.B) {
 
 	for range b.N {
 		if _, err := st.GetRecord(ctx, uri); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func (s *BenchmarkSuite) benchUpdateRecord(b *testing.B) {
-	ctx := context.Background()
-	st := s.newStore()
-
-	r := FakePost("bench-update")
-	if err := st.CreateRecord(ctx, r); err != nil {
-		b.Fatal(err)
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := range b.N {
-		r.Set("title", fmt.Sprintf("Updated %d", i))
-		if err := st.UpdateRecord(ctx, r); err != nil {
 			b.Fatal(err)
 		}
 	}

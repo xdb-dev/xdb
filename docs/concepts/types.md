@@ -113,18 +113,18 @@ arrType.ElemTypeID()   // TIDString
 ```
 
 In [Schema](schemas.md) definitions, every array field must declare its element
-type via the `elem_type` JSON property (or `FieldDef.ElemType` in Go). Element
-type is required in all modes and is immutable once set — see
-[Schemas → Array fields](schemas.md#array-fields).
+type via the `elem_type` JSON property (in Go, it is folded into the field's
+`Type` with `core.NewArrayType`). Element type is required in all modes and is
+immutable once set — see [Schemas → Array fields](schemas.md#array-fields).
 
 ## Type Codec
 
-Each database store defines a codec that maps XDB types to database-specific representations. A codec provides two encoding paths:
+Each database store defines a codec that maps XDB types to database-specific representations. The SQLite codec is a `Value` type providing two encoding paths:
 
-- **ToDriver / FromDriver** — converts `*core.Value` to/from `driver.Value` for SQL column storage
-- **ToBytes / FromBytes** — converts `*core.Value` to/from `[]byte` for KV storage
+- **`Value()` / `Scan()`** — implements `driver.Valuer` and `sql.Scanner`, converting `*core.Value` to/from a `driver.Value` for SQL column storage
+- **`MarshalBytes()` / `UnmarshalBytes()`** — converts `*core.Value` to/from `[]byte` for KV storage
 
-The SQLite store's codec is defined in `store/xdbsqlite/internal/sql/codec.go`.
+The SQLite store's codec is defined in `store/xdbsqlite/internal/sql/value.go`.
 
 This is how XDB defines types once and maps them to SQLite, Postgres, Redis, or the filesystem.
 

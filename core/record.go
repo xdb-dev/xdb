@@ -27,6 +27,17 @@ func newRecord(path *URI) *Record {
 	}
 }
 
+// NewRecordFromTuples builds a Record at path (its attr is dropped)
+// from an existing tuple set. It is the read-side inverse of
+// [Record.Tuples]: assemble a record view from stored facts.
+func NewRecordFromTuples(path *URI, tuples []*Tuple) *Record {
+	record := newRecord(path.RecordURI())
+	for _, tuple := range tuples {
+		record.Set(tuple.Attr(), tuple.Value())
+	}
+	return record
+}
+
 // URI returns a URI that references this Record.
 func (r *Record) URI() *URI { return r.path }
 

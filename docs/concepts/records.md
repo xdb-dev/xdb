@@ -97,6 +97,19 @@ Records use `sync.RWMutex` internally:
 
 This makes records safe to use from multiple goroutines without external synchronization.
 
+## Records and Storage
+
+A record is a developer-experience type, not a storage unit. On the
+write side it is a builder — the [Store](stores.md) compiles
+`CreateRecord`/`UpsertRecord` into tuple mutations. On the read side it
+is an assembled view — `GetRecord` scans the record path's tuples and
+groups them. Storage [drivers](drivers.md) never see a `core.Record` at
+all.
+
+Because a record is exactly its tuple set, a record with no tuples
+does not exist: storing an empty record persists nothing, and deleting
+a record's last tuple (via `DeleteTuples`) removes the record.
+
 ## Related Concepts
 
 - [Tuples](tuples.md) — The building blocks of a record

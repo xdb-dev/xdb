@@ -86,7 +86,10 @@ func (v *Value) Scan(src any) error {
 		v.Val = scanJSON(src)
 	case core.TypeBytes:
 		if b, ok := src.([]byte); ok {
-			v.Val = core.BytesVal(b)
+			// The []byte handed to a Scanner is owned by the driver and
+			// reused on the next scan, so it must be copied before it is
+			// retained in a value.
+			v.Val = core.BytesVal(append([]byte(nil), b...))
 		}
 	default:
 		if v.Type.ID() == core.TIDArray {

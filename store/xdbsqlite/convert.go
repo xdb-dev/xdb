@@ -44,8 +44,8 @@ func sortedColumns(def *schema.Def) []string {
 	return names
 }
 
-// columnValues builds sorted [xsql.Value] descriptors (Name + Type) from a schema
-// for use in read operations. Columns are sorted alphabetically.
+// columnValues builds sorted [xsql.Value] descriptors (Name + Type)
+// from a schema for use in read operations.
 func columnValues(def *schema.Def) []xsql.Value {
 	names := sortedColumns(def)
 	vals := make([]xsql.Value, len(names))
@@ -58,52 +58,50 @@ func columnValues(def *schema.Def) []xsql.Value {
 	return vals
 }
 
-// recordToValues extracts column values from a [core.Record] as [xsql.Value]
-// in alphabetical column order matching the schema. Missing columns produce
-// nil Val fields.
-func recordToValues(def *schema.Def, record *core.Record) []xsql.Value {
+// valuesFromTuples maps tuples onto the schema's full column set in
+// alphabetical order. Columns without a tuple get a nil Val (NULL).
+// Tuples for attrs the schema does not declare are dropped — a column
+// table physically cannot hold them.
+func valuesFromTuples(def *schema.Def, tuples []*core.Tuple) []xsql.Value {
+	byAttr := make(map[string]*core.Tuple, len(tuples))
+	for _, tuple := range tuples {
+		byAttr[tuple.Attr()] = tuple
+	}
+
 	cols := sortedColumns(def)
 	vals := make([]xsql.Value, len(cols))
 	for i, col := range cols {
 		v := xsql.Value{Name: col}
-		if t := record.Get(col); t != nil {
-			v.Val = t.Value()
+		if tuple, ok := byAttr[col]; ok {
+			v.Val = tuple.Value()
 		}
 		vals[i] = v
 	}
 	return vals
 }
 
-// kvRecordFromValues builds a [*core.Record] from KV values, filtering out
-// the sentinel attribute used for empty records.
-func kvRecordFromValues(uri *core.URI, values []xsql.Value) *core.Record {
-	record := core.NewRecord(uri.NS(), uri.Schema(), uri.ID())
-	for _, v := range values {
-		if v.Name == "_" {
-			continue
-		}
-		record.Set(v.Name, v.Val)
-	}
-	return record
-}
-
-// kvValues extracts all tuple values from a [core.Record] as [xsql.Value]
-// for KV table writes. Empty records get a sentinel attribute so the record
-// ID is always trackable via KVRecordExists and CountKVRecords.
-func kvValues(record *core.Record) []xsql.Value {
-	tuples := record.Tuples()
-	if len(tuples) == 0 {
-		return []xsql.Value{{
-			Name: "_",
-			Val:  core.BoolVal(true),
-		}}
-	}
+// kvValuesFromTuples maps tuples to KV rows, one per tuple.
+func kvValuesFromTuples(tuples []*core.Tuple) []xsql.Value {
 	vals := make([]xsql.Value, len(tuples))
-	for i, t := range tuples {
+	for i, tuple := range tuples {
 		vals[i] = xsql.Value{
-			Name: t.Attr(),
-			Val:  t.Value(),
+			Name: tuple.Attr(),
+			Val:  tuple.Value(),
 		}
 	}
 	return vals
+}
+
+// tuplesFromValues builds tuples at path from row values, skipping
+// NULL columns and the _id pseudo-column — a NULL column is not a
+// tuple.
+func tuplesFromValues(path *core.URI, vals []xsql.Value) []*core.Tuple {
+	tuples := make([]*core.Tuple, 0, len(vals))
+	for _, v := range vals {
+		if v.Val == nil || v.Name == "_id" {
+			continue
+		}
+		tuples = append(tuples, core.NewTuple(path.Path(), v.Name, v.Val))
+	}
+	return tuples
 }

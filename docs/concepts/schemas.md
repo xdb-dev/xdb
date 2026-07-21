@@ -22,40 +22,43 @@ See the [CLI reference](../../cmd/xdb/cli/CONTEXT.md) for the full grammar.
 
 A schema definition (`Def`) contains:
 
-| Component  | Type                    | Description                            |
-| ---------- | ----------------------- | -------------------------------------- |
-| **URI**    | `*core.URI`             | Schema location (NS + Schema)          |
-| **Fields** | `map[string]FieldDef`   | Field name to definition mapping       |
-| **Mode**   | `Mode`                  | Validation behavior                    |
+| Component    | Type                      | Description                            |
+| ------------ | ------------------------- | -------------------------------------- |
+| **URI**      | `*core.URI`               | Schema location (NS + Schema)          |
+| **Fields**   | `map[string]schema.Field` | Field name to definition mapping       |
+| **Mode**     | `Mode`                    | Validation behavior                    |
+| **Revision** | `int64`                   | Bumps on each update; drives the update CAS |
 
 ### Field Definitions
 
-Each field has a type, an optional element type (for arrays), and a required flag:
+Each field carries a type (with the array element type folded in) and a required flag:
 
 ```go
-schema.FieldDef{
-    Type:     core.TIDString,  // Expected value type
-    Required: true,            // Whether the field must be present
+// A scalar field.
+schema.Field{
+    Type:     core.NewType(core.TIDString), // expected value type
+    Required: true,                         // must be present
 }
 
-// Array fields must also declare the element type:
-schema.FieldDef{
-    Type:     core.TIDArray,
-    ElemType: core.TIDString,  // ARRAY<STRING>
+// An array field — the element type is part of the Type.
+schema.Field{
+    Type: core.NewArrayType(core.TIDString), // ARRAY<STRING>
 }
 ```
 
 #### Array fields
 
-When `Type` is `core.TIDArray`, `ElemType` must be set. This rule applies in
-**every mode**, including `flexible` — `ElemType` is part of the field's
-declared shape, not a validation toggle. Schemas that omit it are rejected at
-`CreateSchema` / `UpdateSchema` with `ErrInvalidField` (wrapped as
-`store.ErrSchemaViolation`).
+An array field's element type is part of its `Type`, built with
+`core.NewArrayType`. Every array field must declare one — in JSON via the
+`elem_type` property. This holds in **every mode**, including `flexible`: the
+element type is part of the field's declared shape, not a validation toggle.
+Schemas that omit it are rejected at `CreateSchema` / `UpdateSchema` with
+`ErrInvalidField`.
 
-Both `Type` and `ElemType` are **immutable** once a field exists. `UpdateSchema`
-rejects changes with `ErrImmutableField`. Adding new fields and removing
-existing fields are still allowed.
+A field's type — including an array's element type — is **immutable** once the
+field exists, and a schema's **mode is immutable** too. `UpdateSchema` rejects a
+type change with `ErrImmutableField` and a mode change with `ErrImmutableMode`.
+Adding new fields and removing existing fields are still allowed.
 
 ## Modes
 
@@ -114,13 +117,16 @@ err := def.Validate()                    // well-formedness
 err := schema.ValidateUpdate(old, new)   // compatibility with existing
 ```
 
-- **Well-formedness** — every `array` field must declare an `elem_type`.
-  Violations produce `ErrInvalidField`.
-- **Immutability** — on update, an existing field's `Type` and `ElemType`
-  cannot change. Violations produce `ErrImmutableField`. Adding new fields
-  and removing existing fields are allowed.
+- **Well-formedness** — every `array` field must declare an element type
+  (`elem_type` in JSON). Violations produce `ErrInvalidField`.
+- **Immutability** — on update, an existing field's type (including an array's
+  element type) cannot change, and the schema's `Mode` cannot change. Violations
+  produce `ErrImmutableField` and `ErrImmutableMode` respectively. Adding new
+  fields and removing existing fields are allowed.
+- **Revision CAS** — an update carries the `Revision` it is based on; a stale
+  base is rejected with `core.ErrConflict`. See [Stores](stores.md).
 
-Stores wrap these as `store.ErrSchemaViolation`.
+Stores wrap the schema-declaration violations as `core.ErrSchemaViolation`.
 
 ### Record write checks
 
@@ -135,13 +141,16 @@ err := schema.ValidateRecords(def, records)
 
 ### Errors
 
-| Error                | Meaning                                              |
-| -------------------- | ---------------------------------------------------- |
-| `ErrUnknownField`    | Field not declared in schema (strict mode)           |
-| `ErrTypeMismatch`    | Value type or array element type does not match      |
-| `ErrInvalidField`    | Field declaration is malformed (e.g. array missing `elem_type`) |
-| `ErrImmutableField`  | Update would change an existing field's `Type` or `ElemType` |
-| `ErrSchemaViolation` | Store-level wrapper around any of the above          |
+| Error                     | Meaning                                              |
+| ------------------------- | ---------------------------------------------------- |
+| `ErrUnknownField`         | Field not declared in schema (strict mode)           |
+| `ErrTypeMismatch`         | Value type or array element type does not match      |
+| `ErrMissingRequired`      | A `required` field has no tuple on a full-record write |
+| `ErrInvalidField`         | Field declaration is malformed (e.g. array missing `elem_type`) |
+| `ErrImmutableField`       | Update would change an existing field's type (or array element type) |
+| `ErrImmutableMode`        | Update would change the schema's mode                |
+| `core.ErrConflict`        | Update's base revision is stale (CAS failure)        |
+| `core.ErrSchemaViolation` | Store-level wrapper around the schema errors above   |
 
 ## JSON Representation
 

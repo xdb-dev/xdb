@@ -29,7 +29,8 @@ The [CLI](../../cmd/xdb/cli/CONTEXT.md) exposes these concepts as the primitives
 
 ## Storage & Encoding
 
-- [Stores](stores.md) — Storage interfaces and implementations
+- [Stores](stores.md) — The store facade, enforcement middleware, and construction via `store.New`
+- [Drivers](drivers.md) — The pure-storage contract backends implement
 - [Encoding](encoding.md) — JSON encoding and decoding of records
 
 ## CLI & Daemon

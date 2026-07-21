@@ -83,8 +83,52 @@ title, err := record.Get("title").AsStr()
 
 Attributes support dot notation for representing nested data (e.g., `author.name`, `profile.address.city`). When encoded to JSON, these are unfolded into nested objects. See [Encoding](encoding.md) for details.
 
+## Tuples in Stores
+
+Tuples are not just a data-model detail — they are the unit the storage
+layer speaks. Every attr is addressable and operable through a
+[Store](stores.md) via its `#attr` URI:
+
+```go
+st := store.New(xdbmemory.NewDriver())
+
+// Merge tuples into records (creates the record if absent, leaves
+// other attrs untouched). Tuples may span records.
+err := st.PutTuples(ctx,
+    core.NewTuple("com.example/posts/post-123", "title", "Hello"),
+    core.NewTuple("com.example/posts/post-123", "rating", 4.5),
+)
+
+// Point-read one tuple. Absence — of the record or the attr — is
+// core.ErrNotFound.
+tuple, err := st.GetTuple(ctx,
+    core.MustParseURI("xdb://com.example/posts/post-123#title"))
+
+// Batch point reads omit absent attrs instead of erroring.
+tuples, err := st.GetTuples(ctx, uris...)
+
+// Delete individual tuples (idempotent). Removing a record's last
+// tuple removes the record.
+err = st.DeleteTuples(ctx,
+    core.MustParseURI("xdb://com.example/posts/post-123#rating"))
+```
+
+A record springs into existence when its first tuples are put and
+ceases to exist when its last tuple is deleted — records are views
+over tuple sets, not containers that exist independently of them.
+Schema policy applies to tuple writes like any other write: types are
+checked, strict mode rejects undeclared attrs, and a `Required` attr
+cannot be deleted out of a record.
+
+The API and CLI accept attr-level URIs in the same spirit:
+`xdb get xdb://com.example/posts/post-123#title` returns just that
+attribute, and `xdb delete` of an attr-level URI removes just that
+tuple.
+
 ## Related Concepts
 
 - [Records](records.md) — Groups of tuples with the same path
 - [Types](types.md) — The type system behind tuple values
 - [URIs](uris.md) — How tuples are addressed
+- [Stores](stores.md) — Tuple-level verbs on the store facade
+- [Drivers](drivers.md) — Tuples as the storage contract

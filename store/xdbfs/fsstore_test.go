@@ -16,38 +16,43 @@ import (
 	"github.com/xdb-dev/xdb/tests"
 )
 
-func newTestStore(t *testing.T) *xdbfs.Store {
+// newTestDriver builds a raw driver over a fresh temp directory.
+func newTestDriver(t *testing.T) *xdbfs.Driver {
 	t.Helper()
-	s, err := xdbfs.New(t.TempDir(), xdbfs.Options{})
+	d, err := xdbfs.NewDriver(t.TempDir(), xdbfs.Options{})
 	require.NoError(t, err)
-	return s
+	return d
 }
 
-func TestStoreImplementsInterfaces(t *testing.T) {
-	s := newTestStore(t)
+// newTestStore builds a full store over the filesystem driver, the way
+// every consumer does: through [store.New], which installs the
+// enforcement middleware. The suites therefore exercise the whole
+// facade + middleware + driver stack.
+func newTestStore(t *testing.T) store.Store {
+	t.Helper()
+	return store.New(newTestDriver(t))
+}
 
-	var _ store.Store = s
-	var _ store.HealthChecker = s
+func TestDriverImplementsInterfaces(t *testing.T) {
+	d := newTestDriver(t)
+
+	var _ store.Driver = d
+	var _ store.HealthChecker = d
+	var _ store.Closer = d
 }
 
 func TestHealth(t *testing.T) {
 	t.Run("valid_root", func(t *testing.T) {
-		s := newTestStore(t)
-		require.NoError(t, s.Health(context.Background()))
+		d := newTestDriver(t)
+		require.NoError(t, d.Health(context.Background()))
 	})
 
 	t.Run("nonexistent_root", func(t *testing.T) {
-		s, err := xdbfs.New(t.TempDir(), xdbfs.Options{})
+		d, err := xdbfs.NewDriver(filepath.Join(t.TempDir(), "gone"), xdbfs.Options{})
 		require.NoError(t, err)
+		require.NoError(t, os.RemoveAll(d.Root()))
 
-		// Remove the root after creation.
-		os.RemoveAll(filepath.Dir(s.Root()) + "/nonexistent")
-		// Create a store pointing to a path that doesn't exist.
-		bad, err := xdbfs.New(filepath.Join(t.TempDir(), "gone"), xdbfs.Options{})
-		require.NoError(t, err)
-		os.RemoveAll(bad.Root())
-
-		err = bad.Health(context.Background())
+		err = d.Health(context.Background())
 		assert.Error(t, err)
 	})
 }
@@ -70,24 +75,30 @@ func TestNamespaces(t *testing.T) {
 	}).Run(t)
 }
 
-func TestCascade(t *testing.T) {
-	tests.NewCascadeStoreSuite(func() store.Store {
+func TestTuples(t *testing.T) {
+	tests.NewTupleStoreSuite(func() store.Store {
 		return newTestStore(t)
 	}).Run(t)
 }
 
-func TestModes(t *testing.T) {
-	tests.NewModeStoreSuite(func() store.Store {
+func TestTypes(t *testing.T) {
+	tests.NewTypesStoreSuite(func() store.Store {
 		return newTestStore(t)
 	}).Run(t)
 }
+
+// Policy suites (ModeStoreSuite, CascadeStoreSuite) are
+// driver-independent and run once against the memory reference; see
+// the tests package doc. This backend's storage behavior is pinned by
+// DriverSuite + the store suites above.
 
 // --- FS-specific tests ---
 
 func TestFileLayout_SchemaFile(t *testing.T) {
 	root := t.TempDir()
-	s, err := xdbfs.New(root, xdbfs.Options{})
+	d, err := xdbfs.NewDriver(root, xdbfs.Options{})
 	require.NoError(t, err)
+	s := store.New(d)
 
 	ctx := context.Background()
 	uri := core.MustNewURI("myapp", "users")
@@ -104,8 +115,9 @@ func TestFileLayout_SchemaFile(t *testing.T) {
 
 func TestFileLayout_RecordFile(t *testing.T) {
 	root := t.TempDir()
-	s, err := xdbfs.New(root, xdbfs.Options{})
+	d, err := xdbfs.NewDriver(root, xdbfs.Options{})
 	require.NoError(t, err)
+	s := store.New(d)
 
 	ctx := context.Background()
 	record := core.NewRecord("myapp", "users", "user-1").
@@ -122,8 +134,9 @@ func TestFileLayout_RecordFile(t *testing.T) {
 
 func TestDeleteSchema_CleansEmptyDirs(t *testing.T) {
 	root := t.TempDir()
-	s, err := xdbfs.New(root, xdbfs.Options{})
+	d, err := xdbfs.NewDriver(root, xdbfs.Options{})
 	require.NoError(t, err)
+	s := store.New(d)
 
 	ctx := context.Background()
 	uri := core.MustNewURI("cleanup-ns", "only-schema")
@@ -143,3 +156,4 @@ func TestDeleteSchema_CleansEmptyDirs(t *testing.T) {
 	_, err = os.Stat(filepath.Join(root, "cleanup-ns"))
 	assert.True(t, os.IsNotExist(err))
 }
+

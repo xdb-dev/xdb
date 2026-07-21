@@ -5,209 +5,179 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"iter"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
-	"github.com/xdb-dev/xdb/store"
 )
 
-// GetSchema retrieves a schema definition by URI.
-func (s *Store) GetSchema(_ context.Context, uri *core.URI) (*schema.Def, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+// --- Definition reads ---
 
-	return s.readSchema(uri)
-}
+// GetSchema retrieves a definition by URI (ns + schema).
+// Returns [core.ErrNotFound] if absent.
+func (d *Driver) GetSchema(_ context.Context, uri *core.URI) (*schema.Def, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 
-// ListSchemas lists schemas, optionally scoped by namespace URI.
-func (s *Store) ListSchemas(
-	_ context.Context,
-	q *store.Query,
-) (*store.Page[*schema.Def], error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	uri := q.URI
-
-	var nsDirs []string
-	if uri != nil {
-		nsDirs = []string{s.nsDir(uri)}
-	} else {
-		entries, err := os.ReadDir(s.root)
-		if err != nil {
-			return nil, fmt.Errorf("fsstore: read root: %w", err)
-		}
-		for _, e := range entries {
-			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
-				nsDirs = append(nsDirs, filepath.Join(s.root, e.Name()))
-			}
-		}
-	}
-
-	var defs []*schema.Def
-	for _, nsDir := range nsDirs {
-		schemaDirs, err := os.ReadDir(nsDir)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			return nil, fmt.Errorf("fsstore: read namespace dir: %w", err)
-		}
-
-		for _, sd := range schemaDirs {
-			if !sd.IsDir() {
-				continue
-			}
-
-			schemaFile := filepath.Join(nsDir, sd.Name(), schemaFileName)
-			def, err := readSchemaFile(schemaFile)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					continue
-				}
-				return nil, err
-			}
-			defs = append(defs, def)
-		}
-	}
-
-	sort.Slice(defs, func(i, j int) bool {
-		return defs[i].URI.Path() < defs[j].URI.Path()
-	})
-
-	return store.Paginate(defs, q), nil
-}
-
-// CreateSchema creates a new schema definition.
-func (s *Store) CreateSchema(
-	_ context.Context,
-	uri *core.URI,
-	def *schema.Def,
-) error {
-	if err := def.Validate(); err != nil {
-		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	path := s.schemaPath(uri)
-
-	if _, err := os.Stat(path); err == nil {
-		return store.ErrAlreadyExists
-	}
-
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, dirPerm); err != nil {
-		return fmt.Errorf("fsstore: create schema dir: %w", err)
-	}
-
-	def.Revision = 1
-	return s.writeSchema(path, def)
-}
-
-// UpdateSchema updates an existing schema definition.
-func (s *Store) UpdateSchema(
-	_ context.Context,
-	uri *core.URI,
-	def *schema.Def,
-) error {
-	if err := def.Validate(); err != nil {
-		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	path := s.schemaPath(uri)
-
-	existing, err := readSchemaFile(path)
+	def, err := readSchemaFile(d.schemaPath(uri))
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return store.ErrNotFound
-		}
-		return fmt.Errorf("fsstore: read existing schema: %w", err)
-	}
-
-	if err = schema.ValidateUpdate(existing, def); err != nil {
-		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
-	}
-
-	next, err := schema.NextRevision(existing.Revision, def.Revision)
-	if err != nil {
-		return err
-	}
-	def.Revision = next
-
-	return s.writeSchema(path, def)
-}
-
-// DeleteSchema deletes a schema by URI.
-func (s *Store) DeleteSchema(_ context.Context, uri *core.URI) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	path := s.schemaPath(uri)
-
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return store.ErrNotFound
-		}
-		return fmt.Errorf("fsstore: stat schema: %w", err)
-	}
-
-	if err := os.Remove(path); err != nil {
-		return fmt.Errorf("fsstore: delete schema: %w", err)
-	}
-
-	// Clean up empty directories.
-	s.cleanEmptyDirs(uri)
-
-	return nil
-}
-
-// DeleteSchemaRecords deletes all record files belonging to a schema.
-func (s *Store) DeleteSchemaRecords(_ context.Context, uri *core.URI) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	dir := s.schemaDir(uri)
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		return fmt.Errorf("fsstore: read schema dir: %w", err)
-	}
-
-	for _, e := range entries {
-		if e.Name() == schemaFileName || e.IsDir() {
-			continue
-		}
-		if err := os.Remove(filepath.Join(dir, e.Name())); err != nil {
-			return fmt.Errorf("fsstore: delete record: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func (s *Store) readSchema(uri *core.URI) (*schema.Def, error) {
-	path := s.schemaPath(uri)
-	def, err := readSchemaFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, store.ErrNotFound
+		if isNotExist(err) {
+			return nil, core.ErrNotFound
 		}
 		return nil, err
 	}
 	return def, nil
 }
 
+// ScanSchemas yields definitions under scope (nil for all, or a namespace
+// URI), in sorted path order.
+func (d *Driver) ScanSchemas(
+	_ context.Context,
+	scope *core.URI,
+) iter.Seq2[*schema.Def, error] {
+	d.mu.RLock()
+	snapshot, err := d.collectDefs(scope)
+	d.mu.RUnlock()
+
+	return func(yield func(*schema.Def, error) bool) {
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+		for _, def := range snapshot {
+			if !yield(def, nil) {
+				return
+			}
+		}
+	}
+}
+
+// collectDefs snapshots all defs under scope by reading each schema
+// directory's _schema.json. Callers must hold d.mu.
+func (d *Driver) collectDefs(scope *core.URI) ([]*schema.Def, error) {
+	uris, err := d.schemaDirsUnder(scope)
+	if err != nil {
+		return nil, err
+	}
+
+	var defs []*schema.Def
+	for _, uri := range uris {
+		def, err := readSchemaFile(d.schemaPath(uri))
+		if err != nil {
+			if isNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+		defs = append(defs, def)
+	}
+	return defs, nil
+}
+
+// --- Definition writes ---
+
+// CreateSchema stores a new definition verbatim. Returns
+// [core.ErrAlreadyExists] if one exists; the exists-check is atomic
+// via O_CREATE|O_EXCL.
+func (d *Driver) CreateSchema(_ context.Context, def *schema.Def) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	data, err := d.marshalDef(def)
+	if err != nil {
+		return err
+	}
+
+	path := d.schemaPath(def.URI)
+	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
+		return fmt.Errorf("xdbfs: create schema dir: %w", err)
+	}
+
+	if err := writeFileExclusive(path, data); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return core.ErrAlreadyExists
+		}
+		return fmt.Errorf("xdbfs: create schema: %w", err)
+	}
+	return nil
+}
+
+// PutSchema stores a definition verbatim, unconditionally (upsert).
+func (d *Driver) PutSchema(_ context.Context, def *schema.Def) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	data, err := d.marshalDef(def)
+	if err != nil {
+		return err
+	}
+
+	path := d.schemaPath(def.URI)
+	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
+		return fmt.Errorf("xdbfs: create schema dir: %w", err)
+	}
+
+	if err := writeFileAtomic(path, data); err != nil {
+		return fmt.Errorf("xdbfs: write schema: %w", err)
+	}
+	return nil
+}
+
+// DeleteSchema deletes a definition. Returns [core.ErrNotFound] if
+// absent. Empty schema and namespace directories are cleaned up.
+func (d *Driver) DeleteSchema(_ context.Context, uri *core.URI) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	path := d.schemaPath(uri)
+
+	if err := os.Remove(path); err != nil {
+		if isNotExist(err) {
+			return core.ErrNotFound
+		}
+		return fmt.Errorf("xdbfs: delete schema: %w", err)
+	}
+
+	removeIfEmpty(d.schemaDir(uri))
+	removeIfEmpty(d.nsDir(uri))
+
+	return nil
+}
+
+// DropRecords deletes all record files belonging to a schema,
+// keeping the definition. No-op if no records exist.
+func (d *Driver) DropRecords(_ context.Context, uri *core.URI) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	dir := d.schemaDir(uri)
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if isNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("xdbfs: read schema dir: %w", err)
+	}
+
+	for _, e := range entries {
+		if !isRecordFile(e) {
+			continue
+		}
+		if err := os.Remove(filepath.Join(dir, e.Name())); err != nil {
+			return fmt.Errorf("xdbfs: delete record: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// --- File helpers ---
+
+// readSchemaFile reads and unmarshals a _schema.json file. Missing
+// files surface as [os.ErrNotExist] for callers to map.
 func readSchemaFile(path string) (*schema.Def, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -216,36 +186,18 @@ func readSchemaFile(path string) (*schema.Def, error) {
 
 	var def schema.Def
 	if err := json.Unmarshal(data, &def); err != nil {
-		return nil, fmt.Errorf("fsstore: unmarshal schema %s: %w", path, err)
+		return nil, fmt.Errorf("xdbfs: unmarshal schema %s: %w", path, err)
 	}
 
 	return &def, nil
 }
 
-func (s *Store) writeSchema(path string, def *schema.Def) error {
-	data, err := json.MarshalIndent(def, "", s.opts.Indent)
+// marshalDef encodes a definition verbatim — no validation, no
+// revision stamping.
+func (d *Driver) marshalDef(def *schema.Def) ([]byte, error) {
+	data, err := json.MarshalIndent(def, "", d.opts.Indent)
 	if err != nil {
-		return fmt.Errorf("fsstore: marshal schema: %w", err)
+		return nil, fmt.Errorf("xdbfs: marshal schema: %w", err)
 	}
-
-	return writeFileAtomic(path, data)
-}
-
-// cleanEmptyDirs removes the schema and namespace directories if they are empty.
-func (s *Store) cleanEmptyDirs(uri *core.URI) {
-	schemaDir := s.schemaDir(uri)
-	removeIfEmpty(schemaDir)
-
-	nsDir := s.nsDir(uri)
-	removeIfEmpty(nsDir)
-}
-
-func removeIfEmpty(dir string) {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return
-	}
-	if len(entries) == 0 {
-		_ = os.Remove(dir)
-	}
+	return data, nil
 }

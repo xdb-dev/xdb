@@ -1,5 +1,3 @@
-// Package tests provides shared test helpers, assertions, and reusable
-// test suites for XDB store implementations.
 package tests
 
 import (

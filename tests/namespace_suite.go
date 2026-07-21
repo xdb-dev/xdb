@@ -67,7 +67,7 @@ func (s *NamespaceStoreSuite) testGet(t *testing.T) {
 
 		uri := core.MustParseURI("xdb://com.missing")
 		_, err := st.GetNamespace(ctx, uri)
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.ErrorIs(t, err, core.ErrNotFound)
 	})
 
 	t.Run("disappears when all schemas deleted", func(t *testing.T) {
@@ -80,7 +80,7 @@ func (s *NamespaceStoreSuite) testGet(t *testing.T) {
 
 		nsURI := core.MustParseURI("xdb://com.example")
 		_, err := st.GetNamespace(ctx, nsURI)
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.ErrorIs(t, err, core.ErrNotFound)
 	})
 }
 

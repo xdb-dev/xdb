@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
@@ -23,7 +24,7 @@ func recordData(t *testing.T, raw json.RawMessage) map[string]any {
 }
 
 func TestRecordService_Create(t *testing.T) {
-	s := xdbmemory.New()
+	s := store.New(xdbmemory.NewDriver())
 	svc := api.NewRecordService(s)
 	ctx := context.Background()
 
@@ -61,7 +62,7 @@ func TestRecordService_Create(t *testing.T) {
 }
 
 func TestRecordService_Get(t *testing.T) {
-	s := xdbmemory.New()
+	s := store.New(xdbmemory.NewDriver())
 	svc := api.NewRecordService(s)
 	ctx := context.Background()
 
@@ -90,7 +91,7 @@ func TestRecordService_Get(t *testing.T) {
 }
 
 func TestRecordService_List(t *testing.T) {
-	s := xdbmemory.New()
+	s := store.New(xdbmemory.NewDriver())
 	svc := api.NewRecordService(s)
 	ctx := context.Background()
 
@@ -124,7 +125,7 @@ func TestRecordService_List(t *testing.T) {
 }
 
 func TestRecordService_GetFields(t *testing.T) {
-	s := xdbmemory.New()
+	s := store.New(xdbmemory.NewDriver())
 	svc := api.NewRecordService(s)
 	ctx := context.Background()
 
@@ -148,7 +149,7 @@ func TestRecordService_GetFields(t *testing.T) {
 }
 
 func TestRecordService_ListFields(t *testing.T) {
-	s := xdbmemory.New()
+	s := store.New(xdbmemory.NewDriver())
 	svc := api.NewRecordService(s)
 	ctx := context.Background()
 
@@ -176,7 +177,7 @@ func TestRecordService_ListFields(t *testing.T) {
 }
 
 func TestRecordService_Update(t *testing.T) {
-	s := xdbmemory.New()
+	s := store.New(xdbmemory.NewDriver())
 	svc := api.NewRecordService(s)
 	ctx := context.Background()
 
@@ -208,7 +209,7 @@ func TestRecordService_Update(t *testing.T) {
 }
 
 func TestRecordService_Upsert(t *testing.T) {
-	s := xdbmemory.New()
+	s := store.New(xdbmemory.NewDriver())
 	svc := api.NewRecordService(s)
 	ctx := context.Background()
 
@@ -243,8 +244,74 @@ func TestRecordService_Upsert(t *testing.T) {
 	})
 }
 
+func TestRecordService_GetTuple(t *testing.T) {
+	s := store.New(xdbmemory.NewDriver())
+	svc := api.NewRecordService(s)
+	ctx := context.Background()
+
+	_, err := svc.Create(ctx, &api.CreateRecordRequest{
+		URI:  "xdb://com.example/posts/post-1",
+		Data: json.RawMessage(`{"title":"Hello","author":"Alice"}`),
+	})
+	require.NoError(t, err)
+
+	t.Run("attr-level URI returns just that attr", func(t *testing.T) {
+		resp, err := svc.Get(ctx, &api.GetRecordRequest{
+			URI: "xdb://com.example/posts/post-1#title",
+		})
+		require.NoError(t, err)
+
+		m := recordData(t, resp.Data)
+		assert.Equal(t, "Hello", m["title"])
+		assert.Equal(t, "post-1", m["_id"])
+		assert.NotContains(t, m, "author")
+	})
+
+	t.Run("absent attr is not found", func(t *testing.T) {
+		_, err := svc.Get(ctx, &api.GetRecordRequest{
+			URI: "xdb://com.example/posts/post-1#missing",
+		})
+		require.Error(t, err)
+	})
+}
+
+func TestRecordService_DeleteTuple(t *testing.T) {
+	s := store.New(xdbmemory.NewDriver())
+	svc := api.NewRecordService(s)
+	ctx := context.Background()
+
+	_, err := svc.Create(ctx, &api.CreateRecordRequest{
+		URI:  "xdb://com.example/posts/post-1",
+		Data: json.RawMessage(`{"title":"Hello","author":"Alice"}`),
+	})
+	require.NoError(t, err)
+
+	t.Run("attr-level URI deletes just that attr", func(t *testing.T) {
+		_, err := svc.Delete(ctx, &api.DeleteRecordRequest{
+			URI: "xdb://com.example/posts/post-1#author",
+		})
+		require.NoError(t, err)
+
+		resp, err := svc.Get(ctx, &api.GetRecordRequest{
+			URI: "xdb://com.example/posts/post-1",
+		})
+		require.NoError(t, err)
+
+		m := recordData(t, resp.Data)
+		assert.Equal(t, "Hello", m["title"])
+		assert.NotContains(t, m, "author")
+	})
+
+	t.Run("idempotent on absent attr", func(t *testing.T) {
+		_, err := svc.Delete(ctx, &api.DeleteRecordRequest{
+			URI: "xdb://com.example/posts/post-1#missing",
+		})
+		require.NoError(t, err)
+	})
+}
+
 func TestRecordService_Delete(t *testing.T) {
-	s := xdbmemory.New()
+	s := store.New(xdbmemory.NewDriver())
 	svc := api.NewRecordService(s)
 	ctx := context.Background()
 

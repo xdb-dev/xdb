@@ -8,11 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
 func TestNamespaceService_Get(t *testing.T) {
-	mem := xdbmemory.New()
+	mem := store.New(xdbmemory.NewDriver())
 	schemaSvc := api.NewSchemaService(mem)
 	nsSvc := api.NewNamespaceService(mem)
 	ctx := context.Background()
@@ -44,7 +45,7 @@ func TestNamespaceService_Get(t *testing.T) {
 }
 
 func TestNamespaceService_List(t *testing.T) {
-	mem := xdbmemory.New()
+	mem := store.New(xdbmemory.NewDriver())
 	schemaSvc := api.NewSchemaService(mem)
 	nsSvc := api.NewNamespaceService(mem)
 	ctx := context.Background()

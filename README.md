@@ -28,7 +28,7 @@ The XDB data model can be visualized as a tree of **Namespaces**, **Schemas**, *
 ┌─────────────────────────────────┐
 │             Tuple               │
 ├─────────────────────────────────┤
-│   ID | Attr | Value | Options   │
+│        ID | Attr | Value        │
 └─────────────────────────────────┘
 ```
 
@@ -39,7 +39,6 @@ A **Tuple** is the fundamental building block in XDB. It combines:
 - ID: a string that uniquely identifies the record
 - Attr: a string that identifies the attribute. It supports dot-separated nesting.
 - Value: The attribute's value
-- Options: Key-value pairs for metadata
 
 ![tuple.png](./docs/tuple.png)
 

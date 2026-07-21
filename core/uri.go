@@ -47,6 +47,19 @@ func (u *URI) SchemaURI() *URI {
 	return &URI{ns: u.ns, schema: u.schema}
 }
 
+// RecordURI returns a new URI containing only the namespace, schema,
+// and ID components — the record path with any attr dropped.
+func (u *URI) RecordURI() *URI {
+	return &URI{ns: u.ns, schema: u.schema, id: u.id}
+}
+
+// RecordPath returns the ns/schema/id record-path string, dropping any
+// attr. It is the canonical record key and equals RecordURI().Path()
+// without the intermediate URI allocation.
+func (u *URI) RecordPath() string {
+	return u.ns + "/" + u.schema + "/" + u.id
+}
+
 // Path returns the URI without the scheme.
 func (u *URI) Path() string {
 	var b strings.Builder

@@ -64,10 +64,12 @@ func (s *BatchSuite) testRollback(t *testing.T) {
 	st := s.newStore()
 
 	existing := core.NewRecord("com.example", "posts", "batch-existing")
+	existing.Set("title", "Existing")
 	require.NoError(t, st.CreateRecord(ctx, existing))
 
 	err := st.Run(ctx, func(tx store.Store) error {
 		r := core.NewRecord("com.example", "posts", "batch-rollback")
+		r.Set("title", "Discarded")
 		if err := tx.CreateRecord(ctx, r); err != nil {
 			return err
 		}
@@ -76,7 +78,7 @@ func (s *BatchSuite) testRollback(t *testing.T) {
 	require.Error(t, err)
 
 	_, err = st.GetRecord(ctx, core.MustParseURI("xdb://com.example/posts/batch-rollback"))
-	require.ErrorIs(t, err, store.ErrNotFound)
+	require.ErrorIs(t, err, core.ErrNotFound)
 
 	_, err = st.GetRecord(ctx, core.MustParseURI("xdb://com.example/posts/batch-existing"))
 	require.NoError(t, err)

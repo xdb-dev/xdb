@@ -24,11 +24,11 @@ func BenchmarkStore(b *testing.B) {
 		}
 		b.Cleanup(func() { db.Close() })
 
-		s, err := xdbsqlite.New(db)
+		d, err := xdbsqlite.NewDriver(db)
 		if err != nil {
 			b.Fatal(err)
 		}
 
-		return s
+		return store.New(d)
 	}).Run(b)
 }

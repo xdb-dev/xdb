@@ -2,7 +2,6 @@ package xdbsqlite_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,37 +10,34 @@ import (
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
-	"github.com/xdb-dev/xdb/store/xdbsqlite"
 	"github.com/xdb-dev/xdb/tests"
-
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
-func newTestStore(t *testing.T) *xdbsqlite.Store {
+// newTestStore builds a full store over the SQLite driver, the way
+// every consumer does: through [store.New], which installs the
+// enforcement middleware.
+func newTestStore(t *testing.T) store.Store {
 	t.Helper()
-
-	db, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
-
-	s, err := xdbsqlite.New(db)
-	require.NoError(t, err)
-
-	return s
+	return store.New(newTestDriver(t))
 }
 
 func TestStoreImplementsInterfaces(t *testing.T) {
 	s := newTestStore(t)
 
 	var _ store.Store = s
-	var _ store.HealthChecker = s
-	var _ store.TX = s
+
+	_, ok := s.(store.HealthChecker)
+	require.True(t, ok, "store over sqlite driver must report health")
+
+	_, ok = s.(store.TX)
+	require.True(t, ok, "store over sqlite driver must support TX")
 }
 
 func TestHealth(t *testing.T) {
 	s := newTestStore(t)
-	require.NoError(t, s.Health(context.Background()))
+	h, ok := s.(store.HealthChecker)
+	require.True(t, ok)
+	require.NoError(t, h.Health(context.Background()))
 }
 
 func TestRecords(t *testing.T) {
@@ -64,21 +60,26 @@ func TestNamespaces(t *testing.T) {
 
 func TestBatch(t *testing.T) {
 	tests.NewBatchSuite(func() tests.BatchStore {
+		return newTestStore(t).(tests.BatchStore)
+	}).Run(t)
+}
+
+func TestTuples(t *testing.T) {
+	tests.NewTupleStoreSuite(func() store.Store {
 		return newTestStore(t)
 	}).Run(t)
 }
 
-func TestModes(t *testing.T) {
-	tests.NewModeStoreSuite(func() store.Store {
+func TestTypes(t *testing.T) {
+	tests.NewTypesStoreSuite(func() store.Store {
 		return newTestStore(t)
 	}).Run(t)
 }
 
-func TestCascade(t *testing.T) {
-	tests.NewCascadeStoreSuite(func() store.Store {
-		return newTestStore(t)
-	}).Run(t)
-}
+// Policy suites (ModeStoreSuite, CascadeStoreSuite) are
+// driver-independent and run once against the memory reference; see
+// the tests package doc. This backend's storage behavior is pinned by
+// DriverSuite + the store suites above.
 
 func TestCreateSchema_ThenCreateRecord(t *testing.T) {
 	ctx := context.Background()
@@ -277,7 +278,7 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 		err := st.UpdateSchema(ctx, uri, strictSchema(map[string]schema.Field{
 			"title": {Type: core.TypeInt},
 		}))
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 
 	t.Run("rejects mode change", func(t *testing.T) {
@@ -293,7 +294,7 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 			Mode:   schema.ModeFlexible,
 			Fields: map[string]schema.Field{"title": {Type: core.TypeString}},
 		})
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 
 	t.Run("no-op for flexible mode", func(t *testing.T) {

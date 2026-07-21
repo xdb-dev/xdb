@@ -9,6 +9,7 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
@@ -45,7 +46,7 @@ func RunRoundTrip(t *testing.T, rc RoundTrip) {
 	t.Helper()
 
 	ctx := context.Background()
-	st := xdbmemory.New()
+	st := store.New(xdbmemory.NewDriver())
 
 	require.NoError(t, st.CreateSchema(ctx, rc.Def.URI, rc.Def))
 

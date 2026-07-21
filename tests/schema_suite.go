@@ -156,7 +156,7 @@ func (s *SchemaStoreSuite) testCreate(t *testing.T) {
 		require.NoError(t, st.CreateSchema(ctx, uri, def))
 
 		err := st.CreateSchema(ctx, uri, def)
-		require.ErrorIs(t, err, store.ErrAlreadyExists)
+		require.ErrorIs(t, err, core.ErrAlreadyExists)
 	})
 }
 
@@ -167,7 +167,7 @@ func (s *SchemaStoreSuite) testGet(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/missing")
 		_, err := st.GetSchema(ctx, uri)
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.ErrorIs(t, err, core.ErrNotFound)
 	})
 }
 
@@ -204,7 +204,7 @@ func (s *SchemaStoreSuite) testUpdate(t *testing.T) {
 	t.Run("not found", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/missing")
 		err := st.UpdateSchema(ctx, uri, &schema.Def{URI: uri, Mode: schema.ModeFlexible})
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.ErrorIs(t, err, core.ErrNotFound)
 	})
 }
 
@@ -218,13 +218,13 @@ func (s *SchemaStoreSuite) testDelete(t *testing.T) {
 		require.NoError(t, st.DeleteSchema(ctx, uri))
 
 		_, err := st.GetSchema(ctx, uri)
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.ErrorIs(t, err, core.ErrNotFound)
 	})
 
 	t.Run("not found", func(t *testing.T) {
 		uri := core.MustParseURI("xdb://com.example/missing")
 		err := st.DeleteSchema(ctx, uri)
-		require.ErrorIs(t, err, store.ErrNotFound)
+		require.ErrorIs(t, err, core.ErrNotFound)
 	})
 }
 
@@ -251,7 +251,7 @@ func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
 				}
 
 				err := st.CreateSchema(ctx, uri, def)
-				require.ErrorIs(t, err, store.ErrSchemaViolation)
+				require.ErrorIs(t, err, core.ErrSchemaViolation)
 			})
 		}
 	})
@@ -286,7 +286,7 @@ func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
 				"tags": {Type: core.NewArrayType(core.TIDInteger)},
 			},
 		})
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 
 	t.Run("update rejects array field without elem_type", func(t *testing.T) {
@@ -308,7 +308,7 @@ func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
 				"tags": {Type: core.NewArrayType("")}, // missing elem_type
 			},
 		})
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 
 	t.Run("update rejects changing field type", func(t *testing.T) {
@@ -329,7 +329,7 @@ func (s *SchemaStoreSuite) testArrayElemTypeEnforcement(t *testing.T) {
 				"name": {Type: core.TypeInt},
 			},
 		})
-		require.ErrorIs(t, err, store.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 	})
 }
 

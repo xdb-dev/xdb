@@ -79,13 +79,15 @@ uri, err := core.ParsePath("com.example/posts/123")
 Accessors return plain strings; an absent component is the empty string.
 
 ```go
-uri.NS()        // string — namespace
-uri.Schema()    // string — schema ("" if namespace-only URI)
-uri.ID()        // string — record ID ("" if schema-only URI)
-uri.Attr()      // string — attribute ("" if no fragment)
-uri.Path()      // string — path without scheme
-uri.String()    // string — full URI with scheme
-uri.SchemaURI() // *URI   — URI with only NS + Schema
+uri.NS()         // string — namespace
+uri.Schema()     // string — schema ("" if namespace-only URI)
+uri.ID()         // string — record ID ("" if schema-only URI)
+uri.Attr()       // string — attribute ("" if no fragment)
+uri.Path()       // string — path without scheme
+uri.String()     // string — full URI with scheme
+uri.SchemaURI()  // *URI   — URI with only NS + Schema
+uri.RecordURI()  // *URI   — URI with NS + Schema + ID (attr dropped)
+uri.RecordPath() // string — the ns/schema/id record key (attr dropped)
 ```
 
 ## Constructing URIs

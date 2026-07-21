@@ -27,6 +27,11 @@ var (
 	// an immutable property of an existing field (Type or array elem type).
 	ErrImmutableField = errors.New("[xdb/schema] immutable field")
 
+	// ErrImmutableMode is returned when a schema update attempts to change
+	// the schema mode. Modes determine backend storage strategy (e.g.
+	// column vs KV tables in SQLite), so they are fixed at creation.
+	ErrImmutableMode = errors.New("[xdb/schema] immutable mode")
+
 	// ErrMissingRequired is returned when a required field has no tuple
 	// on a full-record write.
 	ErrMissingRequired = errors.New("[xdb/schema] missing required field")
@@ -117,10 +122,18 @@ func validFieldName(name string) bool {
 }
 
 // ValidateUpdate checks that updated is a compatible evolution of existing.
-// Fields that appear in both must not change Type, and array fields must not
-// change their element type once set. Adding new fields and removing existing
-// fields are allowed.
+// The mode must not change. Fields that appear in both must not change Type,
+// and array fields must not change their element type once set. Adding new
+// fields and removing existing fields are allowed.
 func ValidateUpdate(existing, updated *Def) error {
+	if existing.Mode != updated.Mode {
+		return errors.Wrap(ErrImmutableMode,
+			"reason", "mode cannot change",
+			"from", string(existing.Mode),
+			"to", string(updated.Mode),
+		)
+	}
+
 	for name, oldField := range existing.Fields {
 		newField, ok := updated.Fields[name]
 		if !ok {
@@ -190,12 +203,13 @@ func ValidateTuples(def *Def, tuples []*core.Tuple) error {
 // given slice. An explicit-null tuple satisfies the requirement. Returns
 // [ErrMissingRequired] for the first missing field.
 //
-// Required is a declared-field property and is mode-independent. Callers pass
-// the full record's tuples: today all backend write paths are full-record
-// replaces, so a Create/Update/Upsert carries every attribute. Partial-patch
-// update semantics — where a write may touch a subset of attributes — are
-// deferred to the store-API-reshape plan; until then Required must not be
-// enforced on a partial tuple slice.
+// Required is a declared-field property and is mode-independent. The store's
+// enforcement layer calls CheckRequired only where a write establishes a
+// record's full attribute set: CreateRecord/UpsertRecord (which carry every
+// attribute) and a patch that creates a new record (its first tuples must
+// include every required field). Patches onto an existing record are not
+// checked here — a patch can only add or overwrite attributes, so a record
+// that already satisfied Required keeps satisfying it.
 func CheckRequired(def *Def, tuples []*core.Tuple) error {
 	present := make(map[string]struct{}, len(tuples))
 	for _, tuple := range tuples {

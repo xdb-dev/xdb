@@ -10,10 +10,10 @@ import (
 
 func BenchmarkStore(b *testing.B) {
 	tests.NewBenchmarkSuite(func() store.Store {
-		s, err := xdbfs.New(b.TempDir(), xdbfs.Options{})
+		d, err := xdbfs.NewDriver(b.TempDir(), xdbfs.Options{})
 		if err != nil {
 			b.Fatal(err)
 		}
-		return s
+		return store.New(d)
 	}).Run(b)
 }

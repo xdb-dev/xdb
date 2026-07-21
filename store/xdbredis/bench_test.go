@@ -42,11 +42,11 @@ func BenchmarkStore(b *testing.B) {
 			client.Close()
 		})
 
-		s := xdbredis.New(client, xdbredis.WithPrefix(prefix))
-		if err := s.Health(context.Background()); err != nil {
+		d := xdbredis.NewDriver(client, xdbredis.WithPrefix(prefix))
+		if err := d.Health(context.Background()); err != nil {
 			b.Skipf("redis not available: %v", err)
 		}
 
-		return s
+		return store.New(d)
 	}).Run(b)
 }

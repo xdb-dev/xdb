@@ -4,297 +4,358 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
-	"github.com/xdb-dev/xdb/filter"
-	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 )
 
-// GetRecord retrieves a record by URI.
-func (s *Store) GetRecord(_ context.Context, uri *core.URI) (*core.Record, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+// --- Tuple reads ---
 
-	return s.readRecord(uri)
+// GetTuples returns the tuples at the given attr-level URIs.
+// Absent attrs are omitted; results are in request order.
+func (d *Driver) GetTuples(
+	_ context.Context,
+	uris ...*core.URI,
+) ([]*core.Tuple, error) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	// Decode each record file at most once per call.
+	cache := make(map[string]map[string]*core.Tuple)
+
+	var got []*core.Tuple
+	for _, uri := range uris {
+		file := d.recordPath(uri)
+
+		attrs, ok := cache[file]
+		if !ok {
+			tuples, err := d.readRecordTuples(uri)
+			if err != nil {
+				return nil, err
+			}
+			attrs = make(map[string]*core.Tuple, len(tuples))
+			for _, tuple := range tuples {
+				attrs[tuple.Attr()] = tuple
+			}
+			cache[file] = attrs
+		}
+
+		if tuple, ok := attrs[uri.Attr()]; ok {
+			got = append(got, tuple)
+		}
+	}
+
+	return got, nil
 }
 
-// ListRecords lists records scoped by the given URI.
-func (s *Store) ListRecords(
+// ScanTuples yields every tuple under scope: a namespace, a schema, or
+// a record path. Record files are visited in sorted path order, so
+// tuples of one record are contiguous and the scan is deterministic.
+func (d *Driver) ScanTuples(
 	_ context.Context,
-	q *store.Query,
-) (*store.Page[*core.Record], error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	scope *core.URI,
+) iter.Seq2[*core.Tuple, error] {
+	d.mu.RLock()
+	snapshot, err := d.collectTuples(scope)
+	d.mu.RUnlock()
 
-	uri := q.URI
-
-	ns := uri.NS()
-	schemaScope := uri.Schema()
-
-	var schemaDirs []schemaInfo
-	if schemaScope != "" {
-		schemaDirs = append(schemaDirs, schemaInfo{
-			ns:     ns,
-			schema: schemaScope,
-			dir:    s.schemaDir(uri),
-		})
-	} else {
-		nsDir := s.nsDir(uri)
-		entries, err := os.ReadDir(nsDir)
+	return func(yield func(*core.Tuple, error) bool) {
 		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				return &store.Page[*core.Record]{Items: nil}, nil
+			yield(nil, err)
+			return
+		}
+		for _, tuple := range snapshot {
+			if !yield(tuple, nil) {
+				return
 			}
-			return nil, fmt.Errorf("fsstore: read namespace dir: %w", err)
+		}
+	}
+}
+
+// collectTuples snapshots all tuples under scope. Callers must hold
+// d.mu.
+func (d *Driver) collectTuples(scope *core.URI) ([]*core.Tuple, error) {
+	if scope != nil && scope.ID() != "" {
+		return d.readRecordTuples(scope)
+	}
+
+	dirs, err := d.schemaDirsUnder(scope)
+	if err != nil {
+		return nil, err
+	}
+
+	var snapshot []*core.Tuple
+	for _, uri := range dirs {
+		tuples, err := d.readSchemaDirTuples(uri)
+		if err != nil {
+			return nil, err
+		}
+		snapshot = append(snapshot, tuples...)
+	}
+	return snapshot, nil
+}
+
+// schemaDirsUnder resolves scope (nil, namespace, or schema) to the
+// schema URIs whose directories exist, in sorted path order.
+func (d *Driver) schemaDirsUnder(scope *core.URI) ([]*core.URI, error) {
+	if scope != nil && scope.Schema() != "" {
+		return []*core.URI{scope.SchemaURI()}, nil
+	}
+
+	var nsNames []string
+	if scope != nil {
+		nsNames = []string{scope.NS()}
+	} else {
+		entries, err := os.ReadDir(d.root)
+		if err != nil {
+			return nil, fmt.Errorf("xdbfs: read root: %w", err)
 		}
 		for _, e := range entries {
-			if e.IsDir() {
-				schemaDirs = append(schemaDirs, schemaInfo{
-					ns:     ns,
-					schema: e.Name(),
-					dir:    filepath.Join(nsDir, e.Name()),
-				})
+			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+				nsNames = append(nsNames, e.Name())
 			}
 		}
 	}
 
-	var records []*core.Record
-	for _, si := range schemaDirs {
-		recs, err := s.readRecordsInDir(si)
+	var uris []*core.URI
+	for _, ns := range nsNames {
+		entries, err := os.ReadDir(filepath.Join(d.root, ns))
 		if err != nil {
-			return nil, err
+			if isNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("xdbfs: read namespace dir: %w", err)
 		}
-		records = append(records, recs...)
-	}
-
-	if q.Filter != "" {
-		f, err := filter.Compile(q.Filter, nil)
-		if err != nil {
-			return nil, err
-		}
-		records, err = filter.Records(f, records)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	sort.Slice(records, func(i, j int) bool {
-		return records[i].URI().Path() < records[j].URI().Path()
-	})
-
-	return store.Paginate(records, q), nil
-}
-
-// CreateRecord creates a new record.
-func (s *Store) CreateRecord(_ context.Context, record *core.Record) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := s.validateAndEvolve(record); err != nil {
-		return err
-	}
-
-	path := s.recordPath(record.URI())
-
-	if _, err := os.Stat(path); err == nil {
-		return store.ErrAlreadyExists
-	}
-
-	return s.writeRecord(path, record)
-}
-
-// UpdateRecord updates an existing record.
-func (s *Store) UpdateRecord(_ context.Context, record *core.Record) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := s.validateAndEvolve(record); err != nil {
-		return err
-	}
-
-	path := s.recordPath(record.URI())
-
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return store.ErrNotFound
-		}
-		return fmt.Errorf("fsstore: stat record: %w", err)
-	}
-
-	return s.writeRecord(path, record)
-}
-
-// UpsertRecord creates or updates a record unconditionally.
-func (s *Store) UpsertRecord(_ context.Context, record *core.Record) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := s.validateAndEvolve(record); err != nil {
-		return err
-	}
-
-	path := s.recordPath(record.URI())
-	return s.writeRecord(path, record)
-}
-
-// DeleteRecord deletes a record by URI.
-func (s *Store) DeleteRecord(_ context.Context, uri *core.URI) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	path := s.recordPath(uri)
-
-	if _, err := os.Stat(path); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return store.ErrNotFound
-		}
-		return fmt.Errorf("fsstore: stat record: %w", err)
-	}
-
-	if err := os.Remove(path); err != nil {
-		return fmt.Errorf("fsstore: delete record: %w", err)
-	}
-
-	return nil
-}
-
-func (s *Store) readRecord(uri *core.URI) (*core.Record, error) {
-	path := s.recordPath(uri)
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, store.ErrNotFound
-		}
-		return nil, fmt.Errorf("fsstore: read record: %w", err)
-	}
-
-	opts := []xdbjson.Option{
-		xdbjson.WithNS(uri.NS()),
-		xdbjson.WithSchema(uri.Schema()),
-		xdbjson.WithNumberInference(),
-	}
-	if def, derr := readSchemaFile(s.schemaPath(uri.SchemaURI())); derr == nil {
-		opts = append(opts, xdbjson.WithDef(def))
-	}
-
-	record, err := xdbjson.NewDecoder(opts...).ToRecord(data)
-	if err != nil {
-		return nil, fmt.Errorf("fsstore: decode record %s: %w", path, err)
-	}
-
-	return record, nil
-}
-
-// validateAndEvolve validates a record's tuples against its schema.
-// For strict schemas, unknown fields and type mismatches are rejected.
-// For dynamic schemas, unknown fields are inferred and persisted to the
-// schema file. For flexible schemas (or no schema), validation is skipped.
-//
-// Callers must hold s.mu.
-func (s *Store) validateAndEvolve(record *core.Record) error {
-	schemaURI := record.URI().SchemaURI()
-
-	def, err := readSchemaFile(s.schemaPath(schemaURI))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
-		return err
-	}
-
-	tuples := record.Tuples()
-
-	if err := schema.CheckRequired(def, tuples); err != nil {
-		return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
-	}
-
-	switch def.Mode {
-	case schema.ModeStrict, schema.ModeFlexible:
-		if err := schema.ValidateTuples(def, tuples); err != nil {
-			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
-		}
-
-	case schema.ModeDynamic:
-		newFields, err := schema.EvolveDynamic(def, tuples)
-		if err != nil {
-			return fmt.Errorf("%w: %w", store.ErrSchemaViolation, err)
-		}
-		if len(newFields) > 0 {
-			evolved := def.CloneWithFields(newFields)
-			if err := s.writeSchema(s.schemaPath(schemaURI), evolved); err != nil {
-				return err
+		for _, e := range entries {
+			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+				uris = append(uris, core.MustNewURI(ns, e.Name()))
 			}
 		}
 	}
-
-	return nil
+	return uris, nil
 }
 
-func (s *Store) writeRecord(path string, record *core.Record) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, dirPerm); err != nil {
-		return fmt.Errorf("fsstore: create record dir: %w", err)
-	}
+// readSchemaDirTuples decodes every record file in one schema
+// directory, in sorted file order.
+func (d *Driver) readSchemaDirTuples(schemaURI *core.URI) ([]*core.Tuple, error) {
+	dir := d.schemaDir(schemaURI)
 
-	data, err := s.enc.FromRecord(record, xdbjson.WithIndent("", s.opts.Indent))
+	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return fmt.Errorf("fsstore: encode record: %w", err)
-	}
-
-	return writeFileAtomic(path, data)
-}
-
-type schemaInfo struct {
-	ns     string
-	schema string
-	dir    string
-}
-
-func (s *Store) readRecordsInDir(si schemaInfo) ([]*core.Record, error) {
-	entries, err := os.ReadDir(si.dir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if isNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("fsstore: read schema dir: %w", err)
+		return nil, fmt.Errorf("xdbfs: read schema dir: %w", err)
 	}
 
-	opts := []xdbjson.Option{
-		xdbjson.WithNS(si.ns),
-		xdbjson.WithSchema(si.schema),
-		xdbjson.WithNumberInference(),
-	}
-	if def, derr := readSchemaFile(filepath.Join(si.dir, schemaFileName)); derr == nil {
-		opts = append(opts, xdbjson.WithDef(def))
-	}
-	dec := xdbjson.NewDecoder(opts...)
+	dec := d.newDecoder(schemaURI)
 
-	var records []*core.Record
+	var tuples []*core.Tuple
 	for _, e := range entries {
-		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, jsonExt) || name == schemaFileName {
+		if !isRecordFile(e) {
 			continue
 		}
-
-		data, err := os.ReadFile(filepath.Join(si.dir, name))
+		fileTuples, err := decodeRecordFile(dec, filepath.Join(dir, e.Name()))
 		if err != nil {
-			return nil, fmt.Errorf("fsstore: read record %s: %w", name, err)
+			return nil, err
 		}
+		tuples = append(tuples, fileTuples...)
+	}
+	return tuples, nil
+}
 
-		record, err := dec.ToRecord(data)
-		if err != nil {
-			return nil, fmt.Errorf("fsstore: decode record %s: %w", name, err)
-		}
+// isRecordFile reports whether a schema-directory entry is a record
+// file (a .json file other than _schema.json).
+func isRecordFile(e os.DirEntry) bool {
+	name := e.Name()
+	if e.IsDir() || name == schemaFileName {
+		return false
+	}
+	return strings.HasSuffix(name, jsonExt)
+}
 
-		records = append(records, record)
+// --- Tuple writes ---
+
+// Apply executes one mutation atomically: files are replaced via
+// temp-file + rename, and creates use O_EXCL.
+func (d *Driver) Apply(_ context.Context, m store.Mutation) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	return d.applyMutation(m)
+}
+
+// applyMutation dispatches one mutation per the op table in
+// [store.Mutation].
+func (d *Driver) applyMutation(m store.Mutation) error {
+	switch m.Op {
+	case store.OpPatch:
+		return d.applyMerge(m)
+	case store.OpCreate:
+		return d.applyCreate(m)
+	case store.OpPut:
+		return d.writeOrRemove(m.Path, m.Tuples)
+	case store.OpDelete:
+		return d.applyDelete(m)
+	default:
+		return fmt.Errorf("xdbfs: unknown op %s", m.Op)
+	}
+}
+
+// applyMerge reads the record file, overlays the mutation's tuples,
+// and writes the result back. The record springs into existence on
+// first merge.
+func (d *Driver) applyMerge(m store.Mutation) error {
+	if len(m.Tuples) == 0 {
+		return nil
 	}
 
-	return records, nil
+	existing, err := d.readRecordTuples(m.Path)
+	if err != nil {
+		return err
+	}
+
+	return d.writeRecord(m.Path, store.MergeTuples(existing, m.Tuples))
+}
+
+// applyCreate writes the record file with O_CREATE|O_EXCL so exactly
+// one concurrent creator wins. Returns [core.ErrAlreadyExists] if the
+// file exists.
+func (d *Driver) applyCreate(m store.Mutation) error {
+	file := d.recordPath(m.Path)
+
+	// A record with zero tuples does not exist: nothing to write,
+	// only the exists-check applies.
+	if len(m.Tuples) == 0 {
+		if _, err := os.Stat(file); err == nil {
+			return core.ErrAlreadyExists
+		}
+		return nil
+	}
+
+	data, err := d.encodeRecord(m.Path, m.Tuples)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(file), dirPerm); err != nil {
+		return fmt.Errorf("xdbfs: create record dir: %w", err)
+	}
+
+	if err := writeFileExclusive(file, data); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return core.ErrAlreadyExists
+		}
+		return fmt.Errorf("xdbfs: create record: %w", err)
+	}
+	return nil
+}
+
+// applyDelete removes the whole record file (empty Attrs) or the named
+// tuples from it. Idempotent: absent records and attrs are no-ops.
+func (d *Driver) applyDelete(m store.Mutation) error {
+	if len(m.Attrs) == 0 {
+		return removeRecordFile(d.recordPath(m.Path))
+	}
+
+	existing, err := d.readRecordTuples(m.Path)
+	if err != nil || existing == nil {
+		return err
+	}
+
+	return d.writeOrRemove(m.Path, store.RemoveAttrs(existing, m.Attrs))
+}
+
+// --- File helpers ---
+
+// encodeRecord encodes a tuple set as a record JSON document.
+func (d *Driver) encodeRecord(path *core.URI, tuples []*core.Tuple) ([]byte, error) {
+	record := core.NewRecordFromTuples(path, tuples)
+
+	data, err := d.enc.FromRecord(record, xdbjson.WithIndent("", d.opts.Indent))
+	if err != nil {
+		return nil, fmt.Errorf("xdbfs: encode record: %w", err)
+	}
+	return data, nil
+}
+
+// writeRecord writes the tuple set to the record file atomically
+// (temp file + rename).
+func (d *Driver) writeRecord(path *core.URI, tuples []*core.Tuple) error {
+	data, err := d.encodeRecord(path, tuples)
+	if err != nil {
+		return err
+	}
+
+	file := d.recordPath(path)
+	if err := os.MkdirAll(filepath.Dir(file), dirPerm); err != nil {
+		return fmt.Errorf("xdbfs: create record dir: %w", err)
+	}
+
+	if err := writeFileAtomic(file, data); err != nil {
+		return fmt.Errorf("xdbfs: write record: %w", err)
+	}
+	return nil
+}
+
+// writeOrRemove replaces the record's tuple set. A record with zero
+// tuples does not exist, so an empty set removes the file.
+func (d *Driver) writeOrRemove(path *core.URI, tuples []*core.Tuple) error {
+	if len(tuples) == 0 {
+		return removeRecordFile(d.recordPath(path))
+	}
+	return d.writeRecord(path, tuples)
+}
+
+// removeRecordFile removes a record file, tolerating absence.
+func removeRecordFile(file string) error {
+	if err := os.Remove(file); err != nil && !isNotExist(err) {
+		return fmt.Errorf("xdbfs: delete record: %w", err)
+	}
+	return nil
+}
+
+// newDecoder builds a decoder for records of one schema. When the
+// schema's def file exists it guides type-aware decoding (typed
+// arrays, times, bytes); otherwise number inference alone applies.
+func (d *Driver) newDecoder(schemaURI *core.URI) *xdbjson.Decoder {
+	opts := []xdbjson.Option{
+		xdbjson.WithNS(schemaURI.NS()),
+		xdbjson.WithSchema(schemaURI.Schema()),
+		xdbjson.WithNumberInference(),
+	}
+	if def, err := readSchemaFile(d.schemaPath(schemaURI)); err == nil {
+		opts = append(opts, xdbjson.WithDef(def))
+	}
+	return xdbjson.NewDecoder(opts...)
+}
+
+// readRecordTuples decodes a single record file into its tuples.
+// Returns (nil, nil) if the file is absent.
+func (d *Driver) readRecordTuples(path *core.URI) ([]*core.Tuple, error) {
+	dec := d.newDecoder(path.SchemaURI())
+	return decodeRecordFile(dec, d.recordPath(path))
+}
+
+// decodeRecordFile reads and decodes one record file. Returns
+// (nil, nil) if the file is absent.
+func decodeRecordFile(dec *xdbjson.Decoder, file string) ([]*core.Tuple, error) {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		if isNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("xdbfs: read record: %w", err)
+	}
+
+	record, err := dec.ToRecord(data)
+	if err != nil {
+		return nil, fmt.Errorf("xdbfs: decode record %s: %w", file, err)
+	}
+	return record.Tuples(), nil
 }

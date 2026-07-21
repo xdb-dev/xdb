@@ -10,6 +10,6 @@ import (
 
 func BenchmarkStore(b *testing.B) {
 	tests.NewBenchmarkSuite(func() store.Store {
-		return xdbmemory.New()
+		return store.New(xdbmemory.NewDriver())
 	}).Run(b)
 }

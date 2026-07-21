@@ -16,6 +16,7 @@ import (
 	"github.com/xdb-dev/xdb/cmd/xdb/daemon"
 	"github.com/xdb-dev/xdb/rpc/client"
 	"github.com/xdb-dev/xdb/schema"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
@@ -173,7 +174,7 @@ func startSchemaDaemon(t *testing.T) *client.Client {
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
 	sock := filepath.Join(dir, "test.sock")
-	router := daemon.NewRouter(xdbmemory.New(), "test")
+	router := daemon.NewRouter(store.New(xdbmemory.NewDriver()), "test")
 
 	ln, err := net.Listen("unix", sock)
 	require.NoError(t, err)

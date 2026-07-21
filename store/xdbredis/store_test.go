@@ -2,61 +2,73 @@ package xdbredis_test
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"testing"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
-	"github.com/xdb-dev/xdb/store/xdbredis"
+	"github.com/xdb-dev/xdb/store"
+	"github.com/xdb-dev/xdb/tests"
 )
 
-func redisAddr() string {
-	addr := os.Getenv("REDIS_ADDR")
-	if addr == "" {
-		return "localhost:6379"
-	}
-	return addr
+// newTestStore builds a full store over the Redis driver, the way
+// every consumer does: through [store.New], which installs the
+// enforcement middleware. The suites therefore exercise the whole
+// facade + middleware + driver stack.
+func newTestStore(t testing.TB) store.Store {
+	return store.New(newTestDriver(t))
 }
 
-// testSeq is incremented to give each test a unique prefix, preventing collisions.
-var testSeq int
+func TestStoreImplementsInterfaces(t *testing.T) {
+	s := newTestStore(t)
 
-func newTestStore(t *testing.T) *xdbredis.Store {
-	t.Helper()
+	var _ store.Store = s
 
-	testSeq++
-	prefix := fmt.Sprintf("xdbtest:%s:%d", t.Name(), testSeq)
+	_, ok := s.(store.HealthChecker)
+	require.True(t, ok, "store over redis driver must report health")
 
-	client := redis.NewClient(&redis.Options{
-		Addr: redisAddr(),
-	})
-
-	t.Cleanup(func() {
-		ctx := context.Background()
-		// Clean up all keys with this prefix.
-		var cursor uint64
-		for {
-			keys, next, err := client.Scan(ctx, cursor, prefix+":*", 100).Result()
-			if err != nil {
-				break
-			}
-			if len(keys) > 0 {
-				client.Del(ctx, keys...)
-			}
-			cursor = next
-			if cursor == 0 {
-				break
-			}
-		}
-		client.Close()
-	})
-
-	s := xdbredis.New(client, xdbredis.WithPrefix(prefix))
-
-	// Verify connectivity.
-	require.NoError(t, s.Health(context.Background()))
-
-	return s
+	_, ok = s.(store.TX)
+	require.False(t, ok,
+		"redis driver has no native transactions; the facade must not offer TX")
 }
+
+func TestHealth(t *testing.T) {
+	s := newTestStore(t)
+	h, ok := s.(store.HealthChecker)
+	require.True(t, ok)
+	require.NoError(t, h.Health(context.Background()))
+}
+
+func TestRecords(t *testing.T) {
+	tests.NewRecordStoreSuite(func() store.RecordStore {
+		return newTestStore(t)
+	}).Run(t)
+}
+
+func TestSchemas(t *testing.T) {
+	tests.NewSchemaStoreSuite(func() store.SchemaStore {
+		return newTestStore(t)
+	}).Run(t)
+}
+
+func TestNamespaces(t *testing.T) {
+	tests.NewNamespaceStoreSuite(func() tests.NamespaceStore {
+		return newTestStore(t)
+	}).Run(t)
+}
+
+func TestTuples(t *testing.T) {
+	tests.NewTupleStoreSuite(func() store.Store {
+		return newTestStore(t)
+	}).Run(t)
+}
+
+func TestTypes(t *testing.T) {
+	tests.NewTypesStoreSuite(func() store.Store {
+		return newTestStore(t)
+	}).Run(t)
+}
+
+// Policy suites (ModeStoreSuite, CascadeStoreSuite) are
+// driver-independent and run once against the memory reference; see
+// the tests package doc. This backend's storage behavior is pinned by
+// DriverSuite + the store suites above.

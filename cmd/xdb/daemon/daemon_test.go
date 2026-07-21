@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/xdb-dev/xdb/cmd/xdb/daemon"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
@@ -30,7 +31,7 @@ func TestDaemon_StartStop(t *testing.T) {
 	// Start daemon in background.
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- d.Start(ctx, xdbmemory.New())
+		errCh <- d.Start(ctx, store.New(xdbmemory.NewDriver()))
 	}()
 
 	// Wait for socket to appear.
@@ -104,7 +105,7 @@ func TestDaemon_ContextCancellation(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- d.Start(ctx, xdbmemory.New())
+		errCh <- d.Start(ctx, store.New(xdbmemory.NewDriver()))
 	}()
 
 	// Wait for socket to appear.
@@ -155,7 +156,7 @@ func TestDaemon_Status_Running(t *testing.T) {
 
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- d.Start(ctx, xdbmemory.New())
+		errCh <- d.Start(ctx, store.New(xdbmemory.NewDriver()))
 	}()
 
 	// Wait for socket to appear.

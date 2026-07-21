@@ -15,6 +15,7 @@ import (
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/cmd/xdb/daemon"
 	"github.com/xdb-dev/xdb/rpc/client"
+	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
@@ -28,7 +29,7 @@ func startTestDaemon(t *testing.T) *client.Client {
 	t.Cleanup(func() { os.RemoveAll(dir) })
 
 	sock := filepath.Join(dir, "test.sock")
-	s := xdbmemory.New()
+	s := store.New(xdbmemory.NewDriver())
 	router := daemon.NewRouter(s, "test")
 
 	ln, err := net.Listen("unix", sock)
@@ -89,6 +90,32 @@ func TestIntegration_RecordLifecycle(t *testing.T) {
 	}, &listResp))
 	assert.Equal(t, 1, listResp.Total)
 	assert.Len(t, listResp.Items, 1)
+
+	// Get a single tuple via attr-level URI.
+	var tupleResp api.GetRecordResponse
+	require.NoError(t, c.Call(ctx, "records.get", &api.GetRecordRequest{
+		URI: "xdb://com.test/posts/post-1#title",
+	}, &tupleResp))
+
+	require.NoError(t, json.Unmarshal(tupleResp.Data, &m))
+	assert.Equal(t, "Updated", m["title"])
+
+	// Delete a single tuple via attr-level URI. The record loses its
+	// last tuple and ceases to exist.
+	require.NoError(t, c.Call(ctx, "records.delete", &api.DeleteRecordRequest{
+		URI: "xdb://com.test/posts/post-1#title",
+	}, nil))
+
+	err := c.Call(ctx, "records.get", &api.GetRecordRequest{
+		URI: "xdb://com.test/posts/post-1",
+	}, nil)
+	require.Error(t, err)
+
+	// Re-create for the record-level delete below.
+	require.NoError(t, c.Call(ctx, "records.create", &api.CreateRecordRequest{
+		URI:  "xdb://com.test/posts/post-1",
+		Data: json.RawMessage(`{"title":"Hello"}`),
+	}, &createResp))
 
 	// Delete the record.
 	require.NoError(t, c.Call(ctx, "records.delete", &api.DeleteRecordRequest{
