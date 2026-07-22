@@ -31,8 +31,9 @@ func Methods() map[string]rpc.MethodMeta {
 func recordMethods() map[string]rpc.MethodMeta {
 	return map[string]rpc.MethodMeta{
 		"records.create": {
-			Description: "Create a new record. Idempotent: returns existing if already exists.",
-			Mutating:    true,
+			Description: "Create a new record. Identical re-create is an idempotent success; " +
+				"creating over an existing resource with different data fails with CONFLICT.",
+			Mutating: true,
 			Parameters: map[string]rpc.ParamMeta{
 				"uri":  {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
 				"data": {Description: "Record data as JSON object", Type: "object"},
@@ -102,11 +103,16 @@ func recordMethods() map[string]rpc.MethodMeta {
 func schemaMethods() map[string]rpc.MethodMeta {
 	return map[string]rpc.MethodMeta{
 		"schemas.create": {
-			Description: "Create a new schema definition. Idempotent: returns existing if already exists.",
-			Mutating:    true,
+			Description: "Create a new schema definition. Identical re-create is an idempotent success; " +
+				"creating over an existing resource with different data fails with CONFLICT.",
+			Mutating: true,
 			Parameters: map[string]rpc.ParamMeta{
-				"uri":  {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
-				"data": {Description: "Schema definition as JSON object", Type: "object"},
+				"uri": {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
+				"data": {
+					Description: "Schema definition as JSON object (fields may declare items " +
+						"for ARRAY<JSON> members)",
+					Type: "object",
+				},
 			},
 			Response: map[string]rpc.ParamMeta{
 				"data": {Description: "The created or existing schema definition", Type: "object"},
@@ -135,11 +141,18 @@ func schemaMethods() map[string]rpc.MethodMeta {
 			},
 		},
 		"schemas.update": {
-			Description: "Update a schema definition (patch semantics).",
-			Mutating:    true,
+			Description: "Update a schema definition (patch semantics). Fields (including items) " +
+				"are added or replaced; removal is not supported.",
+			Mutating: true,
 			Parameters: map[string]rpc.ParamMeta{
-				"uri":  {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
-				"data": {Description: "Patch data as JSON object", Type: "object", Required: true},
+				"uri": {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
+				"data": {
+					Description: "Patch data as JSON object (fields to add or replace, optional items " +
+						"for ARRAY<JSON> members, optional revision for optimistic-concurrency CAS — " +
+						"omit or 0 for unconditional update)",
+					Type:     "object",
+					Required: true,
+				},
 			},
 			Response: map[string]rpc.ParamMeta{
 				"data": {Description: "The updated schema definition", Type: "object"},

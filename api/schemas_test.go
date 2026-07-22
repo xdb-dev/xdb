@@ -44,6 +44,27 @@ func schemaData(t *testing.T, fields map[string]wireField, mode schema.Mode) jso
 	return data
 }
 
+// schemaDataWithRevision builds JSON data for a schema definition carrying
+// an explicit revision, for exercising the update CAS.
+func schemaDataWithRevision(t *testing.T, fields map[string]wireField, mode schema.Mode, revision int64) json.RawMessage {
+	t.Helper()
+
+	payload := struct {
+		Fields   map[string]wireField `json:"fields,omitempty"`
+		Mode     schema.Mode          `json:"mode,omitempty"`
+		Revision int64                `json:"revision,omitempty"`
+	}{
+		Fields:   fields,
+		Mode:     mode,
+		Revision: revision,
+	}
+
+	data, err := json.Marshal(payload)
+	require.NoError(t, err)
+
+	return data
+}
+
 func createTestSchema(t *testing.T, svc *api.SchemaService, uri string) *schema.Def {
 	t.Helper()
 
@@ -81,7 +102,7 @@ func TestSchemaService_Create(t *testing.T) {
 		assert.Contains(t, resp.Data.Fields, "title")
 	})
 
-	t.Run("idempotent create returns existing", func(t *testing.T) {
+	t.Run("identical payload is idempotent", func(t *testing.T) {
 		data := schemaData(t, map[string]wireField{
 			"name": {Type: "string", Required: true},
 		}, schema.ModeFlexible)
@@ -92,13 +113,44 @@ func TestSchemaService_Create(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// Create again — should return existing.
+		// Create again with the exact same payload — idempotent success.
 		resp2, err := svc.Create(ctx, &api.CreateSchemaRequest{
 			URI:  "xdb://myapp/users",
 			Data: data,
 		})
 		require.NoError(t, err)
 		assert.Equal(t, resp1.Data.URI.String(), resp2.Data.URI.String())
+	})
+
+	t.Run("divergent payload conflicts", func(t *testing.T) {
+		data := schemaData(t, map[string]wireField{
+			"name":  {Type: "string", Required: true},
+			"email": {Type: "string"},
+		}, schema.ModeFlexible)
+
+		_, err := svc.Create(ctx, &api.CreateSchemaRequest{
+			URI:  "xdb://myapp/users",
+			Data: data,
+		})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrConflict)
+		assert.Contains(t, err.Error(), "xdb://myapp/users")
+		assert.Contains(t, err.Error(), "schemas.update")
+	})
+
+	t.Run("no-data create over existing no-data schema is idempotent", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateSchemaRequest{
+			URI:  "xdb://myapp/blank",
+			Data: json.RawMessage(`{}`),
+		})
+		require.NoError(t, err)
+
+		resp, err := svc.Create(ctx, &api.CreateSchemaRequest{
+			URI:  "xdb://myapp/blank",
+			Data: json.RawMessage(`{}`),
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Data)
 	})
 
 	t.Run("invalid URI", func(t *testing.T) {
@@ -266,6 +318,126 @@ func TestSchemaService_Update(t *testing.T) {
 		})
 		assert.ErrorIs(t, err, core.ErrInvalidURI)
 	})
+
+	t.Run("matching revision bumps", func(t *testing.T) {
+		def := createTestSchema(t, svc, "xdb://myapp/rev-match")
+		require.Equal(t, int64(1), def.Revision)
+
+		data := schemaDataWithRevision(t, map[string]wireField{
+			"author": {Type: "string"},
+		}, "", def.Revision)
+
+		resp, err := svc.Update(ctx, &api.UpdateSchemaRequest{
+			URI:  "xdb://myapp/rev-match",
+			Data: data,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), resp.Data.Revision)
+	})
+
+	t.Run("stale revision conflicts", func(t *testing.T) {
+		createTestSchema(t, svc, "xdb://myapp/rev-stale")
+
+		// Bump to revision 2 using the correct base.
+		_, err := svc.Update(ctx, &api.UpdateSchemaRequest{
+			URI: "xdb://myapp/rev-stale",
+			Data: schemaDataWithRevision(t, map[string]wireField{
+				"a": {Type: "string"},
+			}, "", 1),
+		})
+		require.NoError(t, err)
+
+		// Re-using the now-stale base revision 1 must conflict.
+		_, err = svc.Update(ctx, &api.UpdateSchemaRequest{
+			URI: "xdb://myapp/rev-stale",
+			Data: schemaDataWithRevision(t, map[string]wireField{
+				"b": {Type: "string"},
+			}, "", 1),
+		})
+		assert.ErrorIs(t, err, core.ErrConflict)
+	})
+
+	t.Run("omitted revision is unconditional", func(t *testing.T) {
+		createTestSchema(t, svc, "xdb://myapp/rev-zero")
+
+		resp, err := svc.Update(ctx, &api.UpdateSchemaRequest{
+			URI: "xdb://myapp/rev-zero",
+			Data: schemaData(t, map[string]wireField{
+				"c": {Type: "string"},
+			}, ""),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, int64(2), resp.Data.Revision)
+	})
+}
+
+func TestSchemaService_CreateWithItems(t *testing.T) {
+	svc := newSchemaService()
+	ctx := context.Background()
+
+	data := json.RawMessage(`{
+		"fields": {
+			"tags": {
+				"type": "array",
+				"elem_type": "json",
+				"items": {
+					"name": {"type": "string", "required": true}
+				}
+			}
+		}
+	}`)
+
+	resp, err := svc.Create(ctx, &api.CreateSchemaRequest{
+		URI:  "xdb://myapp/tagged",
+		Data: data,
+	})
+	require.NoError(t, err)
+	require.Contains(t, resp.Data.Fields, "tags")
+	require.Contains(t, resp.Data.Fields["tags"].Items, "name")
+	assert.True(t, resp.Data.Fields["tags"].Items["name"].Required)
+
+	// Round-trip through Get: items must survive persistence.
+	getResp, err := svc.Get(ctx, &api.GetSchemaRequest{URI: "xdb://myapp/tagged"})
+	require.NoError(t, err)
+	require.Contains(t, getResp.Data.Fields, "tags")
+	require.Contains(t, getResp.Data.Fields["tags"].Items, "name")
+	assert.True(t, getResp.Data.Fields["tags"].Items["name"].Required)
+}
+
+// TestSchemaService_ItemsEnforceMemberConstraints proves the end-to-end
+// chain: an items member constraint declared via the schemas.create payload
+// is enforced when records.create writes a violating value.
+func TestSchemaService_ItemsEnforceMemberConstraints(t *testing.T) {
+	s := store.New(xdbmemory.NewDriver())
+	schemas := api.NewSchemaService(s)
+	records := api.NewRecordService(s)
+	ctx := context.Background()
+
+	data := json.RawMessage(`{
+		"fields": {
+			"tags": {
+				"type": "array",
+				"elem_type": "json",
+				"items": {
+					"name": {"type": "string", "required": true}
+				}
+			}
+		}
+	}`)
+
+	_, err := schemas.Create(ctx, &api.CreateSchemaRequest{
+		URI:  "xdb://myapp/tagged-records",
+		Data: data,
+	})
+	require.NoError(t, err)
+
+	// "name" must be a string; supplying a number violates the item schema.
+	_, err = records.Create(ctx, &api.CreateRecordRequest{
+		URI:  "xdb://myapp/tagged-records/rec-1",
+		Data: json.RawMessage(`{"tags":[{"name":123}]}`),
+	})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, core.ErrSchemaViolation)
 }
 
 func TestSchemaService_Delete(t *testing.T) {

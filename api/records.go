@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
@@ -45,7 +46,9 @@ type CreateRecordResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
-// Create creates a new record. Idempotent: returns existing if already exists.
+// Create creates a new record. Identical re-create (same data) is an
+// idempotent success; creating over an existing record with different
+// data fails with [core.ErrConflict].
 func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*CreateRecordResponse, error) {
 	uri, err := parseURI(req.URI, "records.create", 3, 3, false)
 	if err != nil {
@@ -75,6 +78,18 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 		existing, getErr := s.store.GetRecord(ctx, uri)
 		if getErr != nil {
 			return nil, getErr
+		}
+
+		equivalent, cmpErr := recordsEquivalent(s.enc, record, existing)
+		if cmpErr != nil {
+			return nil, cmpErr
+		}
+		if !equivalent {
+			return nil, fmt.Errorf(
+				"records.create %s: record exists with different data "+
+					"(use records.update to patch or records.upsert to replace): %w",
+				uri, core.ErrConflict,
+			)
 		}
 
 		return s.recordResponse(existing)
@@ -387,6 +402,32 @@ func decoderOpts(
 	}
 
 	return opts, nil
+}
+
+// recordsEquivalent reports whether a and b encode to the same canonical
+// JSON representation, used to distinguish an idempotent re-create (same
+// data) from a conflicting one (different data) on [core.ErrAlreadyExists].
+// reserved attrs will be excluded here when record metadata lands.
+func recordsEquivalent(enc *xdbjson.Encoder, a, b *core.Record) (bool, error) {
+	aData, err := enc.FromRecord(a)
+	if err != nil {
+		return false, err
+	}
+
+	bData, err := enc.FromRecord(b)
+	if err != nil {
+		return false, err
+	}
+
+	var am, bm map[string]any
+	if err := json.Unmarshal(aData, &am); err != nil {
+		return false, err
+	}
+	if err := json.Unmarshal(bData, &bm); err != nil {
+		return false, err
+	}
+
+	return reflect.DeepEqual(am, bm), nil
 }
 
 // recordResponse encodes a [core.Record] into a [CreateRecordResponse].

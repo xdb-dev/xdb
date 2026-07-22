@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -37,8 +38,9 @@ type CreateSchemaResponse struct {
 	Data *schema.Def `json:"data"`
 }
 
-// Create creates a new schema definition.
-// If the schema already exists, the existing definition is returned.
+// Create creates a new schema definition. Identical re-create (same
+// definition) is an idempotent success; creating over an existing schema
+// with a different definition fails with [core.ErrConflict].
 func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*CreateSchemaResponse, error) {
 	uri, err := parseURI(req.URI, "schemas.create", 2, 2, false)
 	if err != nil {
@@ -59,6 +61,19 @@ func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*
 		if getErr != nil {
 			return nil, fmt.Errorf("api: schemas.create: %w", getErr)
 		}
+
+		equivalent, cmpErr := schemasEquivalent(&def, existing)
+		if cmpErr != nil {
+			return nil, fmt.Errorf("api: schemas.create: %w", cmpErr)
+		}
+		if !equivalent {
+			return nil, fmt.Errorf(
+				"api: schemas.create %s: schema exists with a different definition "+
+					"(run schemas.get to inspect; use schemas.update to evolve): %w",
+				uri, core.ErrConflict,
+			)
+		}
+
 		return &CreateSchemaResponse{Data: existing}, nil
 	}
 	if err != nil {
@@ -144,7 +159,11 @@ type UpdateSchemaResponse struct {
 }
 
 // Update updates an existing schema definition with patch semantics.
-// Patch fields are merged into the existing definition.
+// Patch fields (including Items) are added or replaced in the existing
+// definition; field removal is not supported. A non-zero Revision in the
+// patch is checked as an optimistic-concurrency CAS against the store's
+// current revision ([core.ErrConflict] on mismatch); omitting it (zero)
+// updates unconditionally.
 // The read-merge-write runs inside a transaction when the store
 // supports [store.TX]; otherwise it falls back to sequential
 // (non-atomic) operations.
@@ -185,23 +204,80 @@ func applySchemaPatch(
 		return nil, err
 	}
 
-	// Merge patch fields into existing.
-	if existing.Fields == nil {
-		existing.Fields = make(map[string]schema.Field)
+	// Build the merged definition as a fresh value rather than mutating
+	// existing in place: some stores (e.g. xdbmemory) return the same
+	// *schema.Def pointer they hold internally, so an in-place edit would
+	// corrupt the stored definition (in particular its Revision) before
+	// the write path below re-validates it as a CAS base.
+	merged := &schema.Def{
+		URI:         uri,
+		Fields:      make(map[string]schema.Field, len(existing.Fields)+len(patch.Fields)),
+		Annotations: existing.Annotations,
+		Mode:        existing.Mode,
+		Description: existing.Description,
+		Revision:    existing.Revision,
 	}
+	for name, field := range existing.Fields {
+		merged.Fields[name] = field
+	}
+	// Fields (including Items) are added or replaced; removal is not
+	// supported.
 	for name, field := range patch.Fields {
-		existing.Fields[name] = field
+		merged.Fields[name] = field
 	}
 
 	if patch.Mode != "" {
-		existing.Mode = patch.Mode
+		merged.Mode = patch.Mode
 	}
 
-	if err := schemas.UpdateSchema(ctx, uri, existing); err != nil {
+	// A non-zero patch revision is the caller's expected base revision:
+	// CAS it against the store's current revision. Zero (omitted) keeps
+	// the freshly fetched current revision, which is always accepted
+	// (unconditional update).
+	if patch.Revision != 0 {
+		merged.Revision = patch.Revision
+	}
+
+	if err := schemas.UpdateSchema(ctx, uri, merged); err != nil {
 		return nil, err
 	}
 
-	return existing, nil
+	return merged, nil
+}
+
+// schemasEquivalent reports whether a and b are the same schema
+// definition, ignoring Revision (which legitimately differs between a
+// freshly built create payload and the currently stored definition).
+func schemasEquivalent(a, b *schema.Def) (bool, error) {
+	am, err := schemaDefMap(a)
+	if err != nil {
+		return false, err
+	}
+
+	bm, err := schemaDefMap(b)
+	if err != nil {
+		return false, err
+	}
+
+	return reflect.DeepEqual(am, bm), nil
+}
+
+// schemaDefMap encodes a [schema.Def] to its canonical JSON form and
+// decodes it into a map, with the revision key removed, for comparison.
+func schemaDefMap(d *schema.Def) (map[string]any, error) {
+	data, err := json.Marshal(d)
+	if err != nil {
+		return nil, err
+	}
+
+	var m map[string]any
+	if err := json.Unmarshal(data, &m); err != nil {
+		return nil, err
+	}
+
+	delete(m, "revision")
+
+	return m, nil
 }
 
 // DeleteSchemaRequest is the request for schemas.delete.
@@ -214,13 +290,16 @@ type DeleteSchemaRequest struct {
 type DeleteSchemaResponse struct{}
 
 // schemaFieldPayload is the wire representation of a [schema.Field], mirroring
-// the schema package's own JSON format ({type, elem_type, ...}).
+// the schema package's own JSON format ({type, elem_type, items, ...}).
+// Items is recursive: it declares the element object schema for an
+// ARRAY<JSON> field, using the same field payload shape one level deeper.
 type schemaFieldPayload struct {
-	Annotations map[string]string `json:"annotations,omitempty"`
-	Type        string            `json:"type"`
-	ElemType    string            `json:"elem_type,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Required    bool              `json:"required,omitempty"`
+	Annotations map[string]string             `json:"annotations,omitempty"`
+	Items       map[string]schemaFieldPayload `json:"items,omitempty"`
+	Type        string                        `json:"type"`
+	ElemType    string                        `json:"elem_type,omitempty"`
+	Description string                        `json:"description,omitempty"`
+	Required    bool                          `json:"required,omitempty"`
 }
 
 // schemaDefPayload is the JSON-safe subset of [schema.Def] used for
@@ -231,6 +310,7 @@ type schemaDefPayload struct {
 	Annotations map[string]string             `json:"annotations,omitempty"`
 	Mode        schema.Mode                   `json:"mode,omitempty"`
 	Description string                        `json:"description,omitempty"`
+	Revision    int64                         `json:"revision,omitempty"`
 }
 
 // unmarshalSchemaDef decodes a schema definition payload and attaches
@@ -245,18 +325,10 @@ func unmarshalSchemaDef(data json.RawMessage, uri *core.URI) (schema.Def, error)
 
 	var fields map[string]schema.Field
 	if len(p.Fields) > 0 {
-		fields = make(map[string]schema.Field, len(p.Fields))
-		for name, fp := range p.Fields {
-			t, err := fieldPayloadType(fp)
-			if err != nil {
-				return schema.Def{}, err
-			}
-			fields[name] = schema.Field{
-				Type:        t,
-				Required:    fp.Required,
-				Description: fp.Description,
-				Annotations: fp.Annotations,
-			}
+		var err error
+		fields, err = payloadFields(p.Fields)
+		if err != nil {
+			return schema.Def{}, err
 		}
 	}
 
@@ -266,7 +338,48 @@ func unmarshalSchemaDef(data json.RawMessage, uri *core.URI) (schema.Def, error)
 		Mode:        p.Mode,
 		Description: p.Description,
 		Annotations: p.Annotations,
+		Revision:    p.Revision,
 	}, nil
+}
+
+// payloadFields converts a set of wire field payloads into [schema.Field]
+// values, recursing into Items.
+func payloadFields(payload map[string]schemaFieldPayload) (map[string]schema.Field, error) {
+	fields := make(map[string]schema.Field, len(payload))
+	for name, fp := range payload {
+		field, err := payloadToField(fp)
+		if err != nil {
+			return nil, err
+		}
+		fields[name] = field
+	}
+	return fields, nil
+}
+
+// payloadToField reconstructs a [schema.Field] from a wire field payload,
+// recursing into Items for ARRAY<JSON> member schemas.
+func payloadToField(fp schemaFieldPayload) (schema.Field, error) {
+	t, err := fieldPayloadType(fp)
+	if err != nil {
+		return schema.Field{}, err
+	}
+
+	field := schema.Field{
+		Type:        t,
+		Required:    fp.Required,
+		Description: fp.Description,
+		Annotations: fp.Annotations,
+	}
+
+	if len(fp.Items) > 0 {
+		items, err := payloadFields(fp.Items)
+		if err != nil {
+			return schema.Field{}, err
+		}
+		field.Items = items
+	}
+
+	return field, nil
 }
 
 // fieldPayloadType reconstructs a [core.Type] from a wire field payload.

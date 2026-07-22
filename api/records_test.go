@@ -42,15 +42,39 @@ func TestRecordService_Create(t *testing.T) {
 		assert.Equal(t, float64(42), m["count"])
 	})
 
-	t.Run("idempotent create returns existing", func(t *testing.T) {
+	t.Run("identical payload is idempotent", func(t *testing.T) {
 		resp, err := svc.Create(ctx, &api.CreateRecordRequest{
 			URI:  "xdb://com.example/posts/post-1",
-			Data: json.RawMessage(`{"title":"Different"}`),
+			Data: json.RawMessage(`{"title":"Hello","count":42}`),
 		})
 		require.NoError(t, err)
 
 		m := recordData(t, resp.Data)
 		assert.Equal(t, "Hello", m["title"])
+	})
+
+	t.Run("divergent payload conflicts", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI:  "xdb://com.example/posts/post-1",
+			Data: json.RawMessage(`{"title":"Different"}`),
+		})
+		require.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrConflict)
+		assert.Contains(t, err.Error(), "xdb://com.example/posts/post-1")
+		assert.Contains(t, err.Error(), "records.update")
+	})
+
+	t.Run("no-data create over existing no-data record is idempotent", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI: "xdb://com.example/posts/post-nodata",
+		})
+		require.NoError(t, err)
+
+		resp, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI: "xdb://com.example/posts/post-nodata",
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.Data)
 	})
 
 	t.Run("new record without data", func(t *testing.T) {
