@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/store"
 )
 
@@ -30,7 +29,7 @@ type GetNamespaceResponse struct {
 
 // Get retrieves namespace metadata by URI.
 func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*GetNamespaceResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "namespaces.get", 1, 1, false)
 	if err != nil {
 		return nil, fmt.Errorf("api: namespaces.get: %w", err)
 	}

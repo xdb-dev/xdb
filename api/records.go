@@ -47,7 +47,7 @@ type CreateRecordResponse struct {
 
 // Create creates a new record. Idempotent: returns existing if already exists.
 func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*CreateRecordResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "records.create", 3, 3, false)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ type GetRecordResponse struct {
 // Get retrieves a single record by URI. An attr-level URI
 // (xdb://ns/schema/id#attr) retrieves just that tuple.
 func (s *RecordService) Get(ctx context.Context, req *GetRecordRequest) (*GetRecordResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "records.get", 3, 3, true)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ type ListRecordsResponse struct {
 
 // List lists records matching the given query.
 func (s *RecordService) List(ctx context.Context, req *ListRecordsRequest) (*ListRecordsResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "records.list", 1, 2, false)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ type UpdateRecordResponse struct {
 // supports [store.TX]; otherwise it falls back to sequential
 // (non-atomic) operations.
 func (s *RecordService) Update(ctx context.Context, req *UpdateRecordRequest) (*UpdateRecordResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "records.update", 3, 3, false)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ type UpsertRecordResponse struct {
 
 // Upsert creates or replaces a record.
 func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*UpsertRecordResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "records.upsert", 3, 3, false)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ type DeleteRecordResponse struct{}
 // (xdb://ns/schema/id#attr) deletes just that tuple. Idempotent:
 // succeeds even if not found.
 func (s *RecordService) Delete(ctx context.Context, req *DeleteRecordRequest) (*DeleteRecordResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "records.delete", 3, 3, true)
 	if err != nil {
 		return nil, err
 	}

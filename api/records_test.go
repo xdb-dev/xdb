@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
@@ -59,6 +60,20 @@ func TestRecordService_Create(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, resp.Data)
 	})
+
+	t.Run("wrong depth returns invalid uri", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI: "xdb://com.example/posts",
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+	})
+
+	t.Run("attr not accepted", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI: "xdb://com.example/posts/post-3#title",
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+	})
 }
 
 func TestRecordService_Get(t *testing.T) {
@@ -87,6 +102,14 @@ func TestRecordService_Get(t *testing.T) {
 			URI: "xdb://com.example/posts/missing",
 		})
 		require.Error(t, err)
+	})
+
+	t.Run("wrong depth returns invalid uri not not-found", func(t *testing.T) {
+		_, err := svc.Get(ctx, &api.GetRecordRequest{
+			URI: "xdb://com.example",
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+		assert.NotErrorIs(t, err, core.ErrNotFound)
 	})
 }
 
@@ -121,6 +144,20 @@ func TestRecordService_List(t *testing.T) {
 		assert.Len(t, resp.Items, 2)
 		assert.Equal(t, 3, resp.Total)
 		assert.Equal(t, 2, resp.NextOffset)
+	})
+
+	t.Run("record depth rejected", func(t *testing.T) {
+		_, err := svc.List(ctx, &api.ListRecordsRequest{
+			URI: "xdb://com.example/posts/post-1",
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+	})
+
+	t.Run("namespace depth gate opens (Phase 10 scope, gate only)", func(t *testing.T) {
+		_, err := svc.List(ctx, &api.ListRecordsRequest{
+			URI: "xdb://com.example",
+		})
+		assert.NotErrorIs(t, err, core.ErrInvalidURI)
 	})
 }
 
@@ -206,6 +243,22 @@ func TestRecordService_Update(t *testing.T) {
 		})
 		require.Error(t, err)
 	})
+
+	t.Run("wrong depth returns invalid uri", func(t *testing.T) {
+		_, err := svc.Update(ctx, &api.UpdateRecordRequest{
+			URI:  "xdb://com.example/posts",
+			Data: json.RawMessage(`{"title":"Nope"}`),
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+	})
+
+	t.Run("attr not accepted", func(t *testing.T) {
+		_, err := svc.Update(ctx, &api.UpdateRecordRequest{
+			URI:  "xdb://com.example/posts/post-1#title",
+			Data: json.RawMessage(`{"title":"Nope"}`),
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+	})
 }
 
 func TestRecordService_Upsert(t *testing.T) {
@@ -241,6 +294,22 @@ func TestRecordService_Upsert(t *testing.T) {
 
 		m = recordData(t, getResp.Data)
 		assert.Equal(t, "Replaced", m["title"])
+	})
+
+	t.Run("wrong depth returns invalid uri", func(t *testing.T) {
+		_, err := svc.Upsert(ctx, &api.UpsertRecordRequest{
+			URI:  "xdb://com.example/posts",
+			Data: json.RawMessage(`{"title":"Nope"}`),
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+	})
+
+	t.Run("attr not accepted", func(t *testing.T) {
+		_, err := svc.Upsert(ctx, &api.UpsertRecordRequest{
+			URI:  "xdb://com.example/posts/post-1#title",
+			Data: json.RawMessage(`{"title":"Nope"}`),
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
 	})
 }
 
@@ -335,5 +404,12 @@ func TestRecordService_Delete(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
+	})
+
+	t.Run("wrong depth returns invalid uri", func(t *testing.T) {
+		_, err := svc.Delete(ctx, &api.DeleteRecordRequest{
+			URI: "xdb://com.example/posts",
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
 	})
 }

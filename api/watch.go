@@ -27,7 +27,11 @@ type WatchRequest struct {
 // Watch streams change events for the given URI.
 // It calls send to push each event to the client and returns when
 // the context is canceled or the stream ends.
-func (s *WatchService) Watch(_ context.Context, _ *WatchRequest, _ func(string, json.RawMessage)) error {
+func (s *WatchService) Watch(_ context.Context, req *WatchRequest, _ func(string, json.RawMessage)) error {
+	if _, err := parseURI(req.URI, "watch", 1, 3, true); err != nil {
+		return err
+	}
+
 	return fmt.Errorf("%w: api: watch not implemented", core.ErrNotImplemented)
 }
 

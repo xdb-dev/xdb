@@ -109,6 +109,27 @@ func TestNewURI(t *testing.T) {
 	}
 }
 
+func TestURI_Depth(t *testing.T) {
+	tests := []struct {
+		name  string
+		uri   URI
+		depth int
+	}{
+		{name: "namespace only", uri: URI{ns: "com.example"}, depth: 1},
+		{name: "namespace and schema", uri: URI{ns: "com.example", schema: "posts"}, depth: 2},
+		{name: "namespace, schema, and id", uri: URI{ns: "com.example", schema: "posts", id: "123"}, depth: 3},
+		{name: "namespace with attr stays depth 1", uri: URI{ns: "com.example", attr: "title"}, depth: 1},
+		{name: "schema with attr stays depth 2", uri: URI{ns: "com.example", schema: "posts", attr: "title"}, depth: 2},
+		{name: "record with attr stays depth 3", uri: URI{ns: "com.example", schema: "posts", id: "123", attr: "title"}, depth: 3},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.depth, tt.uri.Depth())
+		})
+	}
+}
+
 func TestMustNewURI(t *testing.T) {
 	uri := MustNewURI("com.example", "posts", "123")
 	assert.Equal(t, "xdb://com.example/posts/123", uri.String())

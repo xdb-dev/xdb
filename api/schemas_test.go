@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
@@ -115,6 +116,14 @@ func TestSchemaService_Create(t *testing.T) {
 		})
 		require.Error(t, err)
 	})
+
+	t.Run("wrong depth returns invalid uri", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateSchemaRequest{
+			URI:  "xdb://myapp",
+			Data: json.RawMessage(`{}`),
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+	})
 }
 
 func TestSchemaService_Get(t *testing.T) {
@@ -143,6 +152,14 @@ func TestSchemaService_Get(t *testing.T) {
 			URI: "bad",
 		})
 		require.Error(t, err)
+	})
+
+	t.Run("wrong depth returns invalid uri not not-found", func(t *testing.T) {
+		_, err := svc.Get(ctx, &api.GetSchemaRequest{
+			URI: "xdb://myapp",
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+		assert.NotErrorIs(t, err, core.ErrNotFound)
 	})
 }
 
@@ -192,6 +209,13 @@ func TestSchemaService_List(t *testing.T) {
 		})
 		require.Error(t, err)
 	})
+
+	t.Run("schema depth rejected", func(t *testing.T) {
+		_, err := svc.List(ctx, &api.ListSchemasRequest{
+			URI: "xdb://ns1/alpha",
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+	})
 }
 
 func TestSchemaService_Update(t *testing.T) {
@@ -234,6 +258,14 @@ func TestSchemaService_Update(t *testing.T) {
 		})
 		require.Error(t, err)
 	})
+
+	t.Run("wrong depth returns invalid uri", func(t *testing.T) {
+		_, err := svc.Update(ctx, &api.UpdateSchemaRequest{
+			URI:  "xdb://myapp",
+			Data: json.RawMessage(`{}`),
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+	})
 }
 
 func TestSchemaService_Delete(t *testing.T) {
@@ -270,5 +302,12 @@ func TestSchemaService_Delete(t *testing.T) {
 			URI: "bad",
 		})
 		require.Error(t, err)
+	})
+
+	t.Run("wrong depth returns invalid uri", func(t *testing.T) {
+		_, err := svc.Delete(ctx, &api.DeleteSchemaRequest{
+			URI: "xdb://myapp",
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
 	})
 }

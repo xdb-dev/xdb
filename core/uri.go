@@ -42,6 +42,20 @@ func (u *URI) ID() string { return u.id }
 // Attr returns the attribute part of the URI, or "" if absent.
 func (u *URI) Attr() string { return u.attr }
 
+// Depth reports the URI's specificity: 1 for a namespace-only URI, 2 once
+// a schema is present, 3 once an ID is present. Attr is orthogonal and
+// does not affect depth.
+func (u *URI) Depth() int {
+	switch {
+	case u.id != "":
+		return 3
+	case u.schema != "":
+		return 2
+	default:
+		return 1
+	}
+}
+
 // SchemaURI returns a new URI containing only the namespace and schema components.
 func (u *URI) SchemaURI() *URI {
 	return &URI{ns: u.ns, schema: u.schema}

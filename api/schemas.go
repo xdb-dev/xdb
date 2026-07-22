@@ -40,7 +40,7 @@ type CreateSchemaResponse struct {
 // Create creates a new schema definition.
 // If the schema already exists, the existing definition is returned.
 func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*CreateSchemaResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "schemas.create", 2, 2, false)
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.create: %w", err)
 	}
@@ -80,7 +80,7 @@ type GetSchemaResponse struct {
 
 // Get retrieves a schema definition by URI.
 func (s *SchemaService) Get(ctx context.Context, req *GetSchemaRequest) (*GetSchemaResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "schemas.get", 2, 2, false)
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.get: %w", err)
 	}
@@ -109,7 +109,7 @@ type ListSchemasResponse struct {
 
 // List lists schema definitions.
 func (s *SchemaService) List(ctx context.Context, req *ListSchemasRequest) (*ListSchemasResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "schemas.list", 1, 1, false)
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.list: %w", err)
 	}
@@ -149,7 +149,7 @@ type UpdateSchemaResponse struct {
 // supports [store.TX]; otherwise it falls back to sequential
 // (non-atomic) operations.
 func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*UpdateSchemaResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "schemas.update", 2, 2, false)
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.update: %w", err)
 	}
@@ -293,7 +293,7 @@ func fieldPayloadType(fp schemaFieldPayload) (core.Type, error) {
 // When Cascade is true, all records belonging to the schema are deleted first.
 // If the store supports [store.TX], cascade + delete runs atomically.
 func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*DeleteSchemaResponse, error) {
-	uri, err := core.ParseURI(req.URI)
+	uri, err := parseURI(req.URI, "schemas.delete", 2, 2, false)
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.delete: %w", err)
 	}

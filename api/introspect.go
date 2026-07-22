@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/xdb-dev/xdb/api/catalog"
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/rpc"
 )
 
@@ -43,7 +45,7 @@ type DescribeMethodResponse struct {
 func (s *IntrospectService) DescribeMethod(_ context.Context, req *DescribeMethodRequest) (*DescribeMethodResponse, error) {
 	meta, ok := s.describer.Meta(req.Method)
 	if !ok {
-		return nil, fmt.Errorf("api: unknown method: %s", req.Method)
+		return nil, fmt.Errorf("%w: unknown method %q; run introspect.methods to list available methods", core.ErrNotFound, req.Method)
 	}
 
 	return &DescribeMethodResponse{
@@ -68,9 +70,9 @@ type DescribeTypeResponse struct {
 
 // DescribeType describes a single API type.
 func (s *IntrospectService) DescribeType(_ context.Context, req *DescribeTypeRequest) (*DescribeTypeResponse, error) {
-	desc, ok := typeDescriptions[req.Type]
+	desc, ok := catalog.Types()[req.Type]
 	if !ok {
-		return nil, fmt.Errorf("api: unknown type: %s", req.Type)
+		return nil, fmt.Errorf("%w: unknown type %q; run introspect.types to list available types", core.ErrNotFound, req.Type)
 	}
 
 	return &DescribeTypeResponse{
@@ -128,6 +130,8 @@ type ListTypesResponse struct {
 
 // ListTypes lists all available API types.
 func (s *IntrospectService) ListTypes(_ context.Context, _ *ListTypesRequest) (*ListTypesResponse, error) {
+	typeDescriptions := catalog.Types()
+
 	names := make([]string, 0, len(typeDescriptions))
 	for name := range typeDescriptions {
 		names = append(names, name)
@@ -144,13 +148,4 @@ func (s *IntrospectService) ListTypes(_ context.Context, _ *ListTypesRequest) (*
 	}
 
 	return &ListTypesResponse{Types: types}, nil
-}
-
-var typeDescriptions = map[string]string{
-	"Record":    "A collection of tuples sharing the same ID within a schema.",
-	"Schema":    "A definition of attributes and their types for a schema.",
-	"Namespace": "A logical grouping of schemas (e.g., com.example).",
-	"Tuple":     "A single attribute-value pair within a record.",
-	"Value":     "A typed value (string, integer, float, bool, time, bytes).",
-	"URI":       "A reference to XDB data: xdb://NS/SCHEMA/ID#ATTR",
 }

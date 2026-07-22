@@ -12,10 +12,35 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/xdb-dev/xdb/api/catalog"
 	"github.com/xdb-dev/xdb/cmd/xdb/daemon"
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
+
+// TestNewRouter_MatchesCatalog proves the router↔catalog two-way
+// completeness: every method the live router serves has a catalog entry
+// with identical metadata, and every catalog entry is actually served.
+func TestNewRouter_MatchesCatalog(t *testing.T) {
+	r := daemon.NewRouter(store.New(xdbmemory.NewDriver()), "test-1.0.0")
+
+	catalogMethods := catalog.Methods()
+
+	for _, name := range r.Methods() {
+		routerMeta, ok := r.Meta(name)
+		require.True(t, ok, "router claims to serve %s but Meta() returned not-ok", name)
+
+		catalogMeta, ok := catalogMethods[name]
+		require.True(t, ok, "router serves %s but catalog.Methods() has no entry for it", name)
+
+		assert.Equal(t, catalogMeta, routerMeta, "meta mismatch for method %s", name)
+	}
+
+	for name := range catalogMethods {
+		_, ok := r.Meta(name)
+		assert.True(t, ok, "catalog defines %s but the router does not serve it", name)
+	}
+}
 
 func TestDaemon_StartStop(t *testing.T) {
 	socketPath := filepath.Join(t.TempDir(), "xdb.sock")

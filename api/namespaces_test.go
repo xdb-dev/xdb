@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
@@ -41,6 +42,14 @@ func TestNamespaceService_Get(t *testing.T) {
 			URI: "bad",
 		})
 		require.Error(t, err)
+	})
+
+	t.Run("wrong depth returns invalid uri not not-found", func(t *testing.T) {
+		_, err := nsSvc.Get(ctx, &api.GetNamespaceRequest{
+			URI: "xdb://testns/things",
+		})
+		assert.ErrorIs(t, err, core.ErrInvalidURI)
+		assert.NotErrorIs(t, err, core.ErrNotFound)
 	})
 }
 
