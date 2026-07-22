@@ -330,3 +330,12 @@ by every command · import --file cwd containment · list `-o json` shape
 - The 5 appended e2e scenarios and `docs/plans/2026-07-22-e2e-cli-scenarios.md` are kept
   as-is; consolidation is additive + style alignment (Phase 13) + caveat removal as fixes
   land (Phase 7).
+
+## Outcome (2026-07-22)
+
+Phases 1-13 shipped (13 commits on main). Phase 14 (`_updated_at` reserved
+attr) was cut per its "final, cuttable" provision: it requires reserved-column
+plumbing through the sqlite table engine's storage internals plus live-table
+migration, and the rails for a clean follow-on are already landed (filter
+reserved-attr allowlist, the checkMutation validate seam, the decoder's
+metadata-strip hook, and the create-equivalence comparator's exclusion note).
