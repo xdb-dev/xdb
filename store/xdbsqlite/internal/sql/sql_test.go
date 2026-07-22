@@ -5,13 +5,33 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/xdb-dev/xdb/core"
 	xsql "github.com/xdb-dev/xdb/store/xdbsqlite/internal/sql"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 )
+
+func TestSQLiteTypeName(t *testing.T) {
+	tests := []struct {
+		tid  core.TID
+		want string
+	}{
+		{core.TIDInteger, "INTEGER"},
+		{core.TIDFloat, "REAL"},
+		{core.TIDBoolean, "INTEGER"},
+		{core.TIDUnsigned, "INTEGER"},
+		{core.TIDTime, "INTEGER"},
+		{core.TIDString, "TEXT"},
+		{core.TIDBytes, "BLOB"},
+	}
+	for _, tt := range tests {
+		assert.Equal(t, tt.want, xsql.SQLiteTypeName(string(tt.tid)), "SQLiteTypeName(%v)", tt.tid)
+	}
+}
 
 // testDB opens an in-memory SQLite DB and returns both the raw DB and Queries.
 func testDB(t *testing.T) (*sql.DB, *xsql.Queries) {

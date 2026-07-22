@@ -66,6 +66,24 @@ func (v Value) Value() (driver.Value, error) {
 	}
 }
 
+// TypeFrom reconstructs a [core.Type] from the stored _type and _elem
+// columns of a KV row. For arrays, _elem carries the element type id.
+func TypeFrom(tid, elem string) core.Type {
+	if core.TID(tid) == core.TIDArray {
+		return core.NewArrayType(core.TID(elem))
+	}
+	return core.NewType(core.TID(tid))
+}
+
+// ElemTID returns the element type id to store in a KV row's _elem
+// column: the array element for array values, empty otherwise.
+func (v Value) ElemTID() string {
+	if v.Val != nil && v.Val.Type().ID() == core.TIDArray {
+		return string(v.Val.Type().ElemTypeID())
+	}
+	return ""
+}
+
 // Scan implements [sql.Scanner] for reading a typed column value.
 func (v *Value) Scan(src any) error {
 	if src == nil {
@@ -175,8 +193,10 @@ func scanJSON(src any) *core.Value {
 	return core.JSONVal(nil)
 }
 
-// MarshalBytes serializes Val to bytes for KV storage.
-func (v Value) MarshalBytes() ([]byte, error) {
+// marshalScalar serializes a scalar Val to its text form. It is the
+// per-element encoder for array JSON; scalar columns and KV values are
+// stored natively via [Value.Value].
+func (v Value) marshalScalar() ([]byte, error) {
 	if v.Val.IsNil() {
 		return nil, nil
 	}
@@ -215,8 +235,9 @@ func (v Value) MarshalBytes() ([]byte, error) {
 	}
 }
 
-// UnmarshalBytes deserializes bytes from KV storage into Val.
-func (v *Value) UnmarshalBytes(typ core.Type, data []byte) error {
+// unmarshalScalar deserializes a scalar from its text form into Val.
+// It is the per-element decoder for array JSON.
+func (v *Value) unmarshalScalar(typ core.Type, data []byte) error {
 	s := string(data)
 	switch typ {
 	case core.TypeString:
@@ -253,13 +274,13 @@ func (v *Value) UnmarshalBytes(typ core.Type, data []byte) error {
 	return nil
 }
 
-// marshalArray JSON-encodes array elements by reusing MarshalBytes per element.
+// marshalArray JSON-encodes array elements by reusing marshalScalar per element.
 func marshalArray(v *core.Value) ([]byte, error) {
 	elems, _ := v.AsArray()
 	parts := make([]json.RawMessage, len(elems))
 	for i, e := range elems {
 		sv := Value{Val: e}
-		b, err := sv.MarshalBytes()
+		b, err := sv.marshalScalar()
 		if err != nil {
 			return nil, err
 		}
@@ -290,7 +311,7 @@ func scanArray(elemTID core.TID, src any) (*core.Value, error) {
 	return unmarshalArray(elemTID, data)
 }
 
-// unmarshalArray decodes a JSON array by reusing UnmarshalBytes per element.
+// unmarshalArray decodes a JSON array by reusing unmarshalScalar per element.
 func unmarshalArray(elemTID core.TID, data []byte) (*core.Value, error) {
 	var raw []json.RawMessage
 	if err := json.Unmarshal(data, &raw); err != nil {
@@ -309,7 +330,7 @@ func unmarshalArray(elemTID core.TID, data []byte) (*core.Value, error) {
 			r = json.RawMessage(s)
 		}
 		sv := &Value{}
-		if err := sv.UnmarshalBytes(elemType, r); err != nil {
+		if err := sv.unmarshalScalar(elemType, r); err != nil {
 			return nil, err
 		}
 		elems[i] = sv.Val

@@ -17,12 +17,19 @@ func TestCreateKVTable(t *testing.T) {
 	err := q.CreateKVTable(ctx, xsql.CreateKVTableParams{Table: `"kv:test/t"`})
 	require.NoError(t, err)
 
-	// Verify by inserting a row.
+	// Verify by inserting a row: _val is ANY, so a native integer keeps
+	// INTEGER storage class (not coerced), and _elem is nullable.
 	_, err = db.ExecContext(ctx,
-		`INSERT INTO "kv:test/t" (_id, _attr, _type, _val) VALUES (?, ?, ?, ?)`,
-		"id1", "name", "STRING", []byte(`"hello"`),
+		`INSERT INTO "kv:test/t" (_id, _attr, _type, _elem, _val) VALUES (?, ?, ?, ?, ?)`,
+		"id1", "age", "integer", nil, int64(30),
 	)
 	require.NoError(t, err)
+
+	var typeof string
+	require.NoError(t, db.QueryRowContext(ctx,
+		`SELECT typeof(_val) FROM "kv:test/t" WHERE _id = ?`, "id1",
+	).Scan(&typeof))
+	assert.Equal(t, "integer", typeof)
 }
 
 func TestCreateTable(t *testing.T) {
@@ -132,15 +139,6 @@ func TestCreateIndex(t *testing.T) {
 		Table: `"t:test/idx"`,
 		Index: xsql.Index{Name: "idx_name", Columns: []string{"name"}},
 	})
-	require.NoError(t, err)
-}
-
-func TestDropIndex(t *testing.T) {
-	_, q := testDB(t)
-	ctx := context.Background()
-
-	// Drop nonexistent — no error (IF EXISTS).
-	err := q.DropIndex(ctx, xsql.DropIndexParams{Index: "nonexistent"})
 	require.NoError(t, err)
 }
 

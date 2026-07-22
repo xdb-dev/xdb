@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
-	"github.com/xdb-dev/xdb/core"
 )
 
 // KVRecord groups an ID with its attribute values.
@@ -23,38 +21,35 @@ type CreateKVRecordParams struct {
 
 // CreateKVRecord inserts all values for a record into a KV table.
 // Uses replace semantics: any existing rows for the ID are deleted first.
+// Each value is stored natively via [Value] as a [driver.Valuer], with
+// its [core.TID] (and array element id) recorded in _type/_elem.
 func (q *Queries) CreateKVRecord(ctx context.Context, arg CreateKVRecordParams) error {
 	delQuery := fmt.Sprintf("DELETE FROM %s WHERE _id = ?", arg.Table)
 	if _, err := q.db.ExecContext(ctx, delQuery, arg.ID); err != nil {
-		return err
+		return mapErr(err)
 	}
 
 	if len(arg.Values) == 0 {
 		return nil
 	}
 
-	// Batch INSERT: one statement with multiple value rows.
-	rowPlaceholder := "(?, ?, ?, ?)"
+	rowPlaceholder := "(?, ?, ?, ?, ?)"
 	placeholders := make([]string, len(arg.Values))
-	args := make([]any, 0, len(arg.Values)*4)
+	args := make([]any, 0, len(arg.Values)*5)
 
 	for i, v := range arg.Values {
-		data, err := v.MarshalBytes()
-		if err != nil {
-			return err
-		}
 		placeholders[i] = rowPlaceholder
-		args = append(args, arg.ID, v.Name, string(v.Val.Type().ID()), data)
+		args = append(args, arg.ID, v.Name, string(v.Val.Type().ID()), v.ElemTID(), v)
 	}
 
 	query := fmt.Sprintf(
-		"INSERT INTO %s (_id, _attr, _type, _val) VALUES %s",
+		"INSERT INTO %s (_id, _attr, _type, _elem, _val) VALUES %s",
 		arg.Table,
 		strings.Join(placeholders, ", "),
 	)
 
 	_, err := q.db.ExecContext(ctx, query, args...)
-	return err
+	return mapErr(err)
 }
 
 // GetKVRecordParams are the arguments for [Queries.GetKVRecord].
@@ -67,31 +62,22 @@ type GetKVRecordParams struct {
 // Returns nil, nil if no rows exist for the ID.
 func (q *Queries) GetKVRecord(ctx context.Context, arg GetKVRecordParams) ([]Value, error) {
 	query := fmt.Sprintf(
-		"SELECT _attr, _type, _val FROM %s WHERE _id = ? ORDER BY _attr",
+		"SELECT _attr, _type, _elem, _val FROM %s WHERE _id = ? ORDER BY _attr",
 		arg.Table,
 	)
 
 	rows, err := q.db.QueryContext(ctx, query, arg.ID)
 	if err != nil {
-		return nil, err
+		return nil, mapErr(err)
 	}
 	defer rows.Close() //nolint:errcheck
 
 	var result []Value
 	for rows.Next() {
-		var attr, tid string
-		var data []byte
-
-		if err := rows.Scan(&attr, &tid, &data); err != nil {
+		v, err := scanKVValue(rows)
+		if err != nil {
 			return nil, err
 		}
-
-		var v Value
-		if err := v.UnmarshalBytes(core.NewType(core.TID(tid)), data); err != nil {
-			return nil, err
-		}
-		v.Name = attr
-
 		result = append(result, v)
 	}
 
@@ -104,38 +90,6 @@ func (q *Queries) GetKVRecord(ctx context.Context, arg GetKVRecordParams) ([]Val
 	}
 
 	return result, nil
-}
-
-// ListKVRecordIDsParams are the arguments for [Queries.ListKVRecordIDs].
-type ListKVRecordIDsParams struct {
-	Table  string
-	Offset int
-	Limit  int
-}
-
-// ListKVRecordIDs lists distinct record IDs from a KV table.
-func (q *Queries) ListKVRecordIDs(ctx context.Context, arg ListKVRecordIDsParams) ([]string, error) {
-	query := fmt.Sprintf(
-		"SELECT DISTINCT _id FROM %s ORDER BY _id LIMIT ? OFFSET ?",
-		arg.Table,
-	)
-
-	rows, err := q.db.QueryContext(ctx, query, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close() //nolint:errcheck
-
-	var result []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		result = append(result, id)
-	}
-
-	return result, rows.Err()
 }
 
 // ListKVRecordsParams are the arguments for [Queries.ListKVRecords].
@@ -160,7 +114,7 @@ func (q *Queries) ListKVRecords(ctx context.Context, arg ListKVRecordsParams) ([
 	queryArgs = append(queryArgs, arg.Limit, arg.Offset)
 
 	query := fmt.Sprintf(
-		"SELECT _id, _attr, _type, _val FROM %s "+
+		"SELECT _id, _attr, _type, _elem, _val FROM %s "+
 			"WHERE _id IN (SELECT DISTINCT _id FROM %s WHERE 1=1%s ORDER BY _id LIMIT ? OFFSET ?) "+
 			"ORDER BY _id, _attr",
 		arg.Table, arg.Table, innerWhere,
@@ -168,7 +122,7 @@ func (q *Queries) ListKVRecords(ctx context.Context, arg ListKVRecordsParams) ([
 
 	rows, err := q.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
-		return nil, err
+		return nil, mapErr(err)
 	}
 	defer rows.Close() //nolint:errcheck
 
@@ -176,18 +130,11 @@ func (q *Queries) ListKVRecords(ctx context.Context, arg ListKVRecordsParams) ([
 	var cur *KVRecord
 
 	for rows.Next() {
-		var id, attr, tid string
-		var data []byte
-
-		if err := rows.Scan(&id, &attr, &tid, &data); err != nil {
+		var id string
+		v, err := scanKVValueWithID(rows, &id)
+		if err != nil {
 			return nil, err
 		}
-
-		var v Value
-		if err := v.UnmarshalBytes(core.NewType(core.TID(tid)), data); err != nil {
-			return nil, err
-		}
-		v.Name = attr
 
 		if cur == nil || cur.ID != id {
 			result = append(result, KVRecord{ID: id})
@@ -197,6 +144,41 @@ func (q *Queries) ListKVRecords(ctx context.Context, arg ListKVRecordsParams) ([
 	}
 
 	return result, rows.Err()
+}
+
+// scanRow is the subset of [*sql.Rows] the KV scan helpers need.
+type scanRow interface {
+	Scan(dest ...any) error
+}
+
+// scanKVValue decodes one (_attr, _type, _elem, _val) row into a Value.
+func scanKVValue(row scanRow) (Value, error) {
+	var attr, tid, elem string
+	var raw any
+	if err := row.Scan(&attr, &tid, &elem, &raw); err != nil {
+		return Value{}, err
+	}
+	return decodeKVValue(attr, tid, elem, raw)
+}
+
+// scanKVValueWithID decodes one (_id, _attr, _type, _elem, _val) row,
+// writing the id through idOut.
+func scanKVValueWithID(row scanRow, idOut *string) (Value, error) {
+	var attr, tid, elem string
+	var raw any
+	if err := row.Scan(idOut, &attr, &tid, &elem, &raw); err != nil {
+		return Value{}, err
+	}
+	return decodeKVValue(attr, tid, elem, raw)
+}
+
+// decodeKVValue reconstructs a typed Value from a KV row's columns.
+func decodeKVValue(attr, tid, elem string, raw any) (Value, error) {
+	v := Value{Name: attr, Type: TypeFrom(tid, elem)}
+	if err := v.Scan(raw); err != nil {
+		return Value{}, err
+	}
+	return v, nil
 }
 
 // DeleteKVRecordParams are the arguments for [Queries.DeleteKVRecord].
@@ -209,7 +191,7 @@ type DeleteKVRecordParams struct {
 func (q *Queries) DeleteKVRecord(ctx context.Context, arg DeleteKVRecordParams) error {
 	query := fmt.Sprintf("DELETE FROM %s WHERE _id = ?", arg.Table)
 	_, err := q.db.ExecContext(ctx, query, arg.ID)
-	return err
+	return mapErr(err)
 }
 
 // KVRecordExistsParams are the arguments for [Queries.KVRecordExists].
@@ -223,7 +205,7 @@ func (q *Queries) KVRecordExists(ctx context.Context, arg KVRecordExistsParams) 
 	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE _id = ?)", arg.Table)
 	var exists bool
 	err := q.db.QueryRowContext(ctx, query, arg.ID).Scan(&exists)
-	return exists, err
+	return exists, mapErr(err)
 }
 
 // CountKVRecordsParams are the arguments for [Queries.CountKVRecords].
@@ -244,5 +226,5 @@ func (q *Queries) CountKVRecords(ctx context.Context, arg CountKVRecordsParams) 
 	query := fmt.Sprintf("SELECT COUNT(DISTINCT _id) FROM %s%s", arg.Table, whereClause)
 	var count int
 	err := q.db.QueryRowContext(ctx, query, arg.WhereArgs...).Scan(&count)
-	return count, err
+	return count, mapErr(err)
 }

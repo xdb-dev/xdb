@@ -99,22 +99,81 @@ func TestGetKVRecord_Missing(t *testing.T) {
 	assert.Nil(t, vals)
 }
 
-func TestListKVRecordIDs(t *testing.T) {
+func TestCreateKVRecord_NativeRoundtrip(t *testing.T) {
+	tests := []struct {
+		name string
+		val  *core.Value
+	}{
+		{"string", core.StringVal("hello")},
+		{"int", core.IntVal(-42)},
+		{"unsigned", core.UintVal(999)},
+		{"float", core.FloatVal(2.718)},
+		{"bool", core.BoolVal(true)},
+		{"time", core.TimeVal(testTime)},
+		{"json", core.JSONVal([]byte(`{"a":1}`))},
+		{"bytes", core.BytesVal([]byte{0x01, 0x02})},
+		{"array of ints", core.ArrayVal(core.TIDInteger, core.IntVal(1), core.IntVal(2))},
+		{"array of strings", core.ArrayVal(core.TIDString, core.StringVal("x"), core.StringVal("y"))},
+		{"array of floats", core.ArrayVal(core.TIDFloat, core.FloatVal(1.5), core.FloatVal(2.5))},
+		{"array of bools", core.ArrayVal(core.TIDBoolean, core.BoolVal(true), core.BoolVal(false))},
+		{"array of unsigned", core.ArrayVal(core.TIDUnsigned, core.UintVal(7), core.UintVal(8))},
+		{"array of times", core.ArrayVal(core.TIDTime, core.TimeVal(testTime))},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, q := testDB(t)
+			ctx := context.Background()
+			table := `"kv:test/t"`
+			createKVTable(t, q, table)
+
+			require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
+				Table: table, ID: "id1",
+				Values: []xsql.Value{{Name: "v", Val: tt.val}},
+			}))
+
+			vals, err := q.GetKVRecord(ctx, xsql.GetKVRecordParams{Table: table, ID: "id1"})
+			require.NoError(t, err)
+			require.Len(t, vals, 1)
+			assert.Equal(t, tt.val.Type().ID(), vals[0].Val.Type().ID())
+			assert.Equal(t, tt.val.Type().ElemTypeID(), vals[0].Val.Type().ElemTypeID())
+			assert.Equal(t, tt.val.Unwrap(), vals[0].Val.Unwrap())
+		})
+	}
+}
+
+func TestGetKVRecord_NoTable(t *testing.T) {
+	_, q := testDB(t)
+	ctx := context.Background()
+
+	_, err := q.GetKVRecord(ctx, xsql.GetKVRecordParams{Table: `"kv:test/missing"`, ID: "id1"})
+	assert.ErrorIs(t, err, xsql.ErrNoTable)
+}
+
+func TestKVRecord_NativeNumericOrdering(t *testing.T) {
 	_, q := testDB(t)
 	ctx := context.Background()
 	table := `"kv:test/t"`
 	createKVTable(t, q, table)
 
-	for _, id := range []string{"c", "a", "b"} {
+	// 9 sorts after 10 lexically but before it numerically; native
+	// INTEGER storage makes the SQL comparison numeric.
+	for id, age := range map[string]int64{"a": 9, "b": 10} {
 		require.NoError(t, q.CreateKVRecord(ctx, xsql.CreateKVRecordParams{
 			Table: table, ID: id,
-			Values: []xsql.Value{{Name: "x", Val: core.StringVal("v")}},
+			Values: []xsql.Value{{Name: "age", Val: core.IntVal(age)}},
 		}))
 	}
 
-	ids, err := q.ListKVRecordIDs(ctx, xsql.ListKVRecordIDsParams{Table: table, Limit: 100})
+	records, err := q.ListKVRecords(ctx, xsql.ListKVRecordsParams{
+		Table:     table,
+		Where:     "_id IN (SELECT _id FROM " + table + " WHERE _attr = ? AND _val > ?)",
+		WhereArgs: []any{"age", int64(9)},
+		Limit:     100,
+	})
 	require.NoError(t, err)
-	assert.Equal(t, []string{"a", "b", "c"}, ids)
+	require.Len(t, records, 1)
+	assert.Equal(t, "b", records[0].ID)
 }
 
 func TestListKVRecords(t *testing.T) {

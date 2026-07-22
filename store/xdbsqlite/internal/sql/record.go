@@ -9,68 +9,6 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-// CreateRecordParams are the arguments for [Queries.CreateRecord].
-type CreateRecordParams struct {
-	Table  string
-	ID     string
-	Values []Value
-}
-
-// CreateRecord inserts a record into a column table.
-func (q *Queries) CreateRecord(ctx context.Context, arg CreateRecordParams) error {
-	cols := make([]string, 0, len(arg.Values)+1)
-	placeholders := make([]string, 0, len(arg.Values)+1)
-	args := make([]any, 0, len(arg.Values)+1)
-
-	cols = append(cols, "_id")
-	placeholders = append(placeholders, "?")
-	args = append(args, arg.ID)
-
-	for _, v := range arg.Values {
-		cols = append(cols, v.Name)
-		placeholders = append(placeholders, "?")
-		args = append(args, v)
-	}
-
-	query := fmt.Sprintf(
-		"INSERT INTO %s (%s) VALUES (%s)",
-		arg.Table,
-		strings.Join(cols, ", "),
-		strings.Join(placeholders, ", "),
-	)
-
-	_, err := q.db.ExecContext(ctx, query, args...)
-	return err
-}
-
-// UpdateRecordParams are the arguments for [Queries.UpdateRecord].
-type UpdateRecordParams struct {
-	Table  string
-	ID     string
-	Values []Value
-}
-
-// UpdateRecord updates a record in a column table.
-func (q *Queries) UpdateRecord(ctx context.Context, arg UpdateRecordParams) error {
-	sets := make([]string, 0, len(arg.Values))
-	args := make([]any, 0, len(arg.Values)+1)
-
-	for _, v := range arg.Values {
-		sets = append(sets, v.Name+" = ?")
-		args = append(args, v)
-	}
-	args = append(args, arg.ID)
-
-	query := fmt.Sprintf(
-		"UPDATE %s SET %s WHERE _id = ?",
-		arg.Table,
-		strings.Join(sets, ", "),
-	)
-
-	_, err := q.db.ExecContext(ctx, query, args...)
-	return err
-}
-
 // UpsertRecordParams are the arguments for [Queries.UpsertRecord].
 type UpsertRecordParams struct {
 	Table  string
@@ -96,16 +34,24 @@ func (q *Queries) UpsertRecord(ctx context.Context, arg UpsertRecordParams) erro
 		args = append(args, v)
 	}
 
+	// A record with only _id has no columns to update on conflict;
+	// "DO UPDATE SET" with an empty list is malformed SQL, so keep the
+	// existing row with DO NOTHING.
+	conflict := "DO NOTHING"
+	if len(updates) > 0 {
+		conflict = "DO UPDATE SET " + strings.Join(updates, ", ")
+	}
+
 	query := fmt.Sprintf(
-		"INSERT INTO %s (%s) VALUES (%s) ON CONFLICT(_id) DO UPDATE SET %s",
+		"INSERT INTO %s (%s) VALUES (%s) ON CONFLICT(_id) %s",
 		arg.Table,
 		strings.Join(cols, ", "),
 		strings.Join(placeholders, ", "),
-		strings.Join(updates, ", "),
+		conflict,
 	)
 
 	_, err := q.db.ExecContext(ctx, query, args...)
-	return err
+	return mapErr(err)
 }
 
 // GetRecordParams are the arguments for [Queries.GetRecord].
@@ -138,7 +84,7 @@ func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) ([]Value, 
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
-		return nil, err
+		return nil, mapErr(err)
 	}
 
 	return vals, nil
@@ -180,7 +126,7 @@ func (q *Queries) ListRecords(ctx context.Context, arg ListRecordsParams) ([][]V
 
 	rows, err := q.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
-		return nil, err
+		return nil, mapErr(err)
 	}
 	defer rows.Close() //nolint:errcheck
 
@@ -226,7 +172,7 @@ type DeleteRecordParams struct {
 func (q *Queries) DeleteRecord(ctx context.Context, arg DeleteRecordParams) error {
 	query := fmt.Sprintf("DELETE FROM %s WHERE _id = ?", arg.Table)
 	_, err := q.db.ExecContext(ctx, query, arg.ID)
-	return err
+	return mapErr(err)
 }
 
 // RecordExistsParams are the arguments for [Queries.RecordExists].
@@ -240,7 +186,7 @@ func (q *Queries) RecordExists(ctx context.Context, arg RecordExistsParams) (boo
 	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE _id = ?)", arg.Table)
 	var exists bool
 	err := q.db.QueryRowContext(ctx, query, arg.ID).Scan(&exists)
-	return exists, err
+	return exists, mapErr(err)
 }
 
 // CountRecordsParams are the arguments for [Queries.CountRecords].
@@ -260,5 +206,5 @@ func (q *Queries) CountRecords(ctx context.Context, arg CountRecordsParams) (int
 	query := fmt.Sprintf("SELECT COUNT(*) FROM %s%s", arg.Table, whereClause)
 	var count int
 	err := q.db.QueryRowContext(ctx, query, arg.WhereArgs...).Scan(&count)
-	return count, err
+	return count, mapErr(err)
 }

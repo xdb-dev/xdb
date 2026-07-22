@@ -58,6 +58,7 @@ store/            # Store interfaces (RecordStore, SchemaStore, etc.)
   xdbsqlite/      # SQLite-backed store
 encoding/
   xdbjson/        # JSON encoder/decoder for records
+x/                # Generic helpers: grouping, mapping, filtering
 tests/            # Shared test suites for store implementations
 docs/
   concepts/       # Concept docs (one per concept)

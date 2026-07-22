@@ -28,15 +28,20 @@ type CreateKVTableParams struct {
 }
 
 // CreateKVTable creates a KV table for flexible/schema-less records.
+// One row per attribute: _type/_elem record the [core.TID] (and array
+// element id) so values decode; _val is ANY so each value keeps its
+// native storage class (INTEGER/REAL/TEXT/BLOB) for correct SQL
+// comparisons.
 func (q *Queries) CreateKVTable(ctx context.Context, arg CreateKVTableParams) error {
 	query := fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s (
 			_id   TEXT NOT NULL,
 			_attr TEXT NOT NULL,
 			_type TEXT NOT NULL,
-			_val  BLOB,
+			_elem TEXT,
+			_val  ANY,
 			PRIMARY KEY (_id, _attr)
-		)
+		) STRICT
 	`, arg.Table)
 
 	_, err := q.db.ExecContext(ctx, query)
@@ -140,19 +145,6 @@ func (q *Queries) CreateIndex(ctx context.Context, arg CreateIndexParams) error 
 		strings.Join(arg.Index.Columns, ", "),
 	)
 
-	_, err := q.db.ExecContext(ctx, query)
-	return err
-}
-
-// DropIndexParams are the arguments for [Queries.DropIndex].
-type DropIndexParams struct {
-	Table string
-	Index string
-}
-
-// DropIndex drops an index from a table.
-func (q *Queries) DropIndex(ctx context.Context, arg DropIndexParams) error {
-	query := fmt.Sprintf("DROP INDEX IF EXISTS %s", arg.Index)
 	_, err := q.db.ExecContext(ctx, query)
 	return err
 }

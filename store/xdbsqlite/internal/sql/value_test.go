@@ -2,7 +2,6 @@ package sql_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -134,129 +133,43 @@ func assertValueEqual(t *testing.T, want, got *core.Value) {
 	assert.Equal(t, want.Unwrap(), got.Unwrap())
 }
 
-func TestValue_MarshalBytes(t *testing.T) {
+func TestTypeFrom(t *testing.T) {
+	tests := []struct {
+		name string
+		tid  string
+		elem string
+		want core.Type
+	}{
+		{"scalar", string(core.TIDString), "", core.TypeString},
+		{"int", string(core.TIDInteger), "", core.TypeInt},
+		{"array of ints", string(core.TIDArray), string(core.TIDInteger), core.NewArrayType(core.TIDInteger)},
+		{"array of strings", string(core.TIDArray), string(core.TIDString), core.NewArrayType(core.TIDString)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := xsql.TypeFrom(tt.tid, tt.elem)
+			assert.Equal(t, tt.want.ID(), got.ID())
+			assert.Equal(t, tt.want.ElemTypeID(), got.ElemTypeID())
+		})
+	}
+}
+
+func TestValue_ElemTID(t *testing.T) {
 	tests := []struct {
 		name string
 		val  *core.Value
 		want string
 	}{
 		{"nil", nil, ""},
-		{"string", core.StringVal("hello"), "hello"},
-		{"int", core.IntVal(42), "42"},
-		{"unsigned", core.UintVal(99), "99"},
-		{"float", core.FloatVal(3.14), "3.14"},
-		{"bool true", core.BoolVal(true), "true"},
-		{"bool false", core.BoolVal(false), "false"},
-		{"time", core.TimeVal(testTime), fmt.Sprintf("%d", testTime.UnixMilli())},
-		{"json", core.JSONVal(json.RawMessage(`{"a":1}`)), `{"a":1}`},
-		{
-			"array of strings",
-			core.ArrayVal(core.TIDString, core.StringVal("a"), core.StringVal("b")),
-			`["a","b"]`,
-		},
-		{
-			"array of ints",
-			core.ArrayVal(core.TIDInteger, core.IntVal(1), core.IntVal(2)),
-			`[1,2]`,
-		},
-		{"empty array", core.ArrayVal(core.TIDString), `[]`},
+		{"scalar", core.IntVal(1), ""},
+		{"array of ints", core.ArrayVal(core.TIDInteger, core.IntVal(1)), string(core.TIDInteger)},
+		{"array of strings", core.ArrayVal(core.TIDString, core.StringVal("a")), string(core.TIDString)},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := xsql.Value{Val: tt.val}
-			got, err := v.MarshalBytes()
-			require.NoError(t, err)
-			if tt.val == nil {
-				assert.Nil(t, got)
-			} else {
-				assert.Equal(t, tt.want, string(got))
-			}
-		})
-	}
-}
-
-func TestValue_UnmarshalBytes(t *testing.T) {
-	tests := []struct {
-		name    string
-		typ     core.Type
-		data    string
-		wantVal *core.Value
-	}{
-		{"string", core.TypeString, "hello", core.StringVal("hello")},
-		{"int", core.TypeInt, "42", core.IntVal(42)},
-		{"unsigned", core.TypeUnsigned, "99", core.UintVal(99)},
-		{"float", core.TypeFloat, "3.14", core.FloatVal(3.14)},
-		{"bool true", core.TypeBool, "true", core.BoolVal(true)},
-		{"bool false", core.TypeBool, "false", core.BoolVal(false)},
-		{"time", core.TypeTime, fmt.Sprintf("%d", testTime.UnixMilli()), core.TimeVal(testTime)},
-		{"json", core.TypeJSON, `{"a":1}`, core.JSONVal(json.RawMessage(`{"a":1}`))},
-		{"bytes", core.TypeBytes, "raw", core.BytesVal([]byte("raw"))},
-		{
-			"array of strings",
-			core.NewArrayType(core.TIDString),
-			`["a","b"]`,
-			core.ArrayVal(core.TIDString, core.StringVal("a"), core.StringVal("b")),
-		},
-		{
-			"array of ints",
-			core.NewArrayType(core.TIDInteger),
-			`[1,2]`,
-			core.ArrayVal(core.TIDInteger, core.IntVal(1), core.IntVal(2)),
-		},
-		{
-			"empty array",
-			core.NewArrayType(core.TIDString),
-			`[]`,
-			core.ArrayVal(core.TIDString),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var v xsql.Value
-			require.NoError(t, v.UnmarshalBytes(tt.typ, []byte(tt.data)))
-			require.NotNil(t, v.Val)
-			assertValueEqual(t, tt.wantVal, v.Val)
-		})
-	}
-}
-
-func TestValue_MarshalUnmarshalBytes_Roundtrip(t *testing.T) {
-	tests := []struct {
-		name string
-		typ  core.Type
-		val  *core.Value
-	}{
-		{"string", core.TypeString, core.StringVal("hello")},
-		{"int", core.TypeInt, core.IntVal(-42)},
-		{"unsigned", core.TypeUnsigned, core.UintVal(999)},
-		{"float", core.TypeFloat, core.FloatVal(2.718)},
-		{"bool", core.TypeBool, core.BoolVal(true)},
-		{"time", core.TypeTime, core.TimeVal(testTime)},
-		{"json", core.TypeJSON, core.JSONVal(json.RawMessage(`[1,2,3]`))},
-		{"bytes", core.TypeBytes, core.BytesVal([]byte{0x01, 0x02})},
-		{
-			"array of strings",
-			core.NewArrayType(core.TIDString),
-			core.ArrayVal(core.TIDString, core.StringVal("x"), core.StringVal("y")),
-		},
-		{
-			"array of ints",
-			core.NewArrayType(core.TIDInteger),
-			core.ArrayVal(core.TIDInteger, core.IntVal(10), core.IntVal(20)),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			orig := xsql.Value{Val: tt.val}
-			data, err := orig.MarshalBytes()
-			require.NoError(t, err)
-
-			var restored xsql.Value
-			require.NoError(t, restored.UnmarshalBytes(tt.typ, data))
-			assertValueEqual(t, tt.val, restored.Val)
+			assert.Equal(t, tt.want, xsql.Value{Val: tt.val}.ElemTID())
 		})
 	}
 }

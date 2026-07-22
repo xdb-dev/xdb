@@ -8,36 +8,7 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
-	xsql "github.com/xdb-dev/xdb/store/xdbsqlite/internal/sql"
 )
-
-func TestKVTableName(t *testing.T) {
-	uri := core.MustNewURI("myns", "posts", "abc")
-	assert.Equal(t, `"kv:myns/posts"`, kvTableName(uri))
-}
-
-func TestColumnTableName(t *testing.T) {
-	uri := core.MustNewURI("myns", "posts", "abc")
-	assert.Equal(t, `"t:myns/posts"`, columnTableName(uri))
-}
-
-func TestSQLiteTypeName(t *testing.T) {
-	tests := []struct {
-		tid  core.TID
-		want string
-	}{
-		{core.TIDInteger, "INTEGER"},
-		{core.TIDFloat, "REAL"},
-		{core.TIDBoolean, "INTEGER"},
-		{core.TIDUnsigned, "INTEGER"},
-		{core.TIDTime, "INTEGER"},
-		{core.TIDString, "TEXT"},
-		{core.TIDBytes, "BLOB"},
-	}
-	for _, tt := range tests {
-		assert.Equal(t, tt.want, xsql.SQLiteTypeName(string(tt.tid)), "SQLiteTypeName(%v)", tt.tid)
-	}
-}
 
 func TestColumnDefs(t *testing.T) {
 	uri := core.MustNewURI("myns", "posts")
