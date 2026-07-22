@@ -273,3 +273,11 @@ func TestFormatPage(t *testing.T) {
 		assert.NotContains(t, buf.String(), "next_offset")
 	})
 }
+
+func TestJSONNoHTMLEscaping(t *testing.T) {
+	var buf bytes.Buffer
+	env := &output.ErrorEnvelope{Code: "X", Message: "m", Hint: "run xdb describe <resource>.<action>"}
+	require.NoError(t, output.New(output.FormatJSON).FormatError(&buf, env))
+	assert.Contains(t, buf.String(), "<resource>")
+	assert.NotContains(t, buf.String(), "u003c")
+}

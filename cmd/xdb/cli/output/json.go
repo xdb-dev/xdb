@@ -60,25 +60,16 @@ func (f *ndjsonFormatter) FormatError(w io.Writer, err error) error {
 }
 
 func writeIndentedJSON(w io.Writer, v any) error {
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return err
-	}
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
 
-	data = append(data, '\n')
-	_, err = w.Write(data)
-
-	return err
+	return enc.Encode(v)
 }
 
 func writeCompactJSON(w io.Writer, v any) error {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
 
-	data = append(data, '\n')
-	_, err = w.Write(data)
-
-	return err
+	return enc.Encode(v)
 }

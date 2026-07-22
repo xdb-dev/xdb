@@ -185,7 +185,7 @@ Commands compose through stdin, stdout, and one error shape.
 ```bash
 echo '{"title":"t"}' | xdb records create xdb://com.example/posts/p-1 -
 xdb records list xdb://com.example/posts -o ndjson \
-  | xdb batch -     # each line is {"resource":"...","action":"...","uri":"...","payload":{...}}
+  | xdb batch -     # each line is {"op":"records.create","uri":"...","data":{...}}
 ```
 
 **Errors are structured.** Every error, in every format, has the same shape:

@@ -232,7 +232,7 @@ func TestHintFor(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.NotEmpty(t, hintFor(tc.code, "records", ""))
+			assert.NotEmpty(t, hintFor(tc.code, "records", "get", ""))
 		})
 	}
 }
@@ -252,4 +252,20 @@ func TestParentOf(t *testing.T) {
 			assert.Equal(t, tc.want, parentOf(tc.in))
 		})
 	}
+}
+
+func TestHintFor_SchemaViolationOnSchemasCreate(t *testing.T) {
+	hint := hintFor(CodeSchemaViolation, "schemas", "create", "")
+	assert.Contains(t, hint, "--schema-format", "must not point at describing a schema that failed to create")
+
+	recordHint := hintFor(CodeSchemaViolation, "records", "create", "xdb://ns/s/r")
+	assert.Contains(t, recordHint, "describe --uri")
+}
+
+func TestInvalidArgError_SetsHint(t *testing.T) {
+	err := invalidArgError("records", "create", assert.AnError)
+
+	var env *output.ErrorEnvelope
+	require.ErrorAs(t, err, &env)
+	assert.NotEmpty(t, env.Hint)
 }

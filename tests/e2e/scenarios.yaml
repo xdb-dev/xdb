@@ -49,8 +49,9 @@ scenarios:
       - name: "delete without --force is rejected"
         run: xdb records delete --uri xdb://$NS/posts/world
         expect:
-          exit_nonzero: true
+          exit: 3
           stderr_contains: "force"
+          error: { code: "INVALID_ARGUMENT", resource: "records", action: "delete" }
 
       - name: "delete with --force"
         run: xdb records delete --uri xdb://$NS/posts/world --force
@@ -161,11 +162,8 @@ scenarios:
       - name: "qty as a string is rejected"
         run: xdb records create --uri xdb://$NS/items/x --json '{"name":"widget","qty":"not-a-number"}' -o json
         expect:
-          exit_nonzero: true
-          error:
-            code: "SCHEMA_VIOLATION"
-            resource: "records"
-            action: "create"
+          exit: 1
+          error: { code: "SCHEMA_VIOLATION", resource: "records", action: "create" }
 
       - name: "valid qty succeeds"
         run: xdb records create --uri xdb://$NS/items/x --json '{"name":"widget","qty":42}' -o json
@@ -184,10 +182,7 @@ scenarios:
         run: xdb records get --uri xdb://$NS/keys/ghost -o json
         expect:
           exit: 1
-          error:
-            code: "NOT_FOUND"
-            resource: "records"
-            action: "get"
+          error: { code: "NOT_FOUND", resource: "records", action: "get" }
 
       - name: "create it"
         run: xdb records create --uri xdb://$NS/keys/ghost --json '{"value":"materialized"}'

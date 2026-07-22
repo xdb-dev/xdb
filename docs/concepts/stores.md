@@ -158,8 +158,9 @@ Violations are reported as `core.ErrSchemaViolation` (wrapping the specific sche
 | ----------------- | --------------------------------------------------- | ------------------------------- |
 | `HealthChecker`   | `Health(ctx) error`                                 | Connectivity check (< 1 second) |
 | `TX`              | `Run(ctx, func(tx Store) error) error`              | Transactional batch operations  |
+| `Validator`       | `ValidateRecord(ctx, record, op) error`             | Validate-without-write (dry-run) |
 
-The Store returned by `store.New` implements `TX` when the driver supports native transactions (memory, sqlite). On such stores, **every** write verb runs inside a transaction, so enforcement checks and the write are atomic. Drivers without transactions (fs, redis) fall back to sequential execution.
+The Store returned by `store.New` always implements `Validator`: it runs the same enforcement checks a real write would (including dynamic-mode evolution, computed and discarded) without touching the driver. It implements `TX` when the driver supports native transactions (memory, sqlite). On such stores, **every** write verb runs inside a transaction, so enforcement checks and the write are atomic. Drivers without transactions (fs, redis) fall back to sequential execution.
 
 ```go
 if tx, ok := st.(store.TX); ok {

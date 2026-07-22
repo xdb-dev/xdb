@@ -75,7 +75,7 @@ func wrapRPCError(resource, action, uri string, err error) error {
 			Resource: resource,
 			Action:   action,
 			URI:      uri,
-			Hint:     hintFor(code, resource, uri),
+			Hint:     hintFor(code, resource, action, uri),
 		}
 	}
 
@@ -104,6 +104,7 @@ func invalidArgError(resource, action string, err error) error {
 		Message:  err.Error(),
 		Resource: resource,
 		Action:   action,
+		Hint:     hintFor(CodeInvalidArgument, resource, action, ""),
 	}
 }
 
@@ -126,7 +127,7 @@ func codeFromRPC(code int) string {
 	}
 }
 
-func hintFor(code, resource, uri string) string {
+func hintFor(code, resource, action, uri string) string {
 	switch code {
 	case CodeNotFound:
 		if resource == "records" && uri != "" {
@@ -137,6 +138,12 @@ func hintFor(code, resource, uri string) string {
 	case CodeAlreadyExists:
 		return "use update or upsert instead of create"
 	case CodeSchemaViolation:
+		// A schema that failed to create cannot be described — point at
+		// the format doc instead of a schema that does not exist.
+		if resource == "schemas" && action == "create" {
+			return "run xdb describe --schema-format for the schema definition format"
+		}
+
 		return "run xdb describe --uri <schema-uri> to inspect the schema"
 	case CodeConflict:
 		return "the resource exists with different data; use update or upsert (records) or schemas update (schemas)"

@@ -83,6 +83,16 @@ xdb daemon restart
 
 Stops the daemon (if running), then starts it.
 
+## Change Streams
+
+The daemon owns an in-process event bus: record, schema, and batch
+services publish a change notification after each successful mutation
+(after the commit, for batches), and `watch` streams deliver them as
+server-sent events. A stream always begins with a `ready` frame before
+any event, so clients know the subscription is live. Delivery is
+at-most-once with no replay: events are visible only to watchers
+connected to this daemon at the time of the change.
+
 ## Files
 
 | File              | Purpose                     |

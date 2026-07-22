@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/xdb-dev/xdb/core"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -151,4 +153,13 @@ func TestDescribe_NoArgsOverview(t *testing.T) {
 	assert.Contains(t, stdout, "--schema-format")
 	assert.Contains(t, stdout, "--actions")
 	assert.Contains(t, stdout, "--filter")
+}
+
+func TestValueTypes_CompleteAndDescribed(t *testing.T) {
+	require.Len(t, typeDescriptions, len(core.ValueTypes),
+		"every core value type needs a description (and no stale extras)")
+
+	for _, tid := range core.ValueTypes {
+		assert.NotEmpty(t, typeDescriptions[tid], "type %s", tid)
+	}
 }
