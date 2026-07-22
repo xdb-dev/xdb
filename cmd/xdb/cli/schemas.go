@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/urfave/cli/v3"
@@ -77,12 +78,26 @@ func (a *App) schemaCreate(ctx context.Context, cmd *cli.Command) error {
 		return invalidArgError("schemas", "create", err)
 	}
 
+	dryRun := cmd.Bool("dry-run")
+
 	var resp api.CreateSchemaResponse
 	if err := a.client.Call(ctx, "schemas.create", &api.CreateSchemaRequest{
-		URI:  uri,
-		Data: data,
+		URI:    uri,
+		Data:   data,
+		DryRun: dryRun,
 	}, &resp); err != nil {
 		return wrapRPCError("schemas", "create", uri, err)
+	}
+
+	if dryRun {
+		if resp.DryRun == nil {
+			return dryRunIgnoredError("schemas", "create", uri)
+		}
+		defData, marshalErr := json.Marshal(resp.Data)
+		if marshalErr != nil {
+			defData = nil
+		}
+		return formatDryRun(cmd, resp.DryRun, defData)
 	}
 
 	return formatOne(cmd, resp.Data)
@@ -126,6 +141,10 @@ func (a *App) schemaList(ctx context.Context, cmd *cli.Command) error {
 }
 
 func (a *App) schemaUpdate(ctx context.Context, cmd *cli.Command) error {
+	if cmd.Bool("dry-run") {
+		return invalidArgError("schemas", "update", fmt.Errorf("--dry-run is not yet supported for schemas update"))
+	}
+
 	data, err := readPayload(cmd)
 	if err != nil {
 		return invalidArgError("schemas", "update", err)
@@ -157,11 +176,26 @@ func (a *App) schemaDelete(ctx context.Context, cmd *cli.Command) error {
 		return invalidArgError("schemas", "delete", err)
 	}
 
+	if !cmd.Bool("force") {
+		return invalidArgError("schemas", "delete", fmt.Errorf("delete requires --force to confirm"))
+	}
+
+	dryRun := cmd.Bool("dry-run")
+
+	var resp api.DeleteSchemaResponse
 	if err := a.client.Call(ctx, "schemas.delete", &api.DeleteSchemaRequest{
 		URI:     uri,
 		Cascade: cmd.Bool("cascade"),
-	}, nil); err != nil {
+		DryRun:  dryRun,
+	}, &resp); err != nil {
 		return wrapRPCError("schemas", "delete", uri, err)
+	}
+
+	if dryRun {
+		if resp.DryRun == nil {
+			return dryRunIgnoredError("schemas", "delete", uri)
+		}
+		return formatDryRun(cmd, resp.DryRun, nil)
 	}
 
 	return formatOne(cmd, map[string]string{

@@ -35,11 +35,13 @@ func recordMethods() map[string]rpc.MethodMeta {
 				"creating over an existing resource with different data fails with CONFLICT.",
 			Mutating: true,
 			Parameters: map[string]rpc.ParamMeta{
-				"uri":  {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
-				"data": {Description: "Record data as JSON object", Type: "object"},
+				"uri":     {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+				"data":    {Description: "Record data as JSON object", Type: "object"},
+				"dry_run": {Description: "Validate without writing; response carries dry_run{valid,would}", Type: "boolean"},
 			},
 			Response: map[string]rpc.ParamMeta{
-				"data": {Description: "The created or existing record data", Type: "object"},
+				"data":    {Description: "The created or existing record data", Type: "object"},
+				"dry_run": {Description: "Present only on dry-run: {valid, would}", Type: "object"},
 			},
 		},
 		"records.get": {
@@ -71,29 +73,34 @@ func recordMethods() map[string]rpc.MethodMeta {
 			Description: "Update an existing record (patch semantics). Only supplied fields change.",
 			Mutating:    true,
 			Parameters: map[string]rpc.ParamMeta{
-				"uri":  {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
-				"data": {Description: "Patch data as JSON object", Type: "object", Required: true},
+				"uri":     {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+				"data":    {Description: "Patch data as JSON object", Type: "object", Required: true},
+				"dry_run": {Description: "Validate without writing; response carries dry_run{valid,would}", Type: "boolean"},
 			},
 			Response: map[string]rpc.ParamMeta{
-				"data": {Description: "The updated record data", Type: "object"},
+				"data":    {Description: "The updated record data", Type: "object"},
+				"dry_run": {Description: "Present only on dry-run: {valid, would}", Type: "object"},
 			},
 		},
 		"records.upsert": {
 			Description: "Create or replace a record (full replace). Sets complete state.",
 			Mutating:    true,
 			Parameters: map[string]rpc.ParamMeta{
-				"uri":  {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
-				"data": {Description: "Record data as JSON object", Type: "object"},
+				"uri":     {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+				"data":    {Description: "Record data as JSON object", Type: "object"},
+				"dry_run": {Description: "Validate without writing; response carries dry_run{valid,would}", Type: "boolean"},
 			},
 			Response: map[string]rpc.ParamMeta{
-				"data": {Description: "The upserted record data", Type: "object"},
+				"data":    {Description: "The upserted record data", Type: "object"},
+				"dry_run": {Description: "Present only on dry-run: {valid, would}", Type: "object"},
 			},
 		},
 		"records.delete": {
 			Description: "Delete a record. Idempotent: succeeds even if not found.",
 			Mutating:    true,
 			Parameters: map[string]rpc.ParamMeta{
-				"uri": {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+				"uri":     {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+				"dry_run": {Description: "Validate without writing; response carries dry_run{valid,would}", Type: "boolean"},
 			},
 		},
 	}
@@ -113,9 +120,11 @@ func schemaMethods() map[string]rpc.MethodMeta {
 						"for ARRAY<JSON> members)",
 					Type: "object",
 				},
+				"dry_run": {Description: "Validate without writing; response carries dry_run{valid,would}", Type: "boolean"},
 			},
 			Response: map[string]rpc.ParamMeta{
-				"data": {Description: "The created or existing schema definition", Type: "object"},
+				"data":    {Description: "The created or existing schema definition", Type: "object"},
+				"dry_run": {Description: "Present only on dry-run: {valid, would}", Type: "object"},
 			},
 		},
 		"schemas.get": {
@@ -164,6 +173,7 @@ func schemaMethods() map[string]rpc.MethodMeta {
 			Parameters: map[string]rpc.ParamMeta{
 				"uri":     {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
 				"cascade": {Description: "Delete all records in the schema", Type: "boolean"},
+				"dry_run": {Description: "Validate without writing; response carries dry_run{valid,would}", Type: "boolean"},
 			},
 		},
 	}

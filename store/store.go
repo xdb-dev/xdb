@@ -141,3 +141,17 @@ type TX interface {
 	// If fn returns an error, all changes are rolled back.
 	Run(ctx context.Context, fn func(tx Store) error) error
 }
+
+// Validator is an optional interface for validating would-be writes
+// against schema policy without writing. Facade-built stores always
+// implement it.
+type Validator interface {
+	// ValidateRecord checks the record exactly as the write with the
+	// given op would, performing no writes. Dynamic-mode evolution is
+	// computed and discarded.
+	ValidateRecord(ctx context.Context, record *core.Record, op Op) error
+
+	// ValidateDeleteRecord checks a record or attr-level delete;
+	// deleting a required attr is a schema violation.
+	ValidateDeleteRecord(ctx context.Context, uri *core.URI) error
+}

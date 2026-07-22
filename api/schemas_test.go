@@ -483,3 +483,81 @@ func TestSchemaService_Delete(t *testing.T) {
 		assert.ErrorIs(t, err, core.ErrInvalidURI)
 	})
 }
+
+func TestSchemaService_DryRun(t *testing.T) {
+	svc := newSchemaService()
+	ctx := context.Background()
+
+	t.Run("create validates without writing", func(t *testing.T) {
+		resp, err := svc.Create(ctx, &api.CreateSchemaRequest{
+			URI:    "xdb://dry.ns/posts",
+			Data:   json.RawMessage(`{"fields":{"title":{"type":"string"}}}`),
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.True(t, resp.DryRun.Valid)
+		assert.Equal(t, "create", resp.DryRun.Would)
+
+		_, err = svc.Get(ctx, &api.GetSchemaRequest{URI: "xdb://dry.ns/posts"})
+		assert.ErrorIs(t, err, core.ErrNotFound)
+	})
+
+	t.Run("create dry-run rejects invalid definitions", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateSchemaRequest{
+			URI:    "xdb://dry.ns/bad",
+			Data:   json.RawMessage(`{"mode":"bogus","fields":{"title":{"type":"string"}}}`),
+			DryRun: true,
+		})
+		require.Error(t, err)
+	})
+
+	t.Run("create dry-run over identical existing is a noop", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateSchemaRequest{
+			URI:  "xdb://dry.ns/live",
+			Data: json.RawMessage(`{"fields":{"title":{"type":"string"}}}`),
+		})
+		require.NoError(t, err)
+
+		resp, err := svc.Create(ctx, &api.CreateSchemaRequest{
+			URI:    "xdb://dry.ns/live",
+			Data:   json.RawMessage(`{"fields":{"title":{"type":"string"}}}`),
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.Equal(t, "noop", resp.DryRun.Would)
+	})
+
+	t.Run("create dry-run over divergent existing conflicts", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateSchemaRequest{
+			URI:    "xdb://dry.ns/live",
+			Data:   json.RawMessage(`{"fields":{"title":{"type":"string"},"extra":{"type":"string"}}}`),
+			DryRun: true,
+		})
+		assert.ErrorIs(t, err, core.ErrConflict)
+	})
+
+	t.Run("delete dry-run preserves the schema", func(t *testing.T) {
+		resp, err := svc.Delete(ctx, &api.DeleteSchemaRequest{
+			URI:    "xdb://dry.ns/live",
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.Equal(t, "delete", resp.DryRun.Would)
+
+		_, err = svc.Get(ctx, &api.GetSchemaRequest{URI: "xdb://dry.ns/live"})
+		assert.NoError(t, err)
+	})
+
+	t.Run("delete dry-run on missing schema is a noop", func(t *testing.T) {
+		resp, err := svc.Delete(ctx, &api.DeleteSchemaRequest{
+			URI:    "xdb://dry.ns/ghost",
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.Equal(t, "noop", resp.DryRun.Would)
+	})
+}

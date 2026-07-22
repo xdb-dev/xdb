@@ -80,16 +80,27 @@ func (a *App) recordCreate(ctx context.Context, cmd *cli.Command) error {
 		return invalidArgError("records", "create", err)
 	}
 
+	dryRun := cmd.Bool("dry-run")
+
 	var resp api.CreateRecordResponse
 	if err := a.client.Call(ctx, "records.create", &api.CreateRecordRequest{
-		URI:  uri,
-		Data: data,
+		URI:    uri,
+		Data:   data,
+		DryRun: dryRun,
 	}, &resp); err != nil {
 		return wrapRPCError("records", "create", uri, err)
 	}
 
+	if dryRun && resp.DryRun == nil {
+		return dryRunIgnoredError("records", "create", uri)
+	}
+
 	if cmd.Bool("quiet") {
 		return nil
+	}
+
+	if dryRun {
+		return formatDryRun(cmd, resp.DryRun, resp.Data)
 	}
 
 	return formatRawJSON(cmd, resp.Data)
@@ -161,16 +172,27 @@ func (a *App) recordUpdate(ctx context.Context, cmd *cli.Command) error {
 		return invalidArgError("records", "update", err)
 	}
 
+	dryRun := cmd.Bool("dry-run")
+
 	var resp api.UpdateRecordResponse
 	if err := a.client.Call(ctx, "records.update", &api.UpdateRecordRequest{
-		URI:  uri,
-		Data: data,
+		URI:    uri,
+		Data:   data,
+		DryRun: dryRun,
 	}, &resp); err != nil {
 		return wrapRPCError("records", "update", uri, err)
 	}
 
+	if dryRun && resp.DryRun == nil {
+		return dryRunIgnoredError("records", "update", uri)
+	}
+
 	if cmd.Bool("quiet") {
 		return nil
+	}
+
+	if dryRun {
+		return formatDryRun(cmd, resp.DryRun, resp.Data)
 	}
 
 	return formatRawJSON(cmd, resp.Data)
@@ -187,16 +209,27 @@ func (a *App) recordUpsert(ctx context.Context, cmd *cli.Command) error {
 		return invalidArgError("records", "upsert", err)
 	}
 
+	dryRun := cmd.Bool("dry-run")
+
 	var resp api.UpsertRecordResponse
 	if err := a.client.Call(ctx, "records.upsert", &api.UpsertRecordRequest{
-		URI:  uri,
-		Data: data,
+		URI:    uri,
+		Data:   data,
+		DryRun: dryRun,
 	}, &resp); err != nil {
 		return wrapRPCError("records", "upsert", uri, err)
 	}
 
+	if dryRun && resp.DryRun == nil {
+		return dryRunIgnoredError("records", "upsert", uri)
+	}
+
 	if cmd.Bool("quiet") {
 		return nil
+	}
+
+	if dryRun {
+		return formatDryRun(cmd, resp.DryRun, resp.Data)
 	}
 
 	return formatRawJSON(cmd, resp.Data)
@@ -212,14 +245,26 @@ func (a *App) recordDelete(ctx context.Context, cmd *cli.Command) error {
 		return invalidArgError("records", "delete", fmt.Errorf("delete requires --force to confirm"))
 	}
 
+	dryRun := cmd.Bool("dry-run")
+
+	var resp api.DeleteRecordResponse
 	if err := a.client.Call(ctx, "records.delete", &api.DeleteRecordRequest{
-		URI: uri,
-	}, nil); err != nil {
+		URI:    uri,
+		DryRun: dryRun,
+	}, &resp); err != nil {
 		return wrapRPCError("records", "delete", uri, err)
+	}
+
+	if dryRun && resp.DryRun == nil {
+		return dryRunIgnoredError("records", "delete", uri)
 	}
 
 	if cmd.Bool("quiet") {
 		return nil
+	}
+
+	if dryRun {
+		return formatDryRun(cmd, resp.DryRun, nil)
 	}
 
 	return formatOne(cmd, map[string]string{
@@ -252,7 +297,6 @@ func recordListFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{Name: "uri", Usage: "Schema URI"},
 		&cli.StringFlag{Name: "filter", Usage: "Human-friendly filter expression"},
-		&cli.StringFlag{Name: "query", Usage: "Structured JSON query"},
 		&cli.StringFlag{Name: "fields", Usage: "Comma-separated field mask"},
 		&cli.IntFlag{Name: "limit", Usage: "Max items per page"},
 		&cli.IntFlag{Name: "offset", Usage: "Page offset"},

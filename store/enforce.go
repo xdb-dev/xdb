@@ -71,15 +71,30 @@ func (e *enforcer) Apply(ctx context.Context, m Mutation) error {
 	return e.next.Apply(ctx, m)
 }
 
-// check validates one mutation against its schema. No schema means no
-// policy.
+// check validates one mutation against its schema and persists any
+// dynamic-mode schema evolution.
 func (e *enforcer) check(ctx context.Context, m Mutation) error {
-	def, err := e.next.GetSchema(ctx, m.Path.SchemaURI())
-	if errors.Is(err, core.ErrNotFound) {
-		return nil
-	}
+	evolved, err := checkMutation(ctx, e.next, m)
 	if err != nil {
 		return err
+	}
+	if evolved != nil {
+		return e.next.PutSchema(ctx, evolved)
+	}
+	return nil
+}
+
+// checkMutation validates one mutation against its schema without
+// writing anything. No schema means no policy. In dynamic mode the
+// evolved definition is returned for the caller to persist;
+// validate-only callers discard it.
+func checkMutation(ctx context.Context, d Driver, m Mutation) (*schema.Def, error) {
+	def, err := d.GetSchema(ctx, m.Path.SchemaURI())
+	if errors.Is(err, core.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	switch m.Op {
@@ -87,13 +102,14 @@ func (e *enforcer) check(ctx context.Context, m Mutation) error {
 		// Replace-family ops carry the record's full tuple set, so the
 		// required check is self-contained.
 		if err := checkRequired(def, m.Tuples); err != nil {
-			return err
+			return nil, err
 		}
-		return e.validateOrEvolve(ctx, def, m.Tuples)
+		return typeCheckOrEvolve(def, m.Tuples)
 
 	case OpPatch:
-		if err := e.validateOrEvolve(ctx, def, m.Tuples); err != nil {
-			return err
+		evolved, err := typeCheckOrEvolve(def, m.Tuples)
+		if err != nil {
+			return nil, err
 		}
 		// A merge can only add or overwrite tuples, so a record
 		// satisfying Required keeps satisfying it. The only stateful
@@ -101,63 +117,64 @@ func (e *enforcer) check(ctx context.Context, m Mutation) error {
 		// must include every required field. With no required fields
 		// that check is vacuous, so skip the existence scan entirely.
 		if !hasRequiredFields(def) {
-			return nil
+			return evolved, nil
 		}
-		exists, err := recordExists(ctx, e.next, m.Path)
+		exists, err := recordExists(ctx, d, m.Path)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if !exists {
-			return checkRequired(def, m.Tuples)
+			if err := checkRequired(def, m.Tuples); err != nil {
+				return nil, err
+			}
 		}
-		return nil
+		return evolved, nil
 
 	case OpDelete:
 		// Deleting the whole record is fine; stripping a required
 		// attr from it is not.
 		for _, attr := range m.Attrs {
 			if def.Fields[attr].Required {
-				return fmt.Errorf(
+				return nil, fmt.Errorf(
 					"%w: cannot delete required field %q",
 					core.ErrSchemaViolation, attr,
 				)
 			}
 		}
-		return nil
+		return nil, nil
 
 	default:
-		return fmt.Errorf("store: unknown op %s", m.Op)
+		return nil, fmt.Errorf("store: unknown op %s", m.Op)
 	}
 }
 
-// validateOrEvolve type-checks tuples per the schema mode. In dynamic
-// mode, undeclared attributes evolve the schema: the new fields are
-// inferred and written back (revision bumped by CloneWithFields).
-func (e *enforcer) validateOrEvolve(
-	ctx context.Context,
+// typeCheckOrEvolve type-checks tuples per the schema mode. In dynamic
+// mode, undeclared attributes evolve the schema: the inferred fields
+// are returned as a clone (revision bumped by CloneWithFields) for the
+// caller to persist.
+func typeCheckOrEvolve(
 	def *schema.Def,
 	tuples []*core.Tuple,
-) error {
+) (*schema.Def, error) {
 	switch def.Mode {
 	case schema.ModeStrict, schema.ModeFlexible:
 		if err := schema.ValidateTuples(def, tuples); err != nil {
-			return fmt.Errorf("%w: %w", core.ErrSchemaViolation, err)
+			return nil, fmt.Errorf("%w: %w", core.ErrSchemaViolation, err)
 		}
-		return nil
+		return nil, nil
 
 	case schema.ModeDynamic:
 		newFields, err := schema.EvolveDynamic(def, tuples)
 		if err != nil {
-			return fmt.Errorf("%w: %w", core.ErrSchemaViolation, err)
+			return nil, fmt.Errorf("%w: %w", core.ErrSchemaViolation, err)
 		}
 		if len(newFields) == 0 {
-			return nil
+			return nil, nil
 		}
-		evolved := def.CloneWithFields(newFields)
-		return e.next.PutSchema(ctx, evolved)
+		return def.CloneWithFields(newFields), nil
 
 	default:
-		return fmt.Errorf("%w: unknown mode %q", core.ErrSchemaViolation, def.Mode)
+		return nil, fmt.Errorf("%w: unknown mode %q", core.ErrSchemaViolation, def.Mode)
 	}
 }
 

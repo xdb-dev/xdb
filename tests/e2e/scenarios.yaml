@@ -463,7 +463,7 @@ scenarios:
           json: { _id: "o1", status: "shipped" }
 
       - name: "cascade delete the orders schema"
-        run: xdb schemas delete --uri xdb://$NS/orders --cascade
+        run: xdb schemas delete --uri xdb://$NS/orders --cascade --force
         expect: { exit: 0 }
 
       - name: "orders gone after cascade"
@@ -641,3 +641,48 @@ scenarios:
         expect:
           exit: 1
           error: { code: "CONFLICT", resource: "schemas", action: "create" }
+
+  - name: "dry-run-contract"
+    description: "--dry-run validates without writing on records and schemas; violations surface exactly as the real call would."
+    steps:
+      - name: "create schema"
+        run: xdb schemas create --uri xdb://$NS/tasks --json '{"fields":{"title":{"type":"string","required":true},"done":{"type":"boolean"}}}'
+        expect: { exit: 0 }
+
+      - name: "dry-run create reports would=create"
+        run: xdb records create --uri xdb://$NS/tasks/t1 --json '{"title":"Try"}' --dry-run -o json
+        expect:
+          exit: 0
+          json: { dry_run: true, valid: true, would: "create" }
+
+      - name: "dry-run create did not write"
+        run: xdb records get --uri xdb://$NS/tasks/t1 -o json
+        expect:
+          exit: 1
+          error: { code: "NOT_FOUND", resource: "records", action: "get" }
+
+      - name: "dry-run create surfaces schema violations"
+        run: xdb records create --uri xdb://$NS/tasks/t2 --json '{"done":true}' --dry-run -o json
+        expect:
+          exit: 1
+          error: { code: "SCHEMA_VIOLATION", resource: "records", action: "create" }
+
+      - name: "create for real"
+        run: xdb records create --uri xdb://$NS/tasks/t1 --json '{"title":"Try"}'
+        expect: { exit: 0 }
+
+      - name: "dry-run delete preserves the record"
+        run: xdb records delete --uri xdb://$NS/tasks/t1 --force --dry-run -o json
+        expect:
+          exit: 0
+          json: { dry_run: true, would: "delete" }
+
+      - name: "record survives dry-run delete"
+        run: xdb records get --uri xdb://$NS/tasks/t1 --quiet
+        expect: { exit: 0 }
+
+      - name: "schemas delete without --force is rejected"
+        run: xdb schemas delete --uri xdb://$NS/tasks
+        expect:
+          exit: 3
+          error: { code: "INVALID_ARGUMENT", resource: "schemas", action: "delete" }

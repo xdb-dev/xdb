@@ -279,6 +279,38 @@ func (f *facade) applyRecord(
 	})
 }
 
+// ValidateRecord checks the record against its schema exactly as the
+// write with the given op would, without writing anything.
+func (f *facade) ValidateRecord(
+	ctx context.Context,
+	record *core.Record,
+	op Op,
+) error {
+	_, err := checkMutation(ctx, f.stack, Mutation{
+		Path:   record.URI(),
+		Op:     op,
+		Tuples: record.Tuples(),
+	})
+
+	return err
+}
+
+// ValidateDeleteRecord checks a record or attr-level delete without
+// deleting anything. Deleting a required attr is a schema violation.
+func (f *facade) ValidateDeleteRecord(ctx context.Context, uri *core.URI) error {
+	m := Mutation{
+		Path: uri.RecordURI(),
+		Op:   OpDelete,
+	}
+	if uri.Attr() != "" {
+		m.Attrs = []string{uri.Attr()}
+	}
+
+	_, err := checkMutation(ctx, f.stack, m)
+
+	return err
+}
+
 // DeleteRecord deletes a record by URI.
 // Returns [core.ErrNotFound] if the record does not exist.
 func (f *facade) DeleteRecord(ctx context.Context, uri *core.URI) error {

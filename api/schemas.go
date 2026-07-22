@@ -29,13 +29,15 @@ func NewSchemaService(s store.Store) *SchemaService {
 
 // CreateSchemaRequest is the request for schemas.create.
 type CreateSchemaRequest struct {
-	URI  string          `json:"uri"`
-	Data json.RawMessage `json:"data"`
+	URI    string          `json:"uri"`
+	Data   json.RawMessage `json:"data"`
+	DryRun bool            `json:"dry_run,omitempty"`
 }
 
 // CreateSchemaResponse is the response for schemas.create.
 type CreateSchemaResponse struct {
-	Data *schema.Def `json:"data"`
+	Data   *schema.Def   `json:"data"`
+	DryRun *DryRunResult `json:"dry_run,omitempty"`
 }
 
 // Create creates a new schema definition. Identical re-create (same
@@ -55,6 +57,10 @@ func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*
 		def.Mode = schema.ModeStrict
 	}
 
+	if req.DryRun {
+		return s.dryRunCreateSchema(ctx, uri, &def)
+	}
+
 	err = s.store.CreateSchema(ctx, uri, &def)
 	if errors.Is(err, core.ErrAlreadyExists) {
 		existing, getErr := s.store.GetSchema(ctx, uri)
@@ -67,11 +73,7 @@ func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*
 			return nil, fmt.Errorf("api: schemas.create: %w", cmpErr)
 		}
 		if !equivalent {
-			return nil, fmt.Errorf(
-				"api: schemas.create %s: schema exists with a different definition "+
-					"(run schemas.get to inspect; use schemas.update to evolve): %w",
-				uri, core.ErrConflict,
-			)
+			return nil, schemaCreateConflictError(uri)
 		}
 
 		return &CreateSchemaResponse{Data: existing}, nil
@@ -248,6 +250,16 @@ func applySchemaPatch(
 // schemasEquivalent reports whether a and b are the same schema
 // definition, ignoring Revision (which legitimately differs between a
 // freshly built create payload and the currently stored definition).
+// schemaCreateConflictError reports a create over an existing schema
+// with a different definition.
+func schemaCreateConflictError(uri *core.URI) error {
+	return fmt.Errorf(
+		"api: schemas.create %s: schema exists with a different definition "+
+			"(run schemas.get to inspect; use schemas.update to evolve): %w",
+		uri, core.ErrConflict,
+	)
+}
+
 func schemasEquivalent(a, b *schema.Def) (bool, error) {
 	am, err := schemaDefMap(a)
 	if err != nil {
@@ -284,10 +296,13 @@ func schemaDefMap(d *schema.Def) (map[string]any, error) {
 type DeleteSchemaRequest struct {
 	URI     string `json:"uri"`
 	Cascade bool   `json:"cascade,omitempty"`
+	DryRun  bool   `json:"dry_run,omitempty"`
 }
 
 // DeleteSchemaResponse is the response for schemas.delete.
-type DeleteSchemaResponse struct{}
+type DeleteSchemaResponse struct {
+	DryRun *DryRunResult `json:"dry_run,omitempty"`
+}
 
 // schemaFieldPayload is the wire representation of a [schema.Field], mirroring
 // the schema package's own JSON format ({type, elem_type, items, ...}).
@@ -409,6 +424,10 @@ func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*
 	uri, err := parseURI(req.URI, "schemas.delete", 2, 2, false)
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.delete: %w", err)
+	}
+
+	if req.DryRun {
+		return s.dryRunDeleteSchema(ctx, uri)
 	}
 
 	if req.Cascade {

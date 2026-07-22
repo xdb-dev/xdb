@@ -37,13 +37,15 @@ func NewRecordService(s store.Store) *RecordService {
 
 // CreateRecordRequest is the request for records.create.
 type CreateRecordRequest struct {
-	URI  string          `json:"uri"`
-	Data json.RawMessage `json:"data"`
+	URI    string          `json:"uri"`
+	Data   json.RawMessage `json:"data"`
+	DryRun bool            `json:"dry_run,omitempty"`
 }
 
 // CreateRecordResponse is the response for records.create.
 type CreateRecordResponse struct {
-	Data json.RawMessage `json:"data"`
+	DryRun *DryRunResult   `json:"dry_run,omitempty"`
+	Data   json.RawMessage `json:"data"`
 }
 
 // Create creates a new record. Identical re-create (same data) is an
@@ -73,6 +75,10 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 		}
 	}
 
+	if req.DryRun {
+		return s.dryRunCreate(ctx, uri, record)
+	}
+
 	err = s.store.CreateRecord(ctx, record)
 	if errors.Is(err, core.ErrAlreadyExists) {
 		existing, getErr := s.store.GetRecord(ctx, uri)
@@ -85,11 +91,7 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 			return nil, cmpErr
 		}
 		if !equivalent {
-			return nil, fmt.Errorf(
-				"records.create %s: record exists with different data "+
-					"(use records.update to patch or records.upsert to replace): %w",
-				uri, core.ErrConflict,
-			)
+			return nil, createConflictError(uri)
 		}
 
 		return s.recordResponse(existing)
@@ -100,6 +102,16 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 	}
 
 	return s.recordResponse(record)
+}
+
+// createConflictError reports a create over an existing record with
+// different data.
+func createConflictError(uri *core.URI) error {
+	return fmt.Errorf(
+		"records.create %s: record exists with different data "+
+			"(use records.update to patch or records.upsert to replace): %w",
+		uri, core.ErrConflict,
+	)
 }
 
 // GetRecordRequest is the request for records.get.
@@ -208,13 +220,15 @@ func (s *RecordService) List(ctx context.Context, req *ListRecordsRequest) (*Lis
 
 // UpdateRecordRequest is the request for records.update (patch semantics).
 type UpdateRecordRequest struct {
-	URI  string          `json:"uri"`
-	Data json.RawMessage `json:"data"`
+	URI    string          `json:"uri"`
+	Data   json.RawMessage `json:"data"`
+	DryRun bool            `json:"dry_run,omitempty"`
 }
 
 // UpdateRecordResponse is the response for records.update.
 type UpdateRecordResponse struct {
-	Data json.RawMessage `json:"data"`
+	DryRun *DryRunResult   `json:"dry_run,omitempty"`
+	Data   json.RawMessage `json:"data"`
 }
 
 // Update updates an existing record using patch semantics.
@@ -225,6 +239,10 @@ func (s *RecordService) Update(ctx context.Context, req *UpdateRecordRequest) (*
 	uri, err := parseURI(req.URI, "records.update", 3, 3, false)
 	if err != nil {
 		return nil, err
+	}
+
+	if req.DryRun {
+		return s.dryRunUpdate(ctx, req, uri)
 	}
 
 	var updated *core.Record
@@ -270,6 +288,29 @@ func applyRecordPatch(
 	uri *core.URI,
 	data json.RawMessage,
 ) (*core.Record, error) {
+	existing, err := mergeRecordPatch(ctx, records, schemas, uri, data)
+	if err != nil {
+		return nil, err
+	}
+
+	// The preceding GetRecord already enforced existence within the
+	// same (transactional) scope, so the write-back is an upsert.
+	if updateErr := records.UpsertRecord(ctx, existing); updateErr != nil {
+		return nil, updateErr
+	}
+
+	return existing, nil
+}
+
+// mergeRecordPatch fetches the record and merges the patch data into
+// it without writing anything back.
+func mergeRecordPatch(
+	ctx context.Context,
+	records store.RecordStore,
+	schemas store.SchemaStore,
+	uri *core.URI,
+	data json.RawMessage,
+) (*core.Record, error) {
 	existing, err := records.GetRecord(ctx, uri)
 	if err != nil {
 		return nil, err
@@ -285,24 +326,20 @@ func applyRecordPatch(
 		return nil, decErr
 	}
 
-	// The preceding GetRecord already enforced existence within the
-	// same (transactional) scope, so the write-back is an upsert.
-	if updateErr := records.UpsertRecord(ctx, existing); updateErr != nil {
-		return nil, updateErr
-	}
-
 	return existing, nil
 }
 
 // UpsertRecordRequest is the request for records.upsert (full replace).
 type UpsertRecordRequest struct {
-	URI  string          `json:"uri"`
-	Data json.RawMessage `json:"data"`
+	URI    string          `json:"uri"`
+	Data   json.RawMessage `json:"data"`
+	DryRun bool            `json:"dry_run,omitempty"`
 }
 
 // UpsertRecordResponse is the response for records.upsert.
 type UpsertRecordResponse struct {
-	Data json.RawMessage `json:"data"`
+	DryRun *DryRunResult   `json:"dry_run,omitempty"`
+	Data   json.RawMessage `json:"data"`
 }
 
 // Upsert creates or replaces a record.
@@ -330,6 +367,10 @@ func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*
 		}
 	}
 
+	if req.DryRun {
+		return s.dryRunUpsert(ctx, uri, record)
+	}
+
 	if upsertErr := s.store.UpsertRecord(ctx, record); upsertErr != nil {
 		return nil, upsertErr
 	}
@@ -344,11 +385,14 @@ func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*
 
 // DeleteRecordRequest is the request for records.delete.
 type DeleteRecordRequest struct {
-	URI string `json:"uri"`
+	URI    string `json:"uri"`
+	DryRun bool   `json:"dry_run,omitempty"`
 }
 
 // DeleteRecordResponse is the response for records.delete.
-type DeleteRecordResponse struct{}
+type DeleteRecordResponse struct {
+	DryRun *DryRunResult `json:"dry_run,omitempty"`
+}
 
 // Delete deletes a record by URI. An attr-level URI
 // (xdb://ns/schema/id#attr) deletes just that tuple. Idempotent:
@@ -357,6 +401,10 @@ func (s *RecordService) Delete(ctx context.Context, req *DeleteRecordRequest) (*
 	uri, err := parseURI(req.URI, "records.delete", 3, 3, true)
 	if err != nil {
 		return nil, err
+	}
+
+	if req.DryRun {
+		return s.dryRunDelete(ctx, uri)
 	}
 
 	if uri.Attr() != "" {

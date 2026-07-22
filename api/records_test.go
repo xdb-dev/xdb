@@ -438,6 +438,144 @@ func TestRecordService_Delete(t *testing.T) {
 	})
 }
 
+func TestRecordService_DryRun(t *testing.T) {
+	s := store.New(xdbmemory.NewDriver())
+	svc := api.NewRecordService(s)
+	ctx := context.Background()
+
+	t.Run("create validates without writing", func(t *testing.T) {
+		resp, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI:    "xdb://dry.ns/posts/p1",
+			Data:   json.RawMessage(`{"title":"Hello"}`),
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.True(t, resp.DryRun.Valid)
+		assert.Equal(t, "create", resp.DryRun.Would)
+
+		_, err = svc.Get(ctx, &api.GetRecordRequest{URI: "xdb://dry.ns/posts/p1"})
+		assert.ErrorIs(t, err, core.ErrNotFound)
+	})
+
+	t.Run("create over identical existing would be a noop", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI:  "xdb://dry.ns/posts/p2",
+			Data: json.RawMessage(`{"title":"Same"}`),
+		})
+		require.NoError(t, err)
+
+		resp, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI:    "xdb://dry.ns/posts/p2",
+			Data:   json.RawMessage(`{"title":"Same"}`),
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.Equal(t, "noop", resp.DryRun.Would)
+	})
+
+	t.Run("create over divergent existing conflicts", func(t *testing.T) {
+		_, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI:    "xdb://dry.ns/posts/p2",
+			Data:   json.RawMessage(`{"title":"Different"}`),
+			DryRun: true,
+		})
+		assert.ErrorIs(t, err, core.ErrConflict)
+	})
+
+	t.Run("create dry-run surfaces schema violations", func(t *testing.T) {
+		schemas := api.NewSchemaService(s)
+		_, err := schemas.Create(ctx, &api.CreateSchemaRequest{
+			URI:  "xdb://dry.ns/typed",
+			Data: json.RawMessage(`{"fields":{"qty":{"type":"integer","required":true}}}`),
+		})
+		require.NoError(t, err)
+
+		_, err = svc.Create(ctx, &api.CreateRecordRequest{
+			URI:    "xdb://dry.ns/typed/t1",
+			Data:   json.RawMessage(`{}`),
+			DryRun: true,
+		})
+		assert.ErrorIs(t, err, core.ErrSchemaViolation)
+	})
+
+	t.Run("update dry-run on missing record is not found", func(t *testing.T) {
+		_, err := svc.Update(ctx, &api.UpdateRecordRequest{
+			URI:    "xdb://dry.ns/posts/missing",
+			Data:   json.RawMessage(`{"title":"X"}`),
+			DryRun: true,
+		})
+		assert.ErrorIs(t, err, core.ErrNotFound)
+	})
+
+	t.Run("update dry-run does not write", func(t *testing.T) {
+		resp, err := svc.Update(ctx, &api.UpdateRecordRequest{
+			URI:    "xdb://dry.ns/posts/p2",
+			Data:   json.RawMessage(`{"title":"Patched"}`),
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.Equal(t, "update", resp.DryRun.Would)
+
+		got, err := svc.Get(ctx, &api.GetRecordRequest{URI: "xdb://dry.ns/posts/p2"})
+		require.NoError(t, err)
+		assert.Equal(t, "Same", recordData(t, got.Data)["title"])
+	})
+
+	t.Run("upsert dry-run reports replace vs create", func(t *testing.T) {
+		resp, err := svc.Upsert(ctx, &api.UpsertRecordRequest{
+			URI:    "xdb://dry.ns/posts/p2",
+			Data:   json.RawMessage(`{"title":"Replaced"}`),
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.Equal(t, "replace", resp.DryRun.Would)
+
+		resp, err = svc.Upsert(ctx, &api.UpsertRecordRequest{
+			URI:    "xdb://dry.ns/posts/p9",
+			Data:   json.RawMessage(`{"title":"New"}`),
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "create", resp.DryRun.Would)
+	})
+
+	t.Run("delete dry-run preserves the record", func(t *testing.T) {
+		resp, err := svc.Delete(ctx, &api.DeleteRecordRequest{
+			URI:    "xdb://dry.ns/posts/p2",
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.Equal(t, "delete", resp.DryRun.Would)
+
+		_, err = svc.Get(ctx, &api.GetRecordRequest{URI: "xdb://dry.ns/posts/p2"})
+		assert.NoError(t, err)
+	})
+
+	t.Run("delete dry-run on missing record is a noop", func(t *testing.T) {
+		resp, err := svc.Delete(ctx, &api.DeleteRecordRequest{
+			URI:    "xdb://dry.ns/posts/ghost",
+			DryRun: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, resp.DryRun)
+		assert.Equal(t, "noop", resp.DryRun.Would)
+	})
+
+	t.Run("real ops carry no dry_run marker", func(t *testing.T) {
+		resp, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI:  "xdb://dry.ns/posts/real1",
+			Data: json.RawMessage(`{"title":"Real"}`),
+		})
+		require.NoError(t, err)
+		assert.Nil(t, resp.DryRun)
+	})
+}
+
 func TestRecordService_CreateCoercesTypedFields(t *testing.T) {
 	s := store.New(xdbmemory.NewDriver())
 	schemas := api.NewSchemaService(s)
