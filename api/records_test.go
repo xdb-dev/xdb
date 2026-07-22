@@ -413,3 +413,27 @@ func TestRecordService_Delete(t *testing.T) {
 		assert.ErrorIs(t, err, core.ErrInvalidURI)
 	})
 }
+
+func TestRecordService_CreateCoercesTypedFields(t *testing.T) {
+	s := store.New(xdbmemory.NewDriver())
+	schemas := api.NewSchemaService(s)
+	svc := api.NewRecordService(s)
+	ctx := context.Background()
+
+	_, err := schemas.Create(ctx, &api.CreateSchemaRequest{
+		URI:  "xdb://typed.ns/items",
+		Data: json.RawMessage(`{"fields":{"name":{"type":"string"},"qty":{"type":"integer"}}}`),
+	})
+	require.NoError(t, err)
+
+	// The decoder must find the schema def (keyed by the schema-level URI)
+	// so a JSON number coerces to INTEGER instead of failing validation.
+	resp, err := svc.Create(ctx, &api.CreateRecordRequest{
+		URI:  "xdb://typed.ns/items/i1",
+		Data: json.RawMessage(`{"name":"widget","qty":42}`),
+	})
+	require.NoError(t, err)
+
+	m := recordData(t, resp.Data)
+	assert.Equal(t, float64(42), m["qty"])
+}

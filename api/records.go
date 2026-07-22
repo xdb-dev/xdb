@@ -376,7 +376,7 @@ func decoderOpts(
 		xdbjson.WithSchema(uri.Schema()),
 	}
 
-	def, err := schemas.GetSchema(ctx, uri)
+	def, err := schemas.GetSchema(ctx, uri.SchemaURI())
 	switch {
 	case err == nil && def != nil:
 		opts = append(opts, xdbjson.WithDef(def))
