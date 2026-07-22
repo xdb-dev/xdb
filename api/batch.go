@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/rpc"
@@ -15,18 +16,42 @@ import (
 
 // BatchService provides batch operations.
 type BatchService struct {
-	store store.Store
-	tx    store.TX // nil when the store does not support transactions
+	store  store.Store
+	tx     store.TX // nil when the store does not support transactions
+	events *Bus     // nil when change notifications are disabled
 }
 
 // NewBatchService creates a [BatchService] backed by the given [store.Store].
-func NewBatchService(s store.Store) *BatchService {
-	svc := &BatchService{store: s}
+func NewBatchService(s store.Store, opts ...ServiceOption) *BatchService {
+	o := applyServiceOptions(opts)
+
+	svc := &BatchService{store: s, events: o.events}
 	if tx, ok := s.(store.TX); ok {
 		svc.tx = tx
 	}
 
 	return svc
+}
+
+// publishOp emits a change notification for one committed batch op.
+// Batch ops run through event-less services (writes inside a
+// transaction must not publish before commit), so the batch publishes
+// itself after the commit.
+func (s *BatchService) publishOp(o BatchOperation) {
+	if s.events == nil {
+		return
+	}
+
+	resource, action, ok := strings.Cut(o.Op, ".")
+	if !ok {
+		return
+	}
+
+	s.events.Publish(WatchEvent{
+		Type: strings.TrimSuffix(resource, "s") + "." + action,
+		URI:  o.URI,
+		TS:   time.Now(),
+	})
 }
 
 // BatchOperation is one operation in a batch: a dotted resource.action
@@ -228,6 +253,10 @@ func (s *BatchService) executeAtomic(
 
 	resp.Succeeded = len(ops)
 
+	for _, o := range ops {
+		s.publishOp(o)
+	}
+
 	return resp, nil
 }
 
@@ -265,6 +294,10 @@ func (s *BatchService) executeSequential(
 			URI:    o.URI,
 			Status: "ok",
 			DryRun: dry,
+		}
+
+		if !dryRun {
+			s.publishOp(o)
 		}
 	}
 

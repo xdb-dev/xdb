@@ -245,9 +245,13 @@ func batchMethods() map[string]rpc.MethodMeta {
 func watchMethods() map[string]rpc.MethodMeta {
 	return map[string]rpc.MethodMeta{
 		"watch": {
-			Description: "Stream changes matching a URI pattern.",
+			Description: "Stream change notifications for a URI scope (namespace, schema, or record) " +
+				"as server-sent events: a \"ready\" frame once the subscription is live, then one " +
+				"\"event\" frame per change {type, uri, data?, ts} where type is record.create|" +
+				"record.update|record.upsert|record.delete|schema.create|schema.update|schema.delete. " +
+				"Delivery is at-most-once, in-process only, with no replay.",
 			Parameters: map[string]rpc.ParamMeta{
-				"uri": {Description: "URI pattern to watch", Type: "string", Required: true},
+				"uri": {Description: "URI scope to watch (xdb://ns, xdb://ns/schema, or xdb://ns/schema/id)", Type: "string", Required: true},
 			},
 		},
 	}

@@ -58,14 +58,18 @@ func IsProcessAlive(pid int) bool {
 }
 
 // NewRouter creates a [rpc.Router] with all services registered.
-func NewRouter(s store.Store, version string) *rpc.Router {
+// The returned bus carries change notifications from mutating services
+// to watch streams; the caller owns its lifecycle and must Close it on
+// shutdown so watch streams end cleanly.
+func NewRouter(s store.Store, version string) (*rpc.Router, *api.Bus) {
 	r := rpc.NewRouter()
+	bus := api.NewBus()
 
-	registerRecords(r, api.NewRecordService(s))
-	registerSchemas(r, api.NewSchemaService(s))
+	registerRecords(r, api.NewRecordService(s, api.WithEvents(bus)))
+	registerSchemas(r, api.NewSchemaService(s, api.WithEvents(bus)))
 	registerNamespaces(r, api.NewNamespaceService(s))
-	registerBatch(r, api.NewBatchService(s))
-	registerWatch(r, api.NewWatchService(s))
+	registerBatch(r, api.NewBatchService(s, api.WithEvents(bus)))
+	registerWatch(r, api.NewWatchService(bus))
 	registerSystem(r, api.NewSystemService(version))
 
 	// Introspection (registered last so it can see all other methods).
@@ -75,7 +79,7 @@ func NewRouter(s store.Store, version string) *rpc.Router {
 	rpc.RegisterHandlerWithMeta(r, "introspect.methods", introspect.ListMethods, mustMeta("introspect.methods"))
 	rpc.RegisterHandlerWithMeta(r, "introspect.types", introspect.ListTypes, mustMeta("introspect.types"))
 
-	return r
+	return r, bus
 }
 
 // mustMeta returns the catalog metadata for name, panicking if none is
@@ -127,7 +131,8 @@ func registerSystem(r *rpc.Router, svc *api.SystemService) {
 
 // Start starts the daemon with the given [store.Store].
 func (d *Daemon) Start(ctx context.Context, s store.Store) error {
-	router := NewRouter(s, d.config.Version)
+	router, bus := NewRouter(s, d.config.Version)
+	defer bus.Close()
 
 	d.server = &http.Server{
 		Handler:           router,

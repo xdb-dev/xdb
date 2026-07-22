@@ -22,7 +22,8 @@ import (
 // completeness: every method the live router serves has a catalog entry
 // with identical metadata, and every catalog entry is actually served.
 func TestNewRouter_MatchesCatalog(t *testing.T) {
-	r := daemon.NewRouter(store.New(xdbmemory.NewDriver()), "test-1.0.0")
+	r, bus := daemon.NewRouter(store.New(xdbmemory.NewDriver()), "test-1.0.0")
+	t.Cleanup(bus.Close)
 
 	catalogMethods := catalog.Methods()
 

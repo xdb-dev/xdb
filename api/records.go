@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
@@ -19,20 +20,38 @@ type RecordService struct {
 	tuples  store.TupleStore
 	tx      store.TX // nil when the store does not support transactions
 	enc     *xdbjson.Encoder
+	events  *Bus // nil when change notifications are disabled
 }
 
 // NewRecordService creates a [RecordService] backed by the given [store.Store].
-func NewRecordService(s store.Store) *RecordService {
+func NewRecordService(s store.Store, opts ...ServiceOption) *RecordService {
+	o := applyServiceOptions(opts)
+
 	svc := &RecordService{
 		store:   s,
 		schemas: s,
 		tuples:  s,
 		enc:     xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema()),
+		events:  o.events,
 	}
 	if tx, ok := s.(store.TX); ok {
 		svc.tx = tx
 	}
 	return svc
+}
+
+// publish emits a change notification when an event bus is wired.
+func (s *RecordService) publish(eventType, uri string, data json.RawMessage) {
+	if s.events == nil {
+		return
+	}
+
+	s.events.Publish(WatchEvent{
+		Type: eventType,
+		URI:  uri,
+		Data: data,
+		TS:   time.Now(),
+	})
 }
 
 // CreateRecordRequest is the request for records.create.
@@ -101,7 +120,13 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 		return nil, err
 	}
 
-	return s.recordResponse(record)
+	resp, respErr := s.recordResponse(record)
+	if respErr != nil {
+		return nil, respErr
+	}
+	s.publish("record.create", uri.String(), resp.Data)
+
+	return resp, nil
 }
 
 // createConflictError reports a create over an existing record with
@@ -260,6 +285,8 @@ func (s *RecordService) Update(ctx context.Context, req *UpdateRecordRequest) (*
 		return nil, fmt.Errorf("api: encode record: %w", encErr)
 	}
 
+	s.publish("record.update", uri.String(), data)
+
 	return &UpdateRecordResponse{Data: data}, nil
 }
 
@@ -380,6 +407,8 @@ func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*
 		return nil, fmt.Errorf("api: encode record: %w", encErr)
 	}
 
+	s.publish("record.upsert", uri.String(), data)
+
 	return &UpsertRecordResponse{Data: data}, nil
 }
 
@@ -411,6 +440,7 @@ func (s *RecordService) Delete(ctx context.Context, req *DeleteRecordRequest) (*
 		if deleteErr := s.tuples.DeleteTuples(ctx, uri); deleteErr != nil {
 			return nil, deleteErr
 		}
+		s.publish("record.delete", uri.String(), nil)
 		return &DeleteRecordResponse{}, nil
 	}
 
@@ -422,6 +452,8 @@ func (s *RecordService) Delete(ctx context.Context, req *DeleteRecordRequest) (*
 	if err != nil {
 		return nil, err
 	}
+
+	s.publish("record.delete", uri.String(), nil)
 
 	return &DeleteRecordResponse{}, nil
 }

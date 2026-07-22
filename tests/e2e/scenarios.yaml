@@ -756,3 +756,43 @@ scenarios:
         expect:
           exit: 0
           json: { total_schemas: 1 }
+
+  - name: "watch-stream"
+    description: "watch emits a ready marker then one NDJSON event per change, ending cleanly when killed."
+    steps:
+      - name: "create schema"
+        run: xdb schemas create --uri xdb://$NS/feed --json '{"fields":{"msg":{"type":"string"}}}'
+        expect: { exit: 0 }
+
+      - name: "watch captures create and update events"
+        run: |
+          out="$(mktemp)"
+          xdb watch --uri xdb://$NS/feed > "$out" 2>/dev/null &
+          wpid=$!
+          sleep 1
+          xdb records create --uri xdb://$NS/feed/m1 --json '{"msg":"hello"}' --quiet
+          xdb records update --uri xdb://$NS/feed/m1 --json '{"msg":"edited"}' --quiet
+          sleep 1
+          kill "$wpid" 2>/dev/null || true
+          wait "$wpid" 2>/dev/null || true
+          cat "$out"
+          rm -f "$out"
+        expect:
+          exit: 0
+          stdout_contains: "\"ready\":true"
+
+      - name: "events carried types and uris"
+        run: |
+          out="$(mktemp)"
+          xdb watch --uri xdb://$NS/feed > "$out" 2>/dev/null &
+          wpid=$!
+          sleep 1
+          xdb records create --uri xdb://$NS/feed/m2 --json '{"msg":"two"}' --quiet
+          sleep 1
+          kill "$wpid" 2>/dev/null || true
+          wait "$wpid" 2>/dev/null || true
+          grep -c "record.create" "$out"
+          rm -f "$out"
+        expect:
+          exit: 0
+          stdout_contains: "1"

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -14,17 +15,41 @@ import (
 
 // SchemaService provides schema operations.
 type SchemaService struct {
-	store store.Store
-	tx    store.TX // nil when the store does not support transactions
+	store  store.Store
+	tx     store.TX // nil when the store does not support transactions
+	events *Bus     // nil when change notifications are disabled
 }
 
 // NewSchemaService creates a [SchemaService] backed by the given [store.Store].
-func NewSchemaService(s store.Store) *SchemaService {
-	svc := &SchemaService{store: s}
+func NewSchemaService(s store.Store, opts ...ServiceOption) *SchemaService {
+	o := applyServiceOptions(opts)
+
+	svc := &SchemaService{store: s, events: o.events}
 	if tx, ok := s.(store.TX); ok {
 		svc.tx = tx
 	}
 	return svc
+}
+
+// publish emits a change notification when an event bus is wired.
+func (s *SchemaService) publish(eventType string, uri *core.URI, def *schema.Def) {
+	if s.events == nil {
+		return
+	}
+
+	var data json.RawMessage
+	if def != nil {
+		if marshaled, err := json.Marshal(def); err == nil {
+			data = marshaled
+		}
+	}
+
+	s.events.Publish(WatchEvent{
+		Type: eventType,
+		URI:  uri.String(),
+		Data: data,
+		TS:   time.Now(),
+	})
 }
 
 // CreateSchemaRequest is the request for schemas.create.
@@ -81,6 +106,8 @@ func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.create: %w", err)
 	}
+
+	s.publish("schema.create", uri, &def)
 
 	return &CreateSchemaResponse{Data: &def}, nil
 }
@@ -184,6 +211,8 @@ func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.update: %w", err)
 	}
+
+	s.publish("schema.update", uri, updated)
 
 	return &UpdateSchemaResponse{Data: updated}, nil
 }
@@ -434,6 +463,7 @@ func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*
 		if cascadeErr := s.cascadeDelete(ctx, uri); cascadeErr != nil {
 			return nil, fmt.Errorf("api: schemas.delete: %w", cascadeErr)
 		}
+		s.publish("schema.delete", uri, nil)
 		return &DeleteSchemaResponse{}, nil
 	}
 
@@ -444,6 +474,8 @@ func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*
 	if err != nil {
 		return nil, fmt.Errorf("api: schemas.delete: %w", err)
 	}
+
+	s.publish("schema.delete", uri, nil)
 
 	return &DeleteSchemaResponse{}, nil
 }

@@ -174,7 +174,8 @@ func startSchemaDaemon(t *testing.T) *client.Client {
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 
 	sock := filepath.Join(dir, "test.sock")
-	router := daemon.NewRouter(store.New(xdbmemory.NewDriver()), "test")
+	router, bus := daemon.NewRouter(store.New(xdbmemory.NewDriver()), "test")
+	t.Cleanup(bus.Close)
 
 	ln, err := net.Listen("unix", sock)
 	require.NoError(t, err)

@@ -30,7 +30,8 @@ func startTestDaemon(t *testing.T) *client.Client {
 
 	sock := filepath.Join(dir, "test.sock")
 	s := store.New(xdbmemory.NewDriver())
-	router := daemon.NewRouter(s, "test")
+	router, bus := daemon.NewRouter(s, "test")
+	t.Cleanup(bus.Close)
 
 	ln, err := net.Listen("unix", sock)
 	require.NoError(t, err)

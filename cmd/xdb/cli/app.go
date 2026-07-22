@@ -165,7 +165,7 @@ func NewAppWithIO(stdout, stderr io.Writer) *cli.Command {
 			a.schemasCmd(),
 			a.namespacesCmd(),
 			a.batchCmd(),
-			watchCmd(),
+			a.watchCmd(),
 			a.importCmd(),
 			a.exportCmd(),
 			initCmd(),
