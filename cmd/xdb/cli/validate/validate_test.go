@@ -276,3 +276,23 @@ func TestMutuallyExclusive(t *testing.T) {
 		})
 	}
 }
+
+func TestFilePath_SymlinkedCwd(t *testing.T) {
+	real := t.TempDir()
+	link := filepath.Join(t.TempDir(), "link")
+	require.NoError(t, os.Symlink(real, link))
+
+	inside := filepath.Join(real, "ops.ndjson")
+	require.NoError(t, os.WriteFile(inside, []byte("{}\n"), 0o600))
+
+	t.Chdir(link)
+
+	_, err := FilePath("ops.ndjson")
+	assert.NoError(t, err, "a file directly inside a symlinked cwd must be accepted")
+
+	outside := filepath.Join(t.TempDir(), "outside.ndjson")
+	require.NoError(t, os.WriteFile(outside, []byte("{}\n"), 0o600))
+
+	_, err = FilePath(outside)
+	assert.Error(t, err, "files outside cwd must still be rejected")
+}

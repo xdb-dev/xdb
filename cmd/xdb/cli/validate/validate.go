@@ -68,8 +68,17 @@ func FilePath(path string) (string, error) {
 		return "", fmt.Errorf("cannot determine working directory: %w", err)
 	}
 
-	cwdPrefix := cwd + string(filepath.Separator)
-	if cleaned != cwd && !strings.HasPrefix(cleaned, cwdPrefix) {
+	// Resolve symlinks on the cwd too: on macOS the working directory
+	// itself is often behind a symlink (/tmp -> /private/tmp), and a
+	// resolved file path must be compared against the resolved cwd or
+	// files legitimately inside cwd are falsely rejected.
+	resolvedCwd, err := filepath.EvalSymlinks(cwd)
+	if err != nil {
+		resolvedCwd = cwd
+	}
+	cwdPrefix := resolvedCwd + string(filepath.Separator)
+
+	if !insideDir(cleaned, resolvedCwd, cwdPrefix) && !insideDir(cleaned, cwd, cwd+string(filepath.Separator)) {
 		return "", fmt.Errorf("path %q is outside working directory %q", cleaned, cwd)
 	}
 
@@ -82,7 +91,7 @@ func FilePath(path string) (string, error) {
 		return "", fmt.Errorf("cannot evaluate symlinks: %w", err)
 	}
 
-	if resolved != cwd && !strings.HasPrefix(resolved, cwdPrefix) {
+	if !insideDir(resolved, resolvedCwd, cwdPrefix) {
 		return "", fmt.Errorf(
 			"resolved path %q is outside working directory %q",
 			resolved,
@@ -91,6 +100,11 @@ func FilePath(path string) (string, error) {
 	}
 
 	return cleaned, nil
+}
+
+// insideDir reports whether path equals dir or falls under prefix.
+func insideDir(path, dir, prefix string) bool {
+	return path == dir || strings.HasPrefix(path, prefix)
 }
 
 // Payload validates a JSON payload against size and depth limits.

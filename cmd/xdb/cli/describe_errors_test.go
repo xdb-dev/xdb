@@ -18,10 +18,11 @@ type describeErrEnvelope struct {
 	Hint     string `json:"hint"`
 }
 
-// TestDescribe_DaemonDown guards against describe.go's raw-error fallback:
-// every describe variant that reaches the RPC client must render a
-// CONNECTION_REFUSED envelope (not a bare "error: ..." line) and exit 2 when
-// the daemon is unreachable, naming the resource/action that failed.
+// TestDescribe_DaemonDown covers the one describe path with no offline
+// fallback: data-schema lookups live in the daemon, so with it down the
+// CLI must render a CONNECTION_REFUSED envelope and exit 2. (Method and
+// type catalogs fall back to the embedded catalog instead — see
+// TestDescribe_OfflineFallback.)
 func TestDescribe_DaemonDown(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -29,11 +30,6 @@ func TestDescribe_DaemonDown(t *testing.T) {
 		wantResource string
 		wantAction   string
 	}{
-		{"--methods", []string{"describe", "--methods"}, "introspect", "methods"},
-		{"--types", []string{"describe", "--types"}, "introspect", "types"},
-		{"--actions", []string{"describe", "--actions"}, "introspect", "actions"},
-		{"method name", []string{"describe", "records.create"}, "introspect", "method"},
-		{"type name", []string{"describe", "NoSuchType"}, "introspect", "type"},
 		{"--uri", []string{"describe", "--uri", "xdb://a/b"}, "schemas", "describe"},
 	}
 
@@ -73,4 +69,86 @@ func TestDescribe_BadURI_InvalidArgument(t *testing.T) {
 	assert.Equal(t, CodeInvalidArgument, env.Code)
 	assert.Equal(t, "schemas", env.Resource)
 	assert.Equal(t, "describe", env.Action)
+}
+
+func TestDescribe_OfflineFallback(t *testing.T) {
+	cfg, _ := tempCLIConfig(t)
+
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"methods", []string{"describe", "--methods"}, "records.create"},
+		{"actions", []string{"describe", "--actions"}, "records"},
+		{"types", []string{"describe", "--types"}, "Record"},
+		{"method by name", []string{"describe", "records.create"}, "dry_run"},
+		{"type by name", []string{"describe", "Record"}, "Record"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout, stderr, code := runCLI(t, append([]string{"--config", cfg}, tt.args...)...)
+			require.Equal(t, 0, code, "stderr: %s", stderr)
+			assert.Contains(t, stdout, tt.want)
+			assert.Contains(t, stdout, `"source"`, "offline results must be marked embedded")
+			assert.Contains(t, stdout, "embedded")
+		})
+	}
+}
+
+func TestDescribe_LiveOmitsEmbeddedMarker(t *testing.T) {
+	cfg := startCLITestDaemon(t)
+
+	stdout, _, code := runCLI(t, "--config", cfg, "describe", "--methods")
+	require.Equal(t, 0, code)
+	assert.NotContains(t, stdout, "embedded")
+}
+
+func TestDescribe_UnknownMethodOffline(t *testing.T) {
+	cfg, _ := tempCLIConfig(t)
+
+	_, stderr, code := runCLI(t, "--config", cfg, "describe", "nosuch.action")
+	assert.Equal(t, 1, code)
+	assert.Contains(t, stderr, "NOT_FOUND")
+}
+
+func TestDescribe_CLIFlagsSection(t *testing.T) {
+	cfg, _ := tempCLIConfig(t)
+
+	stdout, _, code := runCLI(t, "--config", cfg, "describe", "records.delete")
+	require.Equal(t, 0, code)
+	assert.Contains(t, stdout, `"cli"`)
+	assert.Contains(t, stdout, "force")
+	assert.Contains(t, stdout, "quiet")
+
+	stdout, _, code = runCLI(t, "--config", cfg, "describe", "records.list")
+	require.Equal(t, 0, code)
+	assert.Contains(t, stdout, "page-all")
+	assert.Contains(t, stdout, "filter")
+}
+
+func TestDescribe_SchemaFormat(t *testing.T) {
+	cfg, _ := tempCLIConfig(t)
+
+	stdout, _, code := runCLI(t, "--config", cfg, "describe", "--schema-format")
+	require.Equal(t, 0, code)
+	assert.Contains(t, stdout, `"boolean"`)
+	assert.NotContains(t, stdout, `"bool"`)
+	assert.Contains(t, stdout, "strict")
+	assert.Contains(t, stdout, "flexible")
+	assert.Contains(t, stdout, "dynamic")
+	assert.Contains(t, stdout, "elem_type")
+	assert.Contains(t, stdout, "items")
+}
+
+func TestDescribe_NoArgsOverview(t *testing.T) {
+	cfg, _ := tempCLIConfig(t)
+
+	stdout, stderr, code := runCLI(t, "--config", cfg, "describe")
+	require.Equal(t, 0, code)
+	assert.Empty(t, stderr)
+	assert.Contains(t, stdout, "--schema-format")
+	assert.Contains(t, stdout, "--actions")
+	assert.Contains(t, stdout, "--filter")
 }

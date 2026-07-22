@@ -796,3 +796,71 @@ scenarios:
         expect:
           exit: 0
           stdout_contains: "1"
+
+  - name: "import-accounting"
+    description: "import reports machine-readable {imported, skipped, failed, first_error_line} counts; --create-only keeps local data on divergence and counts it as skipped."
+    steps:
+      - name: "create schema"
+        run: xdb schemas create --uri xdb://$NS/inv --json '{"fields":{"name":{"type":"string","required":true}}}'
+        expect: { exit: 0 }
+
+      - name: "clean import counts records"
+        run: |
+          printf '{"_id":"a","name":"one"}\n{"_id":"b","name":"two"}\n' | xdb import --uri xdb://$NS/inv
+        expect:
+          exit: 0
+          json: { imported: 2, skipped: 0, failed: 0 }
+
+      - name: "create-only skips divergent records and keeps local data"
+        run: |
+          printf '{"_id":"a","name":"DIFFERENT"}\n{"_id":"c","name":"three"}\n' | xdb import --uri xdb://$NS/inv --create-only
+        expect:
+          exit: 0
+          json: { imported: 1, skipped: 1 }
+
+      - name: "local data survived the divergent import"
+        run: xdb records get --uri xdb://$NS/inv/a -o json
+        expect:
+          exit: 0
+          json: { name: "one" }
+
+      - name: "mid-file violation reports the physical line"
+        run: |
+          printf '{"_id":"d","name":"four"}\n\n{"_id":"e"}\n' | xdb import --uri xdb://$NS/inv
+        expect:
+          exit_nonzero: true
+          json: { imported: 1, failed: 1, first_error_line: 3 }
+          stderr_contains: "line 3"
+
+  - name: "skills-verbatim"
+    description: "The bundled getting-started skill executes verbatim: its schema payload is accepted and the CRUD loop it teaches completes."
+    steps:
+      - name: "skill schema payload is valid"
+        run: xdb schemas create --uri xdb://$NS/todos --json '{"fields":{"title":{"type":"string"},"done":{"type":"boolean"}}}'
+        expect: { exit: 0 }
+
+      - name: "skill create step"
+        run: xdb records create --uri xdb://$NS/todos/todo-1 --json '{"title":"Try XDB","done":false}'
+        expect: { exit: 0 }
+
+      - name: "skill get step"
+        run: xdb records get --uri xdb://$NS/todos/todo-1 -o json
+        expect:
+          exit: 0
+          json: { title: "Try XDB", done: false }
+
+      - name: "skill list step"
+        run: xdb records list --uri xdb://$NS/todos --fields title,done -o ndjson
+        expect:
+          exit: 0
+          ndjson_count: 1
+
+      - name: "skill update step"
+        run: xdb records update --uri xdb://$NS/todos/todo-1 --json '{"done": true}' -o json
+        expect:
+          exit: 0
+          json: { done: true, title: "Try XDB" }
+
+      - name: "skill delete step"
+        run: xdb records delete --uri xdb://$NS/todos/todo-1 --force
+        expect: { exit: 0 }

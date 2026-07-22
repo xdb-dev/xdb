@@ -9,6 +9,8 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/api/catalog"
+	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 )
@@ -29,6 +31,7 @@ func (a *App) describeCmd() *cli.Command {
 			&cli.BoolFlag{Name: "errors", Usage: "List error codes"},
 			&cli.BoolFlag{Name: "config", Usage: "Explain the config file schema and defaults"},
 			&cli.BoolFlag{Name: "daemon", Usage: "Explain daemon lifecycle and commands"},
+			&cli.BoolFlag{Name: "schema-format", Usage: "Explain the schema-definition JSON format"},
 			&cli.StringFlag{Name: "uri", Usage: "Data schema URI"},
 			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 		},
@@ -69,13 +72,17 @@ func (a *App) schemaInspect(ctx context.Context, cmd *cli.Command) error {
 		return describeDaemon(cmd)
 	}
 
+	if cmd.Bool("schema-format") {
+		return describeSchemaFormat(cmd)
+	}
+
 	if uri := cmd.String("uri"); uri != "" {
 		return a.describeDataSchema(ctx, cmd, uri)
 	}
 
 	args := cmd.Args()
 	if args.Len() == 0 {
-		return fmt.Errorf("specify a resource.action name, type name, config, daemon, or use --actions/--types/--value-types/--filter/--errors/--config/--daemon")
+		return describeOverview(cmd)
 	}
 
 	name := args.First()
@@ -85,6 +92,8 @@ func (a *App) schemaInspect(ctx context.Context, cmd *cli.Command) error {
 		return describeConfig(cmd)
 	case "daemon":
 		return describeDaemon(cmd)
+	case "schema-format":
+		return describeSchemaFormat(cmd)
 	}
 
 	if strings.Contains(name, ".") {
@@ -97,6 +106,9 @@ func (a *App) schemaInspect(ctx context.Context, cmd *cli.Command) error {
 func (a *App) listMethods(ctx context.Context, cmd *cli.Command) error {
 	var resp api.ListMethodsResponse
 	if err := a.client.Call(ctx, "introspect.methods", &api.ListMethodsRequest{}, &resp); err != nil {
+		if isConnectionError(err) {
+			return listMethodsOffline(cmd)
+		}
 		return wrapRPCError("introspect", "methods", "", err)
 	}
 
@@ -111,9 +123,35 @@ func (a *App) listMethods(ctx context.Context, cmd *cli.Command) error {
 	return formatList(cmd, items)
 }
 
+// listMethodsOffline serves the method list from the embedded catalog
+// when no daemon is reachable.
+func listMethodsOffline(cmd *cli.Command) error {
+	methods := catalog.Methods()
+
+	names := make([]string, 0, len(methods))
+	for name := range methods {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	items := make([]any, len(names))
+	for i, name := range names {
+		items[i] = map[string]any{
+			"method":      name,
+			"description": methods[name].Description,
+			"source":      "embedded",
+		}
+	}
+
+	return formatList(cmd, items)
+}
+
 func (a *App) listTypes(ctx context.Context, cmd *cli.Command) error {
 	var resp api.ListTypesResponse
 	if err := a.client.Call(ctx, "introspect.types", &api.ListTypesRequest{}, &resp); err != nil {
+		if isConnectionError(err) {
+			return listTypesOffline(cmd)
+		}
 		return wrapRPCError("introspect", "types", "", err)
 	}
 
@@ -159,6 +197,9 @@ func (a *App) describeMethod(ctx context.Context, cmd *cli.Command, name string)
 	if err := a.client.Call(ctx, "introspect.method", &api.DescribeMethodRequest{
 		Method: name,
 	}, &resp); err != nil {
+		if isConnectionError(err) {
+			return describeMethodOffline(cmd, name)
+		}
 		return wrapRPCError("introspect", "method", "", err)
 	}
 
@@ -176,7 +217,132 @@ func (a *App) describeMethod(ctx context.Context, cmd *cli.Command, name string)
 		result["response"] = resp.Response
 	}
 
+	addCLISection(cmd, name, result)
+
 	return formatOne(cmd, result)
+}
+
+// describeMethodOffline serves method metadata from the embedded
+// catalog when no daemon is reachable.
+func describeMethodOffline(cmd *cli.Command, name string) error {
+	meta, ok := catalog.Method(name)
+	if !ok {
+		return &output.ErrorEnvelope{
+			Code:     CodeNotFound,
+			Message:  fmt.Sprintf("unknown method %q", name),
+			Resource: "introspect",
+			Action:   "method",
+			Hint:     "run 'xdb describe --methods' to list available methods",
+		}
+	}
+
+	result := map[string]any{
+		"method":      name,
+		"description": meta.Description,
+		"mutating":    meta.Mutating,
+		"source":      "embedded",
+	}
+
+	if len(meta.Parameters) > 0 {
+		result["parameters"] = meta.Parameters
+	}
+
+	if len(meta.Response) > 0 {
+		result["response"] = meta.Response
+	}
+
+	addCLISection(cmd, name, result)
+
+	return formatOne(cmd, result)
+}
+
+// listTypesOffline serves the type catalog from the embedded catalog.
+func listTypesOffline(cmd *cli.Command) error {
+	types := catalog.Types()
+
+	names := make([]string, 0, len(types))
+	for name := range types {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	items := make([]any, len(names))
+	for i, name := range names {
+		items[i] = map[string]string{
+			"type":        name,
+			"description": types[name],
+			"source":      "embedded",
+		}
+	}
+
+	return formatList(cmd, items)
+}
+
+// addCLISection attaches the CLI command and flags that drive a method,
+// walked from the live command tree so it can never drift.
+func addCLISection(cmd *cli.Command, method string, result map[string]any) {
+	target := cliCommandFor(cmd.Root(), method)
+	if target == nil {
+		return
+	}
+
+	flags := make([]map[string]any, 0, len(target.Flags))
+	for _, f := range target.Flags {
+		names := f.Names()
+		if len(names) == 0 {
+			continue
+		}
+
+		entry := map[string]any{"name": names[0]}
+		if len(names) > 1 {
+			entry["aliases"] = names[1:]
+		}
+		if df, ok := f.(cli.DocGenerationFlag); ok {
+			entry["usage"] = df.GetUsage()
+		}
+		flags = append(flags, entry)
+	}
+
+	section := map[string]any{"command": "xdb " + cliCommandPath(method)}
+	if len(flags) > 0 {
+		section["flags"] = flags
+	}
+
+	result["cli"] = section
+}
+
+// cliCommandPath maps a dotted RPC method to its CLI invocation.
+func cliCommandPath(method string) string {
+	switch method {
+	case "batch.execute":
+		return "batch"
+	case "watch":
+		return "watch"
+	default:
+		return strings.ReplaceAll(method, ".", " ")
+	}
+}
+
+// cliCommandFor resolves the CLI command implementing an RPC method.
+func cliCommandFor(root *cli.Command, method string) *cli.Command {
+	parts := strings.Split(cliCommandPath(method), " ")
+
+	current := root
+	for _, part := range parts {
+		var next *cli.Command
+		for _, c := range current.Commands {
+			if c.Name == part {
+				next = c
+				break
+			}
+		}
+		if next == nil {
+			return nil
+		}
+		current = next
+	}
+
+	return current
 }
 
 func (a *App) describeType(ctx context.Context, cmd *cli.Command, name string) error {
@@ -184,6 +350,9 @@ func (a *App) describeType(ctx context.Context, cmd *cli.Command, name string) e
 	if err := a.client.Call(ctx, "introspect.type", &api.DescribeTypeRequest{
 		Type: name,
 	}, &resp); err != nil {
+		if isConnectionError(err) {
+			return describeTypeOffline(cmd, name)
+		}
 		return wrapRPCError("introspect", "type", "", err)
 	}
 
@@ -193,12 +362,35 @@ func (a *App) describeType(ctx context.Context, cmd *cli.Command, name string) e
 	})
 }
 
+// describeTypeOffline serves type metadata from the embedded catalog.
+func describeTypeOffline(cmd *cli.Command, name string) error {
+	desc, ok := catalog.Types()[name]
+	if !ok {
+		return &output.ErrorEnvelope{
+			Code:     CodeNotFound,
+			Message:  fmt.Sprintf("unknown type %q", name),
+			Resource: "introspect",
+			Action:   "type",
+			Hint:     "run 'xdb describe --types' to list available types",
+		}
+	}
+
+	return formatOne(cmd, map[string]string{
+		"type":        name,
+		"description": desc,
+		"source":      "embedded",
+	})
+}
+
 // listActions returns the action x resource matrix derived from the live
 // introspect.methods response. Each row is one resource with a list of
 // supported actions and whether each is mutating.
 func (a *App) listActions(ctx context.Context, cmd *cli.Command) error {
 	var resp api.ListMethodsResponse
 	if err := a.client.Call(ctx, "introspect.methods", &api.ListMethodsRequest{}, &resp); err != nil {
+		if isConnectionError(err) {
+			return listActionsOffline(cmd)
+		}
 		return wrapRPCError("introspect", "actions", "", err)
 	}
 
@@ -442,4 +634,109 @@ func describeField(name string, f schema.Field) map[string]any {
 	}
 
 	return entry
+}
+
+// listActionsOffline derives the action matrix from the embedded catalog.
+func listActionsOffline(cmd *cli.Command) error {
+	byResource := make(map[string][]string)
+
+	for method := range catalog.Methods() {
+		resource, action, ok := strings.Cut(method, ".")
+		if !ok {
+			resource, action = method, method
+		}
+		byResource[resource] = append(byResource[resource], action)
+	}
+
+	names := make([]string, 0, len(byResource))
+	for name := range byResource {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	items := make([]any, 0, len(names))
+	for _, name := range names {
+		actions := byResource[name]
+		sort.Strings(actions)
+		items = append(items, map[string]any{
+			"resource": name,
+			"actions":  actions,
+			"source":   "embedded",
+		})
+	}
+
+	return formatList(cmd, items)
+}
+
+// describeSchemaFormat documents the schema-definition JSON format so
+// agents can author schemas without reading concept docs. Types and
+// modes are read from their canonical sources, so the doc cannot drift.
+func describeSchemaFormat(cmd *cli.Command) error {
+	modes := make([]string, 0, 3)
+	for _, m := range schema.ValidModes() {
+		modes = append(modes, string(m))
+	}
+
+	doc := map[string]any{
+		"kind": "SchemaFormat",
+		"top_level_keys": []map[string]string{
+			{"key": "fields", "description": "Map of field name to field definition (required)"},
+			{"key": "mode", "description": "Validation mode; defaults to strict"},
+			{"key": "description", "description": "Human-readable schema description"},
+			{"key": "annotations", "description": "Free-form string key/value metadata"},
+			{"key": "revision", "description": "Optimistic-concurrency base revision for updates (omit or 0 for unconditional)"},
+		},
+		"field_keys": []map[string]string{
+			{"key": "type", "description": "Value type name (required)"},
+			{"key": "required", "description": "Reject writes missing this field"},
+			{"key": "elem_type", "description": "Element type; required when type is array"},
+			{"key": "items", "description": "Member field definitions for array fields with json elements"},
+			{"key": "description", "description": "Human-readable field description"},
+			{"key": "annotations", "description": "Free-form string key/value metadata"},
+		},
+		"types": core.ValueTypeNames(),
+		"modes": modes,
+		"mode_semantics": map[string]string{
+			"strict":   "only declared fields are accepted",
+			"flexible": "undeclared fields pass through unvalidated",
+			"dynamic":  "undeclared fields evolve the schema automatically",
+		},
+		"example": map[string]any{
+			"mode": "strict",
+			"fields": map[string]any{
+				"title": map[string]any{"type": "string", "required": true},
+				"tags":  map[string]any{"type": "array", "elem_type": "string"},
+			},
+		},
+		"notes": []string{
+			"all keys are lowercase",
+			"schemas update adds or replaces fields; removal is not supported",
+		},
+	}
+
+	return formatOne(cmd, doc)
+}
+
+// describeOverview lists every describe topic, so a bare `xdb describe`
+// is a map instead of an error.
+func describeOverview(cmd *cli.Command) error {
+	doc := map[string]any{
+		"kind": "DescribeOverview",
+		"topics": []map[string]string{
+			{"invoke": "describe --actions", "description": "Action x resource matrix"},
+			{"invoke": "describe --methods", "description": "Every RPC method with descriptions"},
+			{"invoke": "describe <resource>.<action>", "description": "One method: parameters, response, CLI flags"},
+			{"invoke": "describe --types", "description": "Core type catalog"},
+			{"invoke": "describe <TypeName>", "description": "One core type"},
+			{"invoke": "describe --value-types", "description": "Value types usable in schema fields"},
+			{"invoke": "describe --schema-format", "description": "Schema-definition JSON format"},
+			{"invoke": "describe --filter", "description": "CEL filter grammar with examples"},
+			{"invoke": "describe --errors", "description": "Error codes and exit codes"},
+			{"invoke": "describe --config", "description": "Config file schema and defaults"},
+			{"invoke": "describe --daemon", "description": "Daemon lifecycle and commands"},
+			{"invoke": "describe --uri <schema-uri>", "description": "A data schema's fields and modes"},
+		},
+	}
+
+	return formatOne(cmd, doc)
 }

@@ -129,3 +129,25 @@ func TestRunCLI_LiveDaemon(t *testing.T) {
 	require.Equal(t, ExitOK, code, "stderr: %s", stderr)
 	assert.Contains(t, stdout, "hello")
 }
+
+// runCLIStdin runs the CLI with the given string piped as stdin.
+// Not safe for parallel tests (swaps the process-global os.Stdin).
+func runCLIStdin(t *testing.T, stdin string, args ...string) (stdout, stderr string, code int) {
+	t.Helper()
+
+	r, w, err := os.Pipe()
+	require.NoError(t, err)
+
+	_, err = w.WriteString(stdin)
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+
+	orig := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() {
+		os.Stdin = orig
+		_ = r.Close()
+	})
+
+	return runCLI(t, args...)
+}

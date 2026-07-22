@@ -121,7 +121,12 @@ func skillsCmd() *cli.Command {
 	}
 }
 
-func skillsListAction(_ context.Context, cmd *cli.Command) error {
+func skillsListAction(ctx context.Context, cmd *cli.Command) error {
+	// A bare name acts as get: `xdb skills getting-started`.
+	if cmd.Args().Present() {
+		return skillsGetAction(ctx, cmd)
+	}
+
 	names := make([]string, 0, len(skills))
 	for name := range skills {
 		names = append(names, name)
