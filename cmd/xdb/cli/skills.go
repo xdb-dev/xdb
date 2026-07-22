@@ -4,7 +4,6 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 
@@ -154,7 +153,7 @@ func skillsGetAction(_ context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("unknown skill: %s\nrun 'xdb skills' to list available skills", name)
 	}
 
-	_, err := fmt.Fprint(os.Stdout, s.Content)
+	_, err := fmt.Fprint(cmd.Root().Writer, s.Content)
 
 	return err
 }

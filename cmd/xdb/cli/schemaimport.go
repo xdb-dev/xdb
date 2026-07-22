@@ -99,7 +99,7 @@ func (a *App) schemaImport(ctx context.Context, cmd *cli.Command) error {
 		allowJSON: cmd.StringSlice("allow-json"),
 		dryRun:    cmd.Bool("dry-run"),
 		yes:       cmd.Bool("yes"),
-	}, os.Stdout)
+	}, cmd.Root().Writer)
 }
 
 func (a *App) schemaDiff(ctx context.Context, cmd *cli.Command) error {
@@ -112,7 +112,7 @@ func (a *App) schemaDiff(ctx context.Context, cmd *cli.Command) error {
 		path:      path,
 		ns:        cmd.String("ns"),
 		allowJSON: cmd.StringSlice("allow-json"),
-	}, os.Stdout)
+	}, cmd.Root().Writer)
 	if err != nil {
 		return err
 	}

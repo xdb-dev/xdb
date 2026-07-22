@@ -10,10 +10,12 @@ import (
 func main() {
 	app := xdbcli.NewApp()
 
-	if err := app.Run(context.Background(), os.Args); err != nil {
-		// The root command's ExitErrHandler already rendered the error to
-		// stderr using the live --output flag; here we just translate to a
-		// stable exit code.
-		os.Exit(xdbcli.ExitCodeFor(err))
-	}
+	err := app.Run(context.Background(), os.Args)
+
+	// The root command's ExitErrHandler already rendered most errors to
+	// stderr using the live --output flag; [xdbcli.FinalizeError] renders
+	// the few that escape it (e.g. urfave's own "No help topic for X").
+	xdbcli.FinalizeError(app, err)
+
+	os.Exit(xdbcli.ExitCodeFor(err))
 }

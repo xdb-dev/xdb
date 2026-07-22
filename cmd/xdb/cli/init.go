@@ -31,9 +31,9 @@ func initAction(_ context.Context, cmd *cli.Command) error {
 	}
 
 	if created {
-		fmt.Fprintf(os.Stderr, "Created %s\n", configPath)
+		_, _ = fmt.Fprintf(cmd.Root().ErrWriter, "Created %s\n", configPath)
 	} else {
-		fmt.Fprintf(os.Stderr, "Config already exists: %s\n", configPath)
+		_, _ = fmt.Fprintf(cmd.Root().ErrWriter, "Config already exists: %s\n", configPath)
 	}
 
 	cfg, loadErr := LoadConfig(configPath)
@@ -50,9 +50,9 @@ func initAction(_ context.Context, cmd *cli.Command) error {
 	daemonStatus := "started"
 	if isDaemonRunning(cfg) {
 		daemonStatus = "already running"
-	} else if spawnErr := spawnDaemon(cfg, configPath); spawnErr != nil {
+	} else if spawnErr := spawnDaemon(cfg, configPath, cmd.Root().ErrWriter); spawnErr != nil {
 		daemonStatus = "not started"
-		fmt.Fprintf(os.Stderr, "Warning: could not start daemon: %v\n", spawnErr)
+		_, _ = fmt.Fprintf(cmd.Root().ErrWriter, "Warning: could not start daemon: %v\n", spawnErr)
 	}
 
 	return formatOne(cmd, map[string]string{

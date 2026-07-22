@@ -7,6 +7,8 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/urfave/cli/v3"
+
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 	"github.com/xdb-dev/xdb/rpc"
 )
@@ -175,6 +177,11 @@ func ExitCodeFor(err error) int {
 
 	var env *output.ErrorEnvelope
 	if !errors.As(err, &env) {
+		var exitErr cli.ExitCoder
+		if errors.As(err, &exitErr) {
+			return ExitInvalidArgs
+		}
+
 		return ExitAppError
 	}
 
@@ -190,6 +197,32 @@ func ExitCodeFor(err error) int {
 	}
 }
 
+// normalizeError converts a bare [cli.ExitCoder] — e.g. urfave's own
+// "No help topic for X" error, raised when --help targets an unknown
+// subcommand name — into an INVALID_ARGUMENT [output.ErrorEnvelope].
+// Envelopes pass through unchanged; any other error is returned as-is.
+func normalizeError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var env *output.ErrorEnvelope
+	if errors.As(err, &env) {
+		return env
+	}
+
+	var exitErr cli.ExitCoder
+	if errors.As(err, &exitErr) {
+		return &output.ErrorEnvelope{
+			Code:    CodeInvalidArgument,
+			Message: err.Error(),
+			Hint:    "run 'xdb --help' to list commands",
+		}
+	}
+
+	return err
+}
+
 // WriteError renders an error to w. format is the output-format name
 // (e.g. "json", "yaml", "table", or "" for auto-detect).
 // Raw (non-envelope) errors fall back to a short "error: ..." line.
@@ -198,9 +231,35 @@ func WriteError(w io.Writer, format string, err error) {
 		return
 	}
 
+	err = normalizeError(err)
+
 	resolved := output.Detect(format, isTerminalWriter(w))
 	formatter := output.New(resolved)
 	_ = formatter.FormatError(w, err)
+}
+
+// FinalizeError renders err as a fallback when [*cli.Command.Run] returns it
+// without having already rendered it via the root command's ExitErrHandler.
+// Every error produced by CLI actions or [installUsageErrorHandler] is an
+// *[output.ErrorEnvelope] by the time Run returns, and envelopes were already
+// rendered during Run(); those pass through here untouched. A handful of
+// urfave-internal errors (e.g. "No help topic for X", raised when --help
+// targets an unknown subcommand name) bypass Before/Action/ExitErrHandler
+// entirely and reach the caller unrendered — this renders those, once.
+//
+// Call this immediately after Run(), before computing the exit code with
+// [ExitCodeFor].
+func FinalizeError(cmd *cli.Command, err error) {
+	if err == nil {
+		return
+	}
+
+	var env *output.ErrorEnvelope
+	if errors.As(err, &env) {
+		return
+	}
+
+	WriteError(cmd.Root().ErrWriter, cmd.Root().String("output"), err)
 }
 
 // isTerminalWriter returns true when w is a terminal file.

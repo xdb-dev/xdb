@@ -101,7 +101,7 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 		imported++
 
 		if imported%100 == 0 {
-			fmt.Fprintf(os.Stderr, "Imported %d...\n", imported)
+			_, _ = fmt.Fprintf(cmd.Root().ErrWriter, "Imported %d...\n", imported)
 		}
 	}
 
@@ -109,7 +109,7 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("read input: %w", scanErr)
 	}
 
-	fmt.Fprintf(os.Stderr, "Imported %d records\n", imported)
+	_, _ = fmt.Fprintf(cmd.Root().ErrWriter, "Imported %d records\n", imported)
 
 	return nil
 }
@@ -140,7 +140,7 @@ func (a *App) exportRecords(ctx context.Context, cmd *cli.Command) error {
 				return jsonErr
 			}
 
-			if fmtErr := f.FormatOne(os.Stdout, m); fmtErr != nil {
+			if fmtErr := f.FormatOne(cmd.Root().Writer, m); fmtErr != nil {
 				return fmtErr
 			}
 		}

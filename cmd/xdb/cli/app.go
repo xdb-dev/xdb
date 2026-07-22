@@ -44,127 +44,164 @@ func (a *App) connect(cmd *cli.Command) error {
 	return nil
 }
 
-// NewEmbeddedCommand creates an xdb CLI sub-command suitable for embedding
-// inside another CLI (e.g. `lw db`). It omits lifecycle commands (daemon,
-// init) that the host process owns, and uses name as the command name.
-func NewEmbeddedCommand(name string) *cli.Command {
-	a := &App{}
-
-	return &cli.Command{
-		Name:  name,
-		Usage: "Query and manage xdb data",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "config",
-				Aliases: []string{"c"},
-				Usage:   "Path to config file",
-				Value:   "~/.xdb/config.json",
-			},
-			&cli.StringFlag{
-				Name:    "output",
-				Aliases: []string{"o"},
-				Usage:   "Output format (json, table, yaml, ndjson)",
-			},
-			&cli.BoolFlag{
-				Name:    "verbose",
-				Aliases: []string{"v"},
-				Usage:   "Enable verbose logging",
-			},
-			&cli.BoolFlag{
-				Name:  "debug",
-				Usage: "Enable debug logging",
-			},
+// commonFlags returns the global flags shared by [NewApp] and
+// [NewEmbeddedCommand].
+func commonFlags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:    "config",
+			Aliases: []string{"c"},
+			Usage:   "Path to config file",
+			Value:   "~/.xdb/config.json",
 		},
-		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-			return ctx, a.connect(cmd)
+		&cli.StringFlag{
+			Name:    "output",
+			Aliases: []string{"o"},
+			Usage:   "Output format (json, table, yaml, ndjson)",
 		},
-		ExitErrHandler: func(_ context.Context, cmd *cli.Command, err error) {
-			WriteError(os.Stderr, cmd.Root().String("output"), err)
+		&cli.BoolFlag{
+			Name:    "verbose",
+			Aliases: []string{"v"},
+			Usage:   "Enable verbose logging",
 		},
-		Commands: append(
-			[]*cli.Command{
-				a.recordsCmd(),
-				a.schemasCmd(),
-				a.namespacesCmd(),
-				a.batchCmd(),
-				a.importCmd(),
-				a.exportCmd(),
-				a.describeCmd(),
-				skillsCmd(),
-			},
-			a.aliasCommands()...,
-		),
-		Action: func(_ context.Context, _ *cli.Command) error {
-			_, err := fmt.Fprint(os.Stdout, agentContext)
-			return err
+		&cli.BoolFlag{
+			Name:  "debug",
+			Usage: "Enable debug logging",
 		},
 	}
 }
 
-// NewApp creates the root xdb CLI command.
-func NewApp() *cli.Command {
-	a := &App{}
-
+// newBaseCommand returns a *cli.Command pre-populated with the flags, output
+// writers, and connect-on-Before wiring shared by [NewApp] and
+// [NewEmbeddedCommand]. Callers set Name, Usage, Commands, and Action, then
+// call [installUsageErrorHandler] once the tree is complete.
+func (a *App) newBaseCommand(stdout, stderr io.Writer) *cli.Command {
 	return &cli.Command{
-		Name:                          "xdb",
-		Usage:                         "An agent-first data layer. Model once, store anywhere.",
-		CustomRootCommandHelpTemplate: rootHelpTemplate,
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "config",
-				Aliases: []string{"c"},
-				Usage:   "Path to config file",
-				Value:   "~/.xdb/config.json",
-			},
-			&cli.StringFlag{
-				Name:    "output",
-				Aliases: []string{"o"},
-				Usage:   "Output format (json, table, yaml, ndjson)",
-			},
-			&cli.BoolFlag{
-				Name:    "verbose",
-				Aliases: []string{"v"},
-				Usage:   "Enable verbose logging",
-			},
-			&cli.BoolFlag{
-				Name:  "debug",
-				Usage: "Enable debug logging",
-			},
-		},
+		Flags:     commonFlags(),
+		Writer:    stdout,
+		ErrWriter: stderr,
 		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-			// Skip connection for commands that manage configuration or daemon
-			cmdName := cmd.Name
-			if cmdName == "init" || cmdName == "daemon" {
-				return ctx, nil
-			}
 			return ctx, a.connect(cmd)
 		},
 		ExitErrHandler: func(_ context.Context, cmd *cli.Command, err error) {
 			// Render the error using the live --output flag from the command
 			// that produced it, then let [main] set the exit code based on
 			// [ExitCodeFor] after app.Run returns.
-			WriteError(os.Stderr, cmd.Root().String("output"), err)
+			WriteError(cmd.Root().ErrWriter, cmd.Root().String("output"), err)
 		},
-		Commands: append(
-			[]*cli.Command{
-				a.recordsCmd(),
-				a.schemasCmd(),
-				a.namespacesCmd(),
-				a.batchCmd(),
-				watchCmd(),
-				a.importCmd(),
-				a.exportCmd(),
-				initCmd(),
-				a.describeCmd(),
-				skillsCmd(),
-				daemonCmd(),
-			},
-			a.aliasCommands()...,
-		),
-		Action: func(_ context.Context, _ *cli.Command) error {
-			_, err := fmt.Fprint(os.Stdout, agentContext)
-			return err
+	}
+}
+
+// NewEmbeddedCommand creates an xdb CLI sub-command suitable for embedding
+// inside another CLI (e.g. `lw db`). It omits lifecycle commands (daemon,
+// init) that the host process owns, and uses name as the command name.
+func NewEmbeddedCommand(name string) *cli.Command {
+	a := &App{}
+
+	root := a.newBaseCommand(os.Stdout, os.Stderr)
+	root.Name = name
+	root.Usage = "Query and manage xdb data"
+	root.Commands = append(
+		[]*cli.Command{
+			a.recordsCmd(),
+			a.schemasCmd(),
+			a.namespacesCmd(),
+			a.batchCmd(),
+			a.importCmd(),
+			a.exportCmd(),
+			a.describeCmd(),
+			skillsCmd(),
+			contextCmd(),
 		},
+		a.aliasCommands()...,
+	)
+	root.Action = func(_ context.Context, cmd *cli.Command) error {
+		_, err := fmt.Fprint(cmd.Root().Writer, agentContext)
+		return err
+	}
+
+	installUsageErrorHandler(root)
+
+	return root
+}
+
+// NewAppWithIO creates the root xdb CLI command, writing output and errors to
+// stdout and stderr respectively. [NewApp] delegates to this with os.Stdout
+// and os.Stderr; tests use it with in-memory buffers to capture output
+// without touching the real terminal.
+func NewAppWithIO(stdout, stderr io.Writer) *cli.Command {
+	a := &App{}
+
+	root := a.newBaseCommand(stdout, stderr)
+	root.Name = "xdb"
+	root.Usage = "An agent-first data layer. Model once, store anywhere."
+	root.CustomRootCommandHelpTemplate = rootHelpTemplate
+	root.Before = func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
+		// cmd here is always the root command itself: urfave v3 runs each
+		// ancestor's own Before hook against its own struct, and only the
+		// root defines one. root.Args() (set once during the root's own
+		// flag parse, and never mutated by child recursion) still holds the
+		// first positional argument the user actually typed, so we use it
+		// to skip connecting for commands that don't need a live client.
+		switch cmd.Args().First() {
+		case "init", "daemon", "context", "skills", "help", "":
+			return ctx, nil
+		default:
+			return ctx, a.connect(cmd)
+		}
+	}
+	root.Commands = append(
+		[]*cli.Command{
+			a.recordsCmd(),
+			a.schemasCmd(),
+			a.namespacesCmd(),
+			a.batchCmd(),
+			watchCmd(),
+			a.importCmd(),
+			a.exportCmd(),
+			initCmd(),
+			a.describeCmd(),
+			skillsCmd(),
+			contextCmd(),
+			daemonCmd(),
+		},
+		a.aliasCommands()...,
+	)
+	root.Action = rootDispatch
+
+	installUsageErrorHandler(root)
+
+	return root
+}
+
+// NewApp creates the root xdb CLI command, writing to os.Stdout and os.Stderr.
+func NewApp() *cli.Command {
+	return NewAppWithIO(os.Stdout, os.Stderr)
+}
+
+// rootDispatch is the root command's Action. With no arguments, it shows the
+// root help (exit 0). With an unrecognized first argument, it returns an
+// INVALID_ARGUMENT envelope (exit 3) naming the command, prefixing a "did you
+// mean" hint when urfave finds a plausible match among the registered
+// commands.
+func rootDispatch(_ context.Context, cmd *cli.Command) error {
+	if cmd.Args().Len() == 0 {
+		return cli.ShowAppHelp(cmd)
+	}
+
+	name := cmd.Args().First()
+
+	hint := "run 'xdb --help' for commands or 'xdb context' for the agent guide"
+	if suggestion := cli.SuggestCommand(cmd.Commands, name); suggestion != "" {
+		hint = fmt.Sprintf("did you mean 'xdb %s'? ", suggestion) + hint
+	}
+
+	return &output.ErrorEnvelope{
+		Code:     CodeInvalidArgument,
+		Message:  fmt.Sprintf("unknown command: %q", name),
+		Resource: "cli",
+		Action:   "dispatch",
+		Hint:     hint,
 	}
 }
 
@@ -271,20 +308,20 @@ func checkStdinConsumers(uri, file string, args []string) error {
 
 // formatOne writes a single value using the appropriate formatter.
 func formatOne(cmd *cli.Command, v any) error {
+	w := cmd.Root().Writer
 	flag := cmd.String("output")
-	isTTY := isTerminal(os.Stdout)
-	f := output.New(output.Detect(flag, isTTY))
+	f := output.New(output.Detect(flag, isTerminalWriter(w)))
 
-	return f.FormatOne(os.Stdout, v)
+	return f.FormatOne(w, v)
 }
 
 // formatList writes a list using the appropriate formatter.
 func formatList(cmd *cli.Command, items []any) error {
+	w := cmd.Root().Writer
 	flag := cmd.String("output")
-	isTTY := isTerminal(os.Stdout)
-	f := output.New(output.Detect(flag, isTTY))
+	f := output.New(output.Detect(flag, isTerminalWriter(w)))
 
-	return f.FormatList(os.Stdout, items)
+	return f.FormatList(w, items)
 }
 
 // isTerminal returns true if the file is a terminal.

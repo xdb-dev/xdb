@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/urfave/cli/v3"
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 	"github.com/xdb-dev/xdb/rpc"
 )
@@ -142,6 +143,49 @@ func TestExitCodeFor(t *testing.T) {
 			assert.Equal(t, tc.want, ExitCodeFor(tc.err))
 		})
 	}
+}
+
+func TestExitCodeFor_ExitCoder(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want int
+	}{
+		{"bare cli.ExitCoder", cli.Exit("no help topic for 'upsert'", 3), ExitInvalidArgs},
+		{"wrapped cli.ExitCoder", fmt.Errorf("wrap: %w", cli.Exit("boom", 1)), ExitInvalidArgs},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, ExitCodeFor(tc.err))
+		})
+	}
+}
+
+func TestNormalizeError(t *testing.T) {
+	t.Run("nil passes through", func(t *testing.T) {
+		assert.Nil(t, normalizeError(nil))
+	})
+
+	t.Run("envelope passes through unchanged", func(t *testing.T) {
+		env := &output.ErrorEnvelope{Code: CodeNotFound, Message: "gone"}
+		assert.Same(t, env, normalizeError(env))
+	})
+
+	t.Run("cli.ExitCoder becomes an INVALID_ARGUMENT envelope", func(t *testing.T) {
+		got := normalizeError(cli.Exit("no help topic for 'upsert'", 3))
+
+		var env *output.ErrorEnvelope
+		require.ErrorAs(t, got, &env)
+		assert.Equal(t, CodeInvalidArgument, env.Code)
+		assert.Equal(t, "no help topic for 'upsert'", env.Message)
+		assert.Equal(t, "run 'xdb --help' to list commands", env.Hint)
+	})
+
+	t.Run("other errors pass through unchanged", func(t *testing.T) {
+		err := errors.New("something else")
+		assert.Same(t, err, normalizeError(err))
+	})
 }
 
 func TestWriteError_UsesEnvelopeShape(t *testing.T) {

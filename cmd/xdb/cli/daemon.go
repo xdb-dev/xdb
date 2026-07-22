@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -99,21 +100,21 @@ func daemonStartAction(ctx context.Context, cmd *cli.Command) error {
 	// Already running — report and exit successfully.
 	if isDaemonRunning(cfg) {
 		pid, _ := daemon.ReadPID(cfg.PIDFile())
-		fmt.Fprintf(os.Stderr, "Daemon already running (PID %d)\n", pid)
+		_, _ = fmt.Fprintf(cmd.Root().ErrWriter, "Daemon already running (PID %d)\n", pid)
 		return nil
 	}
 
 	foreground := cmd.Bool("foreground") || os.Getenv(daemonChildEnv) == "1"
 	if foreground {
-		return runForeground(ctx, cfg)
+		return runForeground(ctx, cfg, cmd.Root().ErrWriter)
 	}
 
-	return spawnDaemon(cfg, cmd.Root().String("config"))
+	return spawnDaemon(cfg, cmd.Root().String("config"), cmd.Root().ErrWriter)
 }
 
 // runForeground runs the daemon in the current process, blocking until
 // the context is canceled or a signal is received.
-func runForeground(ctx context.Context, cfg *Config) error {
+func runForeground(ctx context.Context, cfg *Config, errW io.Writer) error {
 	s, err := OpenStore(cfg)
 	if err != nil {
 		return fmt.Errorf("open store: %w", err)
@@ -134,7 +135,7 @@ func runForeground(ctx context.Context, cfg *Config) error {
 		cancel()
 	}()
 
-	fmt.Fprintf(os.Stderr, "Starting daemon on %s\n", dcfg.SocketPath)
+	_, _ = fmt.Fprintf(errW, "Starting daemon on %s\n", dcfg.SocketPath)
 
 	return d.Start(ctx, s)
 }
@@ -142,7 +143,7 @@ func runForeground(ctx context.Context, cfg *Config) error {
 // spawnDaemon re-execs the current binary as a background child process with
 // XDB_DAEMON_CHILD=1 set, redirecting stdout/stderr to the log file. It waits
 // for the socket to become available before returning.
-func spawnDaemon(cfg *Config, configFlag string) error {
+func spawnDaemon(cfg *Config, configFlag string, errW io.Writer) error {
 	pidFile := cfg.PIDFile()
 
 	// Already running — nothing to do.
@@ -209,8 +210,8 @@ func spawnDaemon(cfg *Config, configFlag string) error {
 		return fmt.Errorf("daemon started but not reachable: %w", waitErr)
 	}
 
-	fmt.Fprintf(os.Stderr, "Daemon started (PID %d)\n", childPID)
-	fmt.Fprintf(os.Stderr, "Listening on %s\n", socketPath)
+	_, _ = fmt.Fprintf(errW, "Daemon started (PID %d)\n", childPID)
+	_, _ = fmt.Fprintf(errW, "Listening on %s\n", socketPath)
 
 	return nil
 }
@@ -244,7 +245,7 @@ func daemonStopAction(_ context.Context, cmd *cli.Command) error {
 
 	pid, readErr := daemon.ReadPID(pidFile)
 	if readErr != nil || pid <= 0 || !daemon.IsProcessAlive(pid) {
-		fmt.Fprintln(os.Stderr, "Daemon is not running")
+		_, _ = fmt.Fprintln(cmd.Root().ErrWriter, "Daemon is not running")
 
 		if pid > 0 {
 			_ = daemon.RemovePID(pidFile)
@@ -253,7 +254,7 @@ func daemonStopAction(_ context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	fmt.Fprintf(os.Stderr, "Stopping daemon (PID %d)...\n", pid)
+	_, _ = fmt.Fprintf(cmd.Root().ErrWriter, "Stopping daemon (PID %d)...\n", pid)
 
 	proc, findErr := os.FindProcess(pid)
 	if findErr != nil {
@@ -270,7 +271,7 @@ func daemonStopAction(_ context.Context, cmd *cli.Command) error {
 
 	_ = daemon.RemovePID(pidFile)
 
-	fmt.Fprintln(os.Stderr, "Daemon stopped")
+	_, _ = fmt.Fprintln(cmd.Root().ErrWriter, "Daemon stopped")
 
 	return nil
 }

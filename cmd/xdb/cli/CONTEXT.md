@@ -2,6 +2,8 @@
 
 Agent-first data layer. Model once, store anywhere. URI-addressed: `xdb://NS/SCHEMA/ID#ATTR`.
 
+Served by `xdb context` — run it any time you need this guide again.
+
 ## Grammar
 
 ```

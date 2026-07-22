@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -53,6 +54,6 @@ func TestSpawnDaemon_IdempotentWhenRunning(t *testing.T) {
 	require.NoError(t, daemon.WritePID(pidFile))
 
 	// spawnDaemon should succeed (no-op) when daemon is already running.
-	err := spawnDaemon(cfg, "")
+	err := spawnDaemon(cfg, "", io.Discard)
 	assert.NoError(t, err, "spawnDaemon should be idempotent when daemon is running")
 }
