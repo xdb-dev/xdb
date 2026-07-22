@@ -210,17 +210,30 @@ func namespaceMethods() map[string]rpc.MethodMeta {
 func batchMethods() map[string]rpc.MethodMeta {
 	return map[string]rpc.MethodMeta{
 		"batch.execute": {
-			Description: "Run multiple operations in a single atomic transaction.",
-			Mutating:    true,
+			Description: "Run multiple operations in a single atomic transaction on transactional " +
+				"backends (sqlite, memory); other backends require non_atomic:true for sequential " +
+				"best-effort execution.",
+			Mutating: true,
 			Parameters: map[string]rpc.ParamMeta{
-				"operations": {Description: "Array of operations to execute", Type: "array", Required: true},
-				"dry_run":    {Description: "Validate without writing", Type: "boolean"},
+				"operations": {
+					Description: "Array of operation objects {op, uri, data}. op is one of: " +
+						"records.create, records.update, records.upsert, records.delete, " +
+						"schemas.create, schemas.update, schemas.delete.",
+					Type:     "array",
+					Required: true,
+				},
+				"dry_run":    {Description: "Validate every operation without writing; per-op dry_run results", Type: "boolean"},
+				"non_atomic": {Description: "Allow sequential best-effort execution on non-transactional backends", Type: "boolean"},
 			},
 			Response: map[string]rpc.ParamMeta{
-				"total":     {Description: "Total operations", Type: "integer"},
-				"succeeded": {Description: "Successful operations", Type: "integer"},
-				"failed":    {Description: "Failed operations", Type: "integer"},
-				"results":   {Description: "Per-operation results", Type: "array"},
+				"total":       {Description: "Total operations", Type: "integer"},
+				"succeeded":   {Description: "Successful operations", Type: "integer"},
+				"failed":      {Description: "Failed operations", Type: "integer"},
+				"rolled_back": {Description: "True when a failure rolled back the whole batch", Type: "boolean"},
+				"results": {
+					Description: "Per-operation results {index, uri, status: ok|error|skipped, error?, dry_run?}",
+					Type:        "array",
+				},
 			},
 		},
 	}

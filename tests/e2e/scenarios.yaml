@@ -225,8 +225,7 @@ scenarios:
           stdout_contains: "slug"
 
   - name: "bulk-import-via-stdin"
-    description: "Pipe NDJSON invocations into xdb batch -. Currently expected to fail with INTERNAL until batch.execute lands server-side."
-    skip_if_unimplemented: true
+    description: "Pipe NDJSON operations into xdb batch: one {op, uri, data} object per line, executed atomically."
     steps:
       - name: "schema for the import"
         run: xdb schemas create --uri xdb://$NS/events --json '{"fields":{"kind":{"type":"string"}}}'
@@ -234,8 +233,8 @@ scenarios:
 
       - name: "pipe two creates"
         run: |
-          printf '{"resource":"records","action":"create","uri":"xdb://%s/events/e1","payload":{"kind":"click"}}
-{"resource":"records","action":"create","uri":"xdb://%s/events/e2","payload":{"kind":"view"}}
+          printf '{"op":"records.create","uri":"xdb://%s/events/e1","data":{"kind":"click"}}
+{"op":"records.create","uri":"xdb://%s/events/e2","data":{"kind":"view"}}
 ' "$NS" "$NS" | xdb batch -
         expect: { exit: 0 }
 
@@ -686,3 +685,38 @@ scenarios:
         expect:
           exit: 3
           error: { code: "INVALID_ARGUMENT", resource: "schemas", action: "delete" }
+
+  - name: "batch-atomic"
+    description: "batch executes {op,uri,data} operations atomically: a mid-batch violation rolls back every operation with per-op attribution; dry-run validates without writing."
+    steps:
+      - name: "create schema"
+        run: xdb schemas create --uri xdb://$NS/parts --json '{"fields":{"name":{"type":"string","required":true},"qty":{"type":"integer"}}}'
+        expect: { exit: 0 }
+
+      - name: "atomic batch of three ops"
+        run: xdb batch --json '[{"op":"records.create","uri":"xdb://$NS/parts/p1","data":{"name":"bolt","qty":100}},{"op":"records.create","uri":"xdb://$NS/parts/p2","data":{"name":"nut","qty":200}},{"op":"records.update","uri":"xdb://$NS/parts/p1","data":{"qty":150}}]' -o json
+        expect:
+          exit: 0
+          json: { total: 3, succeeded: 3, failed: 0 }
+
+      - name: "mid-batch violation rolls back"
+        run: xdb batch --json '[{"op":"records.create","uri":"xdb://$NS/parts/p3","data":{"name":"washer","qty":10}},{"op":"records.create","uri":"xdb://$NS/parts/bad","data":{"qty":1}}]' -o json
+        expect:
+          exit: 0
+          json: { rolled_back: true, failed: 1 }
+
+      - name: "rolled-back op did not persist"
+        run: xdb records get --uri xdb://$NS/parts/p3 -o json
+        expect:
+          exit: 1
+          error: { code: "NOT_FOUND", resource: "records", action: "get" }
+
+      - name: "dry-run batch validates without writing"
+        run: xdb batch --json '[{"op":"records.create","uri":"xdb://$NS/parts/p4","data":{"name":"screw","qty":5}}]' --dry-run -o json
+        expect:
+          exit: 0
+          json: { succeeded: 1 }
+
+      - name: "dry-run op did not persist"
+        run: xdb records get --uri xdb://$NS/parts/p4 --quiet
+        expect: { exit: 1 }
