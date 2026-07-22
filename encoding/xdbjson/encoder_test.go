@@ -9,6 +9,7 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 var defaultEncoder = xdbjson.New()
@@ -256,6 +257,69 @@ func TestEncoder_SortedKeys(t *testing.T) {
 	assert.Contains(t, m, "alpha")
 	assert.Contains(t, m, "middle")
 	assert.Contains(t, m, "zebra")
+}
+
+// A declared ARRAY<INTEGER> field built directly (not from JSON) round-trips
+// through encode -> decode with its element type preserved, including a
+// value beyond the float64 exact-integer boundary.
+func TestEncoder_RoundTrip_ArrayInteger(t *testing.T) {
+	def := &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/metrics"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"nums": {Type: core.NewArrayType(core.TIDInteger)},
+		},
+	}
+
+	original := core.NewRecord("com.example", "metrics", "1").
+		Set("nums", []int64{1, 2, 9007199254740993})
+
+	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
+	data, err := encoder.FromRecord(original)
+	require.NoError(t, err)
+
+	decoder := xdbjson.NewDecoder(xdbjson.WithDef(def))
+	decoded, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	nums := decoded.Get("nums").Value()
+	assert.Equal(t, core.TIDInteger, nums.Type().ElemTypeID())
+
+	elems, err := nums.AsArray()
+	require.NoError(t, err)
+	require.Len(t, elems, 3)
+	got, err := elems[2].AsInt()
+	require.NoError(t, err)
+	assert.Equal(t, int64(9007199254740993), got)
+}
+
+// A declared JSON field built directly round-trips through encode -> decode
+// as the same nested structure, not flattened into dotted sub-attributes.
+func TestEncoder_RoundTrip_JSONField(t *testing.T) {
+	def := &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/events"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"settings": {Type: core.TypeJSON},
+		},
+	}
+
+	original := core.NewRecord("com.example", "events", "1").
+		Set("settings", core.JSONVal(json.RawMessage(`{"theme":"dark","level":2}`)))
+
+	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
+	data, err := encoder.FromRecord(original)
+	require.NoError(t, err)
+
+	decoder := xdbjson.NewDecoder(xdbjson.WithDef(def))
+	decoded, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	assert.Nil(t, decoded.Get("settings.theme"), "no synthetic dotted sub-attribute")
+
+	raw, err := decoded.Get("settings").Value().AsJSON()
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"theme":"dark","level":2}`, string(raw))
 }
 
 func TestEncoder_ErrorNilRecord(t *testing.T) {

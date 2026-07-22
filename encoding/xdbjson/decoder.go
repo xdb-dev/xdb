@@ -48,7 +48,9 @@ func (d *Decoder) ToRecord(data []byte) (*core.Record, error) {
 	}
 
 	record := core.NewRecord(ns, schema, id)
-	d.populateRecord(record, m)
+	if err := d.populateRecord(record, m); err != nil {
+		return nil, err
+	}
 
 	return record, nil
 }
@@ -65,25 +67,18 @@ func (d *Decoder) ToExistingRecord(data []byte, record *core.Record) error {
 		return err
 	}
 
-	d.populateRecord(record, m)
-	return nil
+	return d.populateRecord(record, m)
 }
 
-// unmarshal decodes JSON into a map. With number inference enabled, numbers
-// are decoded as [json.Number] so integer and float types can be preserved.
+// unmarshal decodes JSON into a map. Numbers decode as [json.Number] so
+// integer and float types can be preserved (see [inferNumbers] and
+// [convertToType]).
 func (d *Decoder) unmarshal(data []byte) (map[string]any, error) {
 	var m map[string]any
 
-	if d.opts.numberInference {
-		dec := json.NewDecoder(bytes.NewReader(data))
-		dec.UseNumber()
-		if err := dec.Decode(&m); err != nil {
-			return nil, ErrInvalidJSON
-		}
-		return m, nil
-	}
-
-	if err := json.Unmarshal(data, &m); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
+	if err := dec.Decode(&m); err != nil {
 		return nil, ErrInvalidJSON
 	}
 	return m, nil
@@ -125,9 +120,16 @@ func (d *Decoder) extractSchema(m map[string]any) string {
 	return d.opts.schema
 }
 
-func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
+// populateRecord sets record's attributes from the decoded JSON map m.
+//
+// A declared field (per [WithDef]) that cannot be typed as its declared type
+// is a decode-time error naming the field and expected type — see
+// [setDeclaredField]. An undeclared attribute that XDB cannot type (e.g. an
+// empty or heterogeneous JSON array) is treated as absent, consistent with
+// how null is handled.
+func (d *Decoder) populateRecord(record *core.Record, m map[string]any) error {
 	flat := make(map[string]any)
-	flatten(m, "", flat)
+	flattenWithDef(m, "", d.opts.def, flat)
 
 	for attr, value := range flat {
 		if d.isMetadataField(attr) || value == nil {
@@ -136,28 +138,89 @@ func (d *Decoder) populateRecord(record *core.Record, m map[string]any) {
 
 		if d.opts.def != nil {
 			if field, ok := d.opts.def.Fields[attr]; ok {
-				if isObjectArrayField(field) {
-					if v, ok := objectArrayValue(value, field.Items); ok {
-						record.Set(attr, v)
-					}
-					continue
+				if err := setDeclaredField(record, attr, value, field); err != nil {
+					return err
 				}
-				value = convertToType(value, field.Type.ID())
+				continue
 			}
 		}
 
-		if d.opts.numberInference {
-			value = inferNumbers(value)
-		}
+		value = inferNumbers(value)
 
-		// Skip values XDB cannot type, e.g. an empty or heterogeneous JSON
-		// array. Treated as absent, consistent with how null is handled.
 		v, err := core.NewSafeValue(value)
 		if err != nil || v == nil {
 			continue
 		}
 		record.Set(attr, v)
 	}
+
+	return nil
+}
+
+// setDeclaredField converts value per field's declared type and sets it on
+// record. Returns an error wrapping [core.ErrSchemaViolation], naming attr and
+// field's declared type, when value cannot decode as that type.
+func setDeclaredField(record *core.Record, attr string, value any, field schema.Field) error {
+	if isObjectArrayField(field) {
+		if v, ok := objectArrayValue(value, field.Items); ok {
+			record.Set(attr, v)
+		}
+		return nil
+	}
+
+	v, ok := convertDeclaredValue(value, field.Type)
+	if !ok {
+		return fmt.Errorf(
+			"%w: field %q: cannot decode as %s",
+			core.ErrSchemaViolation, attr, typeName(field.Type),
+		)
+	}
+
+	record.Set(attr, v)
+	return nil
+}
+
+// convertDeclaredValue converts value to type t and wraps the result as a
+// [*core.Value]. It reports false when value cannot be represented as t at
+// all — a genuine decode failure, as opposed to an undeclared attribute XDB
+// simply cannot type.
+func convertDeclaredValue(value any, t core.Type) (*core.Value, bool) {
+	converted := convertToType(value, t)
+
+	// An empty declared array has no elements to infer a type from; build it
+	// directly from the declared element type rather than erroring.
+	if t.ID() == core.TIDArray {
+		if arr, ok := converted.([]any); ok && len(arr) == 0 {
+			return core.ArrayVal(t.ElemTypeID()), true
+		}
+	}
+
+	v, err := core.NewSafeValue(converted)
+	if err != nil || v == nil || !typeMatches(v.Type(), t) {
+		return nil, false
+	}
+	return v, true
+}
+
+// typeMatches reports whether got is exactly the declared type want,
+// including element type for arrays.
+func typeMatches(got, want core.Type) bool {
+	if got.ID() != want.ID() {
+		return false
+	}
+	if want.ID() == core.TIDArray {
+		return got.ElemTypeID() == want.ElemTypeID()
+	}
+	return true
+}
+
+// typeName renders a field type for error messages, e.g. "INTEGER" or
+// "ARRAY<INTEGER>".
+func typeName(t core.Type) string {
+	if t.ID() == core.TIDArray {
+		return "ARRAY<" + t.ElemTypeID().String() + ">"
+	}
+	return t.ID().String()
 }
 
 // inferNumbers converts [json.Number] values into concrete int64 or float64,
@@ -260,40 +323,41 @@ func convertMember(v any, field schema.Field) any {
 		}
 		return out
 	}
-	return convertToType(v, field.Type.ID())
+	return convertToType(v, field.Type)
 }
 
-func convertToType(value any, fieldType core.TID) any {
-	switch fieldType {
+// convertToType converts value to the Go representation of t, always
+// returning something that either [core.NewSafeValue] can wrap directly or —
+// for an object-array element member — can be re-marshaled to JSON as-is.
+// It never returns a [*core.Value]: the same conversion is used both to build
+// top-level declared values (via [convertDeclaredValue]) and to type members
+// nested inside an object-array element (via [convertMember]), and the latter
+// embeds the result straight into a map that gets re-marshaled.
+//
+// A numeric conversion that would lose precision (e.g. 1.5 into INTEGER) is
+// left as its natural numeric type rather than silently truncated, so a
+// mismatch stays visible instead of quietly wrong.
+func convertToType(value any, t core.Type) any {
+	switch t.ID() {
 	case core.TIDTime:
 		if s, ok := value.(string); ok {
-			if t, err := time.Parse(time.RFC3339, s); err == nil {
-				return t
+			if ts, err := time.Parse(time.RFC3339, s); err == nil {
+				return ts
 			}
 		}
 	case core.TIDInteger:
-		switch n := value.(type) {
-		case float64:
-			return int64(n)
-		case json.Number:
-			if i, err := n.Int64(); err == nil {
-				return i
-			}
+		if n, ok := value.(json.Number); ok {
+			return inferNumbers(n)
 		}
 	case core.TIDUnsigned:
-		switch n := value.(type) {
-		case float64:
-			return uint64(n)
-		case json.Number:
+		if n, ok := value.(json.Number); ok {
 			if u, err := strconv.ParseUint(n.String(), 10, 64); err == nil {
 				return u
 			}
+			return inferNumbers(n)
 		}
 	case core.TIDFloat:
-		switch n := value.(type) {
-		case float64:
-			return n
-		case json.Number:
+		if n, ok := value.(json.Number); ok {
 			if f, err := n.Float64(); err == nil {
 				return f
 			}
@@ -304,8 +368,46 @@ func convertToType(value any, fieldType core.TID) any {
 				return b
 			}
 		}
+	case core.TIDJSON:
+		return convertJSONValue(value)
+	case core.TIDArray:
+		return convertArrayElements(value, t.ElemTypeID())
 	}
 	return value
+}
+
+// convertJSONValue marshals a decoded JSON value to a [json.RawMessage] so it
+// can be stored as a JSON-typed value. A value already captured verbatim by
+// [flattenWithDef] arrives as a [json.RawMessage] and passes through
+// unchanged.
+func convertJSONValue(value any) any {
+	if raw, ok := value.(json.RawMessage); ok {
+		return raw
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return value
+	}
+	return json.RawMessage(data)
+}
+
+// convertArrayElements converts each element of a decoded JSON array to the
+// declared element type's Go representation, so that every element ends up
+// uniformly typed per the declared elem_type — not per whatever type JSON
+// happened to decode the first element as. Returns value unchanged if it is
+// not a JSON array.
+func convertArrayElements(value any, elemTID core.TID) any {
+	arr, ok := value.([]any)
+	if !ok {
+		return value
+	}
+
+	elemType := core.NewType(elemTID)
+	elems := make([]any, len(arr))
+	for i, e := range arr {
+		elems[i] = convertToType(e, elemType)
+	}
+	return elems
 }
 
 func (d *Decoder) isMetadataField(attr string) bool {
@@ -314,16 +416,28 @@ func (d *Decoder) isMetadataField(attr string) bool {
 		attr == d.opts.schemaField
 }
 
-func flatten(m map[string]any, prefix string, result map[string]any) {
+// flattenWithDef flattens nested JSON objects into dot-notation attributes.
+// A declared JSON-typed field (per def, top-level or dotted) is captured
+// verbatim as a [json.RawMessage] instead of being flattened, so its nested
+// keys never turn into synthetic dotted attributes. def may be nil, in which
+// case every key recurses or leafs exactly as before.
+func flattenWithDef(m map[string]any, prefix string, def *schema.Def, result map[string]any) {
 	for key, value := range m {
 		fullKey := key
 		if prefix != "" {
 			fullKey = prefix + "." + key
 		}
 
+		if def != nil && value != nil {
+			if field, ok := def.Fields[fullKey]; ok && field.Type.ID() == core.TIDJSON {
+				result[fullKey] = convertJSONValue(value)
+				continue
+			}
+		}
+
 		switch v := value.(type) {
 		case map[string]any:
-			flatten(v, fullKey, result)
+			flattenWithDef(v, fullKey, def, result)
 		default:
 			result[fullKey] = value
 		}

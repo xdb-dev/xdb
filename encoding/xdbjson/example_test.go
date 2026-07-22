@@ -83,8 +83,8 @@ func ExampleDecoder_ToRecord() {
 	fmt.Println("URI:", record.URI())
 	fmt.Println("Name:", vStr(record.Get("name").Value()))
 
-	// JSON numbers decode as float64 without a schema definition.
-	fmt.Println("Age:", vFloat(record.Get("age").Value()))
+	// Whole-looking JSON numbers decode as int64 without a schema definition.
+	fmt.Println("Age:", vInt(record.Get("age").Value()))
 
 	// Output:
 	// URI: xdb://com.example/users/123
@@ -184,8 +184,8 @@ func Example_roundTrip() {
 	fmt.Println("URI:", decoded.URI())
 	fmt.Println("Name:", vStr(decoded.Get("name").Value()))
 
-	// JSON numbers decode as float64 without a schema definition.
-	fmt.Println("Score:", vFloat(decoded.Get("score").Value()))
+	// Whole-looking JSON numbers decode as int64 without a schema definition.
+	fmt.Println("Score:", vInt(decoded.Get("score").Value()))
 
 	// Output:
 	// URI: xdb://com.example/users/user-789

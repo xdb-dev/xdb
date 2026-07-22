@@ -247,25 +247,25 @@ scenarios:
           ndjson_ids: ["e1", "e2"]
 
   - name: "type-fidelity"
-    description: "Every CLI-reachable value type survives a create→get round-trip verbatim — unicode strings, negative ints, sub-2^53 unsigned, floats, RFC3339 time, base64 bytes, and scalar arrays. (Standalone JSON, integer arrays, and object arrays are NOT reachable through the CLI JSON surface — the decoder flattens objects and infers array element types; see docs/plans/2026-07-22-e2e-cli-scenarios.md.)"
+    description: "Every CLI-reachable value type survives a create→get round-trip verbatim — unicode strings, negative ints, sub-2^53 unsigned, a >2^53 integer, floats, RFC3339 time, base64 bytes, scalar arrays, integer arrays, a JSON object field, and a JSON array."
     steps:
       - name: "schema covering the round-trippable types"
-        run: xdb schemas create --uri xdb://$NS/samples --json '{"fields":{"s":{"type":"string"},"i":{"type":"integer"},"u":{"type":"unsigned"},"f":{"type":"float"},"b":{"type":"boolean"},"t":{"type":"time"},"by":{"type":"bytes"},"tags":{"type":"array","elem_type":"string"},"prices":{"type":"array","elem_type":"float"}}}'
+        run: xdb schemas create --uri xdb://$NS/samples --json '{"fields":{"s":{"type":"string"},"i":{"type":"integer"},"u":{"type":"unsigned"},"f":{"type":"float"},"b":{"type":"boolean"},"t":{"type":"time"},"by":{"type":"bytes"},"tags":{"type":"array","elem_type":"string"},"prices":{"type":"array","elem_type":"float"},"ints":{"type":"array","elem_type":"integer"},"j":{"type":"json"},"objs":{"type":"array","elem_type":"json"},"big":{"type":"integer"}}}'
         expect: { exit: 0 }
 
-      - name: "create with edge values (unicode, negative int, base64 bytes, RFC3339 time)"
-        run: xdb records create --uri xdb://$NS/samples/r1 --json '{"s":"नमस्ते","i":-42,"u":998877665544,"f":0.07,"b":true,"t":"2024-06-01T10:00:00Z","by":"aGVsbG8=","tags":["silk","handloom"],"prices":[12999.5,499.5]}' -o json
+      - name: "create with edge values (unicode, negative int, base64 bytes, RFC3339 time, integer array, JSON object/array, >2^53 integer)"
+        run: xdb records create --uri xdb://$NS/samples/r1 --json '{"s":"नमस्ते","i":-42,"u":998877665544,"f":0.07,"b":true,"t":"2024-06-01T10:00:00Z","by":"aGVsbG8=","tags":["silk","handloom"],"prices":[12999.5,499.5],"ints":[1,2,3],"j":{"theme":"dark","level":2},"objs":[{"x":1},{"y":"z"}],"big":9007199254740993}' -o json
         expect:
           exit: 0
-          json: { _id: "r1", s: "नमस्ते", i: -42, u: 998877665544, f: 0.07, b: true, t: "2024-06-01T10:00:00Z", by: "aGVsbG8=" }
+          json: { _id: "r1", s: "नमस्ते", i: -42, u: 998877665544, f: 0.07, b: true, t: "2024-06-01T10:00:00Z", by: "aGVsbG8=", ints: [1, 2, 3], j: { theme: "dark", level: 2 }, big: 9007199254740993 }
 
-      - name: "get returns every scalar verbatim"
+      - name: "get returns every scalar and structured value verbatim"
         run: xdb records get --uri xdb://$NS/samples/r1 -o json
         expect:
           exit: 0
-          json: { s: "नमस्ते", i: -42, u: 998877665544, f: 0.07, b: true, t: "2024-06-01T10:00:00Z", by: "aGVsbG8=" }
+          json: { s: "नमस्ते", i: -42, u: 998877665544, f: 0.07, b: true, t: "2024-06-01T10:00:00Z", by: "aGVsbG8=", ints: [1, 2, 3], j: { theme: "dark", level: 2 }, objs: [{ x: 1 }, { y: "z" }], big: 9007199254740993 }
 
-      - name: "scalar arrays round-trip"
+      - name: "scalar and JSON arrays round-trip"
         run: xdb records get --uri xdb://$NS/samples/r1 -o json
         expect:
           exit: 0
@@ -275,7 +275,7 @@ scenarios:
         run: xdb records update --uri xdb://$NS/samples/r1 --json '{"b":false}' -o json
         expect:
           exit: 0
-          json: { b: false, s: "नमस्ते", i: -42, by: "aGVsbG8=" }
+          json: { b: false, s: "नमस्ते", i: -42, by: "aGVsbG8=", j: { theme: "dark", level: 2 }, big: 9007199254740993 }
 
   - name: "crm-pipeline"
     description: "A sales team models Indian contacts in flexible mode: nested addresses, undeclared fields, tag arrays, filtered lists, an NDJSON export/import migration, and schema evolution."

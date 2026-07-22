@@ -2,6 +2,7 @@ package xdbjson_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -119,12 +120,14 @@ func TestDecoder_BasicTypes(t *testing.T) {
 			expected: false,
 		},
 		{
+			// Whole-looking numbers decode as int64 by default now that
+			// UseNumber is always on (see TestDecoder_DefaultNumberInference).
 			name:     "integer",
 			json:     `{"_id":"123","val":42}`,
 			attr:     "val",
-			typeID:   core.TIDFloat,
-			getValue: func(t *core.Tuple) any { return vFloat(t.Value()) },
-			expected: float64(42),
+			typeID:   core.TIDInteger,
+			getValue: func(t *core.Tuple) any { return vInt(t.Value()) },
+			expected: int64(42),
 		},
 		{
 			name:     "float",
@@ -568,6 +571,8 @@ func TestDecoder_WithoutSchema_NoConversion(t *testing.T) {
 	assert.Equal(t, core.TIDString, record.Get("created_at").Value().Type().ID())
 }
 
+// WithNumberInference is now a documented no-op: number inference is always
+// on, so this test only proves the option remains harmless to pass.
 func TestDecoder_WithNumberInference(t *testing.T) {
 	decoder := xdbjson.NewDecoder(
 		xdbjson.WithNS("com.example"),
@@ -618,4 +623,360 @@ func TestDecoder_WithNumberInference_DefTypesWin(t *testing.T) {
 	assert.Equal(t, core.TIDFloat, record.Get("ratio").Value().Type().ID())
 	assert.Equal(t, core.TIDUnsigned, record.Get("size").Value().Type().ID())
 	assert.Equal(t, core.TIDInteger, record.Get("count").Value().Type().ID())
+}
+
+// Without a schema, whole-looking numbers decode as int64 and fractional
+// numbers as float64 — number inference is always on now.
+func TestDecoder_DefaultNumberInference(t *testing.T) {
+	decoder := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("events"))
+
+	data := []byte(`{"_id":"1","count":42,"rating":4.2}`)
+	record, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	assert.Equal(t, core.TIDInteger, record.Get("count").Value().Type().ID())
+	assert.Equal(t, int64(42), vInt(record.Get("count").Value()))
+
+	assert.Equal(t, core.TIDFloat, record.Get("rating").Value().Type().ID())
+	assert.Equal(t, 4.2, vFloat(record.Get("rating").Value()))
+}
+
+// A declared INTEGER field, and an INTEGER array element, must survive a
+// value beyond 2^53 (the float64 exact-integer boundary) without precision
+// loss — proof that numbers flow through as json.Number, never float64.
+func TestDecoder_BigIntegerExact(t *testing.T) {
+	const big = 9007199254740993 // 2^53 + 1
+
+	def := &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/metrics"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"count": {Type: core.TypeInt},
+			"nums":  {Type: core.NewArrayType(core.TIDInteger)},
+		},
+	}
+
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithDef(def),
+	)
+
+	data := []byte(fmt.Sprintf(`{"_id":"1","count":%d,"nums":[%d]}`, big, big))
+	record, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	assert.Equal(t, int64(big), vInt(record.Get("count").Value()))
+
+	elems, err := record.Get("nums").Value().AsArray()
+	require.NoError(t, err)
+	require.Len(t, elems, 1)
+	assert.Equal(t, core.TIDInteger, elems[0].Type().ID())
+	i, err := elems[0].AsInt()
+	require.NoError(t, err)
+	assert.Equal(t, int64(big), i)
+}
+
+func jsonFieldDef() *schema.Def {
+	return &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/events"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"settings": {Type: core.TypeJSON},
+		},
+	}
+}
+
+// A JSON-typed field's nested object must decode as ONE tuple (the field's
+// own attribute), never flattened into synthetic dotted sub-attributes —
+// otherwise strict mode would reject the (fictitious) unknown sub-fields.
+func TestDecoder_JSONField_Object(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("events"),
+		xdbjson.WithDef(jsonFieldDef()),
+	)
+
+	data := []byte(`{"_id":"1","settings":{"theme":"dark","nested":{"level":2}}}`)
+	record, err := decoder.ToRecord(data)
+	require.NoError(t, err)
+
+	assert.Nil(t, record.Get("settings.theme"), "no synthetic dotted sub-attribute")
+	assert.Nil(t, record.Get("settings.nested"), "no synthetic dotted sub-attribute")
+
+	settings := record.Get("settings")
+	require.NotNil(t, settings)
+	assert.Equal(t, core.TIDJSON, settings.Value().Type().ID())
+
+	raw, err := settings.Value().AsJSON()
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"theme":"dark","nested":{"level":2}}`, string(raw))
+}
+
+// A JSON-typed field given a scalar or array (not an object) is still
+// accepted, stored as a JSON value rather than rejected or type-coerced.
+func TestDecoder_JSONField_ScalarAndArray(t *testing.T) {
+	tests := []struct {
+		name string
+		json string
+		want string
+	}{
+		{"scalar_number", `{"_id":"1","settings":42}`, `42`},
+		{"scalar_string", `{"_id":"1","settings":"dark"}`, `"dark"`},
+		{"array", `{"_id":"1","settings":[1,"two",true]}`, `[1,"two",true]`},
+	}
+
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("events"),
+		xdbjson.WithDef(jsonFieldDef()),
+	)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			record, err := decoder.ToRecord([]byte(tt.json))
+			require.NoError(t, err)
+
+			settings := record.Get("settings")
+			require.NotNil(t, settings)
+			assert.Equal(t, core.TIDJSON, settings.Value().Type().ID())
+
+			raw, err := settings.Value().AsJSON()
+			require.NoError(t, err)
+			assert.JSONEq(t, tt.want, string(raw))
+		})
+	}
+}
+
+// A JSON-typed field round-trips through encode -> decode stably.
+func TestDecoder_JSONField_RoundTrip(t *testing.T) {
+	def := jsonFieldDef()
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("events"),
+		xdbjson.WithDef(def),
+	)
+
+	original, err := decoder.ToRecord([]byte(
+		`{"_id":"1","settings":{"theme":"dark","nested":{"level":2}}}`,
+	))
+	require.NoError(t, err)
+
+	encoder := xdbjson.New()
+	encoded, err := encoder.FromRecord(original)
+	require.NoError(t, err)
+
+	decoded, err := decoder.ToRecord(encoded)
+	require.NoError(t, err)
+
+	origRaw, err := original.Get("settings").Value().AsJSON()
+	require.NoError(t, err)
+	decRaw, err := decoded.Get("settings").Value().AsJSON()
+	require.NoError(t, err)
+	assert.JSONEq(t, string(origRaw), string(decRaw))
+}
+
+func arrayFieldDef(elemType core.TID) *schema.Def {
+	return &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/metrics"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"nums": {Type: core.NewArrayType(elemType)},
+		},
+	}
+}
+
+func TestDecoder_ArrayInteger(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithDef(arrayFieldDef(core.TIDInteger)),
+	)
+
+	record, err := decoder.ToRecord([]byte(`{"_id":"1","nums":[1,2,3]}`))
+	require.NoError(t, err)
+
+	nums := record.Get("nums").Value()
+	assert.Equal(t, core.TIDArray, nums.Type().ID())
+	assert.Equal(t, core.TIDInteger, nums.Type().ElemTypeID())
+
+	elems, err := nums.AsArray()
+	require.NoError(t, err)
+	require.Len(t, elems, 3)
+	for i, want := range []int64{1, 2, 3} {
+		assert.Equal(t, core.TIDInteger, elems[i].Type().ID())
+		got, err := elems[i].AsInt()
+		require.NoError(t, err)
+		assert.Equal(t, want, got)
+	}
+}
+
+// A non-integral element in a declared ARRAY<INTEGER> is never silently
+// truncated (1.5 must not become 1) — it decodes as its own natural numeric
+// type, which then fails to match the declared array type.
+func TestDecoder_ArrayInteger_LossyElementNotTruncated(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithDef(arrayFieldDef(core.TIDInteger)),
+	)
+
+	_, err := decoder.ToRecord([]byte(`{"_id":"1","nums":[1.5]}`))
+	require.Error(t, err)
+	assert.ErrorIs(t, err, core.ErrSchemaViolation)
+	assert.Contains(t, err.Error(), "nums")
+}
+
+func TestDecoder_ArrayFloat(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithDef(arrayFieldDef(core.TIDFloat)),
+	)
+
+	// Whole-looking numbers must still decode as floats: the declared
+	// elem_type wins over first-element inference.
+	record, err := decoder.ToRecord([]byte(`{"_id":"1","nums":[1,2]}`))
+	require.NoError(t, err)
+
+	nums := record.Get("nums").Value()
+	assert.Equal(t, core.TIDFloat, nums.Type().ElemTypeID())
+
+	elems, err := nums.AsArray()
+	require.NoError(t, err)
+	require.Len(t, elems, 2)
+	for i, want := range []float64{1, 2} {
+		assert.Equal(t, core.TIDFloat, elems[i].Type().ID())
+		got, err := elems[i].AsFloat()
+		require.NoError(t, err)
+		assert.Equal(t, want, got)
+	}
+}
+
+func TestDecoder_ArrayTime(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithDef(arrayFieldDef(core.TIDTime)),
+	)
+
+	record, err := decoder.ToRecord([]byte(
+		`{"_id":"1","nums":["2026-07-17T10:00:00Z","2026-07-18T11:30:00Z"]}`,
+	))
+	require.NoError(t, err)
+
+	nums := record.Get("nums").Value()
+	assert.Equal(t, core.TIDTime, nums.Type().ElemTypeID())
+
+	elems, err := nums.AsArray()
+	require.NoError(t, err)
+	require.Len(t, elems, 2)
+	want := time.Date(2026, 7, 17, 10, 0, 0, 0, time.UTC)
+	got, err := elems[0].AsTime()
+	require.NoError(t, err)
+	assert.True(t, want.Equal(got))
+}
+
+func TestDecoder_ArrayBytes(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithDef(arrayFieldDef(core.TIDBytes)),
+	)
+
+	record, err := decoder.ToRecord([]byte(`{"_id":"1","nums":["SGVsbG8=","V29ybGQ="]}`))
+	require.NoError(t, err)
+
+	nums := record.Get("nums").Value()
+	assert.Equal(t, core.TIDBytes, nums.Type().ElemTypeID())
+
+	elems, err := nums.AsArray()
+	require.NoError(t, err)
+	require.Len(t, elems, 2)
+	got, err := elems[0].AsBytes()
+	require.NoError(t, err)
+	assert.Equal(t, []byte("Hello"), got)
+}
+
+// An ARRAY<JSON> field with no Items has no member schema to validate
+// against — every element (object, scalar, or array) must still round-trip
+// as a plain JSON value rather than being silently dropped.
+func TestDecoder_ArrayJSON_NoItems(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithDef(arrayFieldDef(core.TIDJSON)),
+	)
+
+	record, err := decoder.ToRecord([]byte(`{"_id":"1","nums":[{"a":1},"two",3]}`))
+	require.NoError(t, err)
+
+	nums := record.Get("nums").Value()
+	assert.Equal(t, core.TIDJSON, nums.Type().ElemTypeID())
+
+	elems, err := nums.AsArray()
+	require.NoError(t, err)
+	require.Len(t, elems, 3)
+
+	raw, err := elems[0].AsJSON()
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"a":1}`, string(raw))
+
+	raw, err = elems[1].AsJSON()
+	require.NoError(t, err)
+	assert.JSONEq(t, `"two"`, string(raw))
+}
+
+func TestDecoder_ArrayEmpty_DeclaredType(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithDef(arrayFieldDef(core.TIDInteger)),
+	)
+
+	record, err := decoder.ToRecord([]byte(`{"_id":"1","nums":[]}`))
+	require.NoError(t, err)
+
+	nums := record.Get("nums").Value()
+	assert.Equal(t, core.TIDArray, nums.Type().ID())
+	assert.Equal(t, core.TIDInteger, nums.Type().ElemTypeID())
+
+	elems, err := nums.AsArray()
+	require.NoError(t, err)
+	assert.Len(t, elems, 0)
+}
+
+// A declared field whose value cannot decode as its declared type is a
+// decode-time error naming the field and the expected type. An undeclared
+// attribute with the same kind of unusable value is skipped silently, same
+// as always (e.g. TestDecoder_EmptyArray).
+func TestDecoder_DeclaredFieldError(t *testing.T) {
+	def := &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/metrics"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"count": {Type: core.TypeInt},
+		},
+	}
+
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("metrics"),
+		xdbjson.WithDef(def),
+	)
+
+	t.Run("declared garbage errors", func(t *testing.T) {
+		_, err := decoder.ToRecord([]byte(`{"_id":"1","count":"abc"}`))
+		require.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrSchemaViolation)
+		assert.Contains(t, err.Error(), `"count"`)
+		assert.Contains(t, err.Error(), "INTEGER")
+	})
+
+	t.Run("undeclared garbage is skipped silently", func(t *testing.T) {
+		record, err := decoder.ToRecord([]byte(`{"_id":"1","count":42,"junk":[1,"two"]}`))
+		require.NoError(t, err)
+		assert.Equal(t, int64(42), vInt(record.Get("count").Value()))
+		assert.Nil(t, record.Get("junk"))
+	})
 }

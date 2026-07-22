@@ -4,15 +4,14 @@ import "github.com/xdb-dev/xdb/schema"
 
 // options holds internal configuration for [Encoder] and [Decoder].
 type options struct {
-	def             *schema.Def
-	ns              string
-	schema          string
-	idField         string
-	nsField         string
-	schemaField     string
-	includeNS       bool
-	includeSchema   bool
-	numberInference bool
+	def           *schema.Def
+	ns            string
+	schema        string
+	idField       string
+	nsField       string
+	schemaField   string
+	includeNS     bool
+	includeSchema bool
 }
 
 // Option is a functional option for configuring an [Encoder] or [Decoder].
@@ -74,14 +73,14 @@ func WithIncludeSchema() Option {
 	return func(o *options) { o.includeSchema = true }
 }
 
-// WithNumberInference decodes JSON numbers as integers when they have no
-// fractional or exponent part, and as floats otherwise. Without it, JSON
-// numbers decode as floats unless a schema field types them.
+// WithNumberInference is a deprecated no-op kept for compatibility.
 //
-// This lets type-agnostic stores (e.g. the filesystem store) round-trip
-// integers through plain JSON without a schema.
+// Deprecated: the decoder always infers JSON numbers as integers when they
+// have no fractional or exponent part, and as floats otherwise (unless a
+// declared field types them). This option has no effect and will be removed
+// in a future version.
 func WithNumberInference() Option {
-	return func(o *options) { o.numberInference = true }
+	return func(*options) {}
 }
 
 // EncodeOption configures a single [Encoder.FromRecord] call.
