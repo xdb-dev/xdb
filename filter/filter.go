@@ -2,6 +2,8 @@ package filter
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
@@ -10,11 +12,21 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
+// reservedAttrTypes maps reserved attribute names to their CEL type. These
+// attributes are always filterable, in every schema mode, without being
+// declared as schema fields — they never trip strict mode's unknown-field
+// rejection. _updated_at is not yet written by any store (Phase 14 adds
+// that); declaring it here lands the filter-side support first.
+var reservedAttrTypes = map[string]*cel.Type{
+	"_updated_at": cel.TimestampType,
+}
+
 // Filter is a compiled CEL filter expression.
 type Filter struct {
-	celAst *cel.Ast
 	prg    cel.Program
+	celAst *cel.Ast
 	env    *cel.Env
+	def    *schema.Def
 	src    string
 }
 
@@ -55,6 +67,7 @@ func Compile(expr string, def *schema.Def) (*Filter, error) {
 		prg:    prg,
 		env:    env,
 		src:    expr,
+		def:    def,
 	}, nil
 }
 
@@ -64,16 +77,33 @@ func (f *Filter) Source() string { return f.src }
 // CelAst returns the compiled CEL AST for use by code generators (e.g., SQL).
 func (f *Filter) CelAst() *cel.Ast { return f.celAst }
 
-// buildEnv creates a CEL environment from a schema definition.
+// Def returns the schema definition this filter was compiled against, or
+// nil when compiled without one (flexible/schema-free mode).
+func (f *Filter) Def() *schema.Def { return f.def }
+
+// buildEnv creates a CEL environment from a schema definition. Reserved
+// attributes (see reservedAttrTypes) are declared regardless of def, so
+// they type-check in every mode without being schema fields.
 func buildEnv(def *schema.Def) (*cel.Env, error) {
-	if def == nil || len(def.Fields) == 0 {
-		return cel.NewEnv()
+	fieldCount := 0
+	if def != nil {
+		fieldCount = len(def.Fields)
+	}
+	opts := make([]cel.EnvOption, 0, len(reservedAttrTypes)+fieldCount)
+
+	for name, ct := range reservedAttrTypes {
+		if def != nil {
+			if _, ok := def.Fields[name]; ok {
+				continue // schema field wins over the reserved default.
+			}
+		}
+		opts = append(opts, cel.Variable(name, ct))
 	}
 
-	opts := make([]cel.EnvOption, 0, len(def.Fields))
-	for name, fd := range def.Fields {
-		ct := celType(fd.Type.ID())
-		opts = append(opts, cel.Variable(name, ct))
+	if def != nil {
+		for name, fd := range def.Fields {
+			opts = append(opts, cel.Variable(name, celType(fd.Type.ID())))
+		}
 	}
 
 	return cel.NewEnv(opts...)
@@ -102,7 +132,11 @@ func celType(tid core.TID) *cel.Type {
 // extendEnvFromExpr parses expr to find identifiers, then extends the env
 // with any undeclared variables as [cel.DynType]. When def is nil, all
 // identifiers are added as dynamic. When def is provided, only identifiers
-// not already declared in the schema are added.
+// not already declared in the schema (or reserved) are added.
+//
+// Under [schema.ModeStrict], an undeclared, non-reserved identifier is
+// rejected instead of being added as dynamic — strict schemas do not
+// tolerate filtering on fields they do not define.
 func extendEnvFromExpr(env *cel.Env, def *schema.Def, expr string) (*cel.Env, error) {
 	celAst, iss := env.Parse(expr)
 	if iss.Err() != nil {
@@ -114,19 +148,26 @@ func extendEnvFromExpr(env *cel.Env, def *schema.Def, expr string) (*cel.Env, er
 		return env, nil
 	}
 
-	// Filter out idents already declared in the schema.
+	// Filter out idents already declared in the schema or reserved.
 	declared := make(map[string]bool)
 	if def != nil {
 		for name := range def.Fields {
 			declared[name] = true
 		}
 	}
+	for name := range reservedAttrTypes {
+		declared[name] = true
+	}
 
-	var extras []cel.EnvOption
+	extras := make([]cel.EnvOption, 0, len(idents))
 	for _, name := range idents {
-		if !declared[name] {
-			extras = append(extras, cel.Variable(name, cel.DynType))
+		if declared[name] {
+			continue
 		}
+		if def != nil && def.Mode == schema.ModeStrict {
+			return nil, unknownFieldError(name, def)
+		}
+		extras = append(extras, cel.Variable(name, cel.DynType))
 	}
 
 	if len(extras) == 0 {
@@ -134,6 +175,20 @@ func extendEnvFromExpr(env *cel.Env, def *schema.Def, expr string) (*cel.Env, er
 	}
 
 	return env.Extend(extras...)
+}
+
+// unknownFieldError reports a filter identifier that a strict schema does
+// not declare, naming the field and listing the schema's available fields
+// in sorted order.
+func unknownFieldError(name string, def *schema.Def) error {
+	names := make([]string, 0, len(def.Fields))
+	for n := range def.Fields {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+
+	return fmt.Errorf("unknown field %q in filter; available fields: %s",
+		name, strings.Join(names, ", "))
 }
 
 // collectIdents recursively extracts unique identifier names from a CEL AST.

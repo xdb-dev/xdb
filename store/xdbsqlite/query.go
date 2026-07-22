@@ -1,6 +1,8 @@
 package xdbsqlite
 
 import (
+	"errors"
+
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/filter"
 	"github.com/xdb-dev/xdb/filter/sqlgen"
@@ -10,6 +12,14 @@ import (
 
 // compileWhere compiles a CEL filter to a SQL WHERE clause. An empty
 // filter yields no clause.
+//
+// A filter referencing a field absent from the schema's current column
+// set (dynamic mode, a field not yet written) surfaces as
+// [sqlgen.ErrUnknownColumn]; that is mapped to [store.ErrUnsupportedQuery]
+// so the facade falls back to a scan + in-memory CEL evaluation instead of
+// letting a raw "no such column" error reach the caller. Strict-mode
+// rejection of unknown filter fields already happened in [filter.Compile]
+// and never reaches sqlgen.
 func compileWhere(
 	filterExpr string,
 	def *schema.Def,
@@ -27,6 +37,9 @@ func compileWhere(
 
 	wc, err := sqlgen.Generate(f, strategy, table)
 	if err != nil {
+		if errors.Is(err, sqlgen.ErrUnknownColumn) {
+			return "", nil, store.ErrUnsupportedQuery
+		}
 		return "", nil, err
 	}
 

@@ -253,6 +253,100 @@ func TestCompile_ValidFilterStillCompiles(t *testing.T) {
 	assert.NotNil(t, f)
 }
 
+func TestCompile_StrictUnknownField(t *testing.T) {
+	t.Parallel()
+
+	def := &schema.Def{
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString},
+			"bar":   {Type: core.TypeString},
+			"baz":   {Type: core.TypeString},
+		},
+	}
+
+	_, err := Compile(`foo == "x"`, def)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, core.ErrInvalidFilter)
+	assert.Contains(t, err.Error(), `unknown field "foo"`)
+	assert.Contains(t, err.Error(), "available fields: bar, baz, title")
+}
+
+func TestCompile_FlexibleUnknownFieldCompilesAndNoMatch(t *testing.T) {
+	t.Parallel()
+
+	def := &schema.Def{
+		Mode: schema.ModeFlexible,
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString},
+		},
+	}
+
+	f, err := Compile(`extra == "x"`, def)
+	require.NoError(t, err)
+
+	record := core.NewRecord("test", "posts", "1")
+	record.Set("title", "hello")
+
+	got, err := Match(f, record)
+	require.NoError(t, err)
+	assert.False(t, got)
+}
+
+func TestCompile_DynamicUnknownFieldCompilesAndNoMatch(t *testing.T) {
+	t.Parallel()
+
+	def := &schema.Def{
+		Mode: schema.ModeDynamic,
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString},
+		},
+	}
+
+	f, err := Compile(`extra == "x"`, def)
+	require.NoError(t, err)
+
+	record := core.NewRecord("test", "posts", "1")
+	record.Set("title", "hello")
+
+	got, err := Match(f, record)
+	require.NoError(t, err)
+	assert.False(t, got)
+}
+
+func TestCompile_ReservedAttrUnderStrict(t *testing.T) {
+	t.Parallel()
+
+	def := &schema.Def{
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString},
+		},
+	}
+
+	f, err := Compile(`_updated_at > timestamp("2024-01-01T00:00:00Z")`, def)
+	require.NoError(t, err)
+	assert.NotNil(t, f)
+}
+
+func TestFilter_Def(t *testing.T) {
+	t.Parallel()
+
+	def := &schema.Def{
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString},
+		},
+	}
+
+	f, err := Compile(`title == "x"`, def)
+	require.NoError(t, err)
+	assert.Same(t, def, f.Def())
+
+	fNil, err := Compile(`title == "x"`, nil)
+	require.NoError(t, err)
+	assert.Nil(t, fNil.Def())
+}
+
 func TestMatch_NilSchema(t *testing.T) {
 	record := core.NewRecord("test", "users", "1")
 	record.Set("name", "John")

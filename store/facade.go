@@ -189,7 +189,11 @@ func (f *facade) ListRecords(
 	}
 
 	if q.Filter != "" {
-		flt, err := filter.Compile(q.Filter, nil)
+		def, err := f.filterDef(ctx, q.URI)
+		if err != nil {
+			return nil, err
+		}
+		flt, err := filter.Compile(q.Filter, def)
 		if err != nil {
 			return nil, err
 		}
@@ -229,6 +233,25 @@ func (f *facade) queryRecords(
 		Total:      page.Total,
 		NextOffset: page.NextOffset,
 	}, nil
+}
+
+// filterDef fetches the schema definition for a schema-scoped query URI, for
+// [filter.Compile] to type-check and strict-mode-validate against. A
+// namespace-scoped query (no schema component) or a schema that no longer
+// exists compiles with a nil def (flexible/dynamic typing).
+func (f *facade) filterDef(ctx context.Context, uri *core.URI) (*schema.Def, error) {
+	if uri == nil || uri.Schema() == "" {
+		return nil, nil
+	}
+
+	def, err := f.stack.GetSchema(ctx, uri.SchemaURI())
+	if errors.Is(err, core.ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return def, nil
 }
 
 // CreateRecord creates a new record.

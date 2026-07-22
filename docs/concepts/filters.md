@@ -39,16 +39,42 @@ xdb records list xdb://myapp/posts --filter '!(archived == true)' --fields id
 
 ## Functions
 
-| Function     | Example                | SQL equivalent     |
-| ------------ | ---------------------- | ------------------ |
-| `contains`   | `name.contains("oh")`  | `LIKE '%oh%'`      |
-| `startsWith` | `name.startsWith("J")` | `LIKE 'J%'`        |
-| `endsWith`   | `name.endsWith("hn")`  | `LIKE '%hn'`       |
-| `size`       | `size(name) > 3`       | `LENGTH(name) > 3` |
+| Function     | Example                | SQL equivalent                        |
+| ------------ | ----------------------- | -------------------------------------- |
+| `contains`   | `name.contains("oh")`  | `instr(name, ?) > 0`                   |
+| `startsWith` | `name.startsWith("J")` | `substr(name, 1, length(?)) = ?`       |
+| `endsWith`   | `name.endsWith("hn")`  | `substr(name, -length(?)) = ?`         |
+| `size`       | `size(name) > 3`       | `LENGTH(name) > 3`                     |
+
+### Case sensitivity
+
+String matching is byte-wise case-sensitive, matching CEL's own semantics —
+`name.contains("hello")` does not match a stored value of `"Hello World"`.
+This holds uniformly across every backend. On SQLite, this is why `contains`/
+`startsWith`/`endsWith` compile to `instr`/`substr` rather than `LIKE`:
+SQLite's `LIKE` is ASCII case-insensitive by default, which would otherwise
+diverge from the in-memory CEL evaluation used by the other backends.
 
 ## Schema-aware vs flexible mode
 
-When a schema is available, filter expressions are type-checked against field definitions. When no schema exists (flexible mode), all variables are dynamically typed. Unknown fields evaluate to false rather than causing errors.
+When a schema is available, filter expressions are type-checked against
+field definitions. Unknown-field handling then depends on the schema's
+mode:
+
+- **Strict**: an unknown field is a compile error — the filter is rejected
+  before it runs, naming the field and listing the schema's available
+  fields (sorted).
+- **Flexible** and **dynamic**: an unknown field is accepted as a
+  dynamically typed variable. Records that lack the attribute simply don't
+  match — no error.
+- **No schema** (flexible mode with no field definitions): every variable
+  is dynamically typed, same as above.
+
+Unknown-field rejection is enforced at the same point regardless of
+backend: SQLite rejects it during `filter.Compile` (before any SQL is
+generated), and non-strict backends (or a strict schema evaluated through
+the in-memory fallback) enforce it identically since the same `filter.Compile`
+call governs both paths.
 
 ## Relationship to AIP-160
 
@@ -82,9 +108,15 @@ The `filter/sqlgen` package converts compiled filters to parameterized SQL:
 
 ```go
 wc, err := sqlgen.Generate(f, sqlgen.ColumnStrategy, "")
-// wc.SQL    = "(status = ? AND age >= ?)"
+// wc.SQL    = `("status" = ? AND "age" >= ?)`
 // wc.Params = ["active", 18]
 ```
+
+Column names are double-quoted in the generated SQL. Under
+[ColumnStrategy], a field not declared on the compiled filter's schema
+(dynamic mode, referencing a field no record has written yet) yields
+`sqlgen.ErrUnknownColumn` rather than a raw "no such column" error; stores
+map this to a query-pushdown refusal so the caller falls back to a scan.
 
 ## Related
 

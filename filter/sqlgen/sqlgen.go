@@ -1,6 +1,7 @@
 package sqlgen
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,7 +10,14 @@ import (
 	"github.com/google/cel-go/common/types/ref"
 
 	"github.com/xdb-dev/xdb/filter"
+	"github.com/xdb-dev/xdb/schema"
 )
+
+// ErrUnknownColumn is returned by [Generate] under [ColumnStrategy] when a
+// filter references an identifier that is not among the compiled filter's
+// schema fields. Callers map it to a query-pushdown refusal so the record
+// store can fall back to an in-memory scan.
+var ErrUnknownColumn = errors.New("sqlgen: unknown column")
 
 // Strategy identifies the SQL table layout.
 type Strategy int
@@ -38,6 +46,7 @@ func Generate(f *filter.Filter, strategy Strategy, table string) (*WhereClause, 
 		strategy: strategy,
 		table:    table,
 		typeMap:  nativeAst.TypeMap(),
+		def:      f.Def(),
 	}
 
 	sql, err := g.walk(nativeAst.Expr())
@@ -54,6 +63,7 @@ func Generate(f *filter.Filter, strategy Strategy, table string) (*WhereClause, 
 // generator walks the CEL AST and accumulates SQL and params.
 type generator struct {
 	typeMap  map[int64]*types.Type
+	def      *schema.Def
 	table    string
 	params   []any
 	strategy Strategy
@@ -65,7 +75,7 @@ func (g *generator) walk(expr ast.Expr) (string, error) {
 	case ast.CallKind:
 		return g.walkCall(expr)
 	case ast.IdentKind:
-		return expr.AsIdent(), nil
+		return g.walkIdent(expr.AsIdent())
 	case ast.LiteralKind:
 		return g.walkLiteral(expr.AsLiteral())
 	case ast.SelectKind:
@@ -75,6 +85,31 @@ func (g *generator) walk(expr ast.Expr) (string, error) {
 	default:
 		return "", fmt.Errorf("sqlgen: unsupported expression kind: %v", expr.Kind())
 	}
+}
+
+// walkIdent resolves a top-level identifier. Under [KVStrategy], attribute
+// names are bound as query parameters, not SQL identifiers, so the raw name
+// passes through untouched. Under [ColumnStrategy], the name IS a SQL
+// column reference: it must be one of the compiled filter's schema fields
+// (nil def trusts the ident, matching filter.Compile's own nil-def
+// permissiveness), and is double-quoted for emission.
+func (g *generator) walkIdent(name string) (string, error) {
+	if g.strategy == KVStrategy {
+		return name, nil
+	}
+
+	if g.def != nil {
+		if _, ok := g.def.Fields[name]; !ok {
+			return "", fmt.Errorf("%w: %q", ErrUnknownColumn, name)
+		}
+	}
+
+	return quoteIdent(name), nil
+}
+
+// quoteIdent double-quotes a SQL identifier, doubling any embedded quotes.
+func quoteIdent(name string) string {
+	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
 // walkCall handles operator and function call expressions.
@@ -181,13 +216,18 @@ func (g *generator) walkStringFn(call ast.CallExpr, fn string) (string, error) {
 		return g.walkKVStringFn(target, fn)
 	}
 
+	// contains/startsWith/endsWith use instr/substr rather than LIKE:
+	// SQLite's LIKE is ASCII case-insensitive by default, which diverges
+	// from CEL's byte-wise, case-sensitive string semantics.
 	switch fn {
 	case "contains":
-		return fmt.Sprintf("(%s LIKE '%%' || ? || '%%')", target), nil
+		return fmt.Sprintf("(instr(%s, ?) > 0)", target), nil
 	case "startsWith":
-		return fmt.Sprintf("(%s LIKE ? || '%%')", target), nil
+		g.params = append(g.params, argVal.Value())
+		return fmt.Sprintf("(substr(%s, 1, length(?)) = ?)", target), nil
 	case "endsWith":
-		return fmt.Sprintf("(%s LIKE '%%' || ?)", target), nil
+		g.params = append(g.params, argVal.Value())
+		return fmt.Sprintf("(substr(%s, -length(?)) = ?)", target), nil
 	default:
 		return "", fmt.Errorf("sqlgen: unsupported string function: %s", fn)
 	}
@@ -285,7 +325,9 @@ func (g *generator) walkKVComparison(
 		g.table, valCast, sqlOp), nil
 }
 
-// walkKVStringFn generates a KV subquery for a string function.
+// walkKVStringFn generates a KV subquery for a string function. Like the
+// column-strategy path, it uses instr/substr rather than LIKE for
+// case-sensitive, CEL-equivalent matching.
 func (g *generator) walkKVStringFn(attrName, fn string) (string, error) {
 	// The arg value was already added to params by the caller.
 	// We need to add the attr name before it.
@@ -296,11 +338,13 @@ func (g *generator) walkKVStringFn(attrName, fn string) (string, error) {
 	var pattern string
 	switch fn {
 	case "contains":
-		pattern = "CAST(_val AS TEXT) LIKE '%' || ? || '%'"
+		pattern = "instr(CAST(_val AS TEXT), ?) > 0"
 	case "startsWith":
-		pattern = "CAST(_val AS TEXT) LIKE ? || '%'"
+		pattern = "substr(CAST(_val AS TEXT), 1, length(?)) = ?"
+		g.params = append(g.params, argVal)
 	case "endsWith":
-		pattern = "CAST(_val AS TEXT) LIKE '%' || ?"
+		pattern = "substr(CAST(_val AS TEXT), -length(?)) = ?"
+		g.params = append(g.params, argVal)
 	default:
 		return "", fmt.Errorf("sqlgen: unsupported KV string function: %s", fn)
 	}

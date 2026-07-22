@@ -34,6 +34,15 @@ func (s *QuerySuite) Run(t *testing.T) {
 	ctx := context.Background()
 	d := s.newDriver()
 
+	// Filter hardening is pinned at the facade level, unconditionally —
+	// unlike the QueryDriver-only tests below, every backend takes this
+	// path: native SQL pushdown (sqlite) or a scan + in-memory CEL
+	// evaluation (memory/fs/redis, and sqlite itself whenever pushdown
+	// declines a query). Running it uniformly is the sqlite≡memory proof.
+	t.Run("FilterHardening", func(t *testing.T) {
+		s.runFilterHardening(t, ctx, d)
+	})
+
 	qd, ok := d.(store.QueryDriver)
 	if !ok {
 		t.Skip("driver does not implement store.QueryDriver")
@@ -88,5 +97,115 @@ func (s *QuerySuite) Run(t *testing.T) {
 			URI: core.MustParseURI("xdb://com.example"),
 		})
 		require.ErrorIs(t, err, store.ErrUnsupportedQuery)
+	})
+}
+
+// runFilterHardening exercises [store.Store.ListRecords] filter semantics
+// through the facade, over the given raw driver, wrapped the way every
+// consumer wraps a driver: [store.New]. This is the layer at which sqlite
+// (native pushdown) and memory/fs/redis (scan + in-memory CEL) are proven
+// equivalent.
+func (s *QuerySuite) runFilterHardening(t *testing.T, ctx context.Context, d store.Driver) {
+	t.Helper()
+	st := store.New(d)
+
+	t.Run("strict schema rejects unknown filter field", func(t *testing.T) {
+		uri := core.MustParseURI("xdb://com.example/strict_articles")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"title": {Type: core.TypeString},
+			},
+		}))
+
+		r := core.NewRecord("com.example", "strict_articles", "a1")
+		r.Set("title", "hello")
+		require.NoError(t, st.CreateRecord(ctx, r))
+
+		_, err := st.ListRecords(ctx, &store.Query{
+			URI:    uri,
+			Filter: `bogus == "x"`,
+		})
+		require.ErrorIs(t, err, core.ErrInvalidFilter)
+		assert.Contains(t, err.Error(), `"bogus"`)
+	})
+
+	t.Run("flexible schema unknown filter field matches nothing", func(t *testing.T) {
+		uri := core.MustParseURI("xdb://com.example/flexible_notes")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeFlexible,
+			Fields: map[string]schema.Field{
+				"title": {Type: core.TypeString},
+			},
+		}))
+
+		r := core.NewRecord("com.example", "flexible_notes", "n1")
+		r.Set("title", "hello")
+		require.NoError(t, st.CreateRecord(ctx, r))
+
+		page, err := st.ListRecords(ctx, &store.Query{
+			URI:    uri,
+			Filter: `bogus == "x"`,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 0, page.Total)
+		assert.Empty(t, page.Items)
+	})
+
+	t.Run("string functions are case-sensitive", func(t *testing.T) {
+		uri := core.MustParseURI("xdb://com.example/case_posts")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"title": {Type: core.TypeString},
+			},
+		}))
+
+		r := core.NewRecord("com.example", "case_posts", "c1")
+		r.Set("title", "Hello World")
+		require.NoError(t, st.CreateRecord(ctx, r))
+
+		page, err := st.ListRecords(ctx, &store.Query{
+			URI:    uri,
+			Filter: `title.contains("hello")`,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 0, page.Total, "lowercase needle must not match mixed-case data")
+
+		page, err = st.ListRecords(ctx, &store.Query{
+			URI:    uri,
+			Filter: `title.contains("Hello")`,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 1, page.Total)
+	})
+
+	t.Run("dynamic schema field never written falls back without error", func(t *testing.T) {
+		uri := core.MustParseURI("xdb://com.example/dynamic_metrics")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeDynamic,
+			Fields: map[string]schema.Field{
+				"name": {Type: core.TypeString, Required: true},
+			},
+		}))
+
+		r := core.NewRecord("com.example", "dynamic_metrics", "m1")
+		r.Set("name", "click")
+		require.NoError(t, st.CreateRecord(ctx, r))
+
+		// "score" has never been written, so it is absent from the stored
+		// def's column set. filter.Compile allows it (dynamic mode is not
+		// strict), but a column-strategy engine has no such column — this
+		// must fall back to a scan rather than leak a raw SQL error.
+		page, err := st.ListRecords(ctx, &store.Query{
+			URI:    uri,
+			Filter: `score > 10`,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 0, page.Total)
 	})
 }
