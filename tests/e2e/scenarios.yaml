@@ -720,3 +720,39 @@ scenarios:
       - name: "dry-run op did not persist"
         run: xdb records get --uri xdb://$NS/parts/p4 --quiet
         expect: { exit: 1 }
+
+  - name: "pagination-and-fields"
+    description: "List pagination returns a total/next_offset envelope in json, bare items in ndjson; --page-all walks every page; namespaces.get exposes the schema tree."
+    steps:
+      - name: "create schema"
+        run: xdb schemas create --uri xdb://$NS/rows --json '{"fields":{"n":{"type":"integer"}}}'
+        expect: { exit: 0 }
+
+      - name: "seed five records"
+        run: |
+          for i in 1 2 3 4 5; do xdb records create --uri xdb://$NS/rows/r$i --json "{\"n\":$i}" --quiet; done
+        expect: { exit: 0 }
+
+      - name: "json list carries page envelope"
+        run: xdb records list --uri xdb://$NS/rows --limit 2 -o json
+        expect:
+          exit: 0
+          json: { total: 5, next_offset: 2 }
+
+      - name: "ndjson list stays a bare stream"
+        run: xdb records list --uri xdb://$NS/rows --limit 5 -o ndjson
+        expect:
+          exit: 0
+          ndjson_count: 5
+
+      - name: "--page-all fetches every page"
+        run: xdb records list --uri xdb://$NS/rows --limit 2 --page-all -o ndjson
+        expect:
+          exit: 0
+          ndjson_count: 5
+
+      - name: "namespaces get lists the schema tree"
+        run: xdb get xdb://$NS -o json
+        expect:
+          exit: 0
+          json: { total_schemas: 1 }

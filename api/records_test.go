@@ -599,3 +599,35 @@ func TestRecordService_CreateCoercesTypedFields(t *testing.T) {
 	m := recordData(t, resp.Data)
 	assert.Equal(t, float64(42), m["qty"])
 }
+
+func TestRecordService_ListNamespaceScope(t *testing.T) {
+	s := store.New(xdbmemory.NewDriver())
+	svc := api.NewRecordService(s)
+	ctx := context.Background()
+
+	for _, uri := range []string{
+		"xdb://tree.ns/posts/p1",
+		"xdb://tree.ns/posts/p2",
+		"xdb://tree.ns/authors/a1",
+	} {
+		_, err := svc.Create(ctx, &api.CreateRecordRequest{
+			URI:  uri,
+			Data: json.RawMessage(`{"x":"y"}`),
+		})
+		require.NoError(t, err)
+	}
+
+	resp, err := svc.List(ctx, &api.ListRecordsRequest{URI: "xdb://tree.ns"})
+	require.NoError(t, err)
+	assert.Equal(t, 3, resp.Total)
+	require.Len(t, resp.Items, 3)
+
+	schemas := map[string]int{}
+	for _, item := range resp.Items {
+		m := recordData(t, item)
+		require.Contains(t, m, "_schema", "namespace-scope items must carry _schema")
+		schemas[m["_schema"].(string)]++
+	}
+	assert.Equal(t, 2, schemas["posts"])
+	assert.Equal(t, 1, schemas["authors"])
+}

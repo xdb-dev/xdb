@@ -104,7 +104,7 @@ func uriDepth(raw string) (int, error) {
 func (a *App) aliasGet(ctx context.Context, cmd *cli.Command) error {
 	depth, err := uriDepth(cmd.Args().First())
 	if err != nil {
-		return err
+		return invalidArgError("cli", "get", err)
 	}
 
 	switch depth {
@@ -115,11 +115,25 @@ func (a *App) aliasGet(ctx context.Context, cmd *cli.Command) error {
 	case 1:
 		return a.namespaceGet(ctx, cmd)
 	default:
-		return fmt.Errorf("cannot infer resource from URI: %s", cmd.Args().First())
+		return invalidArgError("cli", "get", fmt.Errorf(
+			"get needs xdb://ns (namespace), xdb://ns/schema (schema), or xdb://ns/schema/id (record); got %q",
+			cmd.Args().First(),
+		))
 	}
 }
 
 func (a *App) aliasPut(ctx context.Context, cmd *cli.Command) error {
+	depth, err := uriDepth(cmd.Args().First())
+	if err != nil {
+		return invalidArgError("cli", "put", err)
+	}
+	if depth != 3 {
+		return invalidArgError("cli", "put", fmt.Errorf(
+			"put needs a record URI xdb://ns/schema/id; got %q",
+			cmd.Args().First(),
+		))
+	}
+
 	return a.recordUpsert(ctx, cmd)
 }
 
@@ -130,7 +144,7 @@ func (a *App) aliasLs(ctx context.Context, cmd *cli.Command) error {
 
 	depth, err := uriDepth(cmd.Args().First())
 	if err != nil {
-		return err
+		return invalidArgError("cli", "ls", err)
 	}
 
 	switch depth {
@@ -139,14 +153,17 @@ func (a *App) aliasLs(ctx context.Context, cmd *cli.Command) error {
 	case 1:
 		return a.schemaList(ctx, cmd)
 	default:
-		return fmt.Errorf("cannot infer list target from URI: %s", cmd.Args().First())
+		return invalidArgError("cli", "ls", fmt.Errorf(
+			"ls needs no URI (namespaces), xdb://ns (schemas), or xdb://ns/schema (records); got %q",
+			cmd.Args().First(),
+		))
 	}
 }
 
 func (a *App) aliasRm(ctx context.Context, cmd *cli.Command) error {
 	depth, err := uriDepth(cmd.Args().First())
 	if err != nil {
-		return err
+		return invalidArgError("cli", "rm", err)
 	}
 
 	switch depth {
@@ -155,10 +172,24 @@ func (a *App) aliasRm(ctx context.Context, cmd *cli.Command) error {
 	case 2:
 		return a.schemaDelete(ctx, cmd)
 	default:
-		return fmt.Errorf("cannot infer resource to delete from URI: %s", cmd.Args().First())
+		return invalidArgError("cli", "rm", fmt.Errorf(
+			"rm needs xdb://ns/schema (schema) or xdb://ns/schema/id (record); got %q",
+			cmd.Args().First(),
+		))
 	}
 }
 
 func (a *App) aliasMakeSchema(ctx context.Context, cmd *cli.Command) error {
+	depth, err := uriDepth(cmd.Args().First())
+	if err != nil {
+		return invalidArgError("cli", "make-schema", err)
+	}
+	if depth != 2 {
+		return invalidArgError("cli", "make-schema", fmt.Errorf(
+			"make-schema needs a schema URI xdb://ns/schema; got %q",
+			cmd.Args().First(),
+		))
+	}
+
 	return a.schemaCreate(ctx, cmd)
 }

@@ -333,6 +333,17 @@ func formatList(cmd *cli.Command, items []any) error {
 	return f.FormatList(w, items)
 }
 
+// formatPage writes a paginated list result using the appropriate
+// formatter: an {items, total, next_offset} envelope for structured
+// formats, bare items for ndjson and table.
+func formatPage(cmd *cli.Command, page output.Page) error {
+	w := cmd.Root().Writer
+	flag := cmd.String("output")
+	f := output.New(output.Detect(flag, isTerminalWriter(w)))
+
+	return f.FormatPage(w, page)
+}
+
 // isTerminal returns true if the file is a terminal.
 func isTerminal(f *os.File) bool {
 	stat, err := f.Stat()

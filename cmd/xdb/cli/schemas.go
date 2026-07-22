@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 )
 
 func (a *App) schemasCmd() *cli.Command {
@@ -89,6 +90,10 @@ func (a *App) schemaCreate(ctx context.Context, cmd *cli.Command) error {
 		return wrapRPCError("schemas", "create", uri, err)
 	}
 
+	if cmd.Bool("quiet") {
+		return nil
+	}
+
 	if dryRun {
 		if resp.DryRun == nil {
 			return dryRunIgnoredError("schemas", "create", uri)
@@ -137,7 +142,11 @@ func (a *App) schemaList(ctx context.Context, cmd *cli.Command) error {
 		items[i] = def
 	}
 
-	return formatList(cmd, items)
+	return formatPage(cmd, output.Page{
+		Items:      items,
+		Total:      resp.Total,
+		NextOffset: resp.NextOffset,
+	})
 }
 
 func (a *App) schemaUpdate(ctx context.Context, cmd *cli.Command) error {
@@ -211,6 +220,7 @@ func schemaMutationFlags() []cli.Flag {
 		&cli.StringFlag{Name: "file", Aliases: []string{"f"}, Usage: "Path to input file"},
 		&cli.BoolFlag{Name: "dry-run", Usage: "Validate without writing"},
 		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
+		&cli.BoolFlag{Name: "quiet", Usage: "Suppress output"},
 	}
 }
 

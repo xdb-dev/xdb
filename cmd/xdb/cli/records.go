@@ -8,6 +8,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/xdb-dev/xdb/api"
+	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 )
 
 func (a *App) recordsCmd() *cli.Command {
@@ -133,28 +134,45 @@ func (a *App) recordList(ctx context.Context, cmd *cli.Command) error {
 		return invalidArgError("records", "list", err)
 	}
 
-	var resp api.ListRecordsResponse
-	if err := a.client.Call(ctx, "records.list", &api.ListRecordsRequest{
+	req := &api.ListRecordsRequest{
 		URI:    uri,
 		Filter: cmd.String("filter"),
 		Fields: parseFields(cmd.String("fields")),
 		Limit:  int(cmd.Int("limit")),
 		Offset: int(cmd.Int("offset")),
-	}, &resp); err != nil {
-		return wrapRPCError("records", "list", uri, err)
 	}
 
-	items := make([]any, len(resp.Items))
-	for i, raw := range resp.Items {
-		var m map[string]any
-		if jsonErr := json.Unmarshal(raw, &m); jsonErr != nil {
-			return jsonErr
+	page := output.Page{Items: []any{}}
+
+	for {
+		var resp api.ListRecordsResponse
+		if err := a.client.Call(ctx, "records.list", req, &resp); err != nil {
+			return wrapRPCError("records", "list", uri, err)
 		}
 
-		items[i] = m
+		for _, raw := range resp.Items {
+			var m map[string]any
+			if jsonErr := json.Unmarshal(raw, &m); jsonErr != nil {
+				return jsonErr
+			}
+			page.Items = append(page.Items, m)
+		}
+
+		page.Total = resp.Total
+		page.NextOffset = resp.NextOffset
+
+		if !cmd.Bool("page-all") || resp.NextOffset == 0 {
+			break
+		}
+		req.Offset = resp.NextOffset
 	}
 
-	return formatList(cmd, items)
+	if cmd.Bool("page-all") {
+		// Every page was fetched, so there is no next offset to report.
+		page.NextOffset = 0
+	}
+
+	return formatPage(cmd, page)
 }
 
 func (a *App) recordUpdate(ctx context.Context, cmd *cli.Command) error {

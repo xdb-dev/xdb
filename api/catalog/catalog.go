@@ -57,7 +57,7 @@ func recordMethods() map[string]rpc.MethodMeta {
 		"records.list": {
 			Description: "List records matching a query.",
 			Parameters: map[string]rpc.ParamMeta{
-				"uri":    {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
+				"uri":    {Description: "Schema or namespace URI (xdb://ns/schema, or xdb://ns to list across all schemas)", Type: "string", Required: true},
 				"filter": {Description: "CEL filter expression", Type: "string"},
 				"fields": {Description: "Field projection list", Type: "array"},
 				"limit":  {Description: "Max items per page", Type: "integer"},
@@ -183,12 +183,14 @@ func schemaMethods() map[string]rpc.MethodMeta {
 func namespaceMethods() map[string]rpc.MethodMeta {
 	return map[string]rpc.MethodMeta{
 		"namespaces.get": {
-			Description: "Retrieve namespace metadata by URI.",
+			Description: "Retrieve namespace metadata by URI, including its schema URIs for tree discovery.",
 			Parameters: map[string]rpc.ParamMeta{
 				"uri": {Description: "Namespace URI (xdb://ns)", Type: "string", Required: true},
 			},
 			Response: map[string]rpc.ParamMeta{
-				"data": {Description: "The namespace metadata", Type: "object"},
+				"data":          {Description: "The namespace name", Type: "string"},
+				"schemas":       {Description: "Sorted schema URIs in the namespace", Type: "array"},
+				"total_schemas": {Description: "Number of schemas in the namespace", Type: "integer"},
 			},
 		},
 		"namespaces.list": {

@@ -51,9 +51,13 @@ func daemonCmd() *cli.Command {
 			},
 			{
 				Name:               "status",
-				Usage:              "Show daemon status",
+				Usage:              "Show daemon status (exit 2 when stopped)",
 				CustomHelpTemplate: commandHelpTemplate,
-				Action:             daemonStatusAction,
+				Flags: []cli.Flag{
+					&cli.BoolFlag{Name: "quiet", Usage: "Suppress output; exit code only"},
+					&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
+				},
+				Action: daemonStatusAction,
 			},
 			{
 				Name:               "restart",
@@ -315,7 +319,19 @@ func daemonStatusAction(_ context.Context, cmd *cli.Command) error {
 		result["pid"] = strconv.Itoa(pid)
 	}
 
-	return formatOne(cmd, result)
+	if !cmd.Bool("quiet") {
+		if formatErr := formatOne(cmd, result); formatErr != nil {
+			return formatErr
+		}
+	}
+
+	// Stopped daemon exits with the connection-error code so scripts
+	// can gate on `daemon status --quiet && ...`.
+	if status != "running" {
+		return &silentExitError{code: ExitConnection}
+	}
+
+	return nil
 }
 
 func daemonRestartAction(ctx context.Context, cmd *cli.Command) error {

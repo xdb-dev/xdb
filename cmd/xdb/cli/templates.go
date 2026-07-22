@@ -81,8 +81,8 @@ SYSTEM:{{range .VisibleCategories}}{{if eq .Name "system"}}{{range .VisibleComma
 
 EXIT CODES:
     0    Success
-    1    Application error (NOT_FOUND, ALREADY_EXISTS, SCHEMA_VIOLATION)
-    2    Connection error (daemon not running, timeout)
-    3    Input validation error (INVALID_URI, bad JSON)
+    1    Application error (NOT_FOUND, ALREADY_EXISTS, SCHEMA_VIOLATION, CONFLICT, NOT_IMPLEMENTED)
+    2    Connection error (daemon not running, timeout; also daemon status when stopped)
+    3    Input validation error (INVALID_ARGUMENT: bad URI, bad JSON, bad flags)
     4    Internal error (store failure, unexpected daemon error)
 `

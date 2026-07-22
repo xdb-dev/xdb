@@ -19,6 +19,10 @@ func (f *jsonFormatter) FormatList(w io.Writer, items []any) error {
 	return writeIndentedJSON(w, items)
 }
 
+func (f *jsonFormatter) FormatPage(w io.Writer, p Page) error {
+	return writeIndentedJSON(w, p.doc())
+}
+
 func (f *jsonFormatter) FormatError(w io.Writer, err error) error {
 	if env, ok := err.(*ErrorEnvelope); ok {
 		return writeIndentedJSON(w, env)
@@ -41,6 +45,10 @@ func (f *ndjsonFormatter) FormatList(w io.Writer, items []any) error {
 	}
 
 	return nil
+}
+
+func (f *ndjsonFormatter) FormatPage(w io.Writer, p Page) error {
+	return f.FormatList(w, p.Items)
 }
 
 func (f *ndjsonFormatter) FormatError(w io.Writer, err error) error {

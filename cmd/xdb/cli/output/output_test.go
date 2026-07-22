@@ -2,7 +2,9 @@ package output_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -222,4 +224,52 @@ func TestDetect(t *testing.T) {
 			assert.Equal(t, tt.expect, output.Detect(tt.flag, tt.isTTY))
 		})
 	}
+}
+
+func TestFormatPage(t *testing.T) {
+	page := output.Page{
+		Items:      []any{map[string]string{"_id": "a"}, map[string]string{"_id": "b"}},
+		Total:      5,
+		NextOffset: 2,
+	}
+
+	t.Run("json renders envelope", func(t *testing.T) {
+		var buf bytes.Buffer
+		require.NoError(t, output.New(output.FormatJSON).FormatPage(&buf, page))
+
+		var doc map[string]any
+		require.NoError(t, json.Unmarshal(buf.Bytes(), &doc))
+		assert.Equal(t, float64(5), doc["total"])
+		assert.Equal(t, float64(2), doc["next_offset"])
+		assert.Len(t, doc["items"], 2)
+	})
+
+	t.Run("json omits next_offset when zero", func(t *testing.T) {
+		var buf bytes.Buffer
+		require.NoError(t, output.New(output.FormatJSON).FormatPage(&buf, output.Page{Items: []any{}, Total: 0}))
+		assert.NotContains(t, buf.String(), "next_offset")
+		assert.Contains(t, buf.String(), `"items"`)
+	})
+
+	t.Run("ndjson streams bare items", func(t *testing.T) {
+		var buf bytes.Buffer
+		require.NoError(t, output.New(output.FormatNDJSON).FormatPage(&buf, page))
+
+		lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
+		assert.Len(t, lines, 2)
+		assert.NotContains(t, buf.String(), "total")
+	})
+
+	t.Run("yaml renders envelope", func(t *testing.T) {
+		var buf bytes.Buffer
+		require.NoError(t, output.New(output.FormatYAML).FormatPage(&buf, page))
+		assert.Contains(t, buf.String(), "total: 5")
+	})
+
+	t.Run("table renders items only", func(t *testing.T) {
+		var buf bytes.Buffer
+		require.NoError(t, output.New(output.FormatTable).FormatPage(&buf, page))
+		assert.Contains(t, buf.String(), "a")
+		assert.NotContains(t, buf.String(), "next_offset")
+	})
 }

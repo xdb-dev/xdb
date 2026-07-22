@@ -3,17 +3,28 @@ package api
 import (
 	"context"
 	"fmt"
+	"sort"
 
+	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 )
 
-// NamespaceService provides namespace operations.
-type NamespaceService struct {
-	store store.NamespaceReader
+// namespaceStore is the slice of [store.Store] the namespace service
+// needs: namespace reads plus schema listing for tree discovery.
+type namespaceStore interface {
+	store.NamespaceReader
+
+	// ListSchemas lists schemas matching the given query.
+	ListSchemas(ctx context.Context, q *store.Query) (*store.Page[*schema.Def], error)
 }
 
-// NewNamespaceService creates a [NamespaceService] backed by the given [store.NamespaceReader].
-func NewNamespaceService(s store.NamespaceReader) *NamespaceService {
+// NamespaceService provides namespace operations.
+type NamespaceService struct {
+	store namespaceStore
+}
+
+// NewNamespaceService creates a [NamespaceService] backed by the given store.
+func NewNamespaceService(s namespaceStore) *NamespaceService {
 	return &NamespaceService{store: s}
 }
 
@@ -24,10 +35,13 @@ type GetNamespaceRequest struct {
 
 // GetNamespaceResponse is the response for namespaces.get.
 type GetNamespaceResponse struct {
-	Data string `json:"data"`
+	Data         string   `json:"data"`
+	Schemas      []string `json:"schemas"`
+	TotalSchemas int      `json:"total_schemas"`
 }
 
-// Get retrieves namespace metadata by URI.
+// Get retrieves namespace metadata by URI, including the sorted list of
+// schema URIs it contains so agents can walk the tree.
 func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*GetNamespaceResponse, error) {
 	uri, err := parseURI(req.URI, "namespaces.get", 1, 1, false)
 	if err != nil {
@@ -39,7 +53,22 @@ func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*
 		return nil, fmt.Errorf("api: namespaces.get: %w", err)
 	}
 
-	return &GetNamespaceResponse{Data: ns}, nil
+	page, err := s.store.ListSchemas(ctx, &store.Query{URI: uri})
+	if err != nil {
+		return nil, fmt.Errorf("api: namespaces.get: %w", err)
+	}
+
+	schemas := make([]string, 0, len(page.Items))
+	for _, def := range page.Items {
+		schemas = append(schemas, def.URI.String())
+	}
+	sort.Strings(schemas)
+
+	return &GetNamespaceResponse{
+		Data:         ns,
+		Schemas:      schemas,
+		TotalSchemas: page.Total,
+	}, nil
 }
 
 // ListNamespacesRequest is the request for namespaces.list.

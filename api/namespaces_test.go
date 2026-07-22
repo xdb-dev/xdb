@@ -90,3 +90,20 @@ func TestNamespaceService_List(t *testing.T) {
 		assert.Zero(t, resp2.NextOffset)
 	})
 }
+
+func TestNamespaceService_GetIncludesSchemas(t *testing.T) {
+	mem := store.New(xdbmemory.NewDriver())
+	schemaSvc := api.NewSchemaService(mem)
+	nsSvc := api.NewNamespaceService(mem)
+	ctx := context.Background()
+
+	createTestSchema(t, schemaSvc, "xdb://tree.ns/posts")
+	createTestSchema(t, schemaSvc, "xdb://tree.ns/authors")
+
+	resp, err := nsSvc.Get(ctx, &api.GetNamespaceRequest{URI: "xdb://tree.ns"})
+	require.NoError(t, err)
+
+	assert.Equal(t, "tree.ns", resp.Data)
+	assert.Equal(t, 2, resp.TotalSchemas)
+	assert.Equal(t, []string{"xdb://tree.ns/authors", "xdb://tree.ns/posts"}, resp.Schemas)
+}

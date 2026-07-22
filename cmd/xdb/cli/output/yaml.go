@@ -28,6 +28,10 @@ func (f *yamlFormatter) FormatList(w io.Writer, items []any) error {
 	return yaml.NewEncoder(w).Encode(items)
 }
 
+func (f *yamlFormatter) FormatPage(w io.Writer, p Page) error {
+	return f.FormatOne(w, p.doc())
+}
+
 func (f *yamlFormatter) FormatError(w io.Writer, err error) error {
 	if _, werr := io.WriteString(w, "---\n"); werr != nil {
 		return werr

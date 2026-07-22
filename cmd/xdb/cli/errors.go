@@ -179,10 +179,23 @@ func isConnectionError(err error) bool {
 	return false
 }
 
+// silentExitError carries an exit code with no rendered output, for
+// commands whose non-zero exit is a status signal, not a failure.
+type silentExitError struct {
+	code int
+}
+
+func (e *silentExitError) Error() string { return "" }
+
 // ExitCodeFor returns the shell exit code for an error.
 func ExitCodeFor(err error) int {
 	if err == nil {
 		return ExitOK
+	}
+
+	var silent *silentExitError
+	if errors.As(err, &silent) {
+		return silent.code
 	}
 
 	var env *output.ErrorEnvelope
@@ -240,6 +253,11 @@ func normalizeError(err error) error {
 // Raw (non-envelope) errors fall back to a short "error: ..." line.
 func WriteError(w io.Writer, format string, err error) {
 	if err == nil {
+		return
+	}
+
+	var silent *silentExitError
+	if errors.As(err, &silent) {
 		return
 	}
 

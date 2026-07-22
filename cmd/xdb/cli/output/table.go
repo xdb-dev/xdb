@@ -72,6 +72,10 @@ func (f *tableFormatter) FormatList(w io.Writer, items []any) error {
 	return tw.Flush()
 }
 
+func (f *tableFormatter) FormatPage(w io.Writer, p Page) error {
+	return f.FormatList(w, p.Items)
+}
+
 func (f *tableFormatter) FormatError(w io.Writer, err error) error {
 	env, ok := err.(*ErrorEnvelope)
 	if !ok {

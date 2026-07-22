@@ -118,3 +118,15 @@ xdb skills list       # agent skills
 ---
 
 Note: the RPC layer addresses actions as `<resource>.<action>` (e.g. `records.create`). User-facing docs, help, and `describe` call them **actions**; the dotted form is the stable identifier.
+
+## Output shapes
+
+- `records list` / `schemas list` with `-o json` or `-o yaml` return a page
+  envelope `{"items": [...], "total": N, "next_offset": M}` (`next_offset`
+  omitted on the last page). `-o ndjson` streams bare items. Use `--page-all`
+  to fetch every page.
+- `namespaces get` returns `{"data": "<ns>", "schemas": [...], "total_schemas": N}`
+  — walk `namespaces list` -> `namespaces get` -> `records list xdb://ns` to
+  discover all state.
+- `daemon status` exits 2 when the daemon is stopped (0 when running), so
+  scripts can gate with `xdb daemon status --quiet && ...`.
