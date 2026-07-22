@@ -46,7 +46,10 @@ var (
 //     only on ARRAY<JSON> fields.
 func (d *Def) Validate() error {
 	if _, ok := validModes[d.Mode]; !ok {
-		return errors.Wrap(ErrInvalidMode, "mode", string(d.Mode))
+		return errors.Wrap(ErrInvalidMode,
+			"mode", string(d.Mode),
+			"valid", validModeList(),
+		)
 	}
 
 	return validateFields(d.Fields)

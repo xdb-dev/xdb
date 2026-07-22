@@ -488,6 +488,18 @@ func TestDef_UnmarshalJSON_Errors(t *testing.T) {
 	}
 }
 
+func TestDef_UnmarshalJSON_InvalidModeListsValidModes(t *testing.T) {
+	t.Parallel()
+
+	var def schema.Def
+	err := json.Unmarshal([]byte(`{"uri": "xdb://com.example/posts", "mode": "bad"}`), &def)
+
+	require.ErrorIs(t, err, schema.ErrInvalidMode)
+	assert.Contains(t, err.Error(), "flexible")
+	assert.Contains(t, err.Error(), "strict")
+	assert.Contains(t, err.Error(), "dynamic")
+}
+
 func TestDef_CloneWithFields(t *testing.T) {
 	uri, err := core.ParseURI("xdb://test/Post")
 	require.NoError(t, err)

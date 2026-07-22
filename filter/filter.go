@@ -23,12 +23,12 @@ type Filter struct {
 // When def is nil (flexible mode), variables are dynamically typed.
 func Compile(expr string, def *schema.Def) (*Filter, error) {
 	if expr == "" {
-		return nil, fmt.Errorf("filter: empty expression")
+		return nil, fmt.Errorf("%w: empty expression", core.ErrInvalidFilter)
 	}
 
 	env, err := buildEnv(def)
 	if err != nil {
-		return nil, fmt.Errorf("filter: build env: %w", err)
+		return nil, fmt.Errorf("%w: build env: %w", core.ErrInvalidFilter, err)
 	}
 
 	// Two-pass compile: first parse to extract identifiers, then extend env
@@ -37,17 +37,17 @@ func Compile(expr string, def *schema.Def) (*Filter, error) {
 	// so filtering on missing attributes evaluates to false at runtime).
 	env, err = extendEnvFromExpr(env, def, expr)
 	if err != nil {
-		return nil, fmt.Errorf("filter: %w", err)
+		return nil, fmt.Errorf("%w: %w", core.ErrInvalidFilter, err)
 	}
 
 	celAst, iss := env.Compile(expr)
 	if iss.Err() != nil {
-		return nil, fmt.Errorf("filter: compile: %w", iss.Err())
+		return nil, fmt.Errorf("%w: compile: %w", core.ErrInvalidFilter, iss.Err())
 	}
 
 	prg, err := env.Program(celAst)
 	if err != nil {
-		return nil, fmt.Errorf("filter: program: %w", err)
+		return nil, fmt.Errorf("%w: program: %w", core.ErrInvalidFilter, err)
 	}
 
 	return &Filter{

@@ -224,6 +224,35 @@ func TestMatch(t *testing.T) {
 	}
 }
 
+func TestCompile_InvalidFilterSentinel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		expr string
+	}{
+		{"empty expression", ""},
+		{"syntax error", `title ==`},
+		{"garbage", `1 +++`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Compile(tt.expr, nil)
+			require.Error(t, err)
+			assert.ErrorIs(t, err, core.ErrInvalidFilter)
+		})
+	}
+}
+
+func TestCompile_ValidFilterStillCompiles(t *testing.T) {
+	t.Parallel()
+
+	f, err := Compile(`title == "hello"`, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, f)
+}
+
 func TestMatch_NilSchema(t *testing.T) {
 	record := core.NewRecord("test", "users", "1")
 	record.Set("name", "John")

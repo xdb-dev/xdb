@@ -27,4 +27,12 @@ var (
 	// (and, in future, record _rev). It is deliberately standalone and must NOT
 	// wrap [ErrNotFound].
 	ErrConflict = errors.New("[xdb/core] revision conflict")
+
+	// ErrInvalidFilter is returned when a filter expression is empty or fails
+	// to parse, type-check, or compile.
+	ErrInvalidFilter = errors.New("[xdb/core] invalid filter")
+
+	// ErrNotImplemented is returned when a requested operation is not
+	// implemented, e.g. by a driver or an interim stub.
+	ErrNotImplemented = errors.New("[xdb] not implemented")
 )

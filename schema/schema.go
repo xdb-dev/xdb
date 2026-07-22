@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"strings"
+
 	"github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
@@ -38,6 +40,22 @@ var validModes = map[Mode]struct{}{
 	ModeFlexible: {},
 	ModeStrict:   {},
 	ModeDynamic:  {},
+}
+
+// ValidModes returns all recognized mode values, in canonical order:
+// flexible, strict, dynamic.
+func ValidModes() []Mode {
+	return []Mode{ModeFlexible, ModeStrict, ModeDynamic}
+}
+
+// validModeList returns the valid mode names joined for error messages.
+func validModeList() string {
+	modes := ValidModes()
+	names := make([]string, len(modes))
+	for i, m := range modes {
+		names[i] = string(m)
+	}
+	return strings.Join(names, ", ")
 }
 
 // Field describes a single field in a schema definition.

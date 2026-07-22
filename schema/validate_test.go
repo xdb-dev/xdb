@@ -410,6 +410,9 @@ func TestDef_Validate(t *testing.T) {
 		}
 		err := def.Validate()
 		require.ErrorIs(t, err, schema.ErrInvalidMode)
+		assert.Contains(t, err.Error(), "flexible")
+		assert.Contains(t, err.Error(), "strict")
+		assert.Contains(t, err.Error(), "dynamic")
 	})
 
 	t.Run("invalid field name is rejected", func(t *testing.T) {
@@ -758,6 +761,13 @@ func TestValidateTuples_AllTypes(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	}
+}
+
+func TestValidModes(t *testing.T) {
+	t.Parallel()
+
+	want := []schema.Mode{schema.ModeFlexible, schema.ModeStrict, schema.ModeDynamic}
+	assert.Equal(t, want, schema.ValidModes())
 }
 
 func TestNextRevision(t *testing.T) {

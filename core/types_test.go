@@ -70,6 +70,23 @@ func TestParseType(t *testing.T) {
 	}
 }
 
+func TestParseType_UnknownIncludesValidList(t *testing.T) {
+	_, err := ParseType("wtf")
+
+	require.ErrorIs(t, err, ErrUnknownType)
+	assert.Contains(t, err.Error(), "string")
+	assert.Contains(t, err.Error(), "array")
+}
+
+func TestValueTypeNames(t *testing.T) {
+	want := []string{
+		"string", "integer", "unsigned", "float",
+		"boolean", "time", "bytes", "json", "array",
+	}
+
+	assert.Equal(t, want, ValueTypeNames())
+}
+
 func TestTypeID(t *testing.T) {
 	tests := []struct {
 		name string

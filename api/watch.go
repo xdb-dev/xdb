@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/store"
 )
 
@@ -27,7 +28,7 @@ type WatchRequest struct {
 // It calls send to push each event to the client and returns when
 // the context is canceled or the stream ends.
 func (s *WatchService) Watch(_ context.Context, _ *WatchRequest, _ func(string, json.RawMessage)) error {
-	return fmt.Errorf("api: watch not implemented")
+	return fmt.Errorf("%w: api: watch not implemented", core.ErrNotImplemented)
 }
 
 // WatchEvent represents a single change notification.

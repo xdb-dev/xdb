@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 // ParamMeta describes a single request or response parameter.
@@ -267,6 +268,18 @@ func MapError(err error) *Error {
 	case errors.Is(err, core.ErrAlreadyExists):
 		return AlreadyExists(msg)
 	case errors.Is(err, core.ErrSchemaViolation):
+		return SchemaViolation(msg)
+	case errors.Is(err, core.ErrConflict):
+		return Conflict(msg)
+	case errors.Is(err, core.ErrNotImplemented):
+		return NotImplemented(msg)
+	case errors.Is(err, core.ErrInvalidURI):
+		return InvalidParamsData(msg, map[string]any{"reason": "invalid_uri"})
+	case errors.Is(err, core.ErrInvalidFilter):
+		return InvalidParamsData(msg, map[string]any{"reason": "invalid_filter"})
+	case errors.Is(err, core.ErrUnknownType):
+		return SchemaViolation(msg)
+	case errors.Is(err, schema.ErrInvalidMode):
 		return SchemaViolation(msg)
 	default:
 		return InternalError(msg)

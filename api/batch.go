@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/store"
 )
 
@@ -35,5 +36,5 @@ type ExecuteBatchResponse struct {
 
 // Execute runs a batch of operations.
 func (s *BatchService) Execute(_ context.Context, _ *ExecuteBatchRequest) (*ExecuteBatchResponse, error) {
-	return nil, fmt.Errorf("api: batch.execute not implemented")
+	return nil, fmt.Errorf("%w: api: batch.execute not implemented", core.ErrNotImplemented)
 }

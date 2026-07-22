@@ -90,7 +90,10 @@ func (d *Def) UnmarshalJSON(data []byte) error {
 		mode = ModeStrict
 	}
 	if _, ok := validModes[mode]; !ok {
-		return errors.Wrap(ErrInvalidMode, "mode", jd.Mode)
+		return errors.Wrap(ErrInvalidMode,
+			"mode", jd.Mode,
+			"valid", validModeList(),
+		)
 	}
 
 	d.URI = uri

@@ -16,6 +16,8 @@ const (
 	CodeNotFound        = -32000
 	CodeAlreadyExists   = -32001
 	CodeSchemaViolation = -32002
+	CodeConflict        = -32003
+	CodeNotImplemented  = -32004
 )
 
 // Error is a JSON-RPC 2.0 error object.
@@ -55,6 +57,14 @@ func InvalidParams(msg string) *Error {
 	return NewError(CodeInvalidParams, msg)
 }
 
+// InvalidParamsData creates an invalid params error carrying structured data,
+// e.g. {"reason": "invalid_uri"}.
+func InvalidParamsData(msg string, data any) *Error {
+	err := InvalidParams(msg)
+	err.Data = data
+	return err
+}
+
 // InternalError creates an internal error.
 func InternalError(msg string) *Error {
 	return NewError(CodeInternalError, msg)
@@ -73,4 +83,14 @@ func AlreadyExists(msg string) *Error {
 // SchemaViolation creates a schema violation error.
 func SchemaViolation(msg string) *Error {
 	return NewError(CodeSchemaViolation, msg)
+}
+
+// Conflict creates a conflict error.
+func Conflict(msg string) *Error {
+	return NewError(CodeConflict, msg)
+}
+
+// NotImplemented creates a not implemented error.
+func NotImplemented(msg string) *Error {
+	return NewError(CodeNotImplemented, msg)
 }

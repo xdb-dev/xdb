@@ -56,6 +56,16 @@ var ValueTypes = []TID{
 	TIDArray,
 }
 
+// ValueTypeNames returns the lowercase names of all user-facing value types,
+// in [ValueTypes] order.
+func ValueTypeNames() []string {
+	names := make([]string, len(ValueTypes))
+	for i, tid := range ValueTypes {
+		names[i] = tid.Lower()
+	}
+	return names
+}
+
 // String returns the name of the type.
 func (t TID) String() string {
 	return string(t)
@@ -72,7 +82,10 @@ func ParseType(name string) (TID, error) {
 	tid := TID(strings.TrimSpace(strings.ToUpper(name)))
 
 	if _, ok := builtinTypes[tid]; !ok {
-		return TIDUnknown, errors.Wrap(ErrUnknownType, "type", string(tid))
+		return TIDUnknown, errors.Wrap(ErrUnknownType,
+			"type", string(tid),
+			"valid", strings.Join(ValueTypeNames(), ", "),
+		)
 	}
 
 	return tid, nil
