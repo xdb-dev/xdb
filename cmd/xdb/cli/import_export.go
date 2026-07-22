@@ -243,8 +243,8 @@ func (a *App) exportSingleRecord(
 		return wrapRPCError("records", "export", uri, err)
 	}
 
-	var m map[string]any
-	if err := json.Unmarshal(resp.Data, &m); err != nil {
+	m, err := unmarshalPreserving(resp.Data)
+	if err != nil {
 		return err
 	}
 
@@ -274,8 +274,8 @@ func (a *App) exportSchemaRecords(
 		}
 
 		for _, raw := range resp.Items {
-			var m map[string]any
-			if jsonErr := json.Unmarshal(raw, &m); jsonErr != nil {
+			m, jsonErr := unmarshalPreserving(raw)
+			if jsonErr != nil {
 				return jsonErr
 			}
 

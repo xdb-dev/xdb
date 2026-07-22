@@ -130,3 +130,45 @@ func TestAliasDepthValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestBigIntegersRenderVerbatim(t *testing.T) {
+	cfg := startCLITestDaemon(t)
+
+	_, _, code := runCLI(t, "--config", cfg, "schemas", "create",
+		"--uri", "xdb://big.t/nums",
+		"--json", `{"fields":{"big":{"type":"integer"}}}`)
+	require.Equal(t, 0, code)
+
+	stdout, _, code := runCLI(t, "--config", cfg, "records", "create",
+		"--uri", "xdb://big.t/nums/n1",
+		"--json", `{"big":9007199254740993}`, "-o", "json")
+	require.Equal(t, 0, code)
+	assert.Contains(t, stdout, "9007199254740993", "create response must not round through float64")
+
+	stdout, _, code = runCLI(t, "--config", cfg, "records", "list",
+		"--uri", "xdb://big.t/nums", "-o", "ndjson")
+	require.Equal(t, 0, code)
+	assert.Contains(t, stdout, "9007199254740993", "list items must not round through float64")
+
+	stdout, _, code = runCLI(t, "--config", cfg, "export", "--uri", "xdb://big.t/nums")
+	require.Equal(t, 0, code)
+	assert.Contains(t, stdout, "9007199254740993", "export must not round through float64")
+}
+
+func TestNamespaceGet_RendersSchemaTree(t *testing.T) {
+	cfg := startCLITestDaemon(t)
+
+	_, _, code := runCLI(t, "--config", cfg, "schemas", "create",
+		"--uri", "xdb://nsget.t/things",
+		"--json", `{"fields":{"name":{"type":"string"}}}`)
+	require.Equal(t, 0, code)
+
+	stdout, _, code := runCLI(t, "--config", cfg, "get", "xdb://nsget.t", "-o", "json")
+	require.Equal(t, 0, code)
+
+	var doc map[string]any
+	require.NoError(t, json.Unmarshal([]byte(stdout), &doc))
+	assert.Equal(t, "nsget.t", doc["namespace"])
+	assert.Equal(t, float64(1), doc["total_schemas"])
+	assert.Contains(t, doc["schemas"], "xdb://nsget.t/things")
+}

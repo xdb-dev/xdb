@@ -70,7 +70,14 @@ func (a *App) namespaceGet(ctx context.Context, cmd *cli.Command) error {
 		return wrapRPCError("namespaces", "get", uri, err)
 	}
 
-	return formatOne(cmd, map[string]string{
-		"namespace": resp.Data,
+	schemas := resp.Schemas
+	if schemas == nil {
+		schemas = []string{}
+	}
+
+	return formatOne(cmd, map[string]any{
+		"namespace":     resp.Data,
+		"schemas":       schemas,
+		"total_schemas": resp.TotalSchemas,
 	})
 }

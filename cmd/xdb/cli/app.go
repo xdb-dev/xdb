@@ -2,6 +2,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -356,12 +357,27 @@ func isTerminal(f *os.File) bool {
 
 // formatRawJSON unmarshals a json.RawMessage to a map and writes it.
 func formatRawJSON(cmd *cli.Command, raw json.RawMessage) error {
-	var m map[string]any
-	if err := json.Unmarshal(raw, &m); err != nil {
+	m, err := unmarshalPreserving(raw)
+	if err != nil {
 		return err
 	}
 
 	return formatOne(cmd, m)
+}
+
+// unmarshalPreserving parses raw JSON into a map without float64
+// coercion, so large integers render verbatim instead of rounding
+// through float64.
+func unmarshalPreserving(raw json.RawMessage) (map[string]any, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+
+	var m map[string]any
+	if err := dec.Decode(&m); err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
 
 // getURI returns the URI from --uri flag, a positional argument, or stdin when

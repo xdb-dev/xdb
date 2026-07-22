@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/urfave/cli/v3"
@@ -151,8 +150,8 @@ func (a *App) recordList(ctx context.Context, cmd *cli.Command) error {
 		}
 
 		for _, raw := range resp.Items {
-			var m map[string]any
-			if jsonErr := json.Unmarshal(raw, &m); jsonErr != nil {
+			m, jsonErr := unmarshalPreserving(raw)
+			if jsonErr != nil {
 				return jsonErr
 			}
 			page.Items = append(page.Items, m)
