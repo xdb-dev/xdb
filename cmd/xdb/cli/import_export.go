@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -47,7 +48,7 @@ func (a *App) exportCmd() *cli.Command {
 func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "import", err)
 	}
 
 	var reader io.Reader
@@ -56,7 +57,7 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 	if fileFlag != "" {
 		f, openErr := os.Open(fileFlag)
 		if openErr != nil {
-			return fmt.Errorf("open file: %w", openErr)
+			return invalidArgError("records", "import", fmt.Errorf("open file: %w", openErr))
 		}
 		defer func() { _ = f.Close() }()
 
@@ -64,10 +65,15 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 	} else if !isTerminal(os.Stdin) {
 		reader = os.Stdin
 	} else {
-		return fmt.Errorf("import requires input (--file or stdin)")
+		return invalidArgError("records", "import", fmt.Errorf("import requires input (--file or stdin)"))
 	}
 
 	createOnly := cmd.Bool("create-only")
+	op := "upsert"
+	if createOnly {
+		op = "create"
+	}
+
 	scanner := bufio.NewScanner(reader)
 	imported := 0
 
@@ -77,9 +83,9 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 			continue
 		}
 
-		recordURI, err := extractRecordURI(uri, line, imported+1)
-		if err != nil {
-			return err
+		recordURI, uriErr := extractRecordURI(uri, line, imported+1)
+		if uriErr != nil {
+			return invalidArgError("records", "import", uriErr)
 		}
 
 		if createOnly {
@@ -95,7 +101,7 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 		}
 
 		if err != nil {
-			return fmt.Errorf("line %d: %w", imported+1, err)
+			return prefixLineError(wrapRPCError("records", op, recordURI, err), imported+1)
 		}
 
 		imported++
@@ -114,10 +120,28 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
+// prefixLineError prefixes an import error's message with the 1-based input
+// line number it came from. It copies the envelope rather than mutating it in
+// place, so the shared error-envelope value is never shared/aliased.
+func prefixLineError(err error, line int) error {
+	if err == nil {
+		return nil
+	}
+
+	var env *output.ErrorEnvelope
+	if errors.As(err, &env) {
+		copied := *env
+		copied.Message = fmt.Sprintf("line %d: %s", line, env.Message)
+		return &copied
+	}
+
+	return fmt.Errorf("line %d: %w", line, err)
+}
+
 func (a *App) exportRecords(ctx context.Context, cmd *cli.Command) error {
 	uri, err := getURI(cmd)
 	if err != nil {
-		return err
+		return invalidArgError("records", "export", err)
 	}
 
 	f := output.New(output.FormatNDJSON)
@@ -131,7 +155,7 @@ func (a *App) exportRecords(ctx context.Context, cmd *cli.Command) error {
 			Limit:  100,
 			Offset: offset,
 		}, &resp); listErr != nil {
-			return listErr
+			return wrapRPCError("records", "export", uri, listErr)
 		}
 
 		for _, raw := range resp.Items {

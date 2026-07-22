@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/urfave/cli/v3"
+
+	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 )
 
 //go:embed skills/*/SKILL.md
@@ -143,14 +145,20 @@ func skillsListAction(_ context.Context, cmd *cli.Command) error {
 func skillsGetAction(_ context.Context, cmd *cli.Command) error {
 	args := cmd.Args()
 	if args.Len() == 0 {
-		return fmt.Errorf("skill name required")
+		return invalidArgError("skills", "get", fmt.Errorf("skill name required"))
 	}
 
 	name := args.First()
 
 	s, ok := skills[name]
 	if !ok {
-		return fmt.Errorf("unknown skill: %s\nrun 'xdb skills' to list available skills", name)
+		return &output.ErrorEnvelope{
+			Code:     CodeNotFound,
+			Message:  fmt.Sprintf("unknown skill: %s", name),
+			Resource: "skills",
+			Action:   "get",
+			Hint:     "run 'xdb skills' to list available skills",
+		}
 	}
 
 	_, err := fmt.Fprint(cmd.Root().Writer, s.Content)

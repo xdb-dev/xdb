@@ -38,6 +38,8 @@ const (
 	CodeNotFound          = "NOT_FOUND"
 	CodeAlreadyExists     = "ALREADY_EXISTS"
 	CodeSchemaViolation   = "SCHEMA_VIOLATION"
+	CodeConflict          = "CONFLICT"
+	CodeNotImplemented    = "NOT_IMPLEMENTED"
 	CodeInvalidArgument   = "INVALID_ARGUMENT"
 	CodeConnectionRefused = "CONNECTION_REFUSED"
 	CodeInternal          = "INTERNAL"
@@ -113,6 +115,10 @@ func codeFromRPC(code int) string {
 		return CodeAlreadyExists
 	case rpc.CodeSchemaViolation:
 		return CodeSchemaViolation
+	case rpc.CodeConflict:
+		return CodeConflict
+	case rpc.CodeNotImplemented:
+		return CodeNotImplemented
 	case rpc.CodeInvalidParams, rpc.CodeInvalidRequest, rpc.CodeParseError:
 		return CodeInvalidArgument
 	default:
@@ -132,6 +138,10 @@ func hintFor(code, resource, uri string) string {
 		return "use update or upsert instead of create"
 	case CodeSchemaViolation:
 		return "run xdb describe --uri <schema-uri> to inspect the schema"
+	case CodeConflict:
+		return "the resource exists with different data; use update or upsert (records) or schemas update (schemas)"
+	case CodeNotImplemented:
+		return "this operation is not available in this daemon build"
 	case CodeInvalidArgument:
 		return "run xdb describe <resource>.<action> to see expected parameters"
 	default:
@@ -192,6 +202,8 @@ func ExitCodeFor(err error) int {
 		return ExitInvalidArgs
 	case CodeInternal:
 		return ExitInternal
+	case CodeConflict, CodeNotImplemented:
+		return ExitAppError
 	default:
 		return ExitAppError
 	}

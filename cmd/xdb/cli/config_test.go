@@ -358,6 +358,56 @@ func TestLoadConfig(t *testing.T) {
 	})
 }
 
+// TestLoadConfig_MissingDefaultPath_ReturnsDefaultsWithoutWriting guards the
+// config-creation policy: only `xdb init` and `xdb daemon start` are allowed
+// to write the config file. Every other command loads via [LoadConfig] with
+// an empty path (the default), and a missing file there must yield validated
+// in-memory defaults with no file ever touching disk.
+func TestLoadConfig_MissingDefaultPath_ReturnsDefaultsWithoutWriting(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg, err := LoadConfig("")
+	require.NoError(t, err)
+	assert.Equal(t, "~/.xdb", cfg.Dir)
+	assert.Equal(t, "sqlite", cfg.Store.Backend)
+
+	_, statErr := os.Stat(filepath.Join(home, ".xdb", "config.json"))
+	assert.True(t, os.IsNotExist(statErr), "LoadConfig must not create the default config file")
+}
+
+// TestLoadConfig_MissingExplicitPath_Errors verifies that a missing config at
+// an explicitly-provided (non-empty) path is an error rather than silently
+// falling back to defaults or auto-creating the file.
+func TestLoadConfig_MissingExplicitPath_Errors(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "explicit-config.json")
+
+	_, err := LoadConfig(configPath)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "config file not found")
+
+	_, statErr := os.Stat(configPath)
+	assert.True(t, os.IsNotExist(statErr), "LoadConfig must not create the file at an explicit missing path")
+}
+
+// TestReadCommand_DoesNotCreateDefaultConfig is the full-CLI-path version of
+// [TestLoadConfig_MissingDefaultPath_ReturnsDefaultsWithoutWriting]: a
+// read-only command run with no --config flag (so the default path applies)
+// must not create ~/.xdb/config.json as a side effect.
+func TestReadCommand_DoesNotCreateDefaultConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	stdout, stderr, code := runCLI(t, "describe", "--filter", "-o", "json")
+
+	require.Equal(t, ExitOK, code, "stderr: %s", stderr)
+	assert.NotEmpty(t, stdout)
+
+	_, statErr := os.Stat(filepath.Join(home, ".xdb", "config.json"))
+	assert.True(t, os.IsNotExist(statErr), "a read command must not create the default config file")
+}
+
 func TestSQLiteConfig_DSN(t *testing.T) {
 	tests := []struct {
 		name string

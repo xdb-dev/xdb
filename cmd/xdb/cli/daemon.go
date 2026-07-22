@@ -65,9 +65,17 @@ func daemonCmd() *cli.Command {
 	}
 }
 
-// loadAppConfig loads the application config from the --config flag.
+// loadAppConfig loads the application config from the --config flag, honoring
+// the same explicit-vs-default policy as [App.connect]: a missing config at
+// the default path yields validated in-memory defaults, while a missing
+// config at an explicitly-provided --config path is an error.
 func loadAppConfig(cmd *cli.Command) (*Config, error) {
-	return LoadConfig(cmd.Root().String("config"))
+	configPath := ""
+	if cmd.Root().IsSet("config") {
+		configPath = cmd.Root().String("config")
+	}
+
+	return LoadConfig(configPath)
 }
 
 // daemonConfigFrom derives a [daemon.Config] from the application config.
@@ -87,6 +95,14 @@ func isDaemonRunning(cfg *Config) bool {
 }
 
 func daemonStartAction(ctx context.Context, cmd *cli.Command) error {
+	// `daemon start` is one of the two commands (with `init`) allowed to
+	// create the config file as a side effect — ensure it exists before
+	// loading so a first-time `xdb daemon start` (no prior `xdb init`) works.
+	configPath := expandTilde(cmd.Root().String("config"))
+	if _, err := EnsureConfigAt(configPath); err != nil {
+		return err
+	}
+
 	cfg, err := loadAppConfig(cmd)
 	if err != nil {
 		return err

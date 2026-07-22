@@ -50,6 +50,12 @@ func initApp(action cli.ActionFunc, configPath string) *cli.Command {
 }
 
 func TestInitAction_HonorsConfigFlag(t *testing.T) {
+	// The config created at the custom path still has the default "~/.xdb"
+	// dir (init only controls where the config FILE lives, not its
+	// contents), so redirect HOME to a temp dir — otherwise the mkdir/spawn
+	// steps that follow would touch the developer's real ~/.xdb.
+	t.Setenv("HOME", t.TempDir())
+
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "custom", "config.json")
 
@@ -103,6 +109,29 @@ func TestInitAction_SucceedsWhenDaemonSpawnFails(t *testing.T) {
 	// Config should still exist.
 	_, statErr := os.Stat(configPath)
 	assert.NoError(t, statErr)
+}
+
+// TestInitAction_CreatedThenAlreadyExists verifies init's stderr messaging is
+// truthful across repeated runs: "Created ..." the first time a config file
+// is written, "already exists" on every run after. This is the behavior that
+// [LoadConfig] no longer auto-creating the config (W6) makes reliable — init
+// is now the sole creator of its own config, so [EnsureConfigAt]'s created
+// flag reflects reality instead of racing a prior implicit creation.
+func TestInitAction_CreatedThenAlreadyExists(t *testing.T) {
+	// The auto-created config's Dir defaults to "~/.xdb"; redirect HOME so
+	// the best-effort daemon-spawn step never touches the real home.
+	t.Setenv("HOME", t.TempDir())
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.json")
+
+	_, stderr, code := runCLI(t, "--config", configPath, "init")
+	require.Equal(t, ExitOK, code, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "Created "+configPath)
+
+	_, stderr, code = runCLI(t, "--config", configPath, "init")
+	require.Equal(t, ExitOK, code, "stderr: %s", stderr)
+	assert.Contains(t, stderr, "already exists")
 }
 
 func TestInitAction_UsesDefaultWhenNoFlag(t *testing.T) {

@@ -68,6 +68,16 @@ func TestWrapRPCError(t *testing.T) {
 			wantCode: CodeInternal,
 		},
 		{
+			name:     "conflict",
+			in:       rpc.Conflict("record exists with different data"),
+			wantCode: CodeConflict,
+		},
+		{
+			name:     "not implemented",
+			in:       rpc.NotImplemented("batch requires a transactional store"),
+			wantCode: CodeNotImplemented,
+		},
+		{
 			name:     "connection refused",
 			in:       fmt.Errorf("dial unix /x: %w", syscall.ECONNREFUSED),
 			wantCode: CodeConnectionRefused,
@@ -136,6 +146,8 @@ func TestExitCodeFor(t *testing.T) {
 		{"connection refused", &output.ErrorEnvelope{Code: CodeConnectionRefused}, ExitConnection},
 		{"invalid argument", &output.ErrorEnvelope{Code: CodeInvalidArgument}, ExitInvalidArgs},
 		{"internal", &output.ErrorEnvelope{Code: CodeInternal}, ExitInternal},
+		{"conflict", &output.ErrorEnvelope{Code: CodeConflict}, ExitAppError},
+		{"not implemented", &output.ErrorEnvelope{Code: CodeNotImplemented}, ExitAppError},
 	}
 
 	for _, tc := range tests {
@@ -204,6 +216,25 @@ func TestWriteError_UsesEnvelopeShape(t *testing.T) {
 	assert.Contains(t, s, "\"code\": \"NOT_FOUND\"")
 	assert.Contains(t, s, "\"resource\": \"records\"")
 	assert.Contains(t, s, "\"action\": \"get\"")
+}
+
+func TestHintFor(t *testing.T) {
+	tests := []struct {
+		name string
+		code string
+	}{
+		{"not found", CodeNotFound},
+		{"already exists", CodeAlreadyExists},
+		{"schema violation", CodeSchemaViolation},
+		{"conflict", CodeConflict},
+		{"invalid argument", CodeInvalidArgument},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.NotEmpty(t, hintFor(tc.code, "records", ""))
+		})
+	}
 }
 
 func TestParentOf(t *testing.T) {

@@ -558,3 +558,30 @@ scenarios:
       - name: "--help on a nonexistent subcommand still reports a clean error"
         run: xdb schemas upsert --help
         expect: { exit: 3, stderr_contains: "No help topic" }
+
+  - name: "error-classes"
+    description: "Reachable subset of the CLI's error-class contract: a schema-violating line mid-import renders one SCHEMA_VIOLATION envelope naming the line, an unknown skill is NOT_FOUND, and a malformed --uri to describe is INVALID_ARGUMENT. (Daemon-down assertions for describe/records/schemas live as unit tests in cmd/xdb/cli — the e2e runner shares one daemon across all scenarios per RUNBOOK.md, so stopping it mid-suite is out of scope here.)"
+    steps:
+      - name: "schema requiring name"
+        run: xdb schemas create --uri xdb://$NS/items --json '{"fields":{"name":{"type":"string","required":true}}}'
+        expect: { exit: 0 }
+
+      - name: "import — second line missing required field → one SCHEMA_VIOLATION naming line 2"
+        run: |
+          printf '{"_id":"a","name":"widget"}\n{"_id":"b","other":"no name here"}\n' | xdb import --uri xdb://$NS/items
+        expect:
+          exit_nonzero: true
+          error: { code: "SCHEMA_VIOLATION", resource: "records", action: "upsert" }
+          stderr_contains: "line 2"
+
+      - name: "skills get unknown skill → NOT_FOUND"
+        run: xdb skills get nosuch-skill-xyz
+        expect:
+          exit: 1
+          error: { code: "NOT_FOUND", resource: "skills", action: "get" }
+
+      - name: "describe --uri malformed → INVALID_ARGUMENT"
+        run: xdb describe --uri not-a-uri
+        expect:
+          exit: 3
+          error: { code: "INVALID_ARGUMENT", resource: "schemas", action: "describe" }

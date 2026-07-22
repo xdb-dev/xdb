@@ -97,7 +97,7 @@ func (a *App) schemaInspect(ctx context.Context, cmd *cli.Command) error {
 func (a *App) listMethods(ctx context.Context, cmd *cli.Command) error {
 	var resp api.ListMethodsResponse
 	if err := a.client.Call(ctx, "introspect.methods", &api.ListMethodsRequest{}, &resp); err != nil {
-		return err
+		return wrapRPCError("introspect", "methods", "", err)
 	}
 
 	items := make([]any, len(resp.Methods))
@@ -114,7 +114,7 @@ func (a *App) listMethods(ctx context.Context, cmd *cli.Command) error {
 func (a *App) listTypes(ctx context.Context, cmd *cli.Command) error {
 	var resp api.ListTypesResponse
 	if err := a.client.Call(ctx, "introspect.types", &api.ListTypesRequest{}, &resp); err != nil {
-		return err
+		return wrapRPCError("introspect", "types", "", err)
 	}
 
 	items := make([]any, len(resp.Types))
@@ -159,7 +159,7 @@ func (a *App) describeMethod(ctx context.Context, cmd *cli.Command, name string)
 	if err := a.client.Call(ctx, "introspect.method", &api.DescribeMethodRequest{
 		Method: name,
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("introspect", "method", "", err)
 	}
 
 	result := map[string]any{
@@ -184,7 +184,7 @@ func (a *App) describeType(ctx context.Context, cmd *cli.Command, name string) e
 	if err := a.client.Call(ctx, "introspect.type", &api.DescribeTypeRequest{
 		Type: name,
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("introspect", "type", "", err)
 	}
 
 	return formatOne(cmd, map[string]any{
@@ -199,7 +199,7 @@ func (a *App) describeType(ctx context.Context, cmd *cli.Command, name string) e
 func (a *App) listActions(ctx context.Context, cmd *cli.Command) error {
 	var resp api.ListMethodsResponse
 	if err := a.client.Call(ctx, "introspect.methods", &api.ListMethodsRequest{}, &resp); err != nil {
-		return wrapRPCError("introspect", "methods", "", err)
+		return wrapRPCError("introspect", "actions", "", err)
 	}
 
 	type row struct {
@@ -279,6 +279,8 @@ func listErrorCodes(cmd *cli.Command) error {
 		entry{Code: CodeNotFound, Description: "Resource does not exist", ExitCode: ExitAppError},
 		entry{Code: CodeAlreadyExists, Description: "Resource already exists (use update or upsert)", ExitCode: ExitAppError},
 		entry{Code: CodeSchemaViolation, Description: "Payload violates schema constraints", ExitCode: ExitAppError},
+		entry{Code: CodeConflict, Description: "Resource exists with different data (use update or upsert)", ExitCode: ExitAppError},
+		entry{Code: CodeNotImplemented, Description: "Operation not implemented in this daemon build", ExitCode: ExitAppError},
 		entry{Code: CodeInvalidArgument, Description: "Invalid command-line arguments or RPC parameters", ExitCode: ExitInvalidArgs},
 		entry{Code: CodeConnectionRefused, Description: "Daemon is not reachable — run xdb daemon start", ExitCode: ExitConnection},
 		entry{Code: CodeInternal, Description: "Unexpected internal error", ExitCode: ExitInternal},
@@ -372,14 +374,14 @@ func describeDaemon(cmd *cli.Command) error {
 func (a *App) describeDataSchema(ctx context.Context, cmd *cli.Command, raw string) error {
 	uri, err := core.ParseURI(raw)
 	if err != nil {
-		return err
+		return invalidArgError("schemas", "describe", err)
 	}
 
 	var resp api.GetSchemaResponse
 	if err := a.client.Call(ctx, "schemas.get", &api.GetSchemaRequest{
 		URI: uri.String(),
 	}, &resp); err != nil {
-		return err
+		return wrapRPCError("schemas", "describe", uri.String(), err)
 	}
 
 	return formatOne(cmd, dataSchemaDescription(uri.String(), resp.Data))

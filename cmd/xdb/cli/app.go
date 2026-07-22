@@ -28,13 +28,22 @@ type App struct {
 	client *client.Client
 }
 
-// connect initializes the RPC client from the config file.
+// connect initializes the RPC client from the config file. A missing config
+// at the default path is not an error — [LoadConfig] falls back to validated
+// in-memory defaults — but a missing config at an explicitly-passed --config
+// path is, so the explicit-ness of the flag (not just its string value, which
+// always carries the default) is passed through.
 func (a *App) connect(cmd *cli.Command) error {
 	if a.client != nil {
 		return nil
 	}
 
-	cfg, err := LoadConfig(cmd.String("config"))
+	configPath := ""
+	if cmd.IsSet("config") {
+		configPath = cmd.String("config")
+	}
+
+	cfg, err := LoadConfig(configPath)
 	if err != nil {
 		return err
 	}

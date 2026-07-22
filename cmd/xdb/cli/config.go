@@ -224,22 +224,44 @@ func EnsureConfigAt(configPath string) (bool, error) {
 	return true, nil
 }
 
-// LoadConfig reads and validates the config from the given path.
-// If configPath is empty, it uses [DefaultConfigPath] and creates defaults
-// if the file doesn't exist.
+// LoadConfig reads and validates the config from the given path. If
+// configPath is empty, it uses [DefaultConfigPath]; a missing file at that
+// default path yields validated in-memory defaults and no file is written.
+// A missing file at an explicitly-provided (non-empty) configPath is an
+// error. [EnsureConfigAt] is the explicit config-creation path used by
+// `xdb init` and `xdb daemon start` — the only two commands that write a
+// config file as a side effect.
 func LoadConfig(configPath string) (*Config, error) {
+	explicit := configPath != ""
 	if configPath == "" {
 		configPath = DefaultConfigPath()
 	}
 
 	configPath = expandTilde(configPath)
 
-	if _, err := EnsureConfigAt(configPath); err != nil {
-		return nil, fmt.Errorf("ensure config: %w", err)
-	}
+	return loadConfigOrDefaults(configPath, explicit)
+}
 
+// loadConfigOrDefaults reads and validates the config at configPath. When the
+// file doesn't exist: if explicit is false, it returns validated in-memory
+// defaults without touching the filesystem; if explicit is true (the caller
+// passed an explicit --config path), it returns an error.
+func loadConfigOrDefaults(configPath string, explicit bool) (*Config, error) {
 	data, err := os.ReadFile(configPath) // #nosec G304 - configPath is from trusted CLI flag or hardcoded default
 	if err != nil {
+		if os.IsNotExist(err) {
+			if explicit {
+				return nil, fmt.Errorf("config file not found: %s", configPath)
+			}
+
+			cfg := NewDefaultConfig()
+			if valErr := cfg.Validate(); valErr != nil {
+				return nil, valErr
+			}
+
+			return cfg, nil
+		}
+
 		return nil, fmt.Errorf("read config (at %s): %w", configPath, err)
 	}
 
