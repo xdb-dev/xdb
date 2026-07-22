@@ -585,3 +585,59 @@ scenarios:
         expect:
           exit: 3
           error: { code: "INVALID_ARGUMENT", resource: "schemas", action: "describe" }
+
+      - name: "filter syntax error → INVALID_ARGUMENT"
+        run: xdb records list --uri xdb://$NS/items --filter 'name =='
+        expect:
+          exit: 3
+          error: { code: "INVALID_ARGUMENT", resource: "records", action: "list" }
+
+      - name: "strict schema filter on unknown field → INVALID_ARGUMENT naming the field"
+        run: xdb records list --uri xdb://$NS/items --filter 'nosuchfield == "x"'
+        expect:
+          exit: 3
+          error: { code: "INVALID_ARGUMENT", resource: "records", action: "list" }
+          stderr_contains: "nosuchfield"
+
+  - name: "conflict-and-idempotency"
+    description: "records/schemas create is idempotent on an identical re-create and signals CONFLICT on a divergent one; delete --force stays idempotent."
+    steps:
+      - name: "create schema"
+        run: xdb schemas create --uri xdb://$NS/widgets --json '{"fields":{"name":{"type":"string","required":true},"qty":{"type":"integer"}}}'
+        expect: { exit: 0 }
+
+      - name: "create record"
+        run: xdb records create --uri xdb://$NS/widgets/w1 --json '{"name":"sprocket","qty":10}' -o json
+        expect:
+          exit: 0
+          json: { name: "sprocket", qty: 10 }
+
+      - name: "re-create with identical payload → idempotent success"
+        run: xdb records create --uri xdb://$NS/widgets/w1 --json '{"name":"sprocket","qty":10}' -o json
+        expect:
+          exit: 0
+          json: { name: "sprocket", qty: 10 }
+
+      - name: "re-create with different payload → CONFLICT"
+        run: xdb records create --uri xdb://$NS/widgets/w1 --json '{"name":"sprocket","qty":99}' -o json
+        expect:
+          exit: 1
+          error: { code: "CONFLICT", resource: "records", action: "create" }
+
+      - name: "delete --force"
+        run: xdb records delete --uri xdb://$NS/widgets/w1 --force
+        expect: { exit: 0 }
+
+      - name: "delete --force again is idempotent"
+        run: xdb records delete --uri xdb://$NS/widgets/w1 --force
+        expect: { exit: 0 }
+
+      - name: "re-create schema with identical definition → idempotent success"
+        run: xdb schemas create --uri xdb://$NS/widgets --json '{"fields":{"name":{"type":"string","required":true},"qty":{"type":"integer"}}}'
+        expect: { exit: 0 }
+
+      - name: "re-create schema with a changed definition → CONFLICT"
+        run: xdb schemas create --uri xdb://$NS/widgets --json '{"fields":{"name":{"type":"string","required":true},"qty":{"type":"integer"},"sku":{"type":"string"}}}'
+        expect:
+          exit: 1
+          error: { code: "CONFLICT", resource: "schemas", action: "create" }
