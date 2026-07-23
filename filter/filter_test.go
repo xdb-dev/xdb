@@ -324,7 +324,11 @@ func TestCompile_ReservedAttrUnderStrict(t *testing.T) {
 		},
 	}
 
-	f, err := Compile(`_updated_at > timestamp("2024-01-01T00:00:00Z")`, def)
+	f, err := Compile(`_updated > timestamp("2024-01-01T00:00:00Z")`, def)
+	require.NoError(t, err)
+	assert.NotNil(t, f)
+
+	f, err = Compile(`_id == "abc" && _version > 2`, def)
 	require.NoError(t, err)
 	assert.NotNil(t, f)
 }

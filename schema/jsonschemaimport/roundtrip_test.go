@@ -49,6 +49,10 @@ func runDocRoundTrip(t *testing.T, def *schema.Def, id string, doc []byte) {
 			if err := json.Unmarshal(out, &m); err != nil {
 				return err
 			}
+			// The store stamps these on write; they are not part of
+			// the document that went in.
+			delete(m, schema.FieldVersion)
+			delete(m, schema.FieldUpdated)
 			*(dst.(*map[string]any)) = m
 			return nil
 		},

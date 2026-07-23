@@ -17,6 +17,7 @@ import (
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/validate"
 	"github.com/xdb-dev/xdb/rpc/client"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 //go:embed CONTEXT.md
@@ -360,6 +361,13 @@ func formatRawJSON(cmd *cli.Command, raw json.RawMessage) error {
 	m, err := unmarshalPreserving(raw)
 	if err != nil {
 		return err
+	}
+
+	// The table view is for a human reading one record: _version earns
+	// its line (it is the precondition for the next write), _updated
+	// rarely does. Machine-readable formats keep everything.
+	if output.Detect(cmd.String("output"), isTerminalWriter(cmd.Root().Writer)) == output.FormatTable {
+		delete(m, schema.FieldUpdated)
 	}
 
 	return formatOne(cmd, m)

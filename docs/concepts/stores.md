@@ -15,13 +15,16 @@ The store is split into two layers:
 
 ```
         Store facade   record + tuple + schema verbs, all writes compiled
-                       to mutations; record assembly from tuples; namespace
-                       derivation; tx orchestration
+                       to mutations; record assembly from tuples; _id
+                       projection; namespace derivation; tx orchestration
   ┌──────────────────────┐
   │  logging             │  observes            (opt-in)
-  │  schema cache        │  accelerates         (opt-in)
   │  schema enforcement  │  modes, Required, dynamic evolve,
-  │                      │  Def.Validate, revision CAS   (ALWAYS installed)
+  │                      │  Def.Validate, revision CAS, system-field
+  │                      │  stamping             (ALWAYS installed)
+  │  schema cache        │  accelerates         (opt-in)
+  │  versioning          │  record CAS, _version/_updated stamping
+  │                      │                       (ALWAYS installed)
   └──────────────────────┘
         Driver           pure storage: memory | fs | redis | sqlite
 ```
@@ -149,8 +152,16 @@ Schema policy is enforced by middleware that `store.New` always installs — **u
 - `Required` fields are checked on full-record writes, and on merges that create a record.
 - `DeleteTuples` cannot strip a `Required` attr from a record (deleting the whole record is fine).
 - Schema updates validate compatibility (`ValidateUpdate`) and apply the revision CAS.
+- Every definition is stamped with the `_version` and `_updated` system fields, and definitions may not declare `_`-prefixed field names. See [Versioning](versioning.md).
 
 Violations are reported as `core.ErrSchemaViolation` (wrapping the specific schema error).
+
+## Versioning
+
+Every record carries `_id`, `_version`, and `_updated`. A write may echo
+`_version` back as an optimistic-concurrency precondition, which makes
+read-modify-write safe by default; a stale version fails with
+`core.ErrConflict`. See [Versioning](versioning.md) for the full contract.
 
 ## Optional Capabilities
 
@@ -207,7 +218,7 @@ The facade synthesizes lists from tuple scans, filters in-process, and paginates
 | `core.ErrNotFound`          | Get, Update, Delete | Requested resource does not exist    |
 | `core.ErrAlreadyExists`     | Create | Resource already exists                       |
 | `core.ErrSchemaViolation`   | Create, Update, Upsert, PutTuples | Data violates the schema definition |
-| `core.ErrConflict`          | UpdateSchema | Revision CAS failed — the caller's base is stale |
+| `core.ErrConflict`          | UpdateSchema, record writes | Revision or `_version` CAS failed — the caller's base is stale |
 
 All errors are sentinel values — use `errors.Is(err, core.ErrNotFound)` to check. (The `store.Err*` aliases are deprecated re-exports of the `core` sentinels.)
 

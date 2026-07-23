@@ -10,6 +10,7 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
+	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 )
 
@@ -41,17 +42,59 @@ func NewRecordService(s store.Store, opts ...ServiceOption) *RecordService {
 }
 
 // publish emits a change notification when an event bus is wired.
-func (s *RecordService) publish(eventType, uri string, data json.RawMessage) {
+// version is the record's version after the change, or 0 when unknown.
+func (s *RecordService) publish(
+	eventType, uri string,
+	data json.RawMessage,
+	version int64,
+) {
 	if s.events == nil {
 		return
 	}
 
 	s.events.Publish(WatchEvent{
-		Type: eventType,
-		URI:  uri,
-		Data: data,
-		TS:   time.Now(),
+		Type:    eventType,
+		URI:     uri,
+		Data:    data,
+		Version: version,
+		TS:      time.Now(),
 	})
+}
+
+// stored re-reads a record after a write. The version and timestamp the
+// store stamps are not visible on the record the caller handed in, so
+// responses and events are built from the stored state — otherwise a
+// write response would disagree with a subsequent read.
+func (s *RecordService) stored(
+	ctx context.Context,
+	uri *core.URI,
+) (json.RawMessage, int64, error) {
+	record, err := s.store.GetRecord(ctx, uri)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	data, err := s.enc.FromRecord(record)
+	if err != nil {
+		return nil, 0, fmt.Errorf("api: encode record: %w", err)
+	}
+
+	return data, recordVersion(record), nil
+}
+
+// recordVersion reads a record's stamped version, or 0 when absent.
+func recordVersion(record *core.Record) int64 {
+	tuple := record.Get(schema.FieldVersion)
+	if tuple == nil {
+		return 0
+	}
+
+	version, err := tuple.AsInt()
+	if err != nil {
+		return 0
+	}
+
+	return version
 }
 
 // CreateRecordRequest is the request for records.create.
@@ -120,13 +163,13 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 		return nil, err
 	}
 
-	resp, respErr := s.recordResponse(record)
-	if respErr != nil {
-		return nil, respErr
+	data, version, storedErr := s.stored(ctx, uri)
+	if storedErr != nil {
+		return nil, storedErr
 	}
-	s.publish("record.create", uri.String(), resp.Data)
+	s.publish("record.create", uri.String(), data, version)
 
-	return resp, nil
+	return &CreateRecordResponse{Data: data}, nil
 }
 
 // createConflictError reports a create over an existing record with
@@ -270,24 +313,57 @@ func (s *RecordService) Update(ctx context.Context, req *UpdateRecordRequest) (*
 		return s.dryRunUpdate(ctx, req, uri)
 	}
 
-	var updated *core.Record
 	err = runAtomic(ctx, s.tx, s.store, func(st store.Store) error {
-		var patchErr error
-		updated, patchErr = applyRecordPatch(ctx, st, st, uri, req.Data)
+		_, patchErr := applyRecordPatch(ctx, st, st, uri, req.Data)
 		return patchErr
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	data, encErr := s.enc.FromRecord(updated)
-	if encErr != nil {
-		return nil, fmt.Errorf("api: encode record: %w", encErr)
+	data, version, storedErr := s.stored(ctx, uri)
+	if storedErr != nil {
+		return nil, storedErr
 	}
 
-	s.publish("record.update", uri.String(), data)
+	s.publish("record.update", uri.String(), data, version)
 
 	return &UpdateRecordResponse{Data: data}, nil
+}
+
+// deleteChecked runs del against the record at uri, enforcing want as an
+// optimistic-concurrency precondition when it is non-zero. It returns
+// the version the record held when it was removed, so the change event
+// can be ordered against the writes before it.
+//
+// The check and the delete run in one transaction where the store
+// supports it, so the precondition cannot go stale in between.
+func (s *RecordService) deleteChecked(
+	ctx context.Context,
+	uri *core.URI,
+	want int64,
+	del func(store.Store) error,
+) (int64, error) {
+	var version int64
+
+	err := runAtomic(ctx, s.tx, s.store, func(st store.Store) error {
+		record, getErr := st.GetRecord(ctx, uri)
+		if getErr != nil {
+			return getErr
+		}
+
+		version = recordVersion(record)
+		if want != 0 && want != version {
+			return fmt.Errorf(
+				"records.delete %s: record is at version %d, not %d: %w",
+				uri, version, want, core.ErrConflict,
+			)
+		}
+
+		return del(st)
+	})
+
+	return version, err
 }
 
 // runAtomic performs a read-modify-write transactionally when the
@@ -402,20 +478,28 @@ func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*
 		return nil, upsertErr
 	}
 
-	data, encErr := s.enc.FromRecord(record)
-	if encErr != nil {
-		return nil, fmt.Errorf("api: encode record: %w", encErr)
+	data, version, storedErr := s.stored(ctx, uri)
+	if storedErr != nil {
+		return nil, storedErr
 	}
 
-	s.publish("record.upsert", uri.String(), data)
+	s.publish("record.upsert", uri.String(), data, version)
 
 	return &UpsertRecordResponse{Data: data}, nil
 }
 
 // DeleteRecordRequest is the request for records.delete.
+// DeleteRecordRequest is the request for records.delete.
+//
+// Version is an optional optimistic-concurrency precondition: the delete
+// proceeds only if the record is at that version, and fails with
+// [core.ErrConflict] otherwise. Zero deletes unconditionally. Every
+// other write verb carries its precondition inside the record payload;
+// delete has none, so it takes one here.
 type DeleteRecordRequest struct {
-	URI    string `json:"uri"`
-	DryRun bool   `json:"dry_run,omitempty"`
+	URI     string `json:"uri"`
+	Version int64  `json:"version,omitempty"`
+	DryRun  bool   `json:"dry_run,omitempty"`
 }
 
 // DeleteRecordResponse is the response for records.delete.
@@ -437,14 +521,19 @@ func (s *RecordService) Delete(ctx context.Context, req *DeleteRecordRequest) (*
 	}
 
 	if uri.Attr() != "" {
-		if deleteErr := s.tuples.DeleteTuples(ctx, uri); deleteErr != nil {
-			return nil, deleteErr
+		version, delErr := s.deleteChecked(ctx, uri.RecordURI(), req.Version,
+			func(st store.Store) error { return st.DeleteTuples(ctx, uri) },
+		)
+		if delErr != nil {
+			return nil, delErr
 		}
-		s.publish("record.delete", uri.String(), nil)
+		s.publish("record.delete", uri.String(), nil, version)
 		return &DeleteRecordResponse{}, nil
 	}
 
-	err = s.store.DeleteRecord(ctx, uri)
+	version, err := s.deleteChecked(ctx, uri, req.Version,
+		func(st store.Store) error { return st.DeleteRecord(ctx, uri) },
+	)
 	if errors.Is(err, core.ErrNotFound) {
 		return &DeleteRecordResponse{}, nil
 	}
@@ -453,7 +542,7 @@ func (s *RecordService) Delete(ctx context.Context, req *DeleteRecordRequest) (*
 		return nil, err
 	}
 
-	s.publish("record.delete", uri.String(), nil)
+	s.publish("record.delete", uri.String(), nil, version)
 
 	return &DeleteRecordResponse{}, nil
 }
@@ -505,6 +594,14 @@ func recordsEquivalent(enc *xdbjson.Encoder, a, b *core.Record) (bool, error) {
 	}
 	if err := json.Unmarshal(bData, &bm); err != nil {
 		return false, err
+	}
+
+	// The store derives these on every write, so a caller's payload
+	// never carries them and they say nothing about whether two records
+	// hold the same facts.
+	for _, m := range []map[string]any{am, bm} {
+		delete(m, schema.FieldVersion)
+		delete(m, schema.FieldUpdated)
 	}
 
 	return reflect.DeepEqual(am, bm), nil

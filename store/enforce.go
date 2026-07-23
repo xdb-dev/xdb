@@ -65,6 +65,10 @@ func (e *enforcer) DropRecords(ctx context.Context, uri *core.URI) error {
 // (merge-that-creates) see the effects of earlier mutations in the
 // same batch.
 func (e *enforcer) Apply(ctx context.Context, m Mutation) error {
+	m, err := normalizeDerived(m)
+	if err != nil {
+		return err
+	}
 	if err := e.check(ctx, m); err != nil {
 		return err
 	}
@@ -89,6 +93,11 @@ func (e *enforcer) check(ctx context.Context, m Mutation) error {
 // evolved definition is returned for the caller to persist;
 // validate-only callers discard it.
 func checkMutation(ctx context.Context, d Driver, m Mutation) (*schema.Def, error) {
+	m, err := normalizeDerived(m)
+	if err != nil {
+		return nil, err
+	}
+
 	def, err := d.GetSchema(ctx, m.Path.SchemaURI())
 	if errors.Is(err, core.ErrNotFound) {
 		return nil, nil
@@ -97,6 +106,37 @@ func checkMutation(ctx context.Context, d Driver, m Mutation) (*schema.Def, erro
 		return nil, err
 	}
 
+	// A definition written before versioning existed carries no system
+	// fields, so the tuples the versioning middleware is about to write
+	// would be undeclared — dropped outright by column-table backends.
+	// Upgrade it in place on first use; the write-back is the caller's
+	// to persist, exactly like a dynamic-mode evolution.
+	var upgraded *schema.Def
+	if !schema.HasSystemFields(def) {
+		def = schema.StampSystemFields(def)
+		def.Revision++
+		upgraded = def
+	}
+
+	evolved, err := checkAgainstDef(ctx, d, def, m)
+	if err != nil {
+		return nil, err
+	}
+	if evolved != nil {
+		return evolved, nil
+	}
+
+	return upgraded, nil
+}
+
+// checkAgainstDef validates one mutation against an already-upgraded
+// definition, returning any dynamic-mode evolution to persist.
+func checkAgainstDef(
+	ctx context.Context,
+	d Driver,
+	def *schema.Def,
+	m Mutation,
+) (*schema.Def, error) {
 	switch m.Op {
 	case OpCreate, OpPut:
 		// Replace-family ops carry the record's full tuple set, so the
@@ -199,11 +239,14 @@ func hasRequiredFields(def *schema.Def) bool {
 
 // --- Schema writes ---
 
-// CreateSchema validates the definition, stamps revision 1, and forwards.
+// CreateSchema validates the definition, stamps the system fields and
+// revision 1, and forwards.
 func (e *enforcer) CreateSchema(ctx context.Context, def *schema.Def) error {
-	if err := def.Validate(); err != nil {
+	user := schema.StripSystemFields(def)
+	if err := user.Validate(); err != nil {
 		return fmt.Errorf("%w: %w", core.ErrSchemaViolation, err)
 	}
+	def.Fields = schema.StampSystemFields(user).Fields
 	def.Revision = 1
 	return e.next.CreateSchema(ctx, def)
 }
@@ -214,9 +257,11 @@ func (e *enforcer) CreateSchema(ctx context.Context, def *schema.Def) error {
 // write-backs bypass this policy by calling the driver directly —
 // their revision is already bumped from the current def.)
 func (e *enforcer) PutSchema(ctx context.Context, def *schema.Def) error {
-	if err := def.Validate(); err != nil {
+	user := schema.StripSystemFields(def)
+	if err := user.Validate(); err != nil {
 		return fmt.Errorf("%w: %w", core.ErrSchemaViolation, err)
 	}
+	def.Fields = schema.StampSystemFields(user).Fields
 
 	existing, err := e.next.GetSchema(ctx, def.URI)
 	if err != nil {

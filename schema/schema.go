@@ -94,19 +94,28 @@ type Def struct {
 // receiver and its field map are never mutated. Stores use it to persist the
 // evolved schema after [EvolveDynamic] infers new fields.
 func (d *Def) CloneWithFields(newFields map[string]Field) *Def {
-	evolved := &Def{
-		URI:         d.URI,
-		Description: d.Description,
-		Mode:        d.Mode,
-		Revision:    d.Revision + 1,
-		Annotations: d.Annotations,
-		Fields:      make(map[string]Field, len(d.Fields)+len(newFields)),
-	}
-	for k, v := range d.Fields {
-		evolved.Fields[k] = v
-	}
+	evolved := d.clone()
+	evolved.Revision = d.Revision + 1
 	for k, v := range newFields {
 		evolved.Fields[k] = v
 	}
 	return evolved
+}
+
+// clone returns a shallow copy of the [Def] with its own field map, so
+// callers can add or remove fields without mutating the receiver. All
+// other metadata, Revision included, is carried over unchanged.
+func (d *Def) clone() *Def {
+	c := &Def{
+		URI:         d.URI,
+		Description: d.Description,
+		Mode:        d.Mode,
+		Revision:    d.Revision,
+		Annotations: d.Annotations,
+		Fields:      make(map[string]Field, len(d.Fields)+len(storedSystemFields())),
+	}
+	for k, v := range d.Fields {
+		c.Fields[k] = v
+	}
+	return c
 }

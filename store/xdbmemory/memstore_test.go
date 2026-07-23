@@ -85,3 +85,9 @@ func TestTypes(t *testing.T) {
 		return newStore()
 	}).Run(t)
 }
+
+func TestVersioning(t *testing.T) {
+	tests.NewVersionSuite(func() store.Store {
+		return newStore()
+	}).Run(t)
+}

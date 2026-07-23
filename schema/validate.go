@@ -39,17 +39,34 @@ var (
 
 // Validate checks that the schema definition is well-formed:
 //   - the mode is non-empty and recognized;
+//   - no top-level field name is reserved for system metadata
+//     ([IsSystemField]);
 //   - every field name parses as an attribute path;
 //   - no scalar/JSON field name is a path-prefix of another field;
 //   - every array field declares an element type;
 //   - an ARRAY<JSON> field's Items are validated recursively, and Items is set
 //     only on ARRAY<JSON> fields.
+//
+// The reserved-name rule is top-level only. The Items of an object-array
+// field are a separate namespace stored inside a JSON value: they never
+// become columns and are never stamped, so "_id" is a legitimate element
+// field (external documents routinely carry one).
 func (d *Def) Validate() error {
 	if _, ok := validModes[d.Mode]; !ok {
 		return errors.Wrap(ErrInvalidMode,
 			"mode", string(d.Mode),
 			"valid", validModeList(),
 		)
+	}
+
+	for name := range d.Fields {
+		if IsSystemField(name) {
+			return errors.Wrap(ErrInvalidField,
+				"field", name,
+				"reason", "field names starting with "+SystemPrefix+
+					" are reserved for system metadata",
+			)
+		}
 	}
 
 	return validateFields(d.Fields)

@@ -73,7 +73,7 @@ func New(d Driver, opts ...Option) Store {
 		f.qd = qd
 	}
 
-	stack := d
+	stack := versioned(d)
 	if o.cache {
 		f.cache = newDefCache(stack)
 		stack = f.cache
@@ -129,7 +129,7 @@ func (f *facade) inTx(ctx context.Context, fn func(td Driver) error) error {
 // schema cache is deliberately skipped: a tx that writes a Def must
 // read its own write, not a cached one.
 func (f *facade) wrapTx(td Driver) Driver {
-	stack := enforce(td)
+	stack := enforce(versioned(td))
 	if f.logger != nil {
 		stack = newLoggingDriver(f.logger, stack)
 	}
@@ -225,7 +225,9 @@ func (f *facade) queryRecords(
 		if len(tuples) == 0 {
 			continue
 		}
-		items = append(items, core.NewRecordFromTuples(tuples[0].Path(), tuples))
+		items = append(items,
+			projectID(core.NewRecordFromTuples(tuples[0].Path(), tuples)),
+		)
 	}
 
 	return &Page[*core.Record]{
@@ -603,10 +605,18 @@ func scanRecords(
 		path := tuple.Path()
 		if current == nil || current.URI().Path() != path.Path() {
 			current = core.NewRecord(path.NS(), path.Schema(), path.ID())
+			projectID(current)
 			records = append(records, current)
 		}
 		current.Set(tuple.Attr(), tuple.Value())
 	}
 
 	return records, nil
+}
+
+// projectID sets the record's virtual [schema.FieldID]. It is never
+// stored: every backend already holds the id as the record's addressing
+// key, so it is projected from the path on the way out.
+func projectID(record *core.Record) *core.Record {
+	return record.Set(schema.FieldID, record.URI().ID())
 }

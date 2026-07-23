@@ -795,3 +795,72 @@ func TestNextRevision(t *testing.T) {
 		assert.NotErrorIs(t, err, core.ErrNotFound)
 	})
 }
+
+func TestDef_Validate_ReservedFieldNames(t *testing.T) {
+	t.Parallel()
+
+	modes := []schema.Mode{
+		schema.ModeStrict,
+		schema.ModeDynamic,
+		schema.ModeFlexible,
+	}
+
+	t.Run("underscore-prefixed field names are rejected", func(t *testing.T) {
+		for _, name := range []string{"_id", "_version", "_updated", "_custom"} {
+			for _, mode := range modes {
+				t.Run(name+"/"+string(mode), func(t *testing.T) {
+					def := &schema.Def{
+						URI:  core.MustParseURI("xdb://x/y"),
+						Mode: mode,
+						Fields: map[string]schema.Field{
+							name: {Type: core.TypeString},
+						},
+					}
+					err := def.Validate()
+					require.ErrorIs(t, err, schema.ErrInvalidField)
+					assert.Contains(t, err.Error(), name)
+				})
+			}
+		}
+	})
+
+	t.Run("underscore inside a dotted path is allowed", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"profile._id": {Type: core.TypeString},
+			},
+		}
+		assert.NoError(t, def.Validate())
+	})
+
+	t.Run("underscore-prefixed names are allowed inside object array items", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://x/y"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"docs": {
+					Type: core.NewArrayType(core.TIDJSON),
+					Items: map[string]schema.Field{
+						"_id": {Type: core.TypeString},
+					},
+				},
+			},
+		}
+		assert.NoError(t, def.Validate())
+	})
+}
+
+func TestIsSystemField(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, schema.IsSystemField(schema.FieldID))
+	assert.True(t, schema.IsSystemField(schema.FieldVersion))
+	assert.True(t, schema.IsSystemField(schema.FieldUpdated))
+	assert.True(t, schema.IsSystemField("_anything"))
+
+	assert.False(t, schema.IsSystemField("name"))
+	assert.False(t, schema.IsSystemField("profile._id"))
+	assert.False(t, schema.IsSystemField(""))
+}

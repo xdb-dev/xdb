@@ -399,6 +399,11 @@ func computeDelta(stored, imported *schema.Def, source srcFormat) schemaDelta {
 		return d
 	}
 
+	// The store stamps system fields onto every definition; no source
+	// format declares them, so comparing them would report permanent
+	// drift on an otherwise identical schema.
+	stored = schema.StripSystemFields(stored)
+
 	var addedNames, removedNames []string
 
 	for _, name := range sortedFieldNames(imported.Fields) {

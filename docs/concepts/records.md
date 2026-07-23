@@ -88,6 +88,20 @@ record.URI().ID()         // string — record identifier
 record.IsEmpty()          // bool   — true if no tuples
 ```
 
+### System Fields
+
+A record read from a [Store](stores.md) also carries three system fields:
+
+```go
+record.Get("_id").AsStr()        // "post-123" — projected from the path
+record.Get("_version").AsInt()   // 3 — bumped on every write
+record.Get("_updated").AsTime()  // last write timestamp
+```
+
+Writing the record back uses `_version` as an optimistic-concurrency
+precondition, so read-modify-write is safe by default. See
+[Versioning](versioning.md).
+
 ## Thread Safety
 
 Records use `sync.RWMutex` internally:
@@ -108,7 +122,9 @@ all.
 
 Because a record is exactly its tuple set, a record with no tuples
 does not exist: storing an empty record persists nothing, and deleting
-a record's last tuple (via `DeleteTuples`) removes the record.
+a record's last tuple (via `DeleteTuples`) removes the record. System
+fields do not keep a record alive — removing the last *user* tuple
+removes the record and its metadata with it.
 
 ## Related Concepts
 

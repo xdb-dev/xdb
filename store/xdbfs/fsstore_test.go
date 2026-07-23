@@ -87,6 +87,12 @@ func TestTypes(t *testing.T) {
 	}).Run(t)
 }
 
+func TestVersioning(t *testing.T) {
+	tests.NewVersionSuite(func() store.Store {
+		return newTestStore(t)
+	}).Run(t)
+}
+
 // Policy suites (ModeStoreSuite, CascadeStoreSuite) are
 // driver-independent and run once against the memory reference; see
 // the tests package doc. This backend's storage behavior is pinned by

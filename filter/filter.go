@@ -15,10 +15,16 @@ import (
 // reservedAttrTypes maps reserved attribute names to their CEL type. These
 // attributes are always filterable, in every schema mode, without being
 // declared as schema fields — they never trip strict mode's unknown-field
-// rejection. _updated_at is not yet written by any store (Phase 14 adds
-// that); declaring it here lands the filter-side support first.
+// rejection.
+//
+// [schema.FieldVersion] and [schema.FieldUpdated] are stamped onto every
+// definition, so a stored def usually declares them and wins here.
+// [schema.FieldID] never is: it is projected from the record path rather
+// than stored, so this is the only place it is declared.
 var reservedAttrTypes = map[string]*cel.Type{
-	"_updated_at": cel.TimestampType,
+	schema.FieldID:      cel.StringType,
+	schema.FieldVersion: cel.IntType,
+	schema.FieldUpdated: cel.TimestampType,
 }
 
 // Filter is a compiled CEL filter expression.

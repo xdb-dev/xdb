@@ -76,6 +76,22 @@ generated), and non-strict backends (or a strict schema evaluated through
 the in-memory fallback) enforce it identically since the same `filter.Compile`
 call governs both paths.
 
+### System fields
+
+`_id`, `_version`, and `_updated` are filterable in every mode without
+being declared, and never trip strict mode's unknown-field rejection:
+
+```
+_version > 5
+_updated > timestamp("2026-01-01T00:00:00Z")
+_id.startsWith("user-")
+```
+
+`_version` and `_updated` are stamped onto every definition, so they are
+real columns in a column-table backend. `_id` is projected from the
+record path rather than stored, and resolves to the id column every
+backend already keys on. See [Versioning](versioning.md).
+
 ## Relationship to AIP-160
 
 XDB follows the [AIP-160](https://google.aip.dev/160) filtering standard conceptually — field traversal, comparison operators, and function calls all match AIP-160 patterns. The implementation uses CEL's stricter syntax conventions:

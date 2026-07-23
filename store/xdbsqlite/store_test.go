@@ -76,6 +76,12 @@ func TestTypes(t *testing.T) {
 	}).Run(t)
 }
 
+func TestVersioning(t *testing.T) {
+	tests.NewVersionSuite(func() store.Store {
+		return newTestStore(t)
+	}).Run(t)
+}
+
 // Policy suites (ModeStoreSuite, CascadeStoreSuite) are
 // driver-independent and run once against the memory reference; see
 // the tests package doc. This backend's storage behavior is pinned by
@@ -239,11 +245,13 @@ func TestUpdateSchema_DDLEvolution(t *testing.T) {
 			"title": {Type: core.TypeString},
 		})))
 
-		// Verify schema only has title.
+		// Verify schema only has title. System fields are stamped onto
+		// every definition, so compare what the user declared.
 		def, err := st.GetSchema(ctx, uri)
 		require.NoError(t, err)
-		assert.Len(t, def.Fields, 1)
-		assert.Contains(t, def.Fields, "title")
+		declared := schema.StripSystemFields(def).Fields
+		assert.Len(t, declared, 1)
+		assert.Contains(t, declared, "title")
 	})
 
 	t.Run("adds and drops in same update", func(t *testing.T) {

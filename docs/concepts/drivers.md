@@ -8,7 +8,9 @@ package: store, store/xdbmemory, store/xdbfs, store/xdbredis, store/xdbsqlite
 
 A **Driver** is what a storage backend implements. The driver boundary speaks exactly one unit: [tuples](tuples.md). Reads return tuples; writes are batches of per-record mutations carrying intent as data. `core.Record` never crosses this boundary — records are assembled by the [store facade](stores.md) from tuple reads and compiled into mutations on writes.
 
-Drivers are **pure storage**. No validation, no mode enforcement, no revision stamping, no namespace derivation — all policy lives in the middleware that `store.New` installs. A new backend implements `Driver` and inherits every guarantee; it cannot forget validation, because validation was never its job.
+Drivers are **pure storage**. No validation, no mode enforcement, no revision stamping, no namespace derivation, no versioning — all policy lives in the middleware that `store.New` installs. A new backend implements `Driver` and inherits every guarantee; it cannot forget validation, because validation was never its job.
+
+That includes [per-record versioning](versioning.md): `_version` and `_updated` reach a driver as ordinary tuples of ordinary declared fields, in the same mutation as the record's own data. A driver stores them the way it stores anything else, and needs to know nothing about them.
 
 `Driver` composes four storage roles, each a small interface a wrapper can
 depend on in isolation:

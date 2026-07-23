@@ -306,7 +306,9 @@ func schemasEquivalent(a, b *schema.Def) (bool, error) {
 // schemaDefMap encodes a [schema.Def] to its canonical JSON form and
 // decodes it into a map, with the revision key removed, for comparison.
 func schemaDefMap(d *schema.Def) (map[string]any, error) {
-	data, err := json.Marshal(d)
+	// System fields are stamped by the store, not declared by the
+	// caller, so they are no more part of the comparison than revision.
+	data, err := json.Marshal(schema.StripSystemFields(d))
 	if err != nil {
 		return nil, err
 	}

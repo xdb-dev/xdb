@@ -266,8 +266,9 @@ func (a *App) recordDelete(ctx context.Context, cmd *cli.Command) error {
 
 	var resp api.DeleteRecordResponse
 	if err := a.client.Call(ctx, "records.delete", &api.DeleteRecordRequest{
-		URI:    uri,
-		DryRun: dryRun,
+		URI:     uri,
+		Version: int64(cmd.Int("if-version")),
+		DryRun:  dryRun,
 	}, &resp); err != nil {
 		return wrapRPCError("records", "delete", uri, err)
 	}
@@ -326,6 +327,7 @@ func recordDeleteFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{Name: "uri", Usage: "Record URI"},
 		&cli.BoolFlag{Name: "force", Usage: "Confirm deletion"},
+		&cli.IntFlag{Name: "if-version", Usage: "Delete only if the record is at this version"},
 		&cli.BoolFlag{Name: "dry-run", Usage: "Validate without deleting"},
 		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 		&cli.BoolFlag{Name: "quiet", Usage: "Suppress output"},

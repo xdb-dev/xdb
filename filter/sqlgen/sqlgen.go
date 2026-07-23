@@ -98,6 +98,14 @@ func (g *generator) walkIdent(name string) (string, error) {
 		return name, nil
 	}
 
+	// The record id is projected from the path, never declared as a
+	// field — but it is exactly the physical id column both layouts key
+	// on, so it needs an exemption from the membership check and no
+	// translation beyond it.
+	if name == schema.FieldID {
+		return quoteIdent(name), nil
+	}
+
 	if g.def != nil {
 		if _, ok := g.def.Fields[name]; !ok {
 			return "", fmt.Errorf("%w: %q", ErrUnknownColumn, name)

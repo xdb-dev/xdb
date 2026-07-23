@@ -108,6 +108,11 @@ Schemas are validated at two boundaries:
 2. **Record writes** — values are validated against the schema's field
    definitions at write time through the store layer.
 
+Every stored definition additionally carries the `_version` and
+`_updated` [system fields](versioning.md), stamped by the store. They are
+not part of what you declare — schema import strips them, and a
+definition you hand back on update is re-stamped canonically.
+
 ### Declaration checks
 
 `CreateSchema` and `UpdateSchema` reject malformed or incompatible schemas:
@@ -119,6 +124,11 @@ err := schema.ValidateUpdate(old, new)   // compatibility with existing
 
 - **Well-formedness** — every `array` field must declare an element type
   (`elem_type` in JSON). Violations produce `ErrInvalidField`.
+- **Reserved names** — a top-level field name may not begin with `_`;
+  that namespace belongs to the [system fields](versioning.md). Violations
+  produce `ErrInvalidField`. The rule is top-level only: the `Items` of an
+  object-array field are a separate namespace inside a JSON value, so an
+  element field named `_id` is legal.
 - **Immutability** — on update, an existing field's type (including an array's
   element type) cannot change, and the schema's `Mode` cannot change. Violations
   produce `ErrImmutableField` and `ErrImmutableMode` respectively. Adding new

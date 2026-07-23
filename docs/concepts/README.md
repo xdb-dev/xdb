@@ -10,6 +10,7 @@ The [CLI](../../cmd/xdb/cli/CONTEXT.md) exposes these concepts as the primitives
 - [Records](records.md) — Groups of tuples representing a single entity
 - [Schemas](schemas.md) — Structure definitions and validation modes
 - [Namespaces](namespaces.md) — Logical grouping of schemas
+- [Versioning](versioning.md) — Per-record `_id`/`_version`/`_updated` and optimistic concurrency
 
 ## Addressing
 
