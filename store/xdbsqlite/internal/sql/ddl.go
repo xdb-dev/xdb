@@ -149,6 +149,20 @@ func (q *Queries) CreateIndex(ctx context.Context, arg CreateIndexParams) error 
 	return err
 }
 
+// DropIndexParams are the arguments for [Queries.DropIndex].
+type DropIndexParams struct {
+	Name string
+}
+
+// DropIndex drops an index by name. Used when a schema update removes an
+// indexed field: the index must go before the column, or SQLite refuses
+// to drop a column an index still references.
+func (q *Queries) DropIndex(ctx context.Context, arg DropIndexParams) error {
+	query := fmt.Sprintf("DROP INDEX IF EXISTS %s", arg.Name)
+	_, err := q.db.ExecContext(ctx, query)
+	return err
+}
+
 // DropTableParams are the arguments for [Queries.DropTable].
 type DropTableParams struct {
 	Table string

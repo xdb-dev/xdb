@@ -22,6 +22,13 @@ func columnTableName(uri *core.URI) string {
 	return `"t:` + uri.NS() + `/` + uri.Schema() + `"`
 }
 
+// columnIndexName returns the quoted name of the index backing an indexed
+// or unique field on a column table. Format: "ix:t:<ns>/<schema>:<field>".
+// The name is unique per database, mirroring [kvIndexName].
+func columnIndexName(uri *core.URI, field string) string {
+	return `"ix:t:` + uri.NS() + `/` + uri.Schema() + `:` + field + `"`
+}
+
 // parseKVTable parses an unquoted "kv:<ns>/<schema>" table name into
 // its schema URI. Returns false for any other name.
 func parseKVTable(name string) (*core.URI, bool) {

@@ -859,3 +859,71 @@ scenarios:
       - name: "skill delete step"
         run: xdb records delete --uri xdb://$NS/todos/todo-1 --force
         expect: { exit: 0 }
+
+  - name: "unique-and-indexed-fields"
+    description: "A field marked unique rejects duplicate values; an indexed field filters correctly; describe surfaces both markers. The default sqlite backend materializes the index and the uniqueness constraint."
+    steps:
+      - name: "create schema with a unique email and an indexed status"
+        run: xdb schemas create --uri xdb://$NS/members --json '{"fields":{"email":{"type":"string","unique":true},"status":{"type":"string","indexed":true},"name":{"type":"string"}}}'
+        expect: { exit: 0 }
+
+      - name: "describe surfaces the unique marker"
+        run: xdb describe --uri xdb://$NS/members -o json
+        expect:
+          exit: 0
+          stdout_contains: "unique"
+
+      - name: "describe surfaces the indexed marker"
+        run: xdb describe --uri xdb://$NS/members -o json
+        expect:
+          exit: 0
+          stdout_contains: "indexed"
+
+      - name: "first member takes the unique email"
+        run: xdb records create --uri xdb://$NS/members/m1 --json '{"email":"ada@x.io","status":"active","name":"Ada"}' -o json
+        expect:
+          exit: 0
+          json: { _id: "m1", email: "ada@x.io" }
+
+      - name: "a duplicate email is rejected with CONFLICT"
+        run: xdb records create --uri xdb://$NS/members/m2 --json '{"email":"ada@x.io","status":"active","name":"Grace"}'
+        expect:
+          exit_nonzero: true
+          stderr_contains: "email"
+          error: { code: "CONFLICT", resource: "records", action: "create" }
+
+      - name: "a distinct email still succeeds"
+        run: xdb records create --uri xdb://$NS/members/m3 --json '{"email":"grace@x.io","status":"archived","name":"Grace"}'
+        expect: { exit: 0 }
+
+      - name: "filter on the indexed field returns only the match"
+        run: xdb records list --uri xdb://$NS/members --filter 'status == "active"' --fields _id -o ndjson
+        expect:
+          exit: 0
+          ndjson_count: 1
+          ndjson_ids: ["m1"]
+
+  - name: "indexed-unique-guardrails"
+    description: "indexed and unique are scalar-only and fixed at creation: array/json fields are rejected at create time, and toggling the marker on an existing field is a schema violation."
+    steps:
+      - name: "indexed on an array field is rejected"
+        run: xdb schemas create --uri xdb://$NS/bad-array --json '{"fields":{"tags":{"type":"array","elem_type":"string","indexed":true}}}'
+        expect:
+          exit_nonzero: true
+          error: { code: "SCHEMA_VIOLATION", resource: "schemas", action: "create" }
+
+      - name: "unique on a json field is rejected"
+        run: xdb schemas create --uri xdb://$NS/bad-json --json '{"fields":{"blob":{"type":"json","unique":true}}}'
+        expect:
+          exit_nonzero: true
+          error: { code: "SCHEMA_VIOLATION", resource: "schemas", action: "create" }
+
+      - name: "create a schema with a plain scalar field"
+        run: xdb schemas create --uri xdb://$NS/widgets --json '{"fields":{"sku":{"type":"string"}}}'
+        expect: { exit: 0 }
+
+      - name: "marking an existing field unique on update is rejected"
+        run: xdb schemas update --uri xdb://$NS/widgets --json '{"fields":{"sku":{"type":"string","unique":true}}}'
+        expect:
+          exit_nonzero: true
+          error: { code: "SCHEMA_VIOLATION", resource: "schemas", action: "update" }

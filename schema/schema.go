@@ -76,6 +76,8 @@ type Field struct {
 	Type        core.Type
 	Description string
 	Required    bool
+	Indexed     bool
+	Unique      bool
 }
 
 // Def represents a schema definition. It is the intermediate representation

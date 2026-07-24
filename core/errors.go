@@ -28,6 +28,13 @@ var (
 	// wrap [ErrNotFound].
 	ErrConflict = errors.New("[xdb/core] revision conflict")
 
+	// ErrUniqueViolation is returned when a write violates a field's unique
+	// constraint: another record already holds the same value for a field
+	// declared unique. It is a write-time conflict distinct from the
+	// revision [ErrConflict], and is enforced only by backends that
+	// materialize a unique index (currently SQLite column tables).
+	ErrUniqueViolation = errors.New("[xdb/core] unique constraint violation")
+
 	// ErrInvalidFilter is returned when a filter expression is empty or fails
 	// to parse, type-check, or compile.
 	ErrInvalidFilter = errors.New("[xdb/core] invalid filter")

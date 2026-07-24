@@ -231,6 +231,59 @@ func TestDef_UnmarshalJSON_FieldDetails(t *testing.T) {
 	assert.False(t, active.Required)
 }
 
+func TestDef_JSON_IndexedUnique(t *testing.T) {
+	t.Parallel()
+
+	t.Run("marshal emits indexed and unique", func(t *testing.T) {
+		def := &schema.Def{
+			URI:  core.MustParseURI("xdb://com.example/users"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"email":  {Type: core.TypeString, Unique: true},
+				"status": {Type: core.TypeString, Indexed: true},
+				"name":   {Type: core.TypeString},
+			},
+		}
+
+		data, err := json.Marshal(def)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{
+			"uri": "xdb://com.example/users",
+			"mode": "strict",
+			"fields": {
+				"email":  {"type": "string", "unique": true},
+				"status": {"type": "string", "indexed": true},
+				"name":   {"type": "string"}
+			}
+		}`, string(data))
+	})
+
+	t.Run("round-trip preserves both flags", func(t *testing.T) {
+		original := &schema.Def{
+			URI:  core.MustParseURI("xdb://com.example/users"),
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"email":  {Type: core.TypeString, Unique: true, Indexed: true},
+				"status": {Type: core.TypeString, Indexed: true},
+				"name":   {Type: core.TypeString},
+			},
+		}
+
+		data, err := json.Marshal(original)
+		require.NoError(t, err)
+
+		var decoded schema.Def
+		require.NoError(t, json.Unmarshal(data, &decoded))
+
+		email := decoded.Fields["email"]
+		assert.True(t, email.Unique, "email.Unique")
+		assert.True(t, email.Indexed, "email.Indexed")
+		assert.True(t, decoded.Fields["status"].Indexed, "status.Indexed")
+		assert.False(t, decoded.Fields["name"].Indexed, "name.Indexed")
+		assert.False(t, decoded.Fields["name"].Unique, "name.Unique")
+	})
+}
+
 func TestDef_JSON_RoundTrip(t *testing.T) {
 	t.Parallel()
 

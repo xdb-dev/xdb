@@ -60,6 +60,34 @@ field exists, and a schema's **mode is immutable** too. `UpdateSchema` rejects a
 type change with `ErrImmutableField` and a mode change with `ErrImmutableMode`.
 Adding new fields and removing existing fields are still allowed.
 
+#### Indexed and unique fields
+
+A scalar field may be marked `indexed` (accelerate equality/`in` lookups) or
+`unique` (reject duplicate values). Both are declared per field:
+
+```go
+schema.Field{Type: core.NewType(core.TIDString), Indexed: true} // lookup key
+schema.Field{Type: core.NewType(core.TIDString), Unique: true}  // unique constraint
+```
+
+In JSON: `{"type": "string", "indexed": true}` or `{"type": "string", "unique": true}`.
+
+Rules:
+
+- **Scalar-only.** `indexed` and `unique` are rejected on `ARRAY` and `JSON`
+  fields with `ErrInvalidField` — those are serialized values the filter
+  pushdown cannot compare by equality.
+- **Fixed at creation.** Like `type`, the flags are immutable. `UpdateSchema`
+  rejects toggling them with `ErrImmutableField`; adding a new indexed/unique
+  field or removing one is allowed.
+- **Backend-honored.** Only the SQLite backend materializes them — a strict or
+  dynamic schema builds a real index (`CREATE INDEX`, or `CREATE UNIQUE INDEX`
+  for `unique`) on its column table, and a duplicate write then fails with
+  `ErrUniqueViolation`. Other backends (memory, filesystem, redis) and SQLite's
+  flexible/KV tables persist the flags but do not enforce or accelerate them, so
+  `unique` is **not** a portable guarantee. `unique` constrains present values
+  only: multiple records may omit the field (NULLs are distinct).
+
 ## Modes
 
 Schemas support three validation modes:

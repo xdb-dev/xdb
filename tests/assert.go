@@ -78,5 +78,7 @@ func AssertDefEqual(t *testing.T, expected, actual *schema.Def) {
 		require.True(t, ok, "Def: field %s not found", name)
 		assert.Equal(t, expectedField.Type, actualField.Type, "Field: type mismatch for %s", name)
 		assert.Equal(t, expectedField.Required, actualField.Required, "Field: required mismatch for %s", name)
+		assert.Equal(t, expectedField.Indexed, actualField.Indexed, "Field: indexed mismatch for %s", name)
+		assert.Equal(t, expectedField.Unique, actualField.Unique, "Field: unique mismatch for %s", name)
 	}
 }

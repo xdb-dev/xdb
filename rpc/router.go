@@ -271,6 +271,8 @@ func MapError(err error) *Error {
 		return SchemaViolation(msg)
 	case errors.Is(err, core.ErrConflict):
 		return Conflict(msg)
+	case errors.Is(err, core.ErrUniqueViolation):
+		return Conflict(msg)
 	case errors.Is(err, core.ErrNotImplemented):
 		return NotImplemented(msg)
 	case errors.Is(err, core.ErrInvalidURI):

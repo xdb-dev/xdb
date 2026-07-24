@@ -209,7 +209,7 @@ type Page[T any] struct {
 - `NextOffset` is 0 when there are no more pages
 - `Total` is the total count of matching items (not just the current page)
 
-The facade synthesizes lists from tuple scans, filters in-process, and paginates. Drivers with native filter pushdown (sqlite compiles CEL to SQL WHERE clauses) handle schema-scoped queries in the database instead.
+The facade synthesizes lists from tuple scans, filters in-process, and paginates. Drivers with native filter pushdown (sqlite compiles CEL to SQL WHERE clauses) handle schema-scoped queries in the database instead. A field marked `indexed` or `unique` in its [schema](schemas.md) accelerates that pushdown on sqlite (and `unique` rejects duplicate writes with `ErrUniqueViolation`); other backends store the flag but gain nothing.
 
 ## Errors
 
@@ -219,6 +219,7 @@ The facade synthesizes lists from tuple scans, filters in-process, and paginates
 | `core.ErrAlreadyExists`     | Create | Resource already exists                       |
 | `core.ErrSchemaViolation`   | Create, Update, Upsert, PutTuples | Data violates the schema definition |
 | `core.ErrConflict`          | UpdateSchema, record writes | Revision or `_version` CAS failed — the caller's base is stale |
+| `core.ErrUniqueViolation`   | Create, Upsert, PutTuples | A write collides with a `unique` field on another record (SQLite only) |
 
 All errors are sentinel values — use `errors.Is(err, core.ErrNotFound)` to check. (The `store.Err*` aliases are deprecated re-exports of the `core` sentinels.)
 

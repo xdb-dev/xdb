@@ -178,6 +178,36 @@ func TestSchemaService_Create(t *testing.T) {
 	})
 }
 
+func TestSchemaService_CreateWithIndexedUnique(t *testing.T) {
+	svc := newSchemaService()
+	ctx := context.Background()
+
+	data := json.RawMessage(`{
+		"mode": "strict",
+		"fields": {
+			"email":  {"type": "string", "unique": true},
+			"status": {"type": "string", "indexed": true},
+			"name":   {"type": "string"}
+		}
+	}`)
+
+	resp, err := svc.Create(ctx, &api.CreateSchemaRequest{
+		URI:  "xdb://myapp/members",
+		Data: data,
+	})
+	require.NoError(t, err)
+
+	assert.True(t, resp.Data.Fields["email"].Unique, "email.Unique preserved")
+	assert.True(t, resp.Data.Fields["status"].Indexed, "status.Indexed preserved")
+	assert.False(t, resp.Data.Fields["name"].Indexed, "name.Indexed")
+
+	// Survives a round-trip through the store.
+	getResp, err := svc.Get(ctx, &api.GetSchemaRequest{URI: "xdb://myapp/members"})
+	require.NoError(t, err)
+	assert.True(t, getResp.Data.Fields["email"].Unique, "email.Unique persisted")
+	assert.True(t, getResp.Data.Fields["status"].Indexed, "status.Indexed persisted")
+}
+
 func TestSchemaService_Get(t *testing.T) {
 	svc := newSchemaService()
 	ctx := context.Background()

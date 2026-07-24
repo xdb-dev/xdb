@@ -44,6 +44,7 @@ var (
 //   - every field name parses as an attribute path;
 //   - no scalar/JSON field name is a path-prefix of another field;
 //   - every array field declares an element type;
+//   - indexed and unique fields are scalar (not ARRAY or JSON);
 //   - an ARRAY<JSON> field's Items are validated recursively, and Items is set
 //     only on ARRAY<JSON> fields.
 //
@@ -92,6 +93,16 @@ func validateFields(fields map[string]Field) error {
 			)
 		}
 
+		if field.Indexed || field.Unique {
+			if !isIndexable(field.Type) {
+				return errors.Wrap(ErrInvalidField,
+					"field", name,
+					"reason", "indexed and unique are only valid on scalar fields, not "+
+						field.Type.ID().String(),
+				)
+			}
+		}
+
 		if len(field.Items) > 0 {
 			if !isObjectArray(field) {
 				return errors.Wrap(ErrInvalidField,
@@ -131,6 +142,19 @@ func isObjectArray(field Field) bool {
 		field.Type.ElemTypeID() == core.TIDJSON
 }
 
+// isIndexable reports whether a field type may carry an index or unique
+// constraint. Only scalar types qualify: ARRAY and JSON values are serialized
+// blobs that the filter pushdown cannot compare by equality, so indexing them
+// is meaningless.
+func isIndexable(t core.Type) bool {
+	switch t.ID() {
+	case core.TIDArray, core.TIDJSON:
+		return false
+	default:
+		return true
+	}
+}
+
 // validFieldName reports whether name parses as a single attribute path,
 // reusing core's attribute validation via [core.ParsePath].
 func validFieldName(name string) bool {
@@ -143,8 +167,9 @@ func validFieldName(name string) bool {
 
 // ValidateUpdate checks that updated is a compatible evolution of existing.
 // The mode must not change. Fields that appear in both must not change Type,
-// and array fields must not change their element type once set. Adding new
-// fields and removing existing fields are allowed.
+// their array element type, or their Indexed/Unique flags — indexing is fixed
+// at creation. Adding new fields (indexed or not) and removing existing fields
+// are allowed.
 func ValidateUpdate(existing, updated *Def) error {
 	if existing.Mode != updated.Mode {
 		return errors.Wrap(ErrImmutableMode,
@@ -174,6 +199,18 @@ func ValidateUpdate(existing, updated *Def) error {
 				"reason", "elem_type cannot change",
 				"from", oldField.Type.ElemTypeID().String(),
 				"to", newField.Type.ElemTypeID().String(),
+			)
+		}
+		if oldField.Indexed != newField.Indexed {
+			return errors.Wrap(ErrImmutableField,
+				"field", name,
+				"reason", "indexed cannot change after creation",
+			)
+		}
+		if oldField.Unique != newField.Unique {
+			return errors.Wrap(ErrImmutableField,
+				"field", name,
+				"reason", "unique cannot change after creation",
 			)
 		}
 	}

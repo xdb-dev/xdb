@@ -346,6 +346,8 @@ type schemaFieldPayload struct {
 	ElemType    string                        `json:"elem_type,omitempty"`
 	Description string                        `json:"description,omitempty"`
 	Required    bool                          `json:"required,omitempty"`
+	Indexed     bool                          `json:"indexed,omitempty"`
+	Unique      bool                          `json:"unique,omitempty"`
 }
 
 // schemaDefPayload is the JSON-safe subset of [schema.Def] used for
@@ -413,6 +415,8 @@ func payloadToField(fp schemaFieldPayload) (schema.Field, error) {
 	field := schema.Field{
 		Type:        t,
 		Required:    fp.Required,
+		Indexed:     fp.Indexed,
+		Unique:      fp.Unique,
 		Description: fp.Description,
 		Annotations: fp.Annotations,
 	}

@@ -156,15 +156,26 @@ func (e *tableEngine) queryRecords(
 }
 
 func (e *tableEngine) ensure(ctx context.Context, _ *core.URI) error {
-	return e.q.CreateTable(ctx, xsql.CreateTableParams{
+	if err := e.q.CreateTable(ctx, xsql.CreateTableParams{
 		Table:   columnTableName(e.def.URI),
 		Columns: columnDefs(e.def),
-	})
+	}); err != nil {
+		return err
+	}
+
+	for _, name := range indexedFields(e.def) {
+		if err := e.createIndex(ctx, name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // evolve alters the column table to match the new field set: added
-// fields become columns, removed fields drop theirs. Type changes are
-// middleware's job to reject; the driver stores what it is given.
+// fields become columns (and gain an index when indexed/unique), removed
+// fields drop theirs (dropping any index first, since SQLite refuses to
+// drop a column an index still references). Type and index-flag changes
+// are middleware's job to reject; the driver stores what it is given.
 func (e *tableEngine) evolve(ctx context.Context, old *schema.Def) error {
 	table := columnTableName(e.def.URI)
 
@@ -187,6 +198,11 @@ func (e *tableEngine) evolve(ctx context.Context, old *schema.Def) error {
 		if err != nil {
 			return err
 		}
+		if field := e.def.Fields[name]; field.Indexed || field.Unique {
+			if err := e.createIndex(ctx, name); err != nil {
+				return err
+			}
+		}
 	}
 
 	removed := make([]string, 0, len(old.Fields))
@@ -198,6 +214,14 @@ func (e *tableEngine) evolve(ctx context.Context, old *schema.Def) error {
 	sort.Strings(removed)
 
 	for _, name := range removed {
+		if field := old.Fields[name]; field.Indexed || field.Unique {
+			err := e.q.DropIndex(ctx, xsql.DropIndexParams{
+				Name: columnIndexName(e.def.URI, name),
+			})
+			if err != nil {
+				return err
+			}
+		}
 		err := e.q.DropColumn(ctx, xsql.DropColumnParams{
 			Table:  table,
 			Column: name,
@@ -208,6 +232,20 @@ func (e *tableEngine) evolve(ctx context.Context, old *schema.Def) error {
 	}
 
 	return nil
+}
+
+// createIndex materializes the index backing one indexed or unique field.
+// A unique field gets a UNIQUE index, which both accelerates lookups and
+// enforces uniqueness at write time.
+func (e *tableEngine) createIndex(ctx context.Context, field string) error {
+	return e.q.CreateIndex(ctx, xsql.CreateIndexParams{
+		Table: columnTableName(e.def.URI),
+		Index: xsql.Index{
+			Name:    columnIndexName(e.def.URI, field),
+			Columns: []string{field},
+			Unique:  e.def.Fields[field].Unique,
+		},
+	})
 }
 
 func (e *tableEngine) drop(ctx context.Context, schemaURI *core.URI) error {

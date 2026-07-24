@@ -623,6 +623,12 @@ func describeField(name string, f schema.Field) map[string]any {
 		"required": f.Required,
 	}
 
+	if f.Indexed {
+		entry["indexed"] = true
+	}
+	if f.Unique {
+		entry["unique"] = true
+	}
 	if f.Description != "" {
 		entry["description"] = f.Description
 	}
@@ -689,6 +695,8 @@ func describeSchemaFormat(cmd *cli.Command) error {
 		"field_keys": []map[string]string{
 			{"key": "type", "description": "Value type name (required)"},
 			{"key": "required", "description": "Reject writes missing this field"},
+			{"key": "indexed", "description": "Build a lookup index on this scalar field (SQLite backend; hint elsewhere)"},
+			{"key": "unique", "description": "Enforce values are unique across records (SQLite backend; fixed at create)"},
 			{"key": "elem_type", "description": "Element type; required when type is array"},
 			{"key": "items", "description": "Member field definitions for array fields with json elements"},
 			{"key": "description", "description": "Human-readable field description"},
@@ -711,6 +719,7 @@ func describeSchemaFormat(cmd *cli.Command) error {
 		"notes": []string{
 			"all keys are lowercase",
 			"schemas update adds or replaces fields; removal is not supported",
+			"indexed and unique are scalar-only and fixed at creation; only the SQLite backend materializes them (index + uniqueness), other backends persist them as hints",
 		},
 	}
 

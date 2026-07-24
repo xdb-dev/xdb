@@ -18,6 +18,8 @@ type jsonField struct {
 	ElemType    string               `json:"elem_type,omitempty"`
 	Description string               `json:"description,omitempty"`
 	Required    bool                 `json:"required,omitempty"`
+	Indexed     bool                 `json:"indexed,omitempty"`
+	Unique      bool                 `json:"unique,omitempty"`
 }
 
 type jsonDef struct {
@@ -59,6 +61,8 @@ func marshalFields(fields map[string]Field) map[string]jsonField {
 		jf := jsonField{
 			Type:        field.Type.ID().Lower(),
 			Required:    field.Required,
+			Indexed:     field.Indexed,
+			Unique:      field.Unique,
 			Description: field.Description,
 			Annotations: field.Annotations,
 		}
@@ -125,6 +129,8 @@ func unmarshalFields(jfs map[string]jsonField) (map[string]Field, error) {
 		field := Field{
 			Type:        t,
 			Required:    jf.Required,
+			Indexed:     jf.Indexed,
+			Unique:      jf.Unique,
 			Description: jf.Description,
 			Annotations: jf.Annotations,
 		}

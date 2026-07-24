@@ -652,6 +652,47 @@ func TestValidateTuples_ObjectArray(t *testing.T) {
 	})
 }
 
+func TestDef_Validate_IndexedUnique(t *testing.T) {
+	t.Parallel()
+
+	mkDef := func(f schema.Field) *schema.Def {
+		return &schema.Def{
+			URI:    core.MustParseURI("xdb://x/y"),
+			Mode:   schema.ModeStrict,
+			Fields: map[string]schema.Field{"f": f},
+		}
+	}
+
+	t.Run("indexed scalar is valid", func(t *testing.T) {
+		assert.NoError(t, mkDef(schema.Field{Type: core.TypeString, Indexed: true}).Validate())
+	})
+
+	t.Run("unique scalar is valid", func(t *testing.T) {
+		assert.NoError(t, mkDef(schema.Field{Type: core.TypeInt, Unique: true}).Validate())
+	})
+
+	t.Run("indexed array is rejected", func(t *testing.T) {
+		err := mkDef(schema.Field{Type: core.NewArrayType(core.TIDString), Indexed: true}).Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidField)
+		assert.Contains(t, err.Error(), "f")
+	})
+
+	t.Run("unique array is rejected", func(t *testing.T) {
+		err := mkDef(schema.Field{Type: core.NewArrayType(core.TIDString), Unique: true}).Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidField)
+	})
+
+	t.Run("indexed json is rejected", func(t *testing.T) {
+		err := mkDef(schema.Field{Type: core.NewType(core.TIDJSON), Indexed: true}).Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidField)
+	})
+
+	t.Run("unique json is rejected", func(t *testing.T) {
+		err := mkDef(schema.Field{Type: core.NewType(core.TIDJSON), Unique: true}).Validate()
+		require.ErrorIs(t, err, schema.ErrInvalidField)
+	})
+}
+
 func TestValidateUpdate(t *testing.T) {
 	t.Parallel()
 
@@ -723,6 +764,46 @@ func TestValidateUpdate(t *testing.T) {
 	t.Run("same mode is allowed", func(t *testing.T) {
 		old := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
 		updated := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		assert.NoError(t, schema.ValidateUpdate(old, updated))
+	})
+
+	t.Run("toggling indexed on an existing field is rejected", func(t *testing.T) {
+		old := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		updated := mkDef(map[string]schema.Field{"a": {Type: core.TypeString, Indexed: true}})
+		err := schema.ValidateUpdate(old, updated)
+		require.ErrorIs(t, err, schema.ErrImmutableField)
+		assert.Contains(t, err.Error(), "indexed")
+	})
+
+	t.Run("toggling unique on an existing field is rejected", func(t *testing.T) {
+		old := mkDef(map[string]schema.Field{"a": {Type: core.TypeString, Unique: true}})
+		updated := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		err := schema.ValidateUpdate(old, updated)
+		require.ErrorIs(t, err, schema.ErrImmutableField)
+		assert.Contains(t, err.Error(), "unique")
+	})
+
+	t.Run("adding a new indexed field is allowed", func(t *testing.T) {
+		old := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		updated := mkDef(map[string]schema.Field{
+			"a": {Type: core.TypeString},
+			"b": {Type: core.TypeString, Indexed: true, Unique: true},
+		})
+		assert.NoError(t, schema.ValidateUpdate(old, updated))
+	})
+
+	t.Run("removing an indexed field is allowed", func(t *testing.T) {
+		old := mkDef(map[string]schema.Field{
+			"a": {Type: core.TypeString},
+			"b": {Type: core.TypeString, Indexed: true},
+		})
+		updated := mkDef(map[string]schema.Field{"a": {Type: core.TypeString}})
+		assert.NoError(t, schema.ValidateUpdate(old, updated))
+	})
+
+	t.Run("unchanged flags are allowed", func(t *testing.T) {
+		old := mkDef(map[string]schema.Field{"a": {Type: core.TypeString, Indexed: true, Unique: true}})
+		updated := mkDef(map[string]schema.Field{"a": {Type: core.TypeString, Indexed: true, Unique: true}})
 		assert.NoError(t, schema.ValidateUpdate(old, updated))
 	})
 }

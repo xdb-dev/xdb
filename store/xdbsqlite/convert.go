@@ -30,6 +30,19 @@ func sortedColumns(def *schema.Def) []string {
 	return names
 }
 
+// indexedFields returns the alphabetically sorted names of fields that
+// carry an index or unique constraint, for deterministic DDL ordering.
+func indexedFields(def *schema.Def) []string {
+	names := make([]string, 0, len(def.Fields))
+	for name, field := range def.Fields {
+		if field.Indexed || field.Unique {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
 // columnValues builds sorted [xsql.Value] descriptors (Name + Type)
 // from a schema for use in read operations.
 func columnValues(def *schema.Def) []xsql.Value {

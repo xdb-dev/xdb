@@ -118,6 +118,7 @@ How a mutation lands on storage is the driver's internal concern; the interfaces
 Notes:
 
 - **sqlite** routes a mutation to one of two engines — a column-table engine (strict/dynamic) or a KV engine (flexible/schema-less) — chosen from the stored def at a single point (`engineFor`); the op semantics run once above the engines. This is storage strategy, not policy. KV rows store values in their native SQLite storage class so filter comparisons stay numeric. `PutSchema` diffs field sets and issues `ALTER TABLE` for added/removed columns (type changes never reach the driver; `schema.ValidateUpdate` rejects them in middleware, as it does mode changes).
+- **indexed/unique fields** materialize only in sqlite's column engine: `ensure`/`evolve` issue `CREATE [UNIQUE] INDEX` per flagged field (dropping the index before the column on removal). A unique violation surfaces as `core.ErrUniqueViolation`. Other drivers store the flags verbatim but build no index and enforce nothing — like all schema metadata, the flag is data the driver may ignore.
 - **redis** ships without `TxDriver` deliberately; the facade uses its sequential fallback there.
 
 ## The Conformance Suite
