@@ -82,7 +82,7 @@ func (s *RecordService) dryRunCreate(
 }
 
 // dryRunUpdate validates records.update without writing: the record
-// must exist, and the merged result must satisfy the schema.
+// must exist, and the patched result must satisfy the schema.
 func (s *RecordService) dryRunUpdate(
 	ctx context.Context,
 	req *UpdateRecordRequest,

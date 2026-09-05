@@ -284,7 +284,7 @@ func marshalArray(v *core.Value) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		// MarshalBytes returns raw text; wrap strings in JSON quotes.
+		// marshalScalar returns raw text, so wrap strings in JSON quotes.
 		if e.Type().ID() == core.TIDString {
 			quoted, err := json.Marshal(string(b))
 			if err != nil {

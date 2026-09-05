@@ -1,8 +1,8 @@
 // Package xdbmemory provides an in-memory implementation of [store.Driver].
 //
-// This is the reference driver used for testing, embedded mode, and
-// validating the driver contract. All state is held in maps protected
-// by a single [sync.RWMutex]. Construct a usable store with
+// This is the reference driver. It is used for tests, for embedded
+// mode, and to validate the driver contract. All state is held in maps
+// that a single [sync.RWMutex] protects. Construct a usable store with
 // store.New(xdbmemory.NewDriver()).
 package xdbmemory
 
@@ -177,8 +177,8 @@ type txDriver struct {
 }
 
 // snapTuple journals a record key's prior attr map before it is
-// mutated, once per key. The map is cloned because merge/delete mutate
-// it in place.
+// mutated, once per key. The map is cloned because patch and delete
+// mutate it in place.
 func (tx *txDriver) snapTuple(key string) {
 	if _, seen := tx.undoTuples[key]; seen {
 		return
@@ -345,7 +345,7 @@ func collectTuples(
 }
 
 // anyTuplePath returns the record path URI of any tuple in the attr
-// map. Attr maps are never empty — records with no tuples are removed.
+// map, or nil when the map is empty.
 func anyTuplePath(attrs map[string]*core.Tuple) *core.URI {
 	for _, tuple := range attrs {
 		return tuple.Path()
@@ -402,6 +402,11 @@ func applyMutation(
 
 	switch m.Op {
 	case store.OpPatch:
+		// A patch that carries no tuples changes nothing. Returning
+		// early keeps it from creating an empty attr map.
+		if len(m.Tuples) == 0 {
+			return nil
+		}
 		attrs, ok := tuples[key]
 		if !ok {
 			attrs = make(map[string]*core.Tuple, len(m.Tuples))
@@ -415,9 +420,19 @@ func applyMutation(
 		if len(tuples[key]) > 0 {
 			return core.ErrAlreadyExists
 		}
+		if len(m.Tuples) == 0 {
+			delete(tuples, key)
+			return nil
+		}
 		tuples[key] = tupleSet(m.Tuples)
 
 	case store.OpPut:
+		// A record with no tuples does not exist, so an empty put
+		// removes the key rather than leaving an empty attr map.
+		if len(m.Tuples) == 0 {
+			delete(tuples, key)
+			return nil
+		}
 		tuples[key] = tupleSet(m.Tuples)
 
 	case store.OpDelete:

@@ -53,7 +53,7 @@ func TestParseKVTable(t *testing.T) {
 // namespace and asserts scanTargets enumerates them once each, sorted,
 // with the right def (which picks the engine): a strict def (column
 // table), a flexible def (which owns both a _schemas row and a kv
-// table — must not double-count), and a schema-less kv table (no def).
+// table — must not double-count), and a schema-free kv table (no def).
 func TestScanTargets(t *testing.T) {
 	ctx := context.Background()
 	d := newDriver(t)
@@ -87,7 +87,7 @@ func TestScanTargets(t *testing.T) {
 
 		require.NotNil(t, targets[0].def, "strict def present")
 		require.NotNil(t, targets[1].def, "flexible def present")
-		assert.Nil(t, targets[2].def, "schema-less has no def")
+		assert.Nil(t, targets[2].def, "schema-free has no def")
 
 		assert.IsType(t, &tableEngine{}, engineFor(q, targets[0].def))
 		assert.IsType(t, &kvEngine{}, engineFor(q, targets[1].def))

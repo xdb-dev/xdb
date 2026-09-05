@@ -980,3 +980,23 @@ func TestDecoder_DeclaredFieldError(t *testing.T) {
 		assert.Nil(t, record.Get("junk"))
 	})
 }
+
+func TestDecoder_ObjectArray_RejectsNonArray(t *testing.T) {
+	decoder := xdbjson.NewDecoder(
+		xdbjson.WithNS("com.example"),
+		xdbjson.WithSchema("orders"),
+		xdbjson.WithDef(objectArrayDef()),
+	)
+
+	tests := map[string]string{
+		"string":  `{"_id": "o1", "lines": "nope"}`,
+		"scalars": `{"_id": "o1", "lines": [1, 2]}`,
+	}
+
+	for name, data := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := decoder.ToRecord([]byte(data))
+			require.ErrorIs(t, err, core.ErrSchemaViolation)
+		})
+	}
+}

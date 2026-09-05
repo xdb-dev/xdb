@@ -10,7 +10,7 @@
 //	r := rpc.NewRouter()
 //	rpc.RegisterHandler(r, "records.create", records.Create)
 //
-// Request types may optionally implement [Validator] for input validation
-// and [Extracter] for HTTP-specific data extraction. Response types may
-// optionally implement [StatusCoder] and [RawWriter] for HTTP customization.
+// A request type can implement [Validator] for input validation and
+// [Extracter] for HTTP-specific data extraction. A response type can
+// implement [StatusCoder] and [RawWriter] to customize the HTTP response.
 package api

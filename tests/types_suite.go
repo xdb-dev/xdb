@@ -16,7 +16,7 @@ import (
 // must survive a write→read round-trip unchanged. It runs against a
 // full [store.Store] because type fidelity is a schema-backed
 // guarantee — backends that infer types from their on-disk form
-// (xdbfs) or store schema-less values loosely (xdbsqlite KV tables)
+// (xdbfs) or store schema-free values loosely (xdbsqlite KV tables)
 // rely on the declared [schema.Def] to reconstruct the exact type.
 //
 // This is the per-backend home for fidelity: scalars, typed arrays,

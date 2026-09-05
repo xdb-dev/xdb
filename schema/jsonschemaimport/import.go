@@ -484,8 +484,8 @@ func sortedKeys(m map[string]*jsonschema.Schema) []string {
 }
 
 // validKey reports whether name is a single attribute segment. A '.' is
-// rejected because it is the path separator; anything core rejects as an
-// attribute is rejected too. No escaping in v1.
+// rejected because it is the path separator. Any name that core rejects as
+// an attribute is rejected too. There is no escaping.
 func validKey(name string) bool {
 	if name == "" || strings.Contains(name, ".") {
 		return false

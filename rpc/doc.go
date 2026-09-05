@@ -3,7 +3,7 @@
 // [Router] maps method names to handlers and implements [http.Handler]
 // for serving JSON-RPC 2.0 requests over HTTP.
 //
-// Use [RegisterHandler] to register typed service methods, then serve
+// Register typed service methods with [RegisterHandler]. Then serve
 // the router directly:
 //
 //	r := rpc.NewRouter()

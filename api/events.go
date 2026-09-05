@@ -32,7 +32,8 @@ func applyServiceOptions(opts []ServiceOption) serviceOptions {
 
 // subscriberBuffer is the per-subscriber channel capacity. A subscriber
 // that falls further behind than this drops events (at-most-once
-// delivery; the drop is counted, never blocking the publisher).
+// delivery). A drop increments the dropped counter and never blocks
+// the publisher. Nothing reads the counter yet.
 const subscriberBuffer = 64
 
 // Bus is an in-process event bus for change notifications. Services

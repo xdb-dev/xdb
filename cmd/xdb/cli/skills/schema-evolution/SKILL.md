@@ -6,8 +6,8 @@ category: recipe
 
 # Schema Evolution
 
-Schemas update with patch semantics: fields are added or replaced,
-never removed. Every update bumps the schema's `revision`.
+A schema update is a patch: fields are added or replaced, never
+removed. Every update increments the `revision` of the schema.
 
 ## Inspect the current definition
 
@@ -26,21 +26,22 @@ xdb schemas update --uri xdb://myapp/todos --json '{
 }'
 ```
 
-Existing records stay readable; the new field is simply absent until
-records set it. Add fields as optional first — marking a field
-`"required": true` breaks writes for records that omit it.
+Existing records stay readable. The new field is absent until a record
+sets it. Add a field as optional first. If you mark a field
+`"required": true`, writes that omit the field fail.
 
 ## Safe rollout order
 
-1. `schemas update` adds the new optional field.
-2. Backfill existing records (`xdb records update` or a bulk import).
-3. Tighten to required only after every record carries the field.
+1. Run `schemas update` to add the new optional field.
+2. Backfill the existing records with `xdb records update` or a bulk import.
+3. When every record carries the field, mark the field required.
 
 ## Concurrency: revision CAS
 
-`schemas get` returns the current `revision`. Pass it in an update to
-fail with CONFLICT if someone else evolved the schema in between
-(omit it for an unconditional update):
+`schemas get` returns the current `revision`. If you pass this
+`revision` in an update, and another update changed the schema in the
+meantime, the update fails with CONFLICT. If you omit `revision`, the
+update is unconditional:
 
 ```bash
 xdb schemas update --uri xdb://myapp/todos --json '{
@@ -51,12 +52,13 @@ xdb schemas update --uri xdb://myapp/todos --json '{
 
 ## Conflicts on create
 
-Re-creating a schema with the identical definition is an idempotent
-success; a different definition fails with CONFLICT — use
-`schemas update` to evolve instead.
+If you create a schema again with an identical definition, the create
+succeeds and is idempotent. If the definition differs, the create fails
+with CONFLICT. To change a schema, use `schemas update`.
 
 ## Modes
 
-`xdb describe --schema-format` documents the three validation modes:
-strict (only declared fields), flexible (undeclared fields pass
-through), dynamic (undeclared fields evolve the schema automatically).
+`xdb describe --schema-format` documents the three validation modes.
+`strict` (the default) rejects undeclared fields. `flexible` accepts
+undeclared fields as-is. `dynamic` infers undeclared fields and adds
+them to the schema. Declared fields type-check in every mode.

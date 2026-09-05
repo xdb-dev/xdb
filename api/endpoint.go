@@ -102,6 +102,8 @@ func (e *Endpoint[TReq, TRes]) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(status)
 
 	if err := json.NewEncoder(w).Encode(res); err != nil {
+		// The status line is already written, so the error cannot be
+		// reported to the client. It is built and discarded.
 		_ = fmt.Errorf("api: failed to encode response: %w", err)
 	}
 }

@@ -25,7 +25,7 @@ func NewDecoder(opts ...Option) *Decoder {
 	return &Decoder{opts: applyOptions(opts)}
 }
 
-// ToRecord converts JSON bytes to a new core.Record.
+// ToRecord converts JSON bytes to a new [core.Record].
 func (d *Decoder) ToRecord(data []byte) (*core.Record, error) {
 	m, err := d.unmarshal(data)
 	if err != nil {
@@ -157,18 +157,23 @@ func (d *Decoder) populateRecord(record *core.Record, m map[string]any) error {
 	return nil
 }
 
-// setDeclaredField converts value per field's declared type and sets it on
-// record. Returns an error wrapping [core.ErrSchemaViolation], naming attr and
-// field's declared type, when value cannot decode as that type.
+// setDeclaredField converts value to the declared type of field and sets it
+// on record. When value cannot decode as that type, it returns an error that
+// wraps [core.ErrSchemaViolation] and names attr and the declared type. An
+// object-array field follows the same rule: a value that is not an array of
+// objects is a decode error, not a silently dropped field.
 func setDeclaredField(record *core.Record, attr string, value any, field schema.Field) error {
+	var (
+		v  *core.Value
+		ok bool
+	)
+
 	if isObjectArrayField(field) {
-		if v, ok := objectArrayValue(value, field.Items); ok {
-			record.Set(attr, v)
-		}
-		return nil
+		v, ok = objectArrayValue(value, field.Items)
+	} else {
+		v, ok = convertDeclaredValue(value, field.Type)
 	}
 
-	v, ok := convertDeclaredValue(value, field.Type)
 	if !ok {
 		return fmt.Errorf(
 			"%w: field %q: cannot decode as %s",
@@ -419,8 +424,8 @@ func (d *Decoder) isMetadataField(attr string) bool {
 // flattenWithDef flattens nested JSON objects into dot-notation attributes.
 // A declared JSON-typed field (per def, top-level or dotted) is captured
 // verbatim as a [json.RawMessage] instead of being flattened, so its nested
-// keys never turn into synthetic dotted attributes. def may be nil, in which
-// case every key recurses or leafs exactly as before.
+// keys never turn into synthetic dotted attributes. def can be nil. Then
+// every key recurses or becomes a leaf, with no special handling.
 func flattenWithDef(m map[string]any, prefix string, def *schema.Def, result map[string]any) {
 	for key, value := range m {
 		fullKey := key

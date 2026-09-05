@@ -20,6 +20,7 @@ var (
 	// whose proto number matches an existing field under a different name.
 	ErrRename = errors.New("[xdb/protoimport] field renamed")
 
-	// ErrUnsupported is returned for a proto construct with no XDB mapping.
+	// ErrUnsupported is reserved for a proto construct with no XDB mapping.
+	// It is currently not returned: an unknown scalar kind maps to STRING.
 	ErrUnsupported = errors.New("[xdb/protoimport] unsupported field")
 )

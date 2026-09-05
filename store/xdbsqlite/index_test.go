@@ -175,3 +175,49 @@ func TestUpdateSchema_AddsIndexedField(t *testing.T) {
 	ddls := indexDDL(t, db, "t:test/things")
 	assert.True(t, hasIndexOn(ddls, "sku", true), "unique index on sku: %v", ddls)
 }
+
+func TestIndexedFields_StaleIndexDoesNotBlockDropColumn(t *testing.T) {
+	ctx := context.Background()
+	st, db := newTestStoreWithDB(t)
+
+	uri := core.MustParseURI("xdb://test/members")
+
+	// A unique field materializes a UNIQUE index on the column table.
+	require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+		URI:  uri,
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"email": {Type: core.TypeString, Unique: true},
+			"name":  {Type: core.TypeString},
+		},
+	}))
+
+	// A delete without cascade leaves the table and its indexes behind.
+	require.NoError(t, st.DeleteSchema(ctx, uri))
+
+	// Re-creating the schema without the marker no-ops on the table, so
+	// the index from the previous generation survives in sqlite_master
+	// while the new definition knows nothing about it.
+	require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+		URI:  uri,
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"email": {Type: core.TypeString},
+			"name":  {Type: core.TypeString},
+		},
+	}))
+
+	// Removing the field must drop that stale index too. SQLite refuses
+	// to drop a column an index still references.
+	err := st.UpdateSchema(ctx, uri, &schema.Def{
+		URI:  uri,
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"name": {Type: core.TypeString},
+		},
+	})
+	require.NoError(t, err, "a stale index must not block dropping the column")
+
+	ddls := indexDDL(t, db, "t:test/members")
+	assert.False(t, hasIndexOn(ddls, "email", true), "the stale index is gone")
+}

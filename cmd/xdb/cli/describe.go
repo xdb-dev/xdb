@@ -21,7 +21,7 @@ func (a *App) describeCmd() *cli.Command {
 		Usage:              "Introspect actions, types, filters, errors, config, daemon, and data schemas",
 		Category:           "agent",
 		CustomHelpTemplate: commandHelpTemplate,
-		ArgsUsage:          "[resource.action | TypeName | config | daemon]",
+		ArgsUsage:          "[resource.action | TypeName | config | daemon | schema-format]",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{Name: "methods", Usage: "List all actions (dotted RPC form)"},
 			&cli.BoolFlag{Name: "actions", Usage: "Show action \u00d7 resource matrix"},
@@ -167,7 +167,7 @@ func (a *App) listTypes(ctx context.Context, cmd *cli.Command) error {
 }
 
 // typeDescriptions maps each [core.TID] to a user-facing description.
-// Derived from [core.ValueTypes] so the list never drifts.
+// The map is written by hand. Keep it in step with [core.ValueTypes].
 var typeDescriptions = map[core.TID]string{
 	core.TIDString:   "UTF-8 string",
 	core.TIDInteger:  "64-bit signed integer",
@@ -384,7 +384,8 @@ func describeTypeOffline(cmd *cli.Command, name string) error {
 
 // listActions returns the action x resource matrix derived from the live
 // introspect.methods response. Each row is one resource with a list of
-// supported actions and whether each is mutating.
+// supported actions. The Mutating column lists the subset of actions that
+// write, so an agent can tell a safe retry from a repeated write.
 func (a *App) listActions(ctx context.Context, cmd *cli.Command) error {
 	var resp api.ListMethodsResponse
 	if err := a.client.Call(ctx, "introspect.methods", &api.ListMethodsRequest{}, &resp); err != nil {
@@ -415,6 +416,9 @@ func (a *App) listActions(ctx context.Context, cmd *cli.Command) error {
 		}
 
 		r.Actions = append(r.Actions, action)
+		if m.Mutating {
+			r.Mutating = append(r.Mutating, action)
+		}
 	}
 
 	names := make([]string, 0, len(byResource))
@@ -509,7 +513,7 @@ func describeConfig(cmd *cli.Command) error {
 		"derived_paths": map[string]string{
 			"socket": "<dir>/" + defaultSocket,
 			"log":    "<dir>/xdb.log",
-			"pid":    "<dir>/xdb.pid",
+			"pid":    "<dir>/<socket-name>.pid",
 			"data":   "<dir>/data",
 		},
 		"validation": []string{
@@ -553,7 +557,7 @@ func describeDaemon(cmd *cli.Command) error {
 		},
 		"files": map[string]string{
 			"socket": "<dir>/" + defaultSocket + " — Unix socket for JSON-RPC",
-			"pid":    "<dir>/xdb.pid — PID of the running daemon",
+			"pid":    "<dir>/<socket-name>.pid — PID of the running daemon",
 			"log":    "<dir>/xdb.log — daemon stdout/stderr",
 		},
 		"idempotency": "start is a no-op when already running; stop is a no-op when already stopped",
@@ -695,8 +699,8 @@ func describeSchemaFormat(cmd *cli.Command) error {
 		"field_keys": []map[string]string{
 			{"key": "type", "description": "Value type name (required)"},
 			{"key": "required", "description": "Reject writes missing this field"},
-			{"key": "indexed", "description": "Build a lookup index on this scalar field (SQLite backend; hint elsewhere)"},
-			{"key": "unique", "description": "Enforce values are unique across records (SQLite backend; fixed at create)"},
+			{"key": "indexed", "description": "Build a lookup index on this scalar field (SQLite strict and dynamic schemas; a hint elsewhere)"},
+			{"key": "unique", "description": "Enforce values are unique across records, on every backend; fixed at create"},
 			{"key": "elem_type", "description": "Element type; required when type is array"},
 			{"key": "items", "description": "Member field definitions for array fields with json elements"},
 			{"key": "description", "description": "Human-readable field description"},
@@ -719,7 +723,7 @@ func describeSchemaFormat(cmd *cli.Command) error {
 		"notes": []string{
 			"all keys are lowercase",
 			"schemas update adds or replaces fields; removal is not supported",
-			"indexed and unique are scalar-only and fixed at creation; only the SQLite backend materializes them (index + uniqueness), other backends persist them as hints",
+			"indexed and unique are scalar-only and fixed at creation. unique is enforced on every backend and in every mode, and a duplicate write fails with UNIQUE_VIOLATION. indexed only speeds up lookups where the backend materializes an index (SQLite strict and dynamic schemas); elsewhere it is a hint",
 		},
 	}
 

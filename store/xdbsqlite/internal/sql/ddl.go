@@ -27,7 +27,7 @@ type CreateKVTableParams struct {
 	Table string
 }
 
-// CreateKVTable creates a KV table for flexible/schema-less records.
+// CreateKVTable creates a KV table for flexible/schema-free records.
 // One row per attribute: _type/_elem record the [core.TID] (and array
 // element id) so values decode; _val is ANY so each value keeps its
 // native storage class (INTEGER/REAL/TEXT/BLOB) for correct SQL
@@ -146,7 +146,7 @@ func (q *Queries) CreateIndex(ctx context.Context, arg CreateIndexParams) error 
 	)
 
 	_, err := q.db.ExecContext(ctx, query)
-	return err
+	return mapErr(err)
 }
 
 // DropIndexParams are the arguments for [Queries.DropIndex].

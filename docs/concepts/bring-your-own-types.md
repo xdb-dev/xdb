@@ -1,121 +1,101 @@
 ---
 title: Bring Your Own Types
-description: Import protobuf, JSON Schema, and Go struct types into a schema.Def — the mapping tables, null handling, and documented rejections per source.
-package: schema
+description: Import protobuf, JSON Schema, and Go struct types into a schema.Def. The mapping tables, null handling, and documented rejections per source.
+package: schema/protoimport, schema/jsonschemaimport, encoding/xdbstruct
 ---
 
 # Bring Your Own Types
 
-You already have types: protobuf messages, JSON Schemas, Go structs. XDB imports
-those types into a [schema.Def](schemas.md) so you can store and query the data
-without hand-writing a schema or giving up your source of truth.
+You already have types: protobuf messages, JSON Schemas, Go structs. XDB imports these types into a [schema.Def](schemas.md). You can then store and query the data without a hand-written schema, and without a second source of truth.
 
 Two rules anchor the design:
 
-1. **The IR is one-way.** Proto files, JSON Schemas, and Go types stay the source
-   of truth; `Def` is a projection produced by an importer. XDB never regenerates
-   source from a stored schema.
-2. **The contract is data round-trip, not schema round-trip.** Import a `User`,
-   write a `User`, read the same `User` back — and filter/list it in between.
-   Source-type fidelity that does not affect data round-trip (`int32` vs `int64`,
-   enum names, proto field numbers) is preserved in opaque per-field
-   annotations, not modeled.
+1. **The IR is one-way.** Proto files, JSON Schemas, and Go types stay the source of truth. `Def` is a projection that an importer produces. XDB never regenerates source from a stored schema.
+2. **The contract is data round-trip, not schema round-trip.** Import a `User`, write a `User`, and read the same `User` back. Filter or list it in between. Source-type details that do not affect the data round-trip (`int32` against `int64`, enum names, proto field numbers) are preserved in opaque per-field annotations, not modeled.
 
 There is one importer per source format:
 
-| Source        | Package                                                 | Entry point                        | CLI                          |
-| ------------- | ------------------------------------------------------- | ---------------------------------- | ---------------------------- |
-| Go structs    | `encoding/xdbstruct`                                    | `Def[T]`, `Marshal`, `Unmarshal`   | in-process only (Go embed)   |
-| Protobuf      | `schema/protoimport`                                    | `ImportFiles`, `ImportMessage`     | `xdb schemas import *.proto` |
-| JSON Schema   | `schema/jsonschemaimport`                               | `Import`                           | `xdb schemas import *.json`  |
+| Source        | Package                                                 | Entry point                        | CLI                                  |
+| ------------- | ------------------------------------------------------- | ---------------------------------- | ------------------------------------ |
+| Go structs    | `encoding/xdbstruct`                                    | `Def[T]`, `Marshal`, `Unmarshal`   | in-process only (Go embed)           |
+| Protobuf      | `schema/protoimport`                                    | `ImportFiles`, `ImportMessage`     | `xdb schemas import user.proto`      |
+| JSON Schema   | `schema/jsonschemaimport`                               | `Import`                           | `xdb schemas import user.schema.json` |
 
-The CLI imports proto and JSON Schema **files**. The Go-struct path is
-in-process (you embed XDB and call `xdbstruct`), not a CLI file import.
+The CLI imports proto and JSON Schema **files**, one file per command. The Go-struct path is in-process: you embed XDB and call `xdbstruct`. It is not a CLI file import.
 
 ## Two nesting representations
 
-Every importer shares one model for nested data, and it is worth stating up front
-because it decides what you can filter:
+Every importer shares one model for nested data. The model decides what you can filter:
 
-- A **single nested object** (`*Profile`, a proto sub-message, a nested JSON
-  Schema `object`) **flattens to dotted attributes** — `profile.name`,
-  `profile.city`. These are first-class attributes: filters can address them.
-- An **array of objects** (`[]Order`, `repeated Order`, `items: {type: object}`)
-  uses `Field.Items`: the element object validates against the element field set,
-  but the elements stay opaque. Filters cannot reach inside array elements (yet).
+- A **single nested object** (`*Profile`, a proto sub-message, a nested JSON Schema `object`) **flattens to dotted attributes**: `profile.name`, `profile.city`. These are first-class attributes. Filters can address them.
+- An **array of objects** (`[]Order`, `repeated Order`, `items: {type: object}`) uses `Field.Items`. Each element validates against the element field set, but the elements stay opaque. Filters cannot reach inside array elements.
 
-`Items` is arrays-only. A single object never uses it.
+`Items` is for arrays only. A single object never uses it.
 
 ## Protobuf → schema.Def
 
-`schema/protoimport` walks `protoreflect` descriptors (no codegen). The proto
-package becomes the namespace unless `WithNamespace` (`--ns`) overrides it.
+`schema/protoimport` walks `protoreflect` descriptors. No code generation is needed. The proto package becomes the namespace, unless `WithNamespace` (`--ns`) overrides it.
 
-| Proto construct                                   | schema.Def field type            | Notes                                                   |
-| ------------------------------------------------- | -------------------------------- | ------------------------------------------------------- |
-| `bool`                                            | `boolean`                        |                                                         |
-| `int32`/`sint32`/`sfixed32`/`int64`/…             | `integer`                        | width in `Annotations["proto.type"]`                    |
-| `uint32`/`fixed32`/`uint64`/`fixed64`             | `unsigned`                       |                                                         |
-| `float`/`double`                                  | `float`                          |                                                         |
-| `string`                                          | `string`                         |                                                         |
-| `bytes`                                           | `bytes`                          |                                                         |
-| `enum`                                            | `string` (value name)            | `Annotations["proto.enum"]`                             |
-| `google.protobuf.Timestamp`                       | `time`                           |                                                         |
-| wrapper (`Int32Value`, `StringValue`, …)          | the wrapped scalar               | adds presence                                           |
-| `Duration`/`Struct`/`Value`/`ListValue`/`Any`     | `json`                           | `Annotations["proto.type"]`                             |
-| `map<K, V>`                                        | `json`                           | `Annotations["proto.map"]`; opt in explicitly           |
-| nested message (single)                           | dotted attributes                | `address` → `address.city`, `address.zip`               |
-| `repeated <scalar/enum>`                          | `array<scalar>`                  |                                                         |
-| `repeated <message>`                              | `array<json>` + `Items`          | object array                                            |
+| Proto construct                                   | schema.Def field type            | Notes                                                        |
+| ------------------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
+| `bool`                                            | `boolean`                        |                                                              |
+| `int32`/`sint32`/`sfixed32`/`int64`/…             | `integer`                        | width in `Annotations["proto.type"]`                         |
+| `uint32`/`fixed32`/`uint64`/`fixed64`             | `unsigned`                       |                                                              |
+| `float`/`double`                                  | `float`                          |                                                              |
+| `string`                                          | `string`                         |                                                              |
+| `bytes`                                           | `bytes`                          |                                                              |
+| `enum`                                            | `string` (value name)            | `Annotations["proto.enum"]`                                  |
+| `google.protobuf.Timestamp`                       | `time`                           |                                                              |
+| wrapper (`Int32Value`, `StringValue`, …)          | the wrapped scalar               | adds presence                                                |
+| `Duration`/`Struct`/`Value`/`ListValue`/`Any`     | `json`                           | `Annotations["proto.type"]`                                  |
+| `map<K, V>`                                       | `json`                           | always JSON, no opt-in. `Annotations["proto.map"]` records the key and value types |
+| nested message (single)                           | dotted attributes                | `address` → `address.city`, `address.zip`                    |
+| `repeated <scalar/enum>`                          | `array<scalar>`                  |                                                              |
+| `repeated <message>`                              | `array<json>` + `Items`          | object array                                                 |
 
-Every field records `Annotations["proto.number"]` — the field number is what
-makes proto renames reliably detectable (see [Renames](#renames-are-proto-only)).
+Every field records `Annotations["proto.number"]`. The field number is what makes a proto rename reliably detectable (see [Renames](#renames-are-proto-only)).
 
-**Documented rejections** (each names the field and the fix):
+**Documented rejections** (each error names the offending item and the fix):
 
-- `oneof` → `ErrOneof`. Unions are a non-goal; flatten into optional fields.
-- a recursive message (`Node` referring to `Node`) → `ErrRecursive`. Escape with
-  `WithAllowJSON("pkg.Node")` (`--allow-json pkg.Node`) to store it as JSON.
+- a file with no proto package and no `WithNamespace` → `ErrNoNamespace`.
+- `oneof` → `ErrOneof`. Unions are a non-goal. Flatten the union into optional fields.
+- a recursive message (`Node` that refers to `Node`) → `ErrRecursive`. Pass `WithAllowJSON("pkg.Node")` (`--allow-json pkg.Node`) to store it as JSON.
 
 ## JSON Schema → schema.Def
 
-`schema/jsonschemaimport` targets a documented subset of draft 2020-12. The root
-must describe an object. The namespace comes from `WithNamespace` (`--ns`); the
-schema name from `WithSchemaName`, the document `title`, or the `$id` filename.
+`schema/jsonschemaimport` targets a documented subset of draft 2020-12. The root must describe an object. The namespace comes from `WithNamespace` (`--ns`). The schema name comes from `WithSchemaName`, the document `title`, or the `$id` filename, in that order.
 
 | JSON Schema construct                    | schema.Def result                        | Notes                                             |
 | ---------------------------------------- | ---------------------------------------- | ------------------------------------------------- |
 | `type: object`                           | schema                                   | root                                              |
-| `properties`                             | fields                                   | nested objects flatten to dotted keys             |
+| `properties`                             | fields                                   | nested objects flatten to dotted attributes       |
 | nested `object` property                 | dotted attributes                        | `profile` → `profile.name`                        |
 | `items: {type: object}`                  | `array<json>` + `Items`                  | object array                                      |
 | `items: {type: <scalar>}`                | `array<scalar>`                          |                                                   |
 | `required: [...]`                        | `Field.Required`                         | only for single (non-flattened) fields            |
 | `additionalProperties: false`            | `Mode = strict`                          |                                                   |
 | `additionalProperties: true`/absent      | `Mode = flexible`                        |                                                   |
-| `additionalProperties: {typed}`          | member → `json`; root → error            | `Annotations`                                     |
+| `additionalProperties: {typed}`          | member → `json`, root → error            | `Annotations`                                     |
 | `format: date-time`                      | `time`                                   |                                                   |
 | `description`                            | `Field.Description` / `Def.Description`  | carried through                                   |
 | `enum`/`const`/`pattern`/`min`/`max`     | annotations only                         | XDB does not enforce constraints                  |
 | `$ref` (same document)                   | resolved and walked                      |                                                   |
 | `allOf` of disjoint objects              | merged                                   |                                                   |
 
-**Documented rejections** (each names the JSON pointer to the offending node):
+**Documented rejections** (each error names the JSON pointer to the offending node, where one exists):
 
+- input that is not valid JSON → `ErrInvalidJSON`.
+- no `WithNamespace` → `ErrNoNamespace`. No schema name from `WithSchemaName`, `title`, or `$id` → `ErrNoSchemaName`.
 - `anyOf`/`oneOf` → `ErrUnion` (unions are a non-goal).
-- a property name containing `.`, or one that is not a single attribute segment
-  → `ErrInvalidKey`. No escaping in v1.
-- a cross-document `$ref` → `ErrCrossDocument`; a cyclic `$ref` → `ErrCyclicRef`
-  (escape with `WithJSON("#/$defs/Node")`).
+- a property name that contains `.`, or that is not a single attribute segment → `ErrInvalidKey`. There is no escaping.
+- two definitions for the same field, from overlapping `allOf` branches or from a nested-object flatten → `ErrConflict`.
+- a cross-document `$ref` → `ErrCrossDocument`. A cyclic `$ref` → `ErrCyclicRef`. Pass `WithJSON("#/$defs/Node")` to store a cyclic node as JSON.
 - an unresolved `$ref` → `ErrUnresolvedRef`.
-- arrays of arrays, an untyped array, `allOf` inside an array element, or any
-  other unmapped construct → `ErrUnsupported`.
+- arrays of arrays, an untyped array, `allOf` inside an array element, or any other unmapped construct → `ErrUnsupported`.
 
 ## Go structs → schema.Def
 
-`encoding/xdbstruct` reflects over a Go type. Fields carry an `xdb` struct tag
-that follows `encoding/json` conventions (`xdb:"name,required"`, `xdb:"-"`,
-`xdb:"attrs,json"`).
+`encoding/xdbstruct` reflects over a Go type. Fields carry an `xdb` struct tag that obeys the `encoding/json` conventions (`xdb:"name,required"`, `xdb:"-"`, `xdb:"attrs,json"`).
 
 | Go type                            | schema.Def field type            | Notes                                             |
 | ---------------------------------- | -------------------------------- | ------------------------------------------------- |
@@ -129,20 +109,18 @@ that follows `encoding/json` conventions (`xdb:"name,required"`, `xdb:"-"`,
 | `[]Struct`                         | `array<json>` + `Items`          | object array                                      |
 | `[]scalar`                         | `array<scalar>`                  |                                                   |
 | embedded (anonymous) struct        | promoted fields                  | Go promotion rules                                |
-| map / interface with `xdb:",json"` | `json`                           | explicit opt-in; escape hatch for recursion       |
+| map / interface with `xdb:",json"` | `json`                           | explicit opt-in. Escape hatch for recursion       |
 
-**Documented rejections** (each names the field and the fix):
+**Documented rejections** (each error names the field and the fix):
 
-- a map or interface **without** the `json` opt-in.
-- a channel or function field.
-- a recursive type (`User → Manager → User`), unless the recursive field opts
-  into `json`.
+- a type that is not a struct → `ErrNotStruct`.
+- a map or interface **without** the `json` opt-in → `ErrUnsupported`.
+- a channel or function field → `ErrUnsupported`.
+- a recursive type (`User → Manager → User`) → `ErrRecursive`, unless the recursive field opts into `json`.
 
 ## Null, absent, and zero
 
-XDB distinguishes *absent* (no tuple for the attribute) from *null* (a tuple
-whose value is null). A `Required` field is satisfied by an explicit null but not
-by absence. How each source produces these:
+XDB distinguishes *absent* (no tuple for the attribute) from *null* (a tuple whose value is null). An explicit null satisfies a `Required` field. Absence does not. Each source produces these as follows:
 
 | Source        | Absent (no tuple)                                        | Null                                    | Zero value                                  |
 | ------------- | -------------------------------------------------------- | --------------------------------------- | ------------------------------------------- |
@@ -150,8 +128,7 @@ by absence. How each source produces these:
 | Go structs    | a `nil` pointer field (also a `nil` embedded pointer)    | —                                       | a non-pointer zero marshals as its value    |
 | JSON Schema   | a property absent from the document                      | an explicit JSON `null`                 | the literal value written                   |
 
-A wrapper message (`google.protobuf.Int32Value`) or a Go pointer is how you add
-presence when the zero value must be distinguishable from absence.
+A wrapper message (`google.protobuf.Int32Value`) or a Go pointer adds presence when the zero value must be distinguishable from absence.
 
 ## CLI: import and diff
 
@@ -162,28 +139,23 @@ xdb schemas diff   ./api/user.proto --ns com.example        # drift check
 xdb schemas diff   ./api/user.proto --ns com.example --check # CI: non-zero on drift
 ```
 
-`import` is create-or-update: it runs the importer, shows the delta (new schema,
-added/changed/removed fields, suspected renames), and applies it via
-`schemas.create`/`schemas.update`. `--dry-run` prints the delta only; `--yes`
-skips confirmation for scripting. `diff` is the same walk without writing;
-`--check` exits non-zero on any drift so CI fails on schema divergence instead of
-failing a strict write in production.
+`import` is create-or-update. It runs the importer, shows the delta (new schema, added, changed, and removed fields, suspected renames), and applies the delta through `schemas.create` or `schemas.update`. `--dry-run` prints the delta only. `--yes` skips confirmation for scripting. `diff` is the same walk without a write. With `--check`, `diff` exits non-zero on any drift, so CI fails on schema divergence instead of a strict write in production.
 
 ### Renames are proto-only
 
-Only proto has field numbers, so only a proto rename is **reliably** detected: a
-field whose `proto.number` matches an existing field under a different name is a
-rename. A Go-struct or JSON-Schema rename is indistinguishable from
-remove-old + add-new, and applying it silently orphans the old attribute's stored
-tuples (there is no tuple migration in v1).
+Only proto has field numbers, so only a proto rename is detected **reliably**. A field whose `proto.number` matches an existing field under a different name is a rename. `protoimport.CheckRename(existing, updated)` finds such a field and returns `protoimport.ErrRename`, which names the number, the old name, and the new name. A Go caller can use it to refuse the update. The CLI uses it as the signal for a proto rename. It applies the rename without acknowledgment, as a removal of the old field and an addition of the new field. There is no tuple migration.
 
-Guard: for a **non-proto** source, a suspected rename (matched by a type+position
-heuristic) is **refused** by `import` unless you acknowledge it with `--rename
-old:new` (repeatable) or `--yes`. `diff` surfaces it as a `rename?` warning. XDB
-never silently drops and re-adds a heuristic rename.
+A Go-struct or JSON-Schema rename cannot be distinguished from remove-old plus add-new. Applied silently, it orphans the stored tuples of the old attribute.
+
+Guard: for a **non-proto** source, `import` **refuses** a suspected rename (matched by a type-plus-position heuristic), unless you acknowledge it with `--rename old:new` (repeatable) or `--yes`. `diff` shows it as a `rename?` warning. XDB never silently removes and re-adds a heuristic rename.
 
 ## Describe a stored schema
 
-`xdb describe --uri xdb://ns/schema` surfaces what agents read: the schema
-`description`, `mode`, `revision`, and source `annotations`, plus each field's
-type, `required` flag, description, annotations, and element schema (`items`).
+`xdb describe --uri xdb://ns/schema` shows what agents read. At the schema level: `description`, `mode`, `revision`, and source `annotations`. For each field: the type, the `required` flag, the description, the annotations, and the element schema (`items`).
+
+## Related Concepts
+
+- [Schemas](schemas.md) — The `Def` that importers produce, and its modes
+- [Types](types.md) — The XDB value types that source types map onto
+- [Encoding](encoding.md) — The JSON data path that `jsonschemaimport` and the CLI use
+- [Filters](filters.md) — Why dotted attributes are filterable and array elements are not

@@ -6,7 +6,7 @@ category: recipe
 
 # Bulk Data
 
-NDJSON round-trips and atomic multi-operation batches.
+Export and import records as NDJSON. Run several operations as one atomic batch.
 
 ## Export
 
@@ -19,9 +19,9 @@ xdb export --uri xdb://myapp/todos --fields _id,title
 
 ## Import
 
-Import reads NDJSON from stdin or `--file` (the file must live under
-the working directory). Each line needs an `_id` (or `id`) field; the
-default mode is upsert.
+Import reads NDJSON from stdin or from `--file`. The file must be under
+the working directory. Each line needs an `_id` field (`id` is also
+accepted). The default mode is upsert.
 
 ```bash
 xdb import --uri xdb://myapp/todos < todos.ndjson
@@ -30,16 +30,17 @@ xdb import --uri xdb://myapp/todos --create-only < todos.ndjson
 
 The summary on stdout is machine-readable:
 `{"imported": N, "skipped": N, "failed": N, "first_error_line": L}`.
-Under `--create-only`, an existing record with different data is
-counted as skipped and the local data is kept. Import is fail-fast and
-not transactional: on error, lines before `first_error_line` are
-already committed — fix the input and re-run (upsert mode makes the
-retry idempotent).
+With `--create-only`, an existing record with different data counts as
+skipped, and the stored data is kept. Import stops at the first error
+and is not transactional. After an error, the lines before
+`first_error_line` are already committed. Fix the input and run the
+import again. In upsert mode, the retry is idempotent.
 
 ## Atomic batches
 
-`batch` runs `{op, uri, data}` operations in one transaction — all or
-nothing on transactional backends (sqlite, memory):
+`batch` runs a list of `{op, uri, data}` operations in one transaction.
+On the transactional backends (`sqlite`, `memory`), all operations
+succeed or none do:
 
 ```bash
 xdb batch --json '[
@@ -48,9 +49,11 @@ xdb batch --json '[
 ]'
 ```
 
-NDJSON works too (one op per line, pipe with `xdb batch -`). Allowed
-ops: records.create/update/upsert/delete, schemas.create/update/delete.
-Per-op results carry `{index, uri, status, error?}`; a failure rolls
-back the whole batch (`"rolled_back": true`). Validate first with
-`--dry-run`; on non-transactional backends pass `--non-atomic` for
-sequential best-effort execution.
+NDJSON also works: one op per line, piped with `xdb batch -`. Allowed
+ops: `records.create`, `records.update`, `records.upsert`,
+`records.delete`, `schemas.create`, `schemas.update`, `schemas.delete`.
+Each per-op result carries `{index, uri, status, error?}`. If one op
+fails, the whole batch rolls back and the response has
+`"rolled_back": true`. To validate without writing, pass `--dry-run`.
+On the non-transactional backends (`fs`, `redis`), pass `--non-atomic`
+for sequential best-effort execution.

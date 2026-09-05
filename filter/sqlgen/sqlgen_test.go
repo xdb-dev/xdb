@@ -194,6 +194,18 @@ func TestGenerate_KV(t *testing.T) {
 			wantSQL:    `(_id IN (SELECT _id FROM posts WHERE _attr = ? AND substr(CAST(_val AS TEXT), -length(?)) = ?))`,
 			wantParams: []any{"name", "hn", "hn"},
 		},
+		{
+			name:       "in list",
+			expr:       `status in ["active", "pending"]`,
+			wantSQL:    `(_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS TEXT) IN (?, ?)))`,
+			wantParams: []any{"status", "active", "pending"},
+		},
+		{
+			name:       "in list after another clause keeps param order",
+			expr:       `name == "john" && age in [30, 40]`,
+			wantSQL:    `((_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS TEXT) = ?)) AND (_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS TEXT) IN (?, ?))))`,
+			wantParams: []any{"name", "john", "age", int64(30), int64(40)},
+		},
 	}
 
 	for _, tt := range tests {

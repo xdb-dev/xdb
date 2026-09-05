@@ -6,11 +6,13 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-// Marshal decodes a JSON document into a [core.Record] addressed by uri, typing
-// declared fields against def (via encoding/xdbjson). Nested objects flatten to
-// dotted attributes; object arrays decode through their element schemas so
-// time.Time and integers inside elements are typed. Metadata fields (_id, _ns,
-// _schema) in the document are ignored — the record's identity comes from uri.
+// Marshal decodes a JSON document into a [core.Record] addressed by uri. The
+// uri must carry ns, schema, and id. If one of them is missing, Marshal
+// panics. Declared fields are typed against def through encoding/xdbjson.
+// Nested objects flatten to dotted attributes. Object arrays decode through
+// their element schemas, so time.Time and integers inside elements are typed.
+// Metadata fields (_id, _ns, _schema) in the document are ignored. The
+// identity of the record comes from uri.
 func Marshal(uri string, doc []byte, def *schema.Def) (*core.Record, error) {
 	u, err := core.ParseURI(uri)
 	if err != nil {

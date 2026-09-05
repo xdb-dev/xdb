@@ -266,6 +266,13 @@ func (g *generator) walkIn(args []ast.Expr) (string, error) {
 		return "", err
 	}
 
+	// The KV subquery binds the attr name before the list values, so it
+	// must be appended before them. Prepending it to g.params instead
+	// would shift every placeholder bound by an earlier clause.
+	if g.strategy == KVStrategy {
+		g.params = append(g.params, field)
+	}
+
 	list := args[1].AsList()
 	placeholders := make([]string, len(list.Elements()))
 	for i, elem := range list.Elements() {
@@ -275,8 +282,6 @@ func (g *generator) walkIn(args []ast.Expr) (string, error) {
 	}
 
 	if g.strategy == KVStrategy {
-		g.params = append([]any{field}, g.params...)
-		// Rebuild: attr param first, then list values.
 		inner := strings.Join(placeholders, ", ")
 		return fmt.Sprintf("(_id IN (SELECT _id FROM %s WHERE _attr = ? AND CAST(_val AS TEXT) IN (%s)))",
 			g.table, inner), nil
@@ -302,10 +307,10 @@ func (g *generator) walkSelect(expr ast.Expr) (string, error) {
 	return operand + "." + sel.FieldName(), nil
 }
 
-// walkList handles list literals (used as argument to @in).
+// walkList rejects a standalone list literal. walkIn consumes the list
+// argument of @in directly, so a list that reaches walkList is not an @in
+// argument and has no SQL form.
 func (g *generator) walkList(expr ast.Expr) (string, error) {
-	// Lists are handled directly in walkIn. If we get here,
-	// it's an unexpected standalone list.
 	return "", fmt.Errorf("sqlgen: unexpected standalone list expression")
 }
 

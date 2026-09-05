@@ -12,8 +12,10 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-// URI validates and parses a raw URI string.
-// It performs defense-in-depth checks on the raw string before parsing.
+// URI reports whether a raw URI string is safe and well-formed. It
+// rejects whitespace, control characters, query parameters, path
+// traversal, and percent-encoding before it parses the string with
+// [core.ParseURI]. It returns only an error, never the parsed URI.
 func URI(raw string) error {
 	if strings.Contains(raw, " ") || strings.Contains(raw, "\t") {
 		return fmt.Errorf("URI contains whitespace")

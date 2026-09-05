@@ -1,6 +1,7 @@
-// Package catalog is the single source of truth for XDB's JSON-RPC method
-// and type metadata. [Methods] backs daemon registration
-// (cmd/xdb/daemon) and [Types] backs the introspect.type/introspect.types
-// API ([api.IntrospectService]), so the daemon's live behavior and its own
-// self-description can never drift apart.
+// Package catalog is the single source of truth for the JSON-RPC method
+// and type metadata of XDB. [Methods] backs daemon registration
+// (cmd/xdb/daemon). [Types] backs the introspect.type and
+// introspect.types methods ([api.IntrospectService]). As a result, the
+// live behavior of the daemon and its self-description cannot drift
+// apart.
 package catalog

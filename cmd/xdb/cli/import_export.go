@@ -173,8 +173,8 @@ func envelopeCode(err error) string {
 }
 
 // prefixLineError prefixes an import error's message with the 1-based input
-// line number it came from. It copies the envelope rather than mutating it in
-// place, so the shared error-envelope value is never shared/aliased.
+// line number it came from. It copies the envelope instead of changing it in
+// place, because other callers can hold the same envelope value.
 func prefixLineError(err error, line int) error {
 	if err == nil {
 		return nil

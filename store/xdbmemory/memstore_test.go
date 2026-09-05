@@ -74,6 +74,12 @@ func TestModes(t *testing.T) {
 	}).Run(t)
 }
 
+func TestUnique(t *testing.T) {
+	tests.NewUniqueStoreSuite(func() store.Store {
+		return newStore()
+	}).Run(t)
+}
+
 func TestCascade(t *testing.T) {
 	tests.NewCascadeStoreSuite(func() store.Store {
 		return newStore()

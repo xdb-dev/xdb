@@ -23,8 +23,14 @@ func newSchemaService() *api.SchemaService {
 // package's own format ({type, elem_type, ...}).
 type wireField struct {
 	Type     string `json:"type"`
+	Indexed  *bool  `json:"indexed,omitempty"`
+	Unique   *bool  `json:"unique,omitempty"`
 	Required bool   `json:"required,omitempty"`
 }
+
+// boolPtr returns a pointer to b, for wire fields that distinguish an
+// omitted key from an explicit false.
+func boolPtr(b bool) *bool { return &b }
 
 // schemaData builds JSON data for a schema definition without the URI field.
 func schemaData(t *testing.T, fields map[string]wireField, mode schema.Mode) json.RawMessage {
@@ -321,6 +327,51 @@ func TestSchemaService_Update(t *testing.T) {
 		assert.Contains(t, resp.Data.Fields, "name")
 		// New field added.
 		assert.Contains(t, resp.Data.Fields, "author")
+	})
+
+	t.Run("patch keeps markers it does not mention", func(t *testing.T) {
+		markerSvc := newSchemaService()
+		_, err := markerSvc.Create(ctx, &api.CreateSchemaRequest{
+			URI: "xdb://myapp/members",
+			Data: schemaData(t, map[string]wireField{
+				"email":  {Type: "string", Unique: boolPtr(true)},
+				"status": {Type: "string", Indexed: boolPtr(true)},
+			}, schema.ModeStrict),
+		})
+		require.NoError(t, err)
+
+		// Edit only the description. The patch says nothing about
+		// unique, so the stored marker must survive.
+		resp, err := markerSvc.Update(ctx, &api.UpdateSchemaRequest{
+			URI: "xdb://myapp/members",
+			Data: json.RawMessage(
+				`{"fields":{"email":{"type":"string","description":"login"}}}`,
+			),
+		})
+		require.NoError(t, err)
+		assert.True(t, resp.Data.Fields["email"].Unique, "email stays unique")
+		assert.Equal(t, "login", resp.Data.Fields["email"].Description)
+		assert.True(t, resp.Data.Fields["status"].Indexed, "status stays indexed")
+	})
+
+	t.Run("patch rejects an explicit marker change", func(t *testing.T) {
+		markerSvc := newSchemaService()
+		_, err := markerSvc.Create(ctx, &api.CreateSchemaRequest{
+			URI: "xdb://myapp/members",
+			Data: schemaData(t, map[string]wireField{
+				"email": {Type: "string", Unique: boolPtr(true)},
+			}, schema.ModeStrict),
+		})
+		require.NoError(t, err)
+
+		_, err = markerSvc.Update(ctx, &api.UpdateSchemaRequest{
+			URI: "xdb://myapp/members",
+			Data: schemaData(t, map[string]wireField{
+				"email": {Type: "string", Unique: boolPtr(false)},
+			}, ""),
+		})
+		assert.ErrorIs(t, err, core.ErrSchemaViolation,
+			"clearing unique is still immutable when the patch asks for it")
 	})
 
 	t.Run("not found", func(t *testing.T) {

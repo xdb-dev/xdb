@@ -19,7 +19,7 @@ func (a *App) watchCmd() *cli.Command {
 		ArgsUsage:          "[URI]",
 		Flags: []cli.Flag{
 			&cli.StringFlag{Name: "uri", Usage: "URI scope to watch (namespace, schema, or record)"},
-			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
+			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Ignored; watch always prints NDJSON"},
 		},
 		Action: a.watchAction,
 	}

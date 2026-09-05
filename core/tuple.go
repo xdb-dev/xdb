@@ -73,7 +73,7 @@ func (t *Tuple) GoString() string {
 // --- Typed value accessors ---
 //
 // These delegate to the underlying [Value] and are nil-safe:
-// a nil Tuple returns the zero value with no error.
+// a nil Tuple returns the zero value and [ErrAttrNotFound].
 
 // AsStr returns the tuple's value as a string.
 // Returns [ErrAttrNotFound] if the tuple is nil (attribute absent),

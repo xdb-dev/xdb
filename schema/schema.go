@@ -80,6 +80,12 @@ type Field struct {
 	Unique      bool
 }
 
+// HasIndex reports whether the field carries an index marker. A unique
+// field is indexed too: the backing index enforces the constraint.
+func (f Field) HasIndex() bool {
+	return f.Indexed || f.Unique
+}
+
 // Def represents a schema definition. It is the intermediate representation
 // that schema importers produce and that stores validate records against.
 type Def struct {

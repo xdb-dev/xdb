@@ -111,7 +111,7 @@ func NewEmbeddedCommand(name string) *cli.Command {
 
 	root := a.newBaseCommand(os.Stdout, os.Stderr)
 	root.Name = name
-	root.Usage = "Query and manage xdb data"
+	root.Usage = "Query and manage XDB data"
 	root.Commands = append(
 		[]*cli.Command{
 			a.recordsCmd(),

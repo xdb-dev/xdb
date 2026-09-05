@@ -10,9 +10,8 @@ type Options struct {
 // Option customizes an import.
 type Option func(*Options)
 
-// WithNamespace sets the namespace the schema imports into. It is required when
-// the document's $id does not carry one (v1 never derives a namespace from
-// $id).
+// WithNamespace sets the namespace the schema imports into. It is required.
+// The importer never derives a namespace from the document or its $id.
 func WithNamespace(ns string) Option {
 	return func(o *Options) { o.ns = ns }
 }

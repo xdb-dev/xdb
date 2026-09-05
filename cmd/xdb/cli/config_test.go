@@ -59,7 +59,7 @@ func TestConfig_PathHelpers(t *testing.T) {
 	assert.Equal(t, "/tmp/xdb-test", cfg.ExpandedDir())
 	assert.Equal(t, "/tmp/xdb-test/test.sock", cfg.SocketPath())
 	assert.Equal(t, "/tmp/xdb-test/xdb.log", cfg.LogFile())
-	assert.Equal(t, "/tmp/xdb-test/xdb.pid", cfg.PIDFile())
+	assert.Equal(t, "/tmp/xdb-test/test.pid", cfg.PIDFile(), "PID file follows the socket name, as the daemon writes it")
 	assert.Equal(t, "/tmp/xdb-test/data", cfg.DataDir())
 }
 

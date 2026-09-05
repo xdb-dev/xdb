@@ -11,10 +11,11 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-// Marshal encodes a proto message into a [core.Record] addressed by uri (which
-// must carry ns, schema, and id). It walks the message via protoreflect using
-// the same field plan the importer produces, so the record's attributes match
-// the imported schema.
+// Marshal encodes a proto message into a [core.Record] addressed by uri. The
+// uri must carry ns, schema, and id. If one of them is missing, Marshal
+// panics. It walks the message through protoreflect with the same field plan
+// that the importer produces, so the attributes of the record match the
+// imported schema.
 //
 // Scalars, enums (as their value name), Timestamp (as TIME), and bytes map to
 // leaf values; nested messages flatten to dotted attributes; repeated messages
@@ -153,9 +154,9 @@ func objectArrayValue(fp fieldPlan, list protoreflect.List) (*core.Value, error)
 }
 
 // encodeElement renders one object-array element as a map ready for
-// json.Marshal. Leaf members become Go values json types natively (Timestamp as
-// RFC3339, bytes as base64); nested messages flatten to dotted keys; nested
-// arrays recurse.
+// json.Marshal. Leaf members become Go values that json.Marshal renders in
+// the form the schema expects (Timestamp as RFC3339Nano, bytes as base64).
+// Nested messages flatten to dotted keys. Nested arrays recurse.
 func encodeElement(items []fieldPlan, m protoreflect.Message) (map[string]any, error) {
 	out := make(map[string]any)
 

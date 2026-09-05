@@ -1,34 +1,34 @@
 ---
 title: Types
-description: Built-in type system with typed value accessors and cross-database type mapping.
-package: core, types
+description: Built-in type system with typed value accessors and the SQLite column mapping.
+package: core
 ---
 
 # Types
 
-XDB has a built-in type system that maps to both Go types and database-specific types. Every [Value](tuples.md) in XDB carries its type, enabling type-safe access and cross-database portability.
+XDB has a built-in type system. Every `Value` carries its type. This gives type-safe access in Go and a fixed mapping to SQLite column types.
 
 ## Supported Types
 
-The canonical user-facing type names are lowercase. Internally, type identifiers are stored as uppercase constants (`TID`), but `TID.Lower()` returns the lowercase form for JSON output and CLI display.
+The user-facing type names are lowercase. Internally, XDB stores type identifiers as uppercase constants (`TID`). `TID.Lower()` returns the lowercase form for JSON output and CLI display.
 
-| Type       | Go Type           | PostgreSQL         | SQLite    | Description             |
-| ---------- | ----------------- | ------------------ | --------- | ----------------------- |
-| `string`   | `string`          | `TEXT`             | `TEXT`    | UTF-8 string            |
-| `integer`  | `int64`           | `BIGINT`           | `INTEGER` | 64-bit signed integer   |
-| `unsigned` | `uint64`          | `BIGINT`           | `INTEGER` | 64-bit unsigned integer |
-| `float`    | `float64`         | `DOUBLE PRECISION` | `REAL`    | 64-bit floating point   |
-| `boolean`  | `bool`            | `BOOLEAN`          | `INTEGER` | True or false           |
-| `time`     | `time.Time`       | `TIMESTAMPTZ`      | `INTEGER` | Date and time in UTC    |
-| `json`     | `json.RawMessage` | `JSONB`            | `TEXT`    | Arbitrary JSON data     |
-| `bytes`    | `[]byte`          | `BYTEA`            | `BLOB`    | Binary data             |
-| `array`    | `[]*Value`        | `[]T`              | `TEXT`    | Array of typed values   |
+| Type       | Go Type           | SQLite    | Description             |
+| ---------- | ----------------- | --------- | ----------------------- |
+| `string`   | `string`          | `TEXT`    | UTF-8 string            |
+| `integer`  | `int64`           | `INTEGER` | 64-bit signed integer   |
+| `unsigned` | `uint64`          | `INTEGER` | 64-bit unsigned integer |
+| `float`    | `float64`         | `REAL`    | 64-bit floating point   |
+| `boolean`  | `bool`            | `INTEGER` | True or false           |
+| `time`     | `time.Time`       | `INTEGER` | Date and time in UTC    |
+| `json`     | `json.RawMessage` | `TEXT`    | Arbitrary JSON data     |
+| `bytes`    | `[]byte`          | `BLOB`    | Binary data             |
+| `array`    | `[]*Value`        | `TEXT`    | Array of typed values   |
 
-The ordered list of user-facing types is available as `core.ValueTypes`. From the [CLI](../../cmd/xdb/cli/CONTEXT.md), types are declared in schema field definitions (`{"fields":{"age":{"type":"integer"}}}`) and interpreted by filter predicates; run `xdb describe --value-types` for the live list.
+`core.ValueTypes` is the ordered list of user-facing types. From the [CLI](../../cmd/xdb/cli/CONTEXT.md), you declare types in schema field definitions, for example `{"fields":{"age":{"type":"integer"}}}`. Filter predicates use the declared types. Run `xdb describe --value-types` for the live list.
 
 ## Type Identifiers
 
-Types are identified by `TID` (Type ID), a string constant:
+A `TID` (Type ID) is a string constant that identifies a type:
 
 ```go
 core.TIDString    // "STRING"
@@ -45,11 +45,11 @@ core.TIDUnknown   // "UNKNOWN"
 
 ## Values
 
-A `Value` is a typed container that holds data and its type metadata.
+A `Value` is a typed container. It holds the data and its type metadata.
 
 ### Creating Values
 
-Typed constructors (preferred — no reflection):
+Typed constructors are preferred, because they do not use reflection:
 
 ```go
 core.StringVal("hello")
@@ -63,16 +63,16 @@ core.BytesVal([]byte{0x01, 0x02})
 core.ArrayVal(core.TIDString, core.StringVal("a"), core.StringVal("b"))
 ```
 
-Dynamic constructor (uses reflection):
+The dynamic constructors use reflection:
 
 ```go
-v := core.NewValue("hello")          // panics on unsupported type
-v, err := core.NewSafeValue("hello") // safe version
+v := core.NewValue("hello")          // panics on an unsupported type
+v, err := core.NewSafeValue("hello") // returns an error instead
 ```
 
 ### Accessing Values
 
-Use `As*` methods for type-safe extraction. Each returns `(T, error)`:
+Use the `As*` methods to read a value with its type. Each method returns `(T, error)`:
 
 ```go
 s, err := value.AsStr()    // string
@@ -86,21 +86,22 @@ bs, err := value.AsBytes() // []byte
 a, err := value.AsArray()  // []*Value
 ```
 
-If the value does not match the requested type, `ErrTypeMismatch` is returned.
+If the value does not have the requested type, the method returns `ErrTypeMismatch`.
 
-A nil `*Value` (an attribute explicitly set to null) returns the zero value
-with no error. The same `As*` methods on a [Tuple](tuples.md) instead return
-`ErrAttrNotFound` when the tuple itself is nil — i.e. the attribute is absent,
-which is distinct from an explicit null. See [Tuples](tuples.md#typed-value-accessors).
+A nil `*Value` is an attribute that is explicitly set to null. The `As*`
+methods on a nil `*Value` return the zero value with no error. The same `As*`
+methods on a nil [Tuple](tuples.md) return `ErrAttrNotFound`. A nil tuple
+means that the attribute is absent, which is different from an explicit null.
+See [Tuples](tuples.md#typed-value-accessors).
 
 ### Inspecting Values
 
 ```go
 value.Type()   // Type — type metadata
-value.IsNil()  // bool — true if value is nil
+value.IsNil()  // bool — true if the value is nil
 ```
 
-> **Important:** Avoid `Unwrap()`. Always use `As*` methods for type-safe access. `Unwrap()` returns the raw `any` value without type guarantees.
+> **Important:** Do not use `Unwrap()`. Always use the `As*` methods for type-safe access. `Unwrap()` returns the raw `any` value without a type guarantee.
 
 ## Array Types
 
@@ -112,25 +113,24 @@ arrType.ID()           // TIDArray
 arrType.ElemTypeID()   // TIDString
 ```
 
-In [Schema](schemas.md) definitions, every array field must declare its element
-type via the `elem_type` JSON property (in Go, it is folded into the field's
-`Type` with `core.NewArrayType`). Element type is required in all modes and is
-immutable once set — see [Schemas → Array fields](schemas.md#array-fields).
+In [Schema](schemas.md) definitions, every array field must declare its
+element type with the `elem_type` JSON property. In Go, the element type is
+part of the `Type` of the field, built with `core.NewArrayType`. The element
+type is required in all modes. It is immutable after the field exists. See
+[Schemas → Array fields](schemas.md#array-fields).
 
-## Type Codec
+## SQLite Type Mapping
 
-Each database store defines a codec that maps XDB types to database-specific representations. The SQLite codec is a `Value` type providing two encoding paths:
+The SQLite driver is the only driver that maps XDB types to database column types. The mapping lives in `store/xdbsqlite/internal/sql`:
 
-- **`Value()` / `Scan()`** — implements `driver.Valuer` and `sql.Scanner`, converting `*core.Value` to/from a `driver.Value` for SQL column storage
-- **`MarshalBytes()` / `UnmarshalBytes()`** — converts `*core.Value` to/from `[]byte` for KV storage
+- `SQLiteTypeName` returns the column type from the table above. A `strict` or `dynamic` schema gets a column table with one column per field. A `flexible` schema and schema-free records get a key-value table. The key-value table stores each value in its native SQLite storage class, with `_type` and `_elem` columns that record the XDB type.
+- The `Value` type implements `driver.Valuer` and `sql.Scanner`. It converts a `*core.Value` to a SQL parameter on write and back to a `*core.Value` on read. A `boolean` is stored as `0` or `1`. A `time` is stored as Unix milliseconds. A `json` value is stored as text. An `array` is stored as a JSON array in text form.
 
-The SQLite store's codec is defined in `store/xdbsqlite/internal/sql/value.go`.
-
-This is how XDB defines types once and maps them to SQLite, Postgres, Redis, or the filesystem.
+The other drivers (memory, filesystem, redis) have no column types. See [Drivers](drivers.md).
 
 ## Related Concepts
 
 - [Tuples](tuples.md) — Tuples carry typed values
 - [Schemas](schemas.md) — Field definitions reference type IDs
 - [Encoding](encoding.md) — Type conversion during JSON serialization
-- [Stores](stores.md) — Type codec used by database backends
+- [Stores](stores.md) — The store facade that the drivers sit behind

@@ -24,7 +24,7 @@ var now = time.Now
 // other declared field on every backend, and a driver needs to know
 // nothing about versioning.
 //
-// A write may carry [schema.FieldVersion] as an optimistic-concurrency
+// A write can carry [schema.FieldVersion] as an optimistic-concurrency
 // precondition. It is removed from the tuple set here and compared with
 // the stored version by [schema.NextRevision]: equal bumps, stale
 // returns [core.ErrConflict], absent (zero) writes unconditionally.
@@ -49,9 +49,10 @@ func (v *versioner) Apply(ctx context.Context, m Mutation) error {
 	return v.applyWrite(ctx, m)
 }
 
-// applyWrite handles the put-family ops: take the precondition out of
-// the tuple set, run the CAS against the stored version, and stamp the
-// next version onto the forwarded mutation.
+// applyWrite handles every op except delete (patch, create, and put):
+// take the precondition out of the tuple set, run the CAS against the
+// stored version, and stamp the next version onto the forwarded
+// mutation.
 func (v *versioner) applyWrite(ctx context.Context, m Mutation) error {
 	tuples, want := splitVersion(m.Tuples)
 
@@ -155,9 +156,11 @@ func (v *versioner) userTuples(ctx context.Context, path *core.URI) (int, error)
 }
 
 // splitVersion separates the optimistic-concurrency precondition from
-// the tuples to write. A non-integer value reads as 0 (unconditional);
-// enforcement has already type-checked the attr against the stamped
-// definition, so this cannot silently swallow a caller's mistake.
+// the tuples to write. A non-integer value reads as 0 (unconditional).
+// When the record has a schema, enforcement has already type-checked
+// the attr against the stamped definition, so a malformed precondition
+// is rejected before it gets here. A schema-free record has no such
+// check, so its malformed precondition is silently unconditional.
 func splitVersion(tuples []*core.Tuple) ([]*core.Tuple, int64) {
 	var want int64
 

@@ -1,47 +1,50 @@
 // Package xdbsqlite provides a SQLite-backed implementation of
 // [store.Driver], with native transactions ([store.TxDriver]) and CEL
-// filter pushdown ([store.QueryDriver]). It is pure storage — no
-// validation, mode enforcement, or revision logic; that policy lives in
-// the store facade. Construct a usable store with
+// filter pushdown ([store.QueryDriver]). It is pure storage: no
+// validation, no mode enforcement, and no revision logic. That policy
+// lives in the store facade. Construct a usable store with
 // store.New(xdbsqlite.NewDriver(db)).
 //
 // # Architecture
 //
-// A routing Driver owns the database, the write mutex, and transaction
-// lifecycle; a [session] carries the store.Driver logic over one query
-// handle (the database for lock-free reads, a transaction for writes).
-// Each schema's records are stored by one of two engines, chosen by the
-// single routing point engineFor from the schema's stored def:
+// A routing Driver owns the database, the write mutex, and the
+// transaction lifecycle. A session carries the store.Driver logic over
+// one query handle: the database for lock-free reads, or a transaction
+// for writes. One of two engines stores the records of each schema.
+// The single routing point engineFor selects the engine from the stored
+// definition of the schema:
 //
-//   - The KV engine backs flexible schemas and schema-less records: a
+//   - The KV engine backs flexible schemas and schema-free records: a
 //     per-schema table with one row per attribute.
 //   - The table engine backs strict and dynamic schemas: a per-schema
 //     table with one column per field.
 //
-// The engines sit over the raw statement layer in internal/sql; the
-// four mutation ops (patch/create/put/delete) execute once in
+// The engines sit over the raw statement layer in internal/sql. The
+// four mutation ops (patch, create, put, delete) run once in
 // runMutation over the engine interface, so both layouts share their
 // semantics.
 //
 // # Storage
 //
-// Schema definitions are stored in a bootstrap _schemas table as JSON.
-// Namespaces are derived from registered schemas. Backing tables are
-// created when a schema is created and, lazily, on the first write to a
-// schema-less table or after DropRecords.
+// Schema definitions are stored as JSON in a bootstrap _schemas table.
+// Namespaces are derived from registered schemas. A backing table is
+// created when a schema is created. It is also created lazily, on the
+// first write to a schema-free table or after DropRecords.
 //
 // KV rows store each value in its native SQLite storage class (an ANY
-// column), with _type and _elem recording the [core.Type] so values
-// decode and SQL comparisons stay numeric. A per-table (_attr,_val)
-// index serves filter pushdown.
+// column). The _type and _elem columns record the [core.Type], so
+// values decode correctly and SQL comparisons stay numeric. A
+// per-table (_attr,_val) index serves filter pushdown. On a column
+// table, each indexed or unique field gets its own index.
 //
 // Table naming:
 //
-//	_schemas               → schema metadata (bootstrap)
-//	"kv:<ns>/<schema>"      → KV table for flexible/schema-less records
-//	"t:<ns>/<schema>"       → column table for strict/dynamic schemas
-//	"ix:kv:<ns>/<schema>"   → (_attr,_val) index on the KV table
+//	_schemas                     → schema metadata (bootstrap)
+//	"kv:<ns>/<schema>"           → KV table for flexible/schema-free records
+//	"t:<ns>/<schema>"            → column table for strict/dynamic schemas
+//	"ix:kv:<ns>/<schema>"        → (_attr,_val) index on the KV table
+//	"ix:t:<ns>/<schema>:<field>" → index for an indexed or unique field on the column table
 //
 // The on-disk format is not compatible with earlier versions of this
-// package; there is no migration.
+// package. There is no migration.
 package xdbsqlite

@@ -25,7 +25,8 @@ type Driver struct {
 	mu sync.Mutex
 }
 
-// Option configures a [Driver].
+// Option is reserved for future [Driver] configuration. No options
+// exist yet.
 type Option func(*Driver)
 
 // NewDriver creates a new SQLite driver backed by the given [*sql.DB].

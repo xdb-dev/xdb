@@ -67,9 +67,11 @@ func (u *URI) RecordURI() *URI {
 	return &URI{ns: u.ns, schema: u.schema, id: u.id}
 }
 
-// RecordPath returns the ns/schema/id record-path string, dropping any
-// attr. It is the canonical record key and equals RecordURI().Path()
-// without the intermediate URI allocation.
+// RecordPath returns the ns/schema/id record-path string and drops any
+// attr. It is the canonical record key. For a record URI (depth 3), it
+// equals RecordURI().Path() without the intermediate URI allocation. For a
+// shorter URI, the missing components are empty, so the result differs
+// from RecordURI().Path().
 func (u *URI) RecordPath() string {
 	return u.ns + "/" + u.schema + "/" + u.id
 }
@@ -98,12 +100,12 @@ func (u *URI) String() string {
 	return "xdb://" + u.Path()
 }
 
-// MarshalJSON implements the json.Marshaler interface.
+// MarshalJSON implements the [json.Marshaler] interface.
 func (u *URI) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.String())
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface.
+// UnmarshalJSON implements the [json.Unmarshaler] interface.
 func (u *URI) UnmarshalJSON(data []byte) error {
 	var str string
 	if err := json.Unmarshal(data, &str); err != nil {
@@ -223,7 +225,7 @@ func ParseURI(uri string) (*URI, error) {
 	return out, nil
 }
 
-// MustParseURI is like ParseURI but panics if the URI is invalid.
+// MustParseURI is like [ParseURI] but panics if the URI is invalid.
 func MustParseURI(uri string) *URI {
 	parsed, err := ParseURI(uri)
 	if err != nil {

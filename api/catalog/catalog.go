@@ -47,7 +47,7 @@ func recordMethods() map[string]rpc.MethodMeta {
 		"records.get": {
 			Description: "Retrieve a record by URI.",
 			Parameters: map[string]rpc.ParamMeta{
-				"uri":    {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+				"uri":    {Description: "Record URI (xdb://ns/schema/id, or xdb://ns/schema/id#attr for one attribute)", Type: "string", Required: true},
 				"fields": {Description: "Field projection list", Type: "array"},
 			},
 			Response: map[string]rpc.ParamMeta{
@@ -96,10 +96,13 @@ func recordMethods() map[string]rpc.MethodMeta {
 			},
 		},
 		"records.delete": {
-			Description: "Delete a record. Idempotent: succeeds even if not found.",
-			Mutating:    true,
+			Description: "Delete a record, or one attribute of it. A whole-record delete is idempotent: " +
+				"a missing record is a success. An attribute delete fails with NOT_FOUND when the record " +
+				"is missing.",
+			Mutating: true,
 			Parameters: map[string]rpc.ParamMeta{
-				"uri":     {Description: "Record URI (xdb://ns/schema/id)", Type: "string", Required: true},
+				"uri":     {Description: "Record URI (xdb://ns/schema/id, or xdb://ns/schema/id#attr for one attribute)", Type: "string", Required: true},
+				"version": {Description: "Delete only if the record is at this version; CONFLICT otherwise. Omit or 0 for unconditional delete", Type: "integer"},
 				"dry_run": {Description: "Validate without writing; response carries dry_run{valid,would}", Type: "boolean"},
 			},
 		},
@@ -116,7 +119,7 @@ func schemaMethods() map[string]rpc.MethodMeta {
 			Parameters: map[string]rpc.ParamMeta{
 				"uri": {Description: "Schema URI (xdb://ns/schema)", Type: "string", Required: true},
 				"data": {
-					Description: "Schema definition as JSON object (fields may declare items " +
+					Description: "Schema definition as JSON object (fields can declare items " +
 						"for ARRAY<JSON> members)",
 					Type: "object",
 				},
@@ -189,8 +192,8 @@ func namespaceMethods() map[string]rpc.MethodMeta {
 			},
 			Response: map[string]rpc.ParamMeta{
 				"data":          {Description: "The namespace name", Type: "string"},
-				"schemas":       {Description: "Sorted schema URIs in the namespace", Type: "array"},
-				"total_schemas": {Description: "Number of schemas in the namespace", Type: "integer"},
+				"schemas":       {Description: "Every schema URI in the namespace, sorted", Type: "array"},
+				"total_schemas": {Description: "Number of schemas in the namespace (use this for the count)", Type: "integer"},
 			},
 		},
 		"namespaces.list": {
@@ -247,7 +250,7 @@ func watchMethods() map[string]rpc.MethodMeta {
 		"watch": {
 			Description: "Stream change notifications for a URI scope (namespace, schema, or record) " +
 				"as server-sent events: a \"ready\" frame once the subscription is live, then one " +
-				"\"event\" frame per change {type, uri, data?, ts} where type is record.create|" +
+				"\"event\" frame per change {type, uri, data?, version?, ts} where type is record.create|" +
 				"record.update|record.upsert|record.delete|schema.create|schema.update|schema.delete. " +
 				"Delivery is at-most-once, in-process only, with no replay.",
 			Parameters: map[string]rpc.ParamMeta{
@@ -281,7 +284,7 @@ func introspectMethods() map[string]rpc.MethodMeta {
 		"introspect.method": {
 			Description: "Describe a single API method.",
 			Parameters: map[string]rpc.ParamMeta{
-				"method": {Description: "Method name (e.g. records.create)", Type: "string", Required: true},
+				"method": {Description: "Method name (for example, records.create)", Type: "string", Required: true},
 			},
 			Response: map[string]rpc.ParamMeta{
 				"method":      {Description: "The method name", Type: "string"},
@@ -294,7 +297,7 @@ func introspectMethods() map[string]rpc.MethodMeta {
 		"introspect.type": {
 			Description: "Describe a single API type.",
 			Parameters: map[string]rpc.ParamMeta{
-				"type": {Description: "Type name (e.g. Record)", Type: "string", Required: true},
+				"type": {Description: "Type name (for example, Record)", Type: "string", Required: true},
 			},
 			Response: map[string]rpc.ParamMeta{
 				"type":        {Description: "The type name", Type: "string"},
@@ -323,18 +326,15 @@ func Method(name string) (rpc.MethodMeta, bool) {
 }
 
 // Types returns the description of every API-facing type, keyed by name.
-//
-// BatchOperation, Event, and DryRunResult are added by later phases
-// (batch, watch, and dry-run implementations, respectively).
 func Types() map[string]string {
 	return map[string]string{
 		"Record":    "A collection of tuples sharing the same ID within a schema.",
 		"Schema":    "A definition of attributes and their types for a schema.",
-		"Namespace": "A logical grouping of schemas (e.g., com.example).",
+		"Namespace": "A logical grouping of schemas (for example, com.example).",
 		"Tuple":     "A single attribute-value pair within a record.",
 		"Value":     fmt.Sprintf("A typed value (%s).", strings.Join(core.ValueTypeNames(), ", ")),
 		"URI":       "A reference to XDB data: xdb://NS/SCHEMA/ID#ATTR",
 		"Filter":    "A CEL filter expression used to match records in records.list.",
-		"Mode":      "Schema validation mode: flexible, strict, or dynamic.",
+		"Mode":      "Schema validation mode: strict (default), flexible, or dynamic.",
 	}
 }

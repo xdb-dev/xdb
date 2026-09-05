@@ -39,6 +39,7 @@ const (
 	CodeAlreadyExists     = "ALREADY_EXISTS"
 	CodeSchemaViolation   = "SCHEMA_VIOLATION"
 	CodeConflict          = "CONFLICT"
+	CodeUniqueViolation   = "UNIQUE_VIOLATION"
 	CodeNotImplemented    = "NOT_IMPLEMENTED"
 	CodeInvalidArgument   = "INVALID_ARGUMENT"
 	CodeConnectionRefused = "CONNECTION_REFUSED"
@@ -86,7 +87,7 @@ func wrapRPCError(resource, action, uri string, err error) error {
 			Resource: resource,
 			Action:   action,
 			URI:      uri,
-			Hint:     "is the daemon running? try: xdb daemon start",
+			Hint:     "the daemon is not running. Start it with: xdb daemon start",
 		}
 	}
 
@@ -118,6 +119,8 @@ func codeFromRPC(code int) string {
 		return CodeSchemaViolation
 	case rpc.CodeConflict:
 		return CodeConflict
+	case rpc.CodeUniqueViolation:
+		return CodeUniqueViolation
 	case rpc.CodeNotImplemented:
 		return CodeNotImplemented
 	case rpc.CodeInvalidParams, rpc.CodeInvalidRequest, rpc.CodeParseError:
@@ -127,6 +130,7 @@ func codeFromRPC(code int) string {
 	}
 }
 
+// hintFor returns the next action to try for an error code.
 func hintFor(code, resource, action, uri string) string {
 	switch code {
 	case CodeNotFound:
@@ -134,7 +138,7 @@ func hintFor(code, resource, action, uri string) string {
 			return "try: xdb records list " + parentOf(uri)
 		}
 
-		return "run xdb describe --actions to see available operations"
+		return "run xdb describe --actions to see available actions"
 	case CodeAlreadyExists:
 		return "use update or upsert instead of create"
 	case CodeSchemaViolation:
@@ -146,7 +150,12 @@ func hintFor(code, resource, action, uri string) string {
 
 		return "run xdb describe --uri <schema-uri> to inspect the schema"
 	case CodeConflict:
-		return "the resource exists with different data; use update or upsert (records) or schemas update (schemas)"
+		return "the resource exists with different data. Use update or upsert for records, or schemas update for schemas"
+	case CodeUniqueViolation:
+		// update and upsert write the same duplicate value and fail
+		// again, so the CONFLICT advice would send the caller in a
+		// circle. The only way out is a different value.
+		return "another record already holds this value. Change the duplicate value, or delete the record that holds it"
 	case CodeNotImplemented:
 		return "this operation is not available in this daemon build"
 	case CodeInvalidArgument:
@@ -222,14 +231,16 @@ func ExitCodeFor(err error) int {
 		return ExitInvalidArgs
 	case CodeInternal:
 		return ExitInternal
-	case CodeConflict, CodeNotImplemented:
+	case CodeConflict, CodeUniqueViolation, CodeNotImplemented:
+		// Same as the default. Listed so the app-error codes are
+		// visible here.
 		return ExitAppError
 	default:
 		return ExitAppError
 	}
 }
 
-// normalizeError converts a bare [cli.ExitCoder] — e.g. urfave's own
+// normalizeError converts a bare [cli.ExitCoder] — for example urfave's own
 // "No help topic for X" error, raised when --help targets an unknown
 // subcommand name — into an INVALID_ARGUMENT [output.ErrorEnvelope].
 // Envelopes pass through unchanged; any other error is returned as-is.
@@ -256,7 +267,7 @@ func normalizeError(err error) error {
 }
 
 // WriteError renders an error to w. format is the output-format name
-// (e.g. "json", "yaml", "table", or "" for auto-detect).
+// (for example "json", "yaml", "table", or "" for auto-detect).
 // Raw (non-envelope) errors fall back to a short "error: ..." line.
 func WriteError(w io.Writer, format string, err error) {
 	if err == nil {
@@ -280,7 +291,7 @@ func WriteError(w io.Writer, format string, err error) {
 // Every error produced by CLI actions or [installUsageErrorHandler] is an
 // *[output.ErrorEnvelope] by the time Run returns, and envelopes were already
 // rendered during Run(); those pass through here untouched. A handful of
-// urfave-internal errors (e.g. "No help topic for X", raised when --help
+// urfave-internal errors (for example "No help topic for X", raised when --help
 // targets an unknown subcommand name) bypass Before/Action/ExitErrHandler
 // entirely and reach the caller unrendered — this renders those, once.
 //

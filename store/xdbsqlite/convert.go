@@ -35,7 +35,7 @@ func sortedColumns(def *schema.Def) []string {
 func indexedFields(def *schema.Def) []string {
 	names := make([]string, 0, len(def.Fields))
 	for name, field := range def.Fields {
-		if field.Indexed || field.Unique {
+		if field.HasIndex() {
 			names = append(names, name)
 		}
 	}

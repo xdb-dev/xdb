@@ -12,7 +12,7 @@ import (
 )
 
 // kvEngine stores a schema's records in a per-schema KV table, one row
-// per attribute. It backs flexible and schema-less records, so def may
+// per attribute. It backs flexible and schema-free records, so def may
 // be nil.
 type kvEngine struct {
 	q   *xsql.Queries

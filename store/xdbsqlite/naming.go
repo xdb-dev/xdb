@@ -44,7 +44,7 @@ func parseKVTable(name string) (*core.URI, bool) {
 }
 
 // scanTarget is one schema to scan: its URI and governing def (nil for
-// schema-less KV data). The def picks the engine via [engineFor].
+// schema-free KV data). The def picks the engine via [engineFor].
 type scanTarget struct {
 	uri *core.URI
 	def *schema.Def
@@ -52,7 +52,7 @@ type scanTarget struct {
 
 // scanTargets enumerates the schemas to scan under scope, ordered by
 // (ns, schema): every registered definition, plus KV tables that carry
-// records without a definition (schema-less data). Column tables have
+// records without a definition (schema-free data). Column tables have
 // no discovery path — a column table is unreadable without its def.
 func scanTargets(
 	ctx context.Context,

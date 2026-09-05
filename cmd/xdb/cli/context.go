@@ -8,8 +8,8 @@ import (
 )
 
 // contextCmd prints the embedded agent-oriented CLI guide (CONTEXT.md).
-// It replaces the old behavior of dumping the guide for any unrecognized
-// invocation — see the root Action in app.go.
+// An unrecognized command does not print the guide. It returns an
+// INVALID_ARGUMENT error instead (see rootDispatch in app.go).
 func contextCmd() *cli.Command {
 	return &cli.Command{
 		Name:               "context",

@@ -7,17 +7,17 @@
 //	<root>/<namespace>/<schema>/_schema.json    # schema definition
 //	<root>/<namespace>/<schema>/<id>.json       # one file per record
 //
-// The driver is pure storage: no validation, no mode enforcement, no
-// revision stamping — that policy lives in the middleware installed by
-// [store.New]. Construct a usable store with:
+// The driver is pure storage: no validation, no mode enforcement, and
+// no revision stamping. That policy lives in the middleware that
+// [store.New] installs. Construct a usable store with:
 //
 //	d, err := xdbfs.NewDriver(root, xdbfs.Options{})
 //	st := store.New(d)
 //
-// The driver is safe for concurrent in-process use via a
-// [sync.RWMutex]; record creation additionally uses O_EXCL so create
-// races are resolved by the filesystem. It is suitable for local
-// development, CLI tools, and configuration storage.
+// A [sync.RWMutex] makes the driver safe for concurrent in-process
+// use. Record creation also uses O_EXCL, so the filesystem resolves
+// create races. The driver is suitable for local development, CLI
+// tools, and config storage.
 package xdbfs
 
 import (
@@ -40,9 +40,9 @@ const (
 
 // Options configures the filesystem driver.
 type Options struct {
-	// Indent controls JSON pretty-printing.
+	// Indent is the JSON indentation string.
 	// Default: "  " (two spaces).
-	// Set to a single space " " for compact output.
+	// CompactJSON, not Indent, selects compact output.
 	Indent string
 
 	// CompactJSON disables indentation when true.

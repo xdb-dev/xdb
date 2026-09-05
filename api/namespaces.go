@@ -40,8 +40,10 @@ type GetNamespaceResponse struct {
 	TotalSchemas int      `json:"total_schemas"`
 }
 
-// Get retrieves namespace metadata by URI, including the sorted list of
-// schema URIs it contains so agents can walk the tree.
+// Get retrieves namespace metadata by URI. Schemas holds every schema URI
+// in the namespace, sorted, so agents can walk the tree. TotalSchemas
+// reports the same count. The schemas are read a page at a time, because
+// the store caps a single list call at [store.MaxLimit].
 func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*GetNamespaceResponse, error) {
 	uri, err := parseURI(req.URI, "namespaces.get", 1, 1, false)
 	if err != nil {
@@ -53,21 +55,42 @@ func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*
 		return nil, fmt.Errorf("api: namespaces.get: %w", err)
 	}
 
-	page, err := s.store.ListSchemas(ctx, &store.Query{URI: uri})
-	if err != nil {
-		return nil, fmt.Errorf("api: namespaces.get: %w", err)
+	var (
+		schemas []string
+		total   int
+		offset  int
+	)
+
+	for {
+		page, err := s.store.ListSchemas(ctx, &store.Query{
+			URI:    uri,
+			Limit:  store.MaxLimit,
+			Offset: offset,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("api: namespaces.get: %w", err)
+		}
+
+		for _, def := range page.Items {
+			schemas = append(schemas, def.URI.String())
+		}
+		total = page.Total
+
+		// NextOffset is zero on the last page. The second condition
+		// guards against a driver that fails to advance the offset,
+		// which would otherwise loop forever.
+		if page.NextOffset == 0 || page.NextOffset <= offset {
+			break
+		}
+		offset = page.NextOffset
 	}
 
-	schemas := make([]string, 0, len(page.Items))
-	for _, def := range page.Items {
-		schemas = append(schemas, def.URI.String())
-	}
 	sort.Strings(schemas)
 
 	return &GetNamespaceResponse{
 		Data:         ns,
 		Schemas:      schemas,
-		TotalSchemas: page.Total,
+		TotalSchemas: total,
 	}, nil
 }
 

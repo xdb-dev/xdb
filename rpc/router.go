@@ -67,8 +67,9 @@ func (r *Router) Meta(method string) (MethodMeta, bool) {
 }
 
 // Invoke calls a registered method directly, bypassing the HTTP layer.
-// params may be nil or a valid JSON object. Streaming methods are called
-// with a nil send function; only the error return value is observed.
+// params can be nil or a valid JSON object. Invoke passes a nil send
+// function, so it is only for non-streaming methods. A streaming
+// handler calls send unconditionally and panics on nil.
 func (r *Router) Invoke(ctx context.Context, method string, params json.RawMessage) (json.RawMessage, error) {
 	entry, ok := r.methods[method]
 	if !ok {
@@ -272,7 +273,7 @@ func MapError(err error) *Error {
 	case errors.Is(err, core.ErrConflict):
 		return Conflict(msg)
 	case errors.Is(err, core.ErrUniqueViolation):
-		return Conflict(msg)
+		return UniqueViolation(msg)
 	case errors.Is(err, core.ErrNotImplemented):
 		return NotImplemented(msg)
 	case errors.Is(err, core.ErrInvalidURI):

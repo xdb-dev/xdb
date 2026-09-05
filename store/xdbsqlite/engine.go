@@ -26,7 +26,7 @@ func isNoTable(err error) bool {
 // SQLite. The KV engine stores one row per attribute; the table engine
 // stores one row per record, one column per field. Both are bound at
 // construction to a query handle (database or transaction) and to the
-// governing def — nil only for the KV engine, on schema-less records.
+// governing def — nil only for the KV engine, on schema-free records.
 //
 // Engines speak tuples and URIs. Op semantics (patch/create/put/
 // delete) are not theirs: [runMutation] executes them once over these
@@ -63,7 +63,7 @@ type engine interface {
 }
 
 // engineFor picks the storage layout for a def: strict and dynamic
-// defs use the table engine; flexible defs and schema-less records
+// defs use the table engine; flexible defs and schema-free records
 // (def == nil) use the KV engine. This is the single routing point in
 // the package.
 func engineFor(q *xsql.Queries, def *schema.Def) engine {
@@ -79,7 +79,7 @@ func engineFor(q *xsql.Queries, def *schema.Def) engine {
 //
 // Backing storage is created lazily: reads treat a missing table as
 // empty, and writeFull creates the table on demand if an insert hits
-// one (schema-less first write, or a write after DropRecords). Keeping
+// one (schema-free first write, or a write after DropRecords). Keeping
 // the DDL off the happy path avoids a CREATE TABLE on every mutation.
 func runMutation(ctx context.Context, eng engine, m store.Mutation) error {
 	exists, err := eng.exists(ctx, m.Path)

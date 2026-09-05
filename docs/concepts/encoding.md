@@ -6,7 +6,7 @@ package: encoding/xdbjson
 
 # Encoding
 
-The `encoding/xdbjson` package handles bidirectional conversion between JSON and XDB [Records](records.md). It translates between flat [Tuple](tuples.md) attributes (with dot notation) and nested JSON objects.
+The `encoding/xdbjson` package converts JSON to XDB [Records](records.md) and back. It translates between flat [Tuple](tuples.md) attributes (with dot notation) and nested JSON objects.
 
 ## Overview
 
@@ -24,7 +24,7 @@ Record (flat tuples)              JSON (nested objects)
                                   └─────────────────────┘
 ```
 
-Dot-separated attributes are **unfolded** into nested objects during encoding, and **flattened** back during decoding.
+The encoder **unfolds** dot-separated attributes into nested objects. The decoder **flattens** nested objects back into dot-separated attributes.
 
 ## Encoder
 
@@ -36,22 +36,24 @@ encoder := xdbjson.New()
 // Compact JSON
 data, err := encoder.FromRecord(record)
 
-// Pretty-printed JSON
+// Indented JSON
 data, err := encoder.FromRecord(record, xdbjson.WithIndent("", "  "))
 
 // Field projection
 data, err := encoder.FromRecord(record, xdbjson.WithFields("name", "email"))
 ```
 
+`WithFields` limits the output to the named fields. The ID field is always included.
+
 ### Options
 
 ```go
 encoder := xdbjson.New(
-    xdbjson.WithIDField("_id"),          // JSON field for record ID (default: "_id")
-    xdbjson.WithNSField("_ns"),          // JSON field for namespace (default: "_ns")
-    xdbjson.WithSchemaField("_schema"),  // JSON field for schema (default: "_schema")
-    xdbjson.WithIncludeNS(),             // Include namespace in output
-    xdbjson.WithIncludeSchema(),         // Include schema in output
+    xdbjson.WithIDField("_id"),          // JSON field for the record ID (default: "_id")
+    xdbjson.WithNSField("_ns"),          // JSON field for the namespace (default: "_ns")
+    xdbjson.WithSchemaField("_schema"),  // JSON field for the schema (default: "_schema")
+    xdbjson.WithIncludeNS(),             // Include the namespace in the output
+    xdbjson.WithIncludeSchema(),         // Include the schema in the output
 )
 ```
 
@@ -89,51 +91,67 @@ encoder := xdbjson.New(
 The decoder parses JSON into records.
 
 ```go
-// With default NS and Schema (used when not present in JSON)
+// With a default NS and Schema (used when the JSON does not carry them)
 decoder := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("posts"))
 
-// Parse JSON to a new record
+// Parse JSON into a new record
 record, err := decoder.ToRecord(jsonData)
 
 // Parse JSON into an existing record
 err := decoder.ToExistingRecord(jsonData, record)
 ```
 
+### Numbers
+
+The decoder reads JSON numbers with `UseNumber`, so no precision is lost through `float64`. Without a schema, a number with a fractional part or an exponent becomes a `float`. Every other number becomes an `integer`. A number that does not fit in an `int64` becomes a `float`.
+
 ### Schema-aware Decoding
 
-When a schema definition is provided via `WithDef()`, the decoder coerces JSON values to match field types. For example, JSON numbers (always `float64` in Go) are converted to `int64` for `integer` fields and `uint64` for `unsigned` fields. Without a schema, values keep their JSON-native types.
+When you give the decoder a schema definition with `WithDef()`, the decoder converts each declared field to its declared type:
+
+- `integer`, `unsigned`, and `float` fields are converted from JSON numbers.
+- `time` fields are parsed from RFC 3339 strings.
+- `bytes` fields are decoded from base64 strings.
+- `json` fields keep their JSON value as-is. Their nested keys are not flattened.
+- `array` fields convert every element to the declared `elem_type`.
+- Object arrays (`ARRAY<JSON>` with `items`) convert each element member to the type that `items` declares.
+
+If a declared field cannot be decoded as its declared type, the decoder returns an error that wraps `core.ErrSchemaViolation`. The error names the field and the expected type. Undeclared attributes get their types from the number rules above. An undeclared attribute that XDB cannot type, for example an empty or mixed JSON array, is dropped in the same way as a null.
+
+`WithNumberInference()` is deprecated and has no effect. The decoder always infers numbers as described above.
 
 ```go
 decoder := xdbjson.NewDecoder(
     xdbjson.WithNS("com.example"),
     xdbjson.WithSchema("posts"),
-    xdbjson.WithDef(schemaDef),  // enables type coercion
+    xdbjson.WithDef(schemaDef),  // enables type conversion
 )
 ```
 
 ### Resolution Order
 
-The decoder resolves record identity (ID, NS, Schema) using:
+The decoder resolves the record identity (ID, NS, Schema) in this order:
 
-1. **JSON fields** — Values found in the JSON data (e.g., `_id`, `_ns`, `_schema`).
-2. **Options defaults** — Values provided in the decoder options.
+1. **JSON fields** — the values in the JSON data (`_id`, `_ns`, `_schema`).
+2. **Option defaults** — the values from `WithNS` and `WithSchema`.
 
-If neither source provides a required field, an error is returned.
+If neither source gives a required value, the decoder returns an error.
 
 ### Errors
 
-| Error                 | Cause                                   |
-| --------------------- | --------------------------------------- |
-| `ErrInvalidJSON`      | JSON parsing failed                     |
-| `ErrMissingID`        | No ID field in JSON and no default      |
-| `ErrEmptyID`          | ID field is present but empty           |
-| `ErrMissingNamespace` | No NS in JSON and no default            |
-| `ErrMissingSchema`    | No schema in JSON and no default        |
-| `ErrNilRecord`        | Nil record passed to `ToExistingRecord` |
+| Error                     | Cause                                                        |
+| ------------------------- | ------------------------------------------------------------ |
+| `ErrInvalidJSON`          | The JSON did not parse                                       |
+| `ErrMissingID`            | No ID field in the JSON                                      |
+| `ErrEmptyID`              | The ID field is present but empty                            |
+| `ErrMissingNamespace`     | No namespace in the JSON and no default                      |
+| `ErrMissingSchema`        | No schema in the JSON and no default                         |
+| `ErrNilRecord`            | A nil record was passed to `FromRecord` or `ToExistingRecord` |
+| `core.ErrSchemaViolation` | A declared field cannot be decoded as its declared type      |
 
 ## Related Concepts
 
-- [Records](records.md) — The data being encoded
+- [Records](records.md) — The data that is encoded
 - [Tuples](tuples.md) — Dot-notation attributes
 - [Types](types.md) — Type conversions during encoding
-- [Stores](stores.md) — Storage backends use encoding for persistence
+- [Stores](stores.md) — The drivers use encoding for persistence

@@ -44,14 +44,15 @@ func WithSchemaCache() Option {
 }
 
 // New creates a [Store] over the given driver. It is the ONLY path to
-// a Store: the schema enforcement middleware is always installed, so
-// a Store that skips validation cannot be constructed. Options add
-// observability and acceleration around it.
+// a Store: the versioning and schema-enforcement middleware are always
+// installed, so a Store that skips validation cannot be constructed.
+// Options add observability and acceleration around them.
 //
-// Optional driver capabilities ([TxDriver], [QueryDriver], [Closer],
-// [HealthChecker]) are detected here, once, on the raw driver —
-// wrappers never hide them. On a [TxDriver], the returned Store also
-// implements [TX], and every write runs inside a transaction.
+// The optional capabilities [TxDriver] and [QueryDriver] are detected
+// here, once, on the raw driver, so wrappers never hide them. [Closer]
+// and [HealthChecker] are type-asserted on the raw driver on each
+// call. On a [TxDriver], the returned Store also implements [TX], and
+// every write runs inside a transaction.
 func New(d Driver, opts ...Option) Store {
 	if d == nil {
 		panic("store: New requires a non-nil Driver")
@@ -95,7 +96,7 @@ func New(d Driver, opts ...Option) Store {
 // from schema scans, and transactions are orchestrated around the
 // middleware stack.
 type facade struct {
-	stack  Driver         // logging(enforce(cache(raw)))
+	stack  Driver         // logging(enforce(cache(versioned(raw))))
 	raw    Driver         // capabilities detected here at New() time
 	txd    TxDriver       // nil when unsupported
 	qd     QueryDriver    // nil when unsupported
@@ -240,7 +241,7 @@ func (f *facade) queryRecords(
 // filterDef fetches the schema definition for a schema-scoped query URI, for
 // [filter.Compile] to type-check and strict-mode-validate against. A
 // namespace-scoped query (no schema component) or a schema that no longer
-// exists compiles with a nil def (flexible/dynamic typing).
+// exists compiles with a nil def (schema-free, with dynamic typing).
 func (f *facade) filterDef(ctx context.Context, uri *core.URI) (*schema.Def, error) {
 	if uri == nil || uri.Schema() == "" {
 		return nil, nil
@@ -358,7 +359,7 @@ func (f *facade) GetTuples(
 	return f.stack.GetTuples(ctx, uris...)
 }
 
-// PutTuples merges tuples into their records. Compiles to one
+// PutTuples patches tuples into their records. Compiles to one
 // [OpPatch] mutation per record path, in first-appearance order.
 func (f *facade) PutTuples(ctx context.Context, tuples ...*core.Tuple) error {
 	if len(tuples) == 0 {

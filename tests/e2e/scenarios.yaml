@@ -885,12 +885,12 @@ scenarios:
           exit: 0
           json: { _id: "m1", email: "ada@x.io" }
 
-      - name: "a duplicate email is rejected with CONFLICT"
+      - name: "a duplicate email is rejected with UNIQUE_VIOLATION"
         run: xdb records create --uri xdb://$NS/members/m2 --json '{"email":"ada@x.io","status":"active","name":"Grace"}'
         expect:
           exit_nonzero: true
           stderr_contains: "email"
-          error: { code: "CONFLICT", resource: "records", action: "create" }
+          error: { code: "UNIQUE_VIOLATION", resource: "records", action: "create" }
 
       - name: "a distinct email still succeeds"
         run: xdb records create --uri xdb://$NS/members/m3 --json '{"email":"grace@x.io","status":"archived","name":"Grace"}'

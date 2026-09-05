@@ -269,3 +269,18 @@ func TestInvalidArgError_SetsHint(t *testing.T) {
 	require.ErrorAs(t, err, &env)
 	assert.NotEmpty(t, env.Hint)
 }
+
+func TestHintFor_UniqueViolationIsNotConflictAdvice(t *testing.T) {
+	unique := hintFor(CodeUniqueViolation, "records", "create", "xdb://ns/members/m2")
+	assert.NotContains(t, unique, "upsert",
+		"upsert writes the same duplicate value, so it is not a way out")
+	assert.Contains(t, unique, "value")
+
+	conflict := hintFor(CodeConflict, "records", "update", "xdb://ns/members/m1")
+	assert.Contains(t, conflict, "upsert")
+}
+
+func TestCodeFromRPC_UniqueViolation(t *testing.T) {
+	assert.Equal(t, CodeUniqueViolation, codeFromRPC(rpc.CodeUniqueViolation))
+	assert.Equal(t, CodeConflict, codeFromRPC(rpc.CodeConflict))
+}

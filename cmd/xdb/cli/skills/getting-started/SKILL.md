@@ -10,7 +10,7 @@ Create a schema, add records, and query them.
 
 ## Prerequisite
 
-Initialize XDB and start the daemon (safe to re-run):
+Initialize XDB and start the daemon. You can run this command again at any time:
 
 ```bash
 xdb init
@@ -38,19 +38,19 @@ xdb records create --uri xdb://myapp/todos/todo-1 --json '{
 }'
 ```
 
-3. Read it back:
+3. Read the record:
 
 ```bash
 xdb records get --uri xdb://myapp/todos/todo-1
 ```
 
-4. List records:
+4. List the records:
 
 ```bash
 xdb records list --uri xdb://myapp/todos --fields title,done
 ```
 
-5. Update a record (patch semantics — only supplied fields change):
+5. Update a record. An update is a patch: only the fields in the payload change.
 
 ```bash
 xdb records update --uri xdb://myapp/todos/todo-1 --json '{"done": true}'
@@ -64,8 +64,8 @@ xdb records delete --uri xdb://myapp/todos/todo-1 --force
 
 ## Next steps
 
-- `xdb skills get query-and-filter` — filtering, projections, and pagination
-- `xdb skills get schema-evolution` — evolving schemas safely
-- `xdb skills get bulk-data` — import/export and atomic batches
-- `xdb describe --actions` — every available operation
-- `xdb describe --schema-format` — the full schema-definition format
+- `xdb skills get query-and-filter`: filters, projections, and pagination
+- `xdb skills get schema-evolution`: safe schema changes
+- `xdb skills get bulk-data`: import, export, and atomic batches
+- `xdb describe --actions`: every available action
+- `xdb describe --schema-format`: the full JSON format of a definition

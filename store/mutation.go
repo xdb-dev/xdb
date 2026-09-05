@@ -52,7 +52,7 @@ func (op Op) String() string {
 }
 
 // Mutation is one record-scoped write, applied atomically by
-// [Driver.Apply].
+// [TupleWriter.Apply].
 type Mutation struct {
 	Path   *core.URI
 	Tuples []*core.Tuple

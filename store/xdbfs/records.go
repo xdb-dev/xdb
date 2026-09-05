@@ -209,7 +209,7 @@ func (d *Driver) applyMutation(m store.Mutation) error {
 
 // applyMerge reads the record file, overlays the mutation's tuples,
 // and writes the result back. The record springs into existence on
-// first merge.
+// the first patch.
 func (d *Driver) applyMerge(m store.Mutation) error {
 	if len(m.Tuples) == 0 {
 		return nil

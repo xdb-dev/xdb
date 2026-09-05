@@ -24,7 +24,8 @@ var (
 	ErrInvalidField = errors.New("[xdb/schema] invalid field")
 
 	// ErrImmutableField is returned when a schema update attempts to change
-	// an immutable property of an existing field (Type or array elem type).
+	// an immutable property of an existing field: Type, array elem type,
+	// Indexed, or Unique.
 	ErrImmutableField = errors.New("[xdb/schema] immutable field")
 
 	// ErrImmutableMode is returned when a schema update attempts to change
@@ -42,7 +43,7 @@ var (
 //   - no top-level field name is reserved for system metadata
 //     ([IsSystemField]);
 //   - every field name parses as an attribute path;
-//   - no scalar/JSON field name is a path-prefix of another field;
+//   - no field name is a path-prefix of another field;
 //   - every array field declares an element type;
 //   - indexed and unique fields are scalar (not ARRAY or JSON);
 //   - an ARRAY<JSON> field's Items are validated recursively, and Items is set
@@ -93,7 +94,7 @@ func validateFields(fields map[string]Field) error {
 			)
 		}
 
-		if field.Indexed || field.Unique {
+		if field.HasIndex() {
 			if !isIndexable(field.Type) {
 				return errors.Wrap(ErrInvalidField,
 					"field", name,
@@ -285,9 +286,23 @@ func CheckRequired(def *Def, tuples []*core.Tuple) error {
 	return nil
 }
 
-// ValidateField checks that a value matches a field's declared type, including
-// the element type for arrays. Returns [ErrTypeMismatch] on mismatch.
+// ValidateField checks that a value matches the declared type of a field,
+// including the element type for arrays. Returns [ErrTypeMismatch] on
+// mismatch. For an object-array field with Items, every element is checked
+// too: an unknown member returns [ErrUnknownField] and a missing required
+// member returns [ErrMissingRequired].
+//
+// A nil v is an explicit null. It carries no type, so it satisfies any
+// declared field type.
 func ValidateField(attr string, field Field, v *core.Value) error {
+	// An explicit null carries no type, so there is nothing to check
+	// against the declared type. This mirrors the object-array rule,
+	// where a null member is skipped, and [CheckRequired], where an
+	// explicit-null tuple satisfies a required field.
+	if v == nil {
+		return nil
+	}
+
 	want := field.Type
 	got := v.Type()
 
@@ -491,6 +506,9 @@ func jsonStringValue(raw json.RawMessage, tid core.TID) (*core.Value, error) {
 
 // InferField returns a [Field] that captures a value's type, including the
 // element type for arrays. Used by dynamic-mode schemas to add new fields.
+//
+// v must not be nil: an explicit null carries no type to infer. Callers
+// skip null values before they infer a field, as [EvolveDynamic] does.
 func InferField(v *core.Value) Field {
 	return Field{Type: v.Type()}
 }
@@ -510,6 +528,11 @@ func EvolveDynamic(def *Def, tuples []*core.Tuple) (map[string]Field, error) {
 		field, known := def.Fields[attr]
 
 		if !known {
+			// A null carries no type, so there is nothing to infer.
+			// The field is added when a typed value arrives later.
+			if tuple.Value() == nil {
+				continue
+			}
 			if _, dup := newFields[attr]; dup {
 				continue
 			}

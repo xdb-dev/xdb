@@ -103,7 +103,7 @@ func skillsCmd() *cli.Command {
 		Category:           "agent",
 		CustomHelpTemplate: subcommandHelpTemplate,
 		Flags: []cli.Flag{
-			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
+			&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format for the list"},
 		},
 		Commands: []*cli.Command{
 			{
@@ -112,7 +112,7 @@ func skillsCmd() *cli.Command {
 				CustomHelpTemplate: commandHelpTemplate,
 				ArgsUsage:          "<skill-name>",
 				Flags: []cli.Flag{
-					&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
+					&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Ignored; a skill is printed as Markdown"},
 				},
 				Action: skillsGetAction,
 			},

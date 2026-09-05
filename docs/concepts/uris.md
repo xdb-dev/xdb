@@ -6,9 +6,9 @@ package: core
 
 # URIs
 
-XDB **URIs** are valid Uniform Resource Identifiers following [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). Every resource in XDB — namespaces, schemas, records, and attributes — is uniquely identified by a URI, and every level addresses something real: a namespace groups schemas, a schema groups records, a path names a set of tuples, and `#attr` names one tuple.
+XDB **URIs** are valid Uniform Resource Identifiers as defined in [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). A URI uniquely identifies every resource in XDB: namespaces, schemas, records, and attributes. Every level of a URI addresses a real thing. A namespace groups schemas. A schema groups records. A path names a set of tuples. `#attr` names one tuple.
 
-A `URI` is an immutable value type; construct one with `NewURI`, `ParseURI`, or `ParsePath`.
+A `URI` is an immutable value type. Construct one with `NewURI`, `ParseURI`, or `ParsePath`.
 
 ## Format
 
@@ -46,15 +46,23 @@ xdb://com.example/posts
 # Record — a single entity
 xdb://com.example/posts/123-456-789
 
-# Attribute — a single value within a record
+# Attribute — a single value in a record
 xdb://com.example/posts/123-456-789#title
 ```
 
-The more components present, the more specific the reference. Commands like `get`, `ls`, and `rm` use the URI level to determine what operation to perform.
+The more components a URI has, the more specific the reference is. The `Depth()` method reports this specificity: 1 for a namespace, 2 for a schema, and 3 for a record. The attribute fragment does not change the depth.
 
 ## URIs in the CLI
 
-The URI is the **noun** of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md). Every command is `xdb <resource> <action> <URI> [flags]`. URI depth picks the resource; the action set (`get/list/create/update/upsert/delete/watch`) applies uniformly. Run `xdb describe --actions` for the live action × resource matrix.
+The URI is the **noun** of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md). Every action has the form `xdb <resource> <action> <URI> [flags]`. The URI depth selects the resource. The action set is not the same for every resource:
+
+- Records support `get`, `list`, `create`, `update`, `upsert`, and `delete`.
+- Schemas support `get`, `list`, `create`, `update`, and `delete`.
+- Namespaces support only `list` and `get`.
+
+`xdb watch <uri>` is a top-level command, not a resource action. Run `xdb describe --actions` for the live matrix of actions and resources.
+
+The shorthand commands `xdb get`, `xdb ls`, and `xdb rm` also select the resource from the URI depth. For example, `xdb get xdb://com.example/posts/123` is the same as `xdb records get xdb://com.example/posts/123`.
 
 ## Paths
 
@@ -76,31 +84,34 @@ uri, err := core.ParsePath("com.example/posts/123")
 
 ## Component Access
 
-Accessors return plain strings; an absent component is the empty string.
+Accessors return plain strings. An absent component is the empty string.
 
 ```go
 uri.NS()         // string — namespace
-uri.Schema()     // string — schema ("" if namespace-only URI)
-uri.ID()         // string — record ID ("" if schema-only URI)
-uri.Attr()       // string — attribute ("" if no fragment)
-uri.Path()       // string — path without scheme
-uri.String()     // string — full URI with scheme
+uri.Schema()     // string — schema ("" for a namespace URI)
+uri.ID()         // string — record ID ("" for a namespace or schema URI)
+uri.Attr()       // string — attribute ("" if there is no fragment)
+uri.Depth()      // int    — 1 (namespace), 2 (schema), or 3 (record)
+uri.Path()       // string — path without the scheme
+uri.String()     // string — full URI with the scheme
 uri.SchemaURI()  // *URI   — URI with only NS + Schema
-uri.RecordURI()  // *URI   — URI with NS + Schema + ID (attr dropped)
-uri.RecordPath() // string — the ns/schema/id record key (attr dropped)
+uri.RecordURI()  // *URI   — URI with NS + Schema + ID (attribute dropped)
+uri.RecordPath() // string — the ns/schema/id record key (attribute dropped)
 ```
 
 ## Constructing URIs
 
 ### NewURI
 
-`NewURI(ns, parts...)` builds a record- or schema-level URI from parts (the
-first part is the schema, the second the ID):
+`NewURI(ns, parts...)` builds a namespace, schema, or record URI from its
+parts. The first part is the schema and the second part is the ID. Both parts
+are optional:
 
 ```go
-uri, err := core.NewURI("com.example", "posts", "123")
-uri := core.MustNewURI("com.example", "posts", "123")
-// xdb://com.example/posts/123
+nsURI, err := core.NewURI("com.example")                     // xdb://com.example
+schemaURI, err := core.NewURI("com.example", "posts")        // xdb://com.example/posts
+recordURI, err := core.NewURI("com.example", "posts", "123") // xdb://com.example/posts/123
+uri := core.MustNewURI("com.example", "posts", "123")        // panics on invalid input
 ```
 
 ### Parsing
@@ -110,14 +121,14 @@ uri, err := core.ParseURI("xdb://com.example/posts/123#title")
 uri := core.MustParseURI("xdb://com.example/posts/123#title")
 ```
 
-NS, Schema, and Attribute may not contain `/`; an ID may (trailing path
-segments join into the ID). Every valid URI round-trips:
+NS, Schema, and Attribute cannot contain `/`. An ID can contain `/`. Trailing
+path segments join into the ID. Every valid URI round-trips:
 `ParseURI(u.String())` equals `u`.
 
 ## Equality
 
-URIs are comparable value types, so `==` on the dereferenced pointers checks
-component equality:
+URIs are comparable value types. `==` on the dereferenced pointers compares
+the components:
 
 ```go
 a := core.MustParseURI("xdb://com.example/posts/123")
@@ -127,7 +138,7 @@ b := core.MustParseURI("xdb://com.example/posts/123")
 
 ## JSON Serialization
 
-URIs serialize to and from JSON as quoted strings:
+A URI serializes to JSON as a quoted string, and parses back from one:
 
 ```json
 "xdb://com.example/posts/123"

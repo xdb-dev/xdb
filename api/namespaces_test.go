@@ -2,6 +2,8 @@ package api_test
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -106,4 +108,23 @@ func TestNamespaceService_GetIncludesSchemas(t *testing.T) {
 	assert.Equal(t, "tree.ns", resp.Data)
 	assert.Equal(t, 2, resp.TotalSchemas)
 	assert.Equal(t, []string{"xdb://tree.ns/authors", "xdb://tree.ns/posts"}, resp.Schemas)
+}
+
+func TestNamespaceService_GetListsAllSchemas(t *testing.T) {
+	mem := store.New(xdbmemory.NewDriver())
+	schemaSvc := api.NewSchemaService(mem)
+	nsSvc := api.NewNamespaceService(mem)
+	ctx := context.Background()
+
+	n := store.DefaultLimit + 5
+	for i := range n {
+		createTestSchema(t, schemaSvc, fmt.Sprintf("xdb://many.ns/s%03d", i))
+	}
+
+	resp, err := nsSvc.Get(ctx, &api.GetNamespaceRequest{URI: "xdb://many.ns"})
+	require.NoError(t, err)
+
+	assert.Equal(t, n, resp.TotalSchemas)
+	assert.Len(t, resp.Schemas, n, "Schemas must not stop at the default page size")
+	assert.True(t, sort.StringsAreSorted(resp.Schemas))
 }

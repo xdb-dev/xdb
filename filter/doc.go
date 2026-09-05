@@ -1,4 +1,4 @@
-// Package filter provides CEL-based parsing and evaluation of record filter expressions.
+// Package filter parses and evaluates CEL-based record filter expressions.
 //
 // Filter expressions use CEL (Common Expression Language) syntax:
 //
@@ -13,9 +13,10 @@
 //	size(name) > 3                          // string length
 //	status in ["active", "pending"]         // list membership
 //
-// Use [Compile] to parse a filter string into a [Filter], and [Match] to evaluate
-// a [Filter] against a [core.Record].
+// Use [Compile] to parse a filter string into a [Filter]. Use [Match] to
+// evaluate a [Filter] against a [core.Record].
 //
-// When a [schema.Def] is provided to [Compile], fields are type-checked against
-// the schema. When nil is passed (flexible mode), all variables are dynamically typed.
+// When [Compile] receives a [schema.Def], fields are type-checked against
+// the schema. When [Compile] receives nil (schema-free), all variables are
+// dynamically typed.
 package filter

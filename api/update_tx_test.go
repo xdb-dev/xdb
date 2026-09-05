@@ -21,7 +21,7 @@ import (
 // cloningStore wraps a store and returns deep copies from GetRecord and
 // GetSchema, simulating backends (fs, redis, sqlite) that deserialize fresh
 // objects on every read instead of sharing pointers. Without copies, the
-// in-memory store aliases records and hides read-merge-write races.
+// in-memory store aliases records and hides read-patch-write races.
 type cloningStore struct {
 	store.Store
 	tx store.TX // nil when the inner store does not support TX
@@ -79,7 +79,7 @@ func cloneDef(def *schema.Def) *schema.Def {
 
 // TestRecordService_Update_ConcurrentPatches verifies that two concurrent
 // patches to different attributes both survive. Requires Update to run its
-// read-merge-write inside a transaction on TX-capable stores.
+// read-patch-write inside a transaction on TX-capable stores.
 func TestRecordService_Update_ConcurrentPatches(t *testing.T) {
 	ctx := context.Background()
 

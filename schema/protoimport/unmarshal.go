@@ -14,7 +14,7 @@ import (
 )
 
 // Unmarshal decodes rec into msg, which must be a mutable proto message of the
-// type that produced the schema (e.g. a fresh dynamicpb.Message).
+// type that produced the schema (for example a fresh dynamicpb.Message).
 //
 // It reverses [Marshal]: dotted attributes rebuild nested messages, object
 // arrays decode back into repeated messages, enums are matched by value name,
@@ -169,7 +169,8 @@ func decodeTime(m protoreflect.Message, fd protoreflect.FieldDescriptor, val *co
 	return nil
 }
 
-// decodeEnum matches a STRING value name back to an enum number.
+// decodeEnum matches a STRING value name back to an enum number. An unknown
+// name is ignored: the field stays unset and no error is returned.
 func decodeEnum(m protoreflect.Message, fd protoreflect.FieldDescriptor, val *core.Value) error {
 	name, err := val.AsStr()
 	if err != nil {

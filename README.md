@@ -1,6 +1,6 @@
 # XDB
 
-XDB is an agent-first data layer. Model once, store anywhere. Simple URIs, structured tuples, and a pipe-friendly CLI that agents and humans both get right on the first try.
+XDB is an agent-first data layer. Model once, store anywhere. It has simple URIs, structured tuples, and a pipe-friendly CLI that agents and humans get right on the first try.
 
 ## Why XDB?
 
@@ -10,7 +10,7 @@ Read about the motivation behind XDB in [Introducing XDB](https://raviatluri.in/
 
 > For in-depth documentation on each concept, see [docs/concepts](./docs/concepts/).
 
-The XDB data model can be visualized as a tree of **Namespaces**, **Schemas**, **Records**, and **Tuples**.
+The XDB data model is a tree of **Namespaces**, **Schemas**, **Records**, and **Tuples**.
 
 ```
 ┌─────────────────────────────────┐
@@ -28,35 +28,35 @@ The XDB data model can be visualized as a tree of **Namespaces**, **Schemas**, *
 ┌─────────────────────────────────┐
 │             Tuple               │
 ├─────────────────────────────────┤
-│        ID | Attr | Value        │
+│       Path | Attr | Value       │
 └─────────────────────────────────┘
 ```
 
 ### Tuple
 
-A **Tuple** is the fundamental building block in XDB. It combines:
+A **Tuple** is the fundamental building block in XDB. It has three parts:
 
-- ID: a string that uniquely identifies the record
+- Path: the namespace, the schema, and the ID of the record. Together they identify the record.
 - Attr: a string that identifies the attribute. It supports dot-separated nesting.
-- Value: The attribute's value
-
-![tuple.png](./docs/tuple.png)
+- Value: the value of the attribute.
 
 ### Record
 
-One or more **Tuples**, with the same **path** (NS + Schema + ID), make up a **Record** — the ID alone does not group tuples; the full path does. A record _is_ its tuples: it adds no data of its own, and exists exactly when at least one tuple exists at its path. This is XDB's tuple-first framing — the tuple is the primitive, and every larger structure is built from tuples. Records are similar to objects, structs, or rows in a database, and typically represent a single entity of domain data.
+One or more **Tuples** with the same **path** (NS + Schema + ID) make up a **Record**. The ID alone does not group tuples. The full path does. A record _is_ its tuples. It adds no data of its own. When at least one tuple exists at a path, the record at that path exists.
+
+This is the tuple-first framing of XDB: the tuple is the primitive, and every larger structure is built from tuples. A record is similar to an object, a struct, or a row in a database. It usually represents one entity of domain data.
 
 ### Namespace
 
-A **Namespace** (NS) groups one or more **Schemas**. Namespaces are typically used to organize schemas by domain, application, or tenant.
+A **Namespace** (NS) groups one or more **Schemas**. Namespaces usually organize schemas by domain, application, or tenant.
 
 ### Schema
 
-A **Schema** defines the structure of records and groups them together. Schemas can be "strict" or "flexible". Strict schemas enforce a predefined structure on the data, while flexible schemas allow for arbitrary data. Each schema is uniquely identified by its name within a namespace.
+A **Schema** defines the structure of records and groups them together. Declared fields always type-check. A schema has one of three modes, and the mode governs only undeclared fields. `strict` (the default) rejects undeclared fields. `flexible` accepts undeclared fields as-is. `dynamic` infers undeclared fields and adds them to the schema. Each schema has a unique name within its namespace.
 
 ### URI
 
-XDB URIs are valid Uniform Resource Identifiers (URI) according to [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). URIs are used to uniquely identify resources in XDB.
+XDB URIs are valid Uniform Resource Identifiers (URI) according to [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). A URI identifies one resource in XDB.
 
 The general format of a URI is:
 
@@ -64,10 +64,10 @@ The general format of a URI is:
     [SCHEME]://[DOMAIN] [ "/" PATH] [ "?" QUERY] [ "#" FRAGMENT]
 ```
 
-XDB URIs follow the following format:
+XDB URIs have this format:
 
 ```
-    xdb:// NS [ "/" SCHEMA ] [ "/" ID ] [ "#" ATTRIBUTE ]
+    xdb://NS [ "/" SCHEMA ] [ "/" ID ] [ "#" ATTRIBUTE ]
 ```
 
 ```
@@ -80,11 +80,11 @@ XDB URIs follow the following format:
 
 The components of the URI are:
 
-- **NS**: The namespace.
-- **SCHEMA**: The schema name.
-- **ID**: The unique identifier of the record.
-- **ATTRIBUTE**: The name of the attribute.
-- **path**: NS, SCHEMA, and ID combined uniquely identify a record (URI without xdb://)
+- **NS**: the namespace.
+- **SCHEMA**: the schema name.
+- **ID**: the unique identifier of the record.
+- **ATTRIBUTE**: the name of the attribute.
+- **path**: NS, SCHEMA, and ID together. The path identifies one record (the URI without `xdb://`).
 
 Valid examples:
 
@@ -97,17 +97,17 @@ Attribute:  xdb://com.example/posts/123-456-789#author.id
 
 ## Supported Types
 
-| Type       | PostgreSQL         | SQLite    | Description             |
-| ---------- | ------------------ | --------- | ----------------------- |
-| `string`   | `TEXT`             | `TEXT`    | UTF-8 string            |
-| `integer`  | `BIGINT`           | `INTEGER` | 64-bit signed integer   |
-| `unsigned` | `BIGINT`           | `INTEGER` | 64-bit unsigned integer |
-| `float`    | `DOUBLE PRECISION` | `REAL`    | 64-bit floating point   |
-| `boolean`  | `BOOLEAN`          | `INTEGER` | True or false           |
-| `time`     | `TIMESTAMPTZ`      | `INTEGER` | Date and time in UTC    |
-| `json`     | `JSONB`            | `TEXT`    | Arbitrary JSON data     |
-| `bytes`    | `BYTEA`            | `BLOB`    | Binary data             |
-| `array`    | `[]T`              | `TEXT`    | Array of typed values   |
+| Type       | SQLite    | Description             |
+| ---------- | --------- | ----------------------- |
+| `string`   | `TEXT`    | UTF-8 string            |
+| `integer`  | `INTEGER` | 64-bit signed integer   |
+| `unsigned` | `INTEGER` | 64-bit unsigned integer |
+| `float`    | `REAL`    | 64-bit floating point   |
+| `boolean`  | `INTEGER` | True or false           |
+| `time`     | `INTEGER` | Date and time in UTC    |
+| `json`     | `TEXT`    | Arbitrary JSON data     |
+| `bytes`    | `BLOB`    | Binary data             |
+| `array`    | `TEXT`    | Array of typed values   |
 
 ## Getting Started
 
@@ -115,31 +115,32 @@ Attribute:  xdb://com.example/posts/123-456-789#author.id
 
 ```bash
 go install github.com/xdb-dev/xdb/cmd/xdb@latest
-xdb --version
-xdb init    # creates config, data dir, starts the daemon
+xdb init    # creates the config and starts the daemon
 ```
 
-## Using xdb from the CLI
+## Using XDB from the CLI
 
-The xdb CLI is a small, regular language for reading and writing data. Every invocation has the same shape:
+The `xdb` CLI is a small, regular language for reading and writing data. Every invocation has the same shape:
 
 ```
 xdb <resource> <action> <URI> [--filter CEL] [--fields MASK] [--json|--file|-] [-o FMT]
 ```
 
-One grammar, one predicate language, one output protocol — applied uniformly to every resource. Agents learn it once; humans get shorthand on top.
+One grammar, one predicate language, and one output protocol apply to every resource. Agents learn the grammar once. Humans get shorthand on top.
 
 ### Primitives
 
-| Primitive  | Purpose                                                                    | Example                            |
-| ---------- | -------------------------------------------------------------------------- | ---------------------------------- |
-| `resource` | What you're operating on: `records`, `schemas`, `namespaces`               | `records`                          |
-| `action`   | Closed set: `get`, `list`, `create`, `update`, `upsert`, `delete`, `watch` | `upsert`                           |
-| URI        | The noun — `xdb://NS/SCHEMA/ID#ATTR`. Depth determines the resource.       | `xdb://com.example/posts/p-1`      |
-| `--filter` | CEL predicate ([AIP-160](https://google.aip.dev/160))                      | `--filter 'status == "published"'` |
-| `--fields` | Projection (field mask)                                                    | `--fields id,title`                |
-| payload    | JSON from `--json`, `--file`, or stdin `-`                                 | `--json '{"title":"Hello"}'`       |
-| `-o`       | Output format: `json`, `ndjson`, `table`, `yaml`                           | `-o json`                          |
+| Primitive  | Purpose                                                                             | Example                            |
+| ---------- | ----------------------------------------------------------------------------------- | ---------------------------------- |
+| `resource` | What you operate on: `records`, `schemas`, `namespaces`                             | `records`                          |
+| `action`   | Closed set: `get`, `list`, `create`, `update`, `upsert`, `delete`                   | `upsert`                           |
+| URI        | The noun: `xdb://NS/SCHEMA/ID#ATTR`. The depth selects the resource.                | `xdb://com.example/posts/p-1`      |
+| `--filter` | CEL predicate ([AIP-160](https://google.aip.dev/160))                               | `--filter 'status == "published"'` |
+| `--fields` | Projection (field mask)                                                             | `--fields _id,title`               |
+| payload    | JSON from `--json`, `--file`, or stdin `-`                                          | `--json '{"title":"Hello"}'`       |
+| `-o`       | Output format: `json`, `ndjson`, `table`, `yaml`                                    | `-o json`                          |
+
+Namespaces support only `get` and `list`. `xdb watch <URI>` is a top-level command, not an action. It streams change events as NDJSON.
 
 ### Canonical example
 
@@ -156,13 +157,15 @@ xdb records upsert xdb://com.example/posts/p-1 --json '{"title":"Full replace"}'
 
 # Read data
 xdb records get  xdb://com.example/posts/p-1 --fields title
-xdb records list xdb://com.example/posts --filter 'title.contains("Hello")' --fields id,title --limit 10
+xdb records list xdb://com.example/posts --filter 'title.contains("Hello")' --fields _id,title --limit 10
 
 # Delete data
 xdb records delete xdb://com.example/posts/p-1 --force
 ```
 
-### `describe` — the CLI reference, built in
+`create` fails with `ALREADY_EXISTS` if the record exists. `update` is a patch: only the fields in the payload change. `upsert` replaces the whole record.
+
+### `describe`: the built-in CLI reference
 
 `describe` introspects every part of the CLI:
 
@@ -180,12 +183,12 @@ xdb describe --value-types     # supported value types
 
 Commands compose through stdin, stdout, and one error shape.
 
-**Stdin `-` is the explicit pipe token.** Any command that takes a URI or payload accepts `-` to read it from stdin:
+**Stdin `-` is the explicit pipe token.** Every command that takes a URI or a payload accepts `-` to read it from stdin:
 
 ```bash
 echo '{"title":"t"}' | xdb records create xdb://com.example/posts/p-1 -
-xdb records list xdb://com.example/posts -o ndjson \
-  | xdb batch -     # each line is {"op":"records.create","uri":"...","data":{...}}
+echo '{"op":"records.upsert","uri":"xdb://com.example/posts/p-2","data":{"title":"t2"}}' \
+  | xdb batch -     # one {"op":"...","uri":"...","data":{...}} operation per line
 ```
 
 **Errors are structured.** Every error, in every format, has the same shape:
@@ -201,7 +204,7 @@ xdb records list xdb://com.example/posts -o ndjson \
 }
 ```
 
-**Output format is automatic on a TTY, JSON on a pipe.** Override with `-o`:
+**The output format is a table on a TTY and JSON on a pipe.** Override it with `-o`:
 
 ```bash
 xdb records get xdb://com.example/posts/p-1            # table (TTY)
@@ -211,28 +214,28 @@ xdb records get xdb://com.example/posts/p-1 -o yaml    # explicit
 
 ### Shorthand
 
-URI depth dispatches to the right resource. These are macros — each expands to the full form:
+The URI depth dispatches to the right resource. These commands are macros. Each one expands to the full form:
 
-| Shorthand         | Expands to                                      |
-| ----------------- | ----------------------------------------------- |
-| `xdb get <uri>`   | `records/schemas/namespaces get` (by URI depth) |
-| `xdb ls  <uri>`   | `records/schemas/namespaces list`               |
-| `xdb put <uri>`   | `records/schemas upsert`                        |
-| `xdb rm  <uri>`   | `records/schemas delete` (requires `--force`)   |
-| `xdb make-schema` | `schemas create`                                |
+| Shorthand         | Expands to                                                    |
+| ----------------- | ------------------------------------------------------------- |
+| `xdb get <uri>`   | `records/schemas/namespaces get` (by URI depth)               |
+| `xdb ls [uri]`    | `records/schemas/namespaces list`. Without a URI, it lists namespaces. |
+| `xdb put <uri>`   | `records upsert` (record URI only)                            |
+| `xdb rm  <uri>`   | `records/schemas delete` (requires `--force`)                 |
+| `xdb make-schema` | `schemas create`                                              |
 
-Prefer the full form in scripts and agent prompts; reach for shorthand at a prompt.
+Use the full form in scripts and agent instructions. Use the shorthand at an interactive shell.
 
 ### Global flags
 
-- `--config`, `-c`: Path to config file (default `~/.xdb/config.json`)
-- `--output`, `-o`: Output format (`json`, `ndjson`, `table`, `yaml`)
-- `--verbose`, `-v`: INFO-level logging
-- `--debug`: Debug logging with source locations
+- `--config`, `-c`: path to the config file (default `~/.xdb/config.json`)
+- `--output`, `-o`: output format (`json`, `ndjson`, `table`, `yaml`)
+- `--verbose`, `-v`: enable verbose logging
+- `--debug`: enable debug logging
 
 ### Daemon
 
-The daemon runs a JSON-RPC server that handles all operations; the CLI is a thin client. `xdb init` starts it; most users never invoke it directly.
+The daemon runs a JSON-RPC server that handles all operations. The CLI is a thin client. `xdb init` starts the daemon. Most users never run the daemon commands directly.
 
 ```bash
 xdb daemon start
@@ -241,32 +244,33 @@ xdb daemon stop
 xdb daemon restart
 ```
 
-> For the full grammar reference — including the action × resource matrix, error codes, and agent-targeted guidance — see [cmd/xdb/cli/CONTEXT.md](cmd/xdb/cli/CONTEXT.md).
+> For the full grammar reference, with the action × resource matrix, the error codes, and the agent guidance, see [cmd/xdb/cli/CONTEXT.md](cmd/xdb/cli/CONTEXT.md).
 
-## Configuration
+## Config
 
-XDB uses a JSON config file at `~/.xdb/config.json`. A default config is created automatically on first run.
+XDB reads a JSON config file at `~/.xdb/config.json`. If the file does not exist, `xdb init` and `xdb daemon start` create it with defaults. If the file is missing, every other command uses the same defaults in memory.
+
+The default config, as `xdb init` writes it:
 
 ```json
 {
   "dir": "~/.xdb",
   "daemon": {
-    "addr": "localhost:8147",
     "socket": "xdb.sock"
   },
   "log_level": "info",
   "store": {
-    "backend": "memory"
+    "backend": "sqlite"
   }
 }
 ```
 
-### Store Backends
+### Backends
 
-- **memory** (default): In-memory store, data is lost on restart
-- **sqlite**: SQLite database, stored in `<dir>/data/`
-- **redis**: Redis server, requires `addr` to be configured
-- **fs**: Filesystem store, stored in `<dir>/data/` by default
+- **sqlite** (default): a SQLite database file, at `<dir>/data/xdb.db` by default. Keys under `store.sqlite`: `path`, `journal`, `sync`, `cache_size`, `busy_timeout`.
+- **memory**: an in-memory backend. When the daemon stops, the data is lost.
+- **fs**: a filesystem backend, under `<dir>/data` by default. Key under `store.fs`: `dir`.
+- **redis**: a Redis server. `store.redis.addr` is required. Optional keys under `store.redis`: `password`, `db`.
 
 Example with SQLite:
 
@@ -275,8 +279,8 @@ Example with SQLite:
   "store": {
     "backend": "sqlite",
     "sqlite": {
-      "dir": "",
-      "name": "xdb.db"
+      "path": "/var/lib/xdb/xdb.db",
+      "journal": "wal"
     }
   }
 }
@@ -295,4 +299,4 @@ Example with Redis:
 }
 ```
 
-See `xdb.example.yaml` for a full reference of all configuration options.
+Run `xdb describe --config` for the full reference of all config keys and their defaults.

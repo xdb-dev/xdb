@@ -38,7 +38,7 @@ type Filter struct {
 
 // Compile parses and type-checks a CEL filter expression.
 // When def is non-nil, fields are declared with precise types from the schema.
-// When def is nil (flexible mode), variables are dynamically typed.
+// When def is nil (schema-free), variables are dynamically typed.
 func Compile(expr string, def *schema.Def) (*Filter, error) {
 	if expr == "" {
 		return nil, fmt.Errorf("%w: empty expression", core.ErrInvalidFilter)
@@ -84,7 +84,7 @@ func (f *Filter) Source() string { return f.src }
 func (f *Filter) CelAst() *cel.Ast { return f.celAst }
 
 // Def returns the schema definition this filter was compiled against, or
-// nil when compiled without one (flexible/schema-free mode).
+// nil when compiled without one (schema-free).
 func (f *Filter) Def() *schema.Def { return f.def }
 
 // buildEnv creates a CEL environment from a schema definition. Reserved

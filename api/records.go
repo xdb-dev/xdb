@@ -300,9 +300,8 @@ type UpdateRecordResponse struct {
 }
 
 // Update updates an existing record using patch semantics.
-// The read-merge-write runs inside a transaction when the store
-// supports [store.TX]; otherwise it falls back to sequential
-// (non-atomic) operations.
+// The read and the write-back run inside a transaction when the store
+// supports [store.TX]. Otherwise they run sequentially (non-atomic).
 func (s *RecordService) Update(ctx context.Context, req *UpdateRecordRequest) (*UpdateRecordResponse, error) {
 	uri, err := parseURI(req.URI, "records.update", 3, 3, false)
 	if err != nil {
@@ -382,7 +381,7 @@ func runAtomic(
 	return fn(seq)
 }
 
-// applyRecordPatch fetches the record, merges the patch data into it,
+// applyRecordPatch fetches the record, applies the patch data to it,
 // and writes it back through the given stores.
 func applyRecordPatch(
 	ctx context.Context,
@@ -405,7 +404,7 @@ func applyRecordPatch(
 	return existing, nil
 }
 
-// mergeRecordPatch fetches the record and merges the patch data into
+// mergeRecordPatch fetches the record and applies the patch data to
 // it without writing anything back.
 func mergeRecordPatch(
 	ctx context.Context,
@@ -489,7 +488,6 @@ func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*
 }
 
 // DeleteRecordRequest is the request for records.delete.
-// DeleteRecordRequest is the request for records.delete.
 //
 // Version is an optional optimistic-concurrency precondition: the delete
 // proceeds only if the record is at that version, and fails with
@@ -508,8 +506,10 @@ type DeleteRecordResponse struct {
 }
 
 // Delete deletes a record by URI. An attr-level URI
-// (xdb://ns/schema/id#attr) deletes just that tuple. Idempotent:
-// succeeds even if not found.
+// (xdb://ns/schema/id#attr) deletes just that tuple. A whole-record
+// delete is idempotent: a missing record is a success. An attr-level
+// delete requires the record to exist and returns [core.ErrNotFound]
+// otherwise. A missing attr on an existing record is a success.
 func (s *RecordService) Delete(ctx context.Context, req *DeleteRecordRequest) (*DeleteRecordResponse, error) {
 	uri, err := parseURI(req.URI, "records.delete", 3, 3, true)
 	if err != nil {
@@ -565,7 +565,7 @@ func decoderOpts(
 	case err == nil && def != nil:
 		opts = append(opts, xdbjson.WithDef(def))
 	case errors.Is(err, core.ErrNotFound):
-		// No schema — flexible mode, skip type coercion.
+		// No schema: the record is schema-free, so skip type coercion.
 	case err != nil:
 		return nil, fmt.Errorf("api: lookup schema %s: %w", uri, err)
 	}
@@ -574,9 +574,9 @@ func decoderOpts(
 }
 
 // recordsEquivalent reports whether a and b encode to the same canonical
-// JSON representation, used to distinguish an idempotent re-create (same
+// JSON representation. It distinguishes an idempotent re-create (same
 // data) from a conflicting one (different data) on [core.ErrAlreadyExists].
-// reserved attrs will be excluded here when record metadata lands.
+// The system attrs that the store derives are excluded from the comparison.
 func recordsEquivalent(enc *xdbjson.Encoder, a, b *core.Record) (bool, error) {
 	aData, err := enc.FromRecord(a)
 	if err != nil {

@@ -18,6 +18,7 @@ const (
 	CodeSchemaViolation = -32002
 	CodeConflict        = -32003
 	CodeNotImplemented  = -32004
+	CodeUniqueViolation = -32005
 )
 
 // Error is a JSON-RPC 2.0 error object.
@@ -88,6 +89,13 @@ func SchemaViolation(msg string) *Error {
 // Conflict creates a conflict error.
 func Conflict(msg string) *Error {
 	return NewError(CodeConflict, msg)
+}
+
+// UniqueViolation creates a unique constraint violation error. It is
+// distinct from [Conflict]: a conflict is resolved by re-reading and
+// retrying, while a unique violation needs a different value.
+func UniqueViolation(msg string) *Error {
+	return NewError(CodeUniqueViolation, msg)
 }
 
 // NotImplemented creates a not implemented error.

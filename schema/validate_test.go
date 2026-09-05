@@ -945,3 +945,38 @@ func TestIsSystemField(t *testing.T) {
 	assert.False(t, schema.IsSystemField("profile._id"))
 	assert.False(t, schema.IsSystemField(""))
 }
+
+func TestValidateTuples_ExplicitNull(t *testing.T) {
+	t.Parallel()
+
+	def := &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/users"),
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString},
+		},
+	}
+	record := core.NewRecord("com.example", "users", "u1").Set("title", nil)
+
+	assert.NoError(t, schema.ValidateTuples(def, record.Tuples()),
+		"an explicit null carries no type to check")
+}
+
+func TestEvolveDynamic_ExplicitNull(t *testing.T) {
+	t.Parallel()
+
+	def := &schema.Def{
+		URI:  core.MustParseURI("xdb://com.example/users"),
+		Mode: schema.ModeDynamic,
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString},
+		},
+	}
+	record := core.NewRecord("com.example", "users", "u1").
+		Set("title", nil).
+		Set("extra", nil)
+
+	newFields, err := schema.EvolveDynamic(def, record.Tuples())
+	require.NoError(t, err)
+	assert.Empty(t, newFields, "a null carries no type to infer")
+}

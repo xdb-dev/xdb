@@ -1,10 +1,12 @@
-// Package protoimport imports protobuf message descriptors into XDB schemas and
-// marshals proto messages to and from [core.Record] values.
+// Package protoimport imports protobuf message descriptors into XDB schemas.
+// It also marshals proto messages to and from [core.Record] values.
 //
-// It works entirely through protoreflect on descriptors — no generated code and
-// no protoc. [ImportFiles] and [ImportMessage] walk a [protoreflect.FileDescriptor]
-// or [protoreflect.MessageDescriptor] into a [schema.Def]; [Marshal] and
-// [Unmarshal] move data using dynamicpb on the read side.
+// The package works only through protoreflect on descriptors. It needs no
+// generated code and no protoc. [ImportFiles] and [ImportMessage] walk a
+// [protoreflect.FileDescriptor] or a [protoreflect.MessageDescriptor] into a
+// [schema.Def]. [Marshal] and [Unmarshal] move data between a proto message
+// and a record through the protoreflect API of the message. The caller
+// supplies the message on both sides.
 //
 // # Type mapping
 //
@@ -24,16 +26,16 @@
 //	oneof                        import error (union; non-goal)
 //	recursive message            import error, unless WithAllowJSON
 //
-// Every field records its proto field number in Annotations["proto.number"];
-// [CheckRename] uses those numbers to detect a rename on re-import.
+// Every field records its proto field number in Annotations["proto.number"].
+// [CheckRename] uses these numbers to detect a rename on re-import.
 //
-// # Obtaining descriptors without protoc
+// # Descriptors without protoc
 //
-// Callers build descriptors either by constructing
-// [google.golang.org/protobuf/types/descriptorpb.FileDescriptorProto] literals
-// and passing them through
-// [google.golang.org/protobuf/reflect/protodesc.NewFile], or by reusing the
-// already-compiled descriptors of the well-known types (timestamppb, durationpb,
-// wrapperspb, structpb) that are linked into the protobuf module. The tests use
-// both approaches; neither invokes protoc.
+// Callers can build descriptors in two ways. The first way is to construct
+// [google.golang.org/protobuf/types/descriptorpb.FileDescriptorProto]
+// literals and pass them through
+// [google.golang.org/protobuf/reflect/protodesc.NewFile]. The second way is
+// to reuse the compiled descriptors of the well-known types (timestamppb,
+// durationpb, wrapperspb, structpb) that are linked into the protobuf module.
+// The tests use both ways. Neither way invokes protoc.
 package protoimport

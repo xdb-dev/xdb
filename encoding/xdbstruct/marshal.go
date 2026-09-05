@@ -8,9 +8,9 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-// Marshal encodes v into a [core.Record] addressed by uri (which must carry ns,
-// schema, and id). v must be a struct or pointer to one, matching the type that
-// produced the schema.
+// Marshal encodes v into a [core.Record] addressed by uri. The uri must carry
+// ns, schema, and id. If one of them is missing, Marshal panics. v must be a
+// struct or a pointer to one, of the type that produced the schema.
 //
 // Nested structs become dotted attributes; []Struct becomes an ARRAY<JSON>
 // object array whose elements are typed JSON (time.Time as RFC3339, []byte as

@@ -1,25 +1,25 @@
 ---
 title: Filters
-description: CEL-based record filtering for list operations across all store backends.
-package: filter
+description: CEL record filters for list operations on every backend, with SQL generation.
+package: filter, filter/sqlgen
 ---
 
 # Filters
 
-Filters narrow down record list results using [CEL](https://cel.dev/) (Common Expression Language) expressions. The filter design follows [Google's AIP-160 filtering standard](https://google.aip.dev/160), which defines a unified filtering language across Google APIs. XDB uses CEL as the evaluation engine for strict type-safety and predictable performance.
+Filters narrow the results of a record list with [CEL](https://cel.dev/) (Common Expression Language) expressions. The filter design obeys [Google's AIP-160 filtering standard](https://google.aip.dev/160), which defines one filtering language across Google APIs. XDB uses CEL as the evaluation engine for strict type safety and predictable performance.
 
-A single filter string works across all store backends — in-memory stores evaluate CEL against records directly, while SQL stores push filters down as WHERE clauses.
+One filter string works on every backend. The memory, filesystem, and redis drivers evaluate the CEL expression against each record. The SQLite driver pushes the filter down as a SQL `WHERE` clause.
 
-A filter is a **predicate primitive** of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md) — it composes with `--fields`, `--limit`, and `--offset` on any `list` action. Run `xdb describe --filter` for the live operator/function reference.
+A filter is a **predicate** of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md). `--filter`, `--limit`, and `--offset` are flags of `xdb records list`. `--fields` is a flag of `xdb records list` and `xdb records get`. Run `xdb describe --filter` for the live reference of operators and functions.
 
 ## Syntax
 
 ```bash
 xdb records list xdb://myapp/posts --filter 'status == "published"'
-xdb records list xdb://myapp/posts --filter 'status == "published" && views >= 100' --fields id,title --limit 10
+xdb records list xdb://myapp/posts --filter 'status == "published" && views >= 100' --fields _id,title --limit 10
 xdb records list xdb://myapp/posts --filter 'title.contains("hello")'
 xdb records list xdb://myapp/posts --filter 'status in ["active", "pending"]'
-xdb records list xdb://myapp/posts --filter '!(archived == true)' --fields id
+xdb records list xdb://myapp/posts --filter '!(archived == true)' --fields _id
 ```
 
 ## Operators
@@ -39,47 +39,48 @@ xdb records list xdb://myapp/posts --filter '!(archived == true)' --fields id
 
 ## Functions
 
-| Function     | Example                | SQL equivalent                        |
-| ------------ | ----------------------- | -------------------------------------- |
-| `contains`   | `name.contains("oh")`  | `instr(name, ?) > 0`                   |
-| `startsWith` | `name.startsWith("J")` | `substr(name, 1, length(?)) = ?`       |
-| `endsWith`   | `name.endsWith("hn")`  | `substr(name, -length(?)) = ?`         |
-| `size`       | `size(name) > 3`       | `LENGTH(name) > 3`                     |
+| Function     | Example                | SQL equivalent                   |
+| ------------ | ---------------------- | -------------------------------- |
+| `contains`   | `name.contains("oh")`  | `instr(name, ?) > 0`             |
+| `startsWith` | `name.startsWith("J")` | `substr(name, 1, length(?)) = ?` |
+| `endsWith`   | `name.endsWith("hn")`  | `substr(name, -length(?)) = ?`   |
+| `size`       | `size(name) > 3`       | `LENGTH(name) > 3`               |
 
 ### Case sensitivity
 
-String matching is byte-wise case-sensitive, matching CEL's own semantics —
+String matching compares bytes and is case-sensitive, the same as CEL itself.
 `name.contains("hello")` does not match a stored value of `"Hello World"`.
-This holds uniformly across every backend. On SQLite, this is why `contains`/
-`startsWith`/`endsWith` compile to `instr`/`substr` rather than `LIKE`:
-SQLite's `LIKE` is ASCII case-insensitive by default, which would otherwise
-diverge from the in-memory CEL evaluation used by the other backends.
+This rule is the same on every backend. On SQLite, `contains`, `startsWith`,
+and `endsWith` compile to `instr` and `substr`, not to `LIKE`. `LIKE` in
+SQLite ignores ASCII case by default, which gives results different from the
+in-memory CEL evaluation on the other backends.
 
-## Schema-aware vs flexible mode
+## Schema-aware and schema-free filters
 
-When a schema is available, filter expressions are type-checked against
-field definitions. Unknown-field handling then depends on the schema's
-mode:
+When a schema is available, the filter expression is type-checked against the
+field definitions. The handling of an unknown field then depends on the
+schema mode:
 
-- **Strict**: an unknown field is a compile error — the filter is rejected
-  before it runs, naming the field and listing the schema's available
-  fields (sorted).
-- **Flexible** and **dynamic**: an unknown field is accepted as a
-  dynamically typed variable. Records that lack the attribute simply don't
-  match — no error.
-- **No schema** (flexible mode with no field definitions): every variable
-  is dynamically typed, same as above.
+- **`strict`**: an unknown field is a compile error. The filter is rejected
+  before it runs. The error names the field and lists the available fields of
+  the schema in sorted order.
+- **`flexible`** and **`dynamic`**: an unknown field is accepted as a
+  dynamically typed variable. A record that lacks the attribute does not
+  match. There is no error.
+- **Schema-free** (no definition): every variable is dynamically typed, with
+  the same result. A query on a namespace URI, or on a schema that no longer
+  exists, is also schema-free.
 
-Unknown-field rejection is enforced at the same point regardless of
-backend: SQLite rejects it during `filter.Compile` (before any SQL is
-generated), and non-strict backends (or a strict schema evaluated through
-the in-memory fallback) enforce it identically since the same `filter.Compile`
-call governs both paths.
+The unknown-field check happens in `filter.Compile`, before any driver sees
+the filter. The SQLite driver calls `filter.Compile` before it generates SQL.
+The store facade calls `filter.Compile` before the in-memory evaluation. Both
+paths use the same definition, so the check is the same on every backend.
 
-### System fields
+### System attributes
 
-`_id`, `_version`, and `_updated` are filterable in every mode without
-being declared, and never trip strict mode's unknown-field rejection:
+`_id`, `_version`, and `_updated` can be used in a filter in every mode. You
+do not declare them, and they never trigger the unknown-field rejection of
+`strict` mode:
 
 ```
 _version > 5
@@ -87,23 +88,23 @@ _updated > timestamp("2026-01-01T00:00:00Z")
 _id.startsWith("user-")
 ```
 
-`_version` and `_updated` are stamped onto every definition, so they are
-real columns in a column-table backend. `_id` is projected from the
-record path rather than stored, and resolves to the id column every
-backend already keys on. See [Versioning](versioning.md).
+`_version` and `_updated` are stamped into every definition, so they are real
+columns in a column table. `_id` is projected from the record path. It is not
+stored as a tuple. It resolves to the ID column or key that every backend
+already uses. See [Versioning](versioning.md).
 
 ## Relationship to AIP-160
 
-XDB follows the [AIP-160](https://google.aip.dev/160) filtering standard conceptually — field traversal, comparison operators, and function calls all match AIP-160 patterns. The implementation uses CEL's stricter syntax conventions:
+XDB obeys the [AIP-160](https://google.aip.dev/160) filtering standard in concept. Field traversal, comparison operators, and function calls match the AIP-160 patterns. The implementation uses the stricter CEL syntax:
 
-| Concept    | AIP-160     | XDB (CEL)  |
-| ---------- | ----------- | ---------- |
-| Equality   | `=`         | `==`       |
-| Logical AND | `AND`      | `&&`       |
-| Logical OR  | `OR`       | `\|\|`     |
-| Negation   | `NOT`, `-`  | `!`        |
+| Concept     | AIP-160     | XDB (CEL)  |
+| ----------- | ----------- | ---------- |
+| Equality    | `=`         | `==`       |
+| Logical AND | `AND`       | `&&`       |
+| Logical OR  | `OR`        | `\|\|`     |
+| Negation    | `NOT`, `-`  | `!`        |
 
-CEL was chosen over AIP-160's looser syntax for compile-time type checking, safe evaluation (non-Turing-complete), and direct SQL generation.
+XDB uses CEL instead of the looser AIP-160 syntax for three reasons: compile-time type checking, safe evaluation (CEL is not Turing-complete), and direct SQL generation.
 
 ## Go usage
 
@@ -111,7 +112,7 @@ CEL was chosen over AIP-160's looser syntax for compile-time type checking, safe
 // Compile once, evaluate many times.
 f, err := filter.Compile(`status == "active" && age >= 18`, schemaDef)
 
-// Evaluate against a record.
+// Evaluate against one record.
 match, err := filter.Match(f, record)
 
 // Filter a slice of records.
@@ -120,24 +121,25 @@ results, err := filter.Records(f, records)
 
 ## SQL generation
 
-The `filter/sqlgen` package converts compiled filters to parameterized SQL:
+The `filter/sqlgen` package converts a compiled filter to parameterized SQL:
 
 ```go
 wc, err := sqlgen.Generate(f, sqlgen.ColumnStrategy, "")
-// wc.SQL    = `("status" = ? AND "age" >= ?)`
+// wc.SQL    = `(("status" = ?) AND ("age" >= ?))`
 // wc.Params = ["active", 18]
 ```
 
-Column names are double-quoted in the generated SQL. Under
-[ColumnStrategy], a field not declared on the compiled filter's schema
-(dynamic mode, referencing a field no record has written yet) yields
-`sqlgen.ErrUnknownColumn` rather than a raw "no such column" error; stores
-map this to a query-pushdown refusal so the caller falls back to a scan.
+Column names are double-quoted in the generated SQL. Under `ColumnStrategy`,
+a field that is not declared on the schema of the compiled filter returns
+`sqlgen.ErrUnknownColumn` instead of a raw "no such column" error. This
+happens in `dynamic` mode when a filter references a field that no record has
+written yet. The SQLite driver maps this error to a query-pushdown refusal,
+and the store falls back to a scan.
 
-## Related
+## Related Concepts
 
 - [AIP-160: Filtering](https://google.aip.dev/160) — Google's filtering standard
 - [AIP-132: List](https://google.aip.dev/132) — Standard List method design
 - [AIP-158: Pagination](https://google.aip.dev/158) — Page token and page size patterns
 - [CEL specification](https://cel.dev/) — Common Expression Language
-- [Stores](stores.md) — How filters integrate with store backends
+- [Stores](stores.md) — How filters integrate with the store facade

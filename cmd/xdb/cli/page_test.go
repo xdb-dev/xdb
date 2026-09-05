@@ -86,7 +86,10 @@ func TestDaemonStatus_ExitCodes(t *testing.T) {
 		// Status is PID-file based; simulate a live daemon with this
 		// test process's own PID.
 		cfg, dir := tempCLIConfig(t)
-		require.NoError(t, daemon.WritePID(filepath.Join(dir, "xdb.pid")))
+		// The PID file is named after the socket, so derive it the same
+		// way the daemon does rather than hard-coding the default name.
+		pidPath := daemon.PIDPath(filepath.Join(dir, "test.sock"))
+		require.NoError(t, daemon.WritePID(pidPath))
 
 		_, _, code := runCLI(t, "--config", cfg, "daemon", "status")
 		assert.Equal(t, 0, code)

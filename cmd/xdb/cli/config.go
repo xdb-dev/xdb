@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/xdb-dev/xdb/cmd/xdb/daemon"
 )
 
 const (
@@ -154,9 +156,11 @@ func (c *Config) LogFile() string {
 	return filepath.Join(c.ExpandedDir(), "xdb.log")
 }
 
-// PIDFile returns the full path to the PID file.
+// PIDFile returns the full path to the PID file. The name is derived from
+// the socket, exactly as the daemon derives it when it writes the file, so
+// that stop and status find a daemon started on a non-default socket.
 func (c *Config) PIDFile() string {
-	return filepath.Join(c.ExpandedDir(), "xdb.pid")
+	return daemon.PIDPath(c.SocketPath())
 }
 
 // DataDir returns the full path to the data directory.

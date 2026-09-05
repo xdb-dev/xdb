@@ -18,7 +18,7 @@ type Page[T any] struct {
 type Query struct {
 	URI    *core.URI // scope: ns-only or ns+schema
 	Filter string
-	Fields []string
+	Fields []string // not read by the facade or any driver
 	Limit  int
 	Offset int
 }
@@ -87,7 +87,7 @@ type NamespaceReader interface {
 }
 
 // TupleStore is attr-level access on a store: every record attribute
-// is addressable as xdb://ns/schema/id#attr. Writes are merges — a
+// is addressable as xdb://ns/schema/id#attr. Writes are patches — a
 // record springs into existence when its first tuples are put, and
 // disappears when its last tuple is deleted.
 type TupleStore interface {
@@ -99,8 +99,8 @@ type TupleStore interface {
 	// are omitted — batch reads don't error on absence.
 	GetTuples(ctx context.Context, uris ...*core.URI) ([]*core.Tuple, error)
 
-	// PutTuples merges tuples into their records, leaving other
-	// attrs untouched. Tuples may span records.
+	// PutTuples patches tuples into their records, leaving other
+	// attrs untouched. Tuples can span records.
 	PutTuples(ctx context.Context, tuples ...*core.Tuple) error
 
 	// DeleteTuples removes the tuples at the given attr-level URIs.
@@ -134,8 +134,9 @@ type HealthChecker interface {
 }
 
 // TX is an optional interface for stores that support atomic
-// transactions. The service layer falls back to sequential
-// execution if the store does not implement this.
+// transactions. Without it, the service layer runs each update's
+// read and write-back sequentially, and batch.execute refuses to run
+// unless the request sets non_atomic.
 type TX interface {
 	// Run executes fn within a transaction.
 	// If fn returns an error, all changes are rolled back.

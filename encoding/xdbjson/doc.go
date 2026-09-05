@@ -1,13 +1,14 @@
-// Package xdbjson provides utilities for converting JSON to XDB records and vice versa.
+// Package xdbjson converts JSON to XDB records and records back to JSON.
 //
 // # Overview
 //
-// The xdbjson package provides bidirectional conversion between JSON and XDB records:
-//   - Flat metadata fields (_id, _ns, _schema) with customizable field names
+// The xdbjson package converts in both directions between JSON and XDB
+// records:
+//   - Flat metadata fields (_id, _ns, _schema) with configurable names
 //   - Nested JSON objects flattened to dot-notation attributes
-//   - Configurable metadata inclusion in JSON output
+//   - Configurable inclusion of metadata in the JSON output
 //
-// # Basic Usage
+// # Basic usage
 //
 // Create an encoder to convert records to JSON:
 //
@@ -27,9 +28,9 @@
 //	record, err := decoder.ToRecord(data)
 //	// record.URI() -> xdb://com.example/users/123
 //
-// # JSON Format
+// # JSON format
 //
-// With default options, JSON uses flat metadata fields:
+// With the default options, the JSON uses flat metadata fields:
 //
 //	{
 //	    "_id": "user-123",
@@ -39,7 +40,7 @@
 //	    "email": "john@example.com"
 //	}
 //
-// Metadata fields can be customized via functional options:
+// You can rename the metadata fields with functional options:
 //
 //	enc := xdbjson.New(
 //	    xdbjson.WithIDField("id"),
@@ -47,9 +48,9 @@
 //	    xdbjson.WithSchemaField("type"),
 //	)
 //
-// # Nested Objects
+// # Nested objects
 //
-// Nested JSON objects are flattened to dot-notation attributes:
+// Nested JSON objects are flattened to dot-notation attributes.
 //
 // Input JSON:
 //
@@ -65,25 +66,25 @@
 //   - address.street: "123 Main St"
 //   - address.city: "Boston"
 //
-// When encoding, dot-notation attributes are unflattened back to nested objects.
+// On encode, dot-notation attributes are unflattened back to nested objects.
 //
-// # Including Metadata in Output
+// # Metadata in the output
 //
-// By default, the encoder only includes the ID field. To include namespace
-// and schema in the JSON output:
+// By default, the encoder includes only the ID field. To include the
+// namespace and the schema in the JSON output:
 //
 //	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
 //
-// # Per-Call Options
+// # Per-call options
 //
-// Use [EncodeOption] values to control individual FromRecord calls:
+// Use [EncodeOption] values to control one FromRecord call:
 //
 //	data, err := enc.FromRecord(record, xdbjson.WithIndent("", "  "))
 //	data, err := enc.FromRecord(record, xdbjson.WithFields("name", "email"))
 //
-// # Custom Field Names
+// # Custom field names
 //
-// Use functional options to customize metadata field names:
+// Use functional options to rename the metadata fields on decode:
 //
 //	decoder := xdbjson.NewDecoder(
 //	    xdbjson.WithNS("com.example"),
@@ -93,24 +94,26 @@
 //	    xdbjson.WithSchemaField("type"),     // Look for "type" instead of "_schema"
 //	)
 //
-// # Metadata Resolution (Decoding)
+// # Metadata resolution (decoding)
 //
-// When decoding, metadata is resolved in this order:
-//  1. JSON field (if present)
-//  2. Options default value
+// On decode, the decoder resolves metadata in this order:
+//  1. The JSON field, if present
+//  2. The default value from the options
 //
-// For example, if JSON contains "_ns", that value is used.
-// Otherwise, the WithNS value is used.
+// For example, if the JSON contains "_ns", the decoder uses that value.
+// Otherwise, the decoder uses the WithNS value.
 //
-// # Error Handling
+// # Errors
 //
 // Encoding errors:
-//   - Record is nil
+//   - The record is nil
 //
 // Decoding errors:
 //   - Invalid JSON
 //   - Missing ID field
 //   - Empty ID value
-//   - Cannot determine namespace (not in JSON and WithNS not set)
-//   - Cannot determine schema (not in JSON and WithSchema not set)
+//   - No namespace (not in the JSON and WithNS not set)
+//   - No schema (not in the JSON and WithSchema not set)
+//   - A declared field whose value cannot decode as the declared type
+//     (wraps [core.ErrSchemaViolation])
 package xdbjson

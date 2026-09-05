@@ -19,7 +19,7 @@ func (a *App) recordsCmd() *cli.Command {
 		Commands: []*cli.Command{
 			{
 				Name:               "create",
-				Usage:              "Create a new record (idempotent)",
+				Usage:              "Create a new record (CONFLICT if it exists with other data)",
 				CustomHelpTemplate: commandHelpTemplate,
 				ArgsUsage:          "[URI]",
 				Flags:              recordMutationFlags(),
@@ -35,9 +35,9 @@ func (a *App) recordsCmd() *cli.Command {
 			},
 			{
 				Name:               "list",
-				Usage:              "List records in a schema",
+				Usage:              "List records in a schema or a namespace",
 				CustomHelpTemplate: commandHelpTemplate,
-				ArgsUsage:          "[SCHEMA_URI]",
+				ArgsUsage:          "[URI]",
 				Flags:              recordListFlags(),
 				Action:             a.recordList,
 			},
@@ -59,7 +59,7 @@ func (a *App) recordsCmd() *cli.Command {
 			},
 			{
 				Name:               "delete",
-				Usage:              "Delete a record (idempotent, requires --force)",
+				Usage:              "Delete a record or one attribute (requires --force)",
 				CustomHelpTemplate: commandHelpTemplate,
 				ArgsUsage:          "[URI]",
 				Flags:              recordDeleteFlags(),
@@ -313,12 +313,12 @@ func recordReadFlags() []cli.Flag {
 
 func recordListFlags() []cli.Flag {
 	return []cli.Flag{
-		&cli.StringFlag{Name: "uri", Usage: "Schema URI"},
-		&cli.StringFlag{Name: "filter", Usage: "Human-friendly filter expression"},
+		&cli.StringFlag{Name: "uri", Usage: "Schema URI, or namespace URI to list across schemas"},
+		&cli.StringFlag{Name: "filter", Usage: "CEL filter expression"},
 		&cli.StringFlag{Name: "fields", Usage: "Comma-separated field mask"},
 		&cli.IntFlag{Name: "limit", Usage: "Max items per page"},
 		&cli.IntFlag{Name: "offset", Usage: "Page offset"},
-		&cli.BoolFlag{Name: "page-all", Usage: "Stream all pages"},
+		&cli.BoolFlag{Name: "page-all", Usage: "Fetch every page, then print one combined list"},
 		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "Output format"},
 	}
 }

@@ -20,7 +20,7 @@ func (a *App) schemasCmd() *cli.Command {
 		Commands: []*cli.Command{
 			{
 				Name:               "create",
-				Usage:              "Create a new schema (idempotent)",
+				Usage:              "Create a new schema (CONFLICT if it exists with other data)",
 				CustomHelpTemplate: commandHelpTemplate,
 				ArgsUsage:          "[URI]",
 				Flags:              schemaMutationFlags(),
@@ -52,7 +52,7 @@ func (a *App) schemasCmd() *cli.Command {
 			},
 			{
 				Name:               "delete",
-				Usage:              "Delete a schema (idempotent, requires --force)",
+				Usage:              "Delete a schema (requires --force)",
 				CustomHelpTemplate: commandHelpTemplate,
 				ArgsUsage:          "[URI]",
 				Flags:              schemaDeleteFlags(),

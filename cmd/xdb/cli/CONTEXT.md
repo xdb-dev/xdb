@@ -1,8 +1,8 @@
 # XDB CLI Context
 
-Agent-first data layer. Model once, store anywhere. URI-addressed: `xdb://NS/SCHEMA/ID#ATTR`.
+XDB is an agent-first data layer. Model once, store anywhere. Every resource has a URI: `xdb://NS/SCHEMA/ID#ATTR`.
 
-Served by `xdb context` — run it any time you need this guide again.
+`xdb context` prints this guide.
 
 ## Grammar
 
@@ -10,12 +10,15 @@ Served by `xdb context` — run it any time you need this guide again.
 xdb <resource> <action> <URI> [--filter CEL] [--fields MASK] [--json|--file|-] [-o FMT]
 ```
 
-- **resource** — `records` / `schemas` / `namespaces`
-- **action** — `get | list | create | update | upsert | delete | watch`
-- **URI** — the noun; depth determines resource (`ns` / `ns/schema` / `ns/schema/id`)
-- **`-o`** — `json` / `ndjson` / `table` / `yaml` (auto: table on TTY, json on pipe)
+- **resource**: `records` / `schemas` / `namespaces`
+- **action**: `get | list | create | update | upsert | delete`. Namespaces support only `get` and `list`.
+- **URI**: the noun. The depth selects the resource (`ns` / `ns/schema` / `ns/schema/id`).
+- **`-o`**: `json` / `ndjson` / `table` / `yaml`. Default: `table` on a TTY, `json` on a pipe.
+- **`xdb watch <URI>`** is a top-level command, not an action. It streams change events as NDJSON.
 
-**First-day moves — always do these:**
+The RPC layer names each action `<resource>.<action>`, for example `records.create`. Help, `describe`, and this guide call them **actions**. The dotted form is the stable identifier.
+
+**Discover the surface with these commands:**
 
 ```bash
 xdb describe --actions                 # what actions exist on what resources
@@ -23,16 +26,16 @@ xdb describe records.create            # parameters for one action
 xdb describe --uri xdb://ns/schema     # live data schema
 ```
 
-Always pass `--fields` and `--limit` to keep responses bounded.
+On `list` calls, pass `--fields` and `--limit` so that responses stay bounded. The default limit is 20.
 
 ## Minimal examples
 
 ```bash
 # Read
 xdb records get  xdb://ns/s/id --fields title,author
-xdb records list xdb://ns/s --filter 'status=="published"' --fields id,title --limit 10
+xdb records list xdb://ns/s --filter 'status=="published"' --fields _id,title --limit 10
 
-# Write — create = idempotent insert · update = patch · upsert = full replace
+# Write: create fails with ALREADY_EXISTS if the record exists · update = patch · upsert = full replace
 xdb records create xdb://ns/s/id --json '{"title":"Hello"}'
 xdb records update xdb://ns/s/id --json '{"title":"Updated"}'
 
@@ -43,9 +46,11 @@ xdb records delete xdb://ns/s/id --force
 xdb schemas create xdb://ns/s --json '{"fields":{"title":{"type":"string"}}}'
 ```
 
+Every record carries `_id`, `_version` (a counter that starts at 1), and `_updated`. If a write includes `_version`, and the stored version differs, the write fails with CONFLICT.
+
 ## When you need more
 
-Everything else is retrievable from the CLI itself:
+The CLI can show everything else:
 
 | Need                           | Command                            |
 | ------------------------------ | ---------------------------------- |
@@ -59,20 +64,18 @@ Everything else is retrievable from the CLI itself:
 
 ## Composition
 
-The CLI composes via stdin, stdout, and one error shape.
+The CLI composes through stdin, stdout, and one error shape.
 
-**Stdin `-` is the pipe token** — any command taking a URI or payload accepts `-` for stdin:
+**Stdin `-` is the pipe token.** Every command that takes a URI or a payload accepts `-` to read it from stdin:
 
 ```bash
 echo '{"title":"t"}' | xdb records create xdb://ns/s/id -
-xdb records list xdb://ns/s -o ndjson | xdb batch -
+echo '{"op":"records.upsert","uri":"xdb://ns/s/id","data":{"title":"t"}}' | xdb batch -
 ```
 
-Each NDJSON batch line is the serialized AST of one invocation: `{"resource","action","uri","payload"}`.
+Each NDJSON batch line is one operation: `{"op":"records.create","uri":"...","data":{...}}`. Allowed ops: `records.create`, `records.update`, `records.upsert`, `records.delete`, `schemas.create`, `schemas.update`, `schemas.delete`. A batch is atomic on the `sqlite` and `memory` backends. On the `fs` and `redis` backends, pass `--non-atomic`. For details, run `xdb skills get bulk-data`.
 
-> **Note:** `xdb batch` accepts the input shape today but the server's `batch.execute` is not yet implemented — invocations currently return `INTERNAL` ("batch.execute not implemented"). Use single-action calls until the server side lands.
-
-**Every error, every format, same shape:**
+**Every error, in every format, has the same shape:**
 
 ```json
 {
@@ -85,7 +88,9 @@ Each NDJSON batch line is the serialized AST of one invocation: `{"resource","ac
 }
 ```
 
-## Common flags (inherited)
+## Common flags
+
+`-c, --config` is a root flag. The other flags are declared per action. To see the flags of one action, run `xdb <resource> <action> --help`.
 
 | Flag                  | Purpose                                    |
 | --------------------- | ------------------------------------------ |
@@ -93,7 +98,7 @@ Each NDJSON batch line is the serialized AST of one invocation: `{"resource","ac
 | `--json '<JSON>'`     | Inline payload                             |
 | `-f, --file <PATH>`   | Payload from file                          |
 | `-`                   | Read URI or payload from stdin             |
-| `--filter <CEL>`      | Filter expression (list only)              |
+| `--filter <CEL>`      | Filter expression (`records list` only)    |
 | `--fields <MASK>`     | Field mask (`_id` always included)         |
 | `--limit`, `--offset` | Pagination                                 |
 | `--force`             | Required for deletes                       |
@@ -105,28 +110,25 @@ Each NDJSON batch line is the serialized AST of one invocation: `{"resource","ac
 
 ## Exit codes
 
-`0` ok · `1` app error (`NOT_FOUND`, `ALREADY_EXISTS`, `SCHEMA_VIOLATION`) · `2` connection · `3` invalid argument · `4` internal
+`0` ok · `1` app error (`NOT_FOUND`, `ALREADY_EXISTS`, `CONFLICT`, `SCHEMA_VIOLATION`, `NOT_IMPLEMENTED`) · `2` connection · `3` invalid argument · `4` internal
 
 ## System
 
 ```bash
-xdb init              # config + data dir + daemon
-xdb daemon status     # check daemon
-xdb skills list       # agent skills
+xdb init              # config + daemon
+xdb daemon status     # daemon state (exit 2 when stopped)
+xdb skills            # list agent skills
+xdb skills get <name> # print one skill
 ```
-
----
-
-Note: the RPC layer addresses actions as `<resource>.<action>` (e.g. `records.create`). User-facing docs, help, and `describe` call them **actions**; the dotted form is the stable identifier.
 
 ## Output shapes
 
-- `records list` / `schemas list` with `-o json` or `-o yaml` return a page
-  envelope `{"items": [...], "total": N, "next_offset": M}` (`next_offset`
-  omitted on the last page). `-o ndjson` streams bare items. Use `--page-all`
-  to fetch every page.
-- `namespaces get` returns `{"data": "<ns>", "schemas": [...], "total_schemas": N}`
-  — walk `namespaces list` -> `namespaces get` -> `records list xdb://ns` to
-  discover all state.
-- `daemon status` exits 2 when the daemon is stopped (0 when running), so
-  scripts can gate with `xdb daemon status --quiet && ...`.
+- `records list` and `schemas list` with `-o json` or `-o yaml` return a page
+  envelope `{"items": [...], "total": N, "next_offset": M}`. On the last page,
+  `next_offset` is omitted. `-o ndjson` streams bare items. To fetch every
+  page, pass `--page-all`.
+- `namespaces get` returns `{"data": "<ns>", "schemas": [...], "total_schemas": N}`.
+  To discover all state, walk `namespaces list` -> `namespaces get` ->
+  `records list xdb://ns`.
+- `daemon status` exits 2 when the daemon is stopped and 0 when it runs.
+  Scripts can gate with `xdb daemon status --quiet && ...`.

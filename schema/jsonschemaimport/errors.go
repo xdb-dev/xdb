@@ -6,18 +6,18 @@ var (
 	// ErrInvalidJSON is returned when the input is not valid JSON.
 	ErrInvalidJSON = errors.New("[xdb/jsonschemaimport] invalid JSON")
 
-	// ErrNoNamespace is returned when no namespace can be resolved from the
-	// document and none was supplied with [WithNamespace].
+	// ErrNoNamespace is returned when no namespace was supplied with
+	// [WithNamespace]. The importer never derives a namespace from the
+	// document.
 	ErrNoNamespace = errors.New("[xdb/jsonschemaimport] no namespace")
 
 	// ErrNoSchemaName is returned when no schema name can be resolved from the
 	// document (title, $id) and none was supplied with [WithSchemaName].
 	ErrNoSchemaName = errors.New("[xdb/jsonschemaimport] no schema name")
 
-	// ErrInvalidKey is returned when one or more property names do not parse as a
-	// single attribute segment, or contain a '.' (ambiguous with the path
-	// separator). The error lists every offending key. There is no escaping in
-	// v1.
+	// ErrInvalidKey is returned when one or more property names do not parse as
+	// a single attribute segment, or contain a '.' (ambiguous with the path
+	// separator). The error lists every offending key. There is no escaping.
 	ErrInvalidKey = errors.New("[xdb/jsonschemaimport] invalid property name")
 
 	// ErrUnion is returned for anyOf/oneOf, which model unions (a non-goal). The

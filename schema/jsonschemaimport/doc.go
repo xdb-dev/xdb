@@ -1,12 +1,12 @@
 // Package jsonschemaimport imports a documented subset of JSON Schema
-// (draft 2020-12) into an XDB [schema.Def], and moves JSON documents to and
-// from [core.Record] values via encoding/xdbjson.
+// (draft 2020-12) into an XDB [schema.Def]. It also moves JSON documents to
+// and from [core.Record] values through encoding/xdbjson.
 //
 // [Import] parses a schema document into a [schema.Def]. [Marshal] and
-// [Unmarshal] are the typed data path: Marshal decodes a JSON document into a
-// record (typing declared fields), Unmarshal encodes a record back to a JSON
-// document. The three are exercised together by the shared round-trip harness
-// (tests.RunRoundTrip).
+// [Unmarshal] are the typed data path. Marshal decodes a JSON document into
+// a record and types the declared fields. Unmarshal encodes a record back to
+// a JSON document. The shared round-trip harness (tests.RunRoundTrip)
+// exercises the three together.
 //
 // # Type mapping
 //
@@ -33,43 +33,44 @@
 //	  max / minLength / maxLength         an enum's scalar type still maps
 //	description (schema and fields)    Def.Description / Field.Description
 //
-// Every field records nothing by default; constraint keywords are captured in
-// Field.Annotations under a "jsonschema." prefix (format, enum, const, pattern,
-// minimum, maximum, exclusiveMinimum, exclusiveMaximum, minLength, maxLength).
-// The Def records Annotations["source"]="jsonschema" and, when present,
-// Annotations["jsonschema.id"] from $id.
+// A field has no annotations by default. Constraint keywords are captured in
+// Field.Annotations under a "jsonschema." prefix (format, enum, const,
+// pattern, minimum, maximum, exclusiveMinimum, exclusiveMaximum, minLength,
+// maxLength). The Def records Annotations["source"]="jsonschema". When the
+// document has an $id, the Def also records it in
+// Annotations["jsonschema.id"].
 //
 // # Two nesting representations
 //
-// A single nested object always flattens to dotted attributes (profile.name),
-// so filters can address it. An array of objects uses Field.Items, a separate
-// namespace whose elements stay opaque. Inside an object-array element, a nested
-// object is NOT flattened — it imports as an opaque JSON member — because the
-// data path keeps element internals nested.
+// A single nested object always flattens to dotted attributes
+// (profile.name), so filters can address it. An array of objects uses
+// Field.Items, a separate namespace whose elements stay opaque. Inside an
+// object-array element, a nested object is NOT flattened. It imports as an
+// opaque JSON member, because the data path keeps element internals nested.
 //
-// A nested object's required members are enforced only when the object itself is
-// required at its parent. An optional nested object may be omitted whole, so its
-// members are conditionally required, which the flat IR cannot express and does
-// not enforce.
+// The required members of a nested object are enforced only when the object
+// itself is required at its parent. An optional nested object can be omitted
+// whole, so its members are conditionally required. The flat IR cannot
+// express this condition and does not enforce it.
 //
 // # Key grammar (wire-format commitment)
 //
-// A property name must parse as a single attribute segment and must not contain
-// '.' (which is the path separator and would be ambiguous). Offending names are
-// an import error ([ErrInvalidKey]) listing every offending key with its JSON
-// pointer. There is no escaping in v1.
+// A property name must parse as a single attribute segment. It must not
+// contain '.', which is the path separator and is ambiguous in a name. An
+// offending name is an import error ([ErrInvalidKey]). The error lists every
+// offending key with its JSON pointer. There is no escaping.
 //
 // # $ref
 //
 // Only same-document pointers ("#/$defs/Foo") are resolved. A cross-document
-// $ref is [ErrCrossDocument]; a cyclic $ref is [ErrCyclicRef]. The escape hatch
-// for a cycle is [WithJSON], which imports the named pointer as an opaque JSON
+// $ref is [ErrCrossDocument]. A cyclic $ref is [ErrCyclicRef]. To break a
+// cycle, use [WithJSON], which imports the named pointer as an opaque JSON
 // field.
 //
 // # Rejections
 //
-// Every unsupported construct errors with the JSON pointer to the offending
-// node:
+// Every unsupported construct is an error that names the JSON pointer to the
+// offending node:
 //
 //	anyOf / oneOf                      ErrUnion (unions are a non-goal)
 //	allOf of conflicting keys          ErrConflict
@@ -83,16 +84,16 @@
 //	multiple non-null types            ErrUnsupported
 //	arrays of arrays                   ErrUnsupported
 //
-// allOf of disjoint objects is the one composition that is supported: the branch
-// field sets merge into one, and a key defined by more than one branch is
-// [ErrConflict].
+// allOf of disjoint objects is the one composition that is supported. The
+// field sets of the branches merge into one. A key that more than one branch
+// defines is [ErrConflict].
 //
 // # Null, absent, and zero handling
 //
-// The data path follows encoding/xdbjson: an absent property and an explicit
-// null both decode to no tuple (the record simply omits the attribute), and
-// encode back to an absent property — null and absent are indistinguishable
-// after a round-trip. A zero value (0, "", false) is a present tuple and
-// round-trips as itself. Object-array elements are opaque JSON, so a null member
-// inside an element is preserved verbatim.
+// The data path obeys the rules of encoding/xdbjson. An absent property and
+// an explicit null both decode to no tuple, so the record omits the
+// attribute. Both encode back to an absent property. As a result, null and
+// absent are indistinguishable after a round-trip. A zero value (0, "",
+// false) is a present tuple and round-trips as itself. Object-array elements
+// are opaque JSON, so a null member inside an element is preserved verbatim.
 package jsonschemaimport

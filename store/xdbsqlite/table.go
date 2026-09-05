@@ -198,7 +198,7 @@ func (e *tableEngine) evolve(ctx context.Context, old *schema.Def) error {
 		if err != nil {
 			return err
 		}
-		if field := e.def.Fields[name]; field.Indexed || field.Unique {
+		if e.def.Fields[name].HasIndex() {
 			if err := e.createIndex(ctx, name); err != nil {
 				return err
 			}
@@ -214,15 +214,17 @@ func (e *tableEngine) evolve(ctx context.Context, old *schema.Def) error {
 	sort.Strings(removed)
 
 	for _, name := range removed {
-		if field := old.Fields[name]; field.Indexed || field.Unique {
-			err := e.q.DropIndex(ctx, xsql.DropIndexParams{
-				Name: columnIndexName(e.def.URI, name),
-			})
-			if err != nil {
-				return err
-			}
+		// Drop the index unconditionally. DROP INDEX IF EXISTS is a
+		// no-op when there is none, and keying this off the old
+		// definition misses an index left by an earlier generation of
+		// the schema, which then makes DROP COLUMN fail.
+		err := e.q.DropIndex(ctx, xsql.DropIndexParams{
+			Name: columnIndexName(e.def.URI, name),
+		})
+		if err != nil {
+			return err
 		}
-		err := e.q.DropColumn(ctx, xsql.DropColumnParams{
+		err = e.q.DropColumn(ctx, xsql.DropColumnParams{
 			Table:  table,
 			Column: name,
 		})

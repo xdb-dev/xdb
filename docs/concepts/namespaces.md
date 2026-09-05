@@ -6,28 +6,28 @@ package: core
 
 # Namespaces
 
-A **Namespace** (NS) groups one or more [Schemas](schemas.md) together. Namespaces provide logical organization for your data, typically by domain, application, or tenant.
+A **Namespace** (NS) groups one or more [Schemas](schemas.md). Namespaces give your data a logical structure, usually by domain, application, or tenant.
 
-From the [CLI](../../cmd/xdb/cli/CONTEXT.md): `xdb namespaces list` enumerates namespaces; `xdb describe --uri xdb://ns` describes one. Namespaces are implicit — created on first schema write — so the CLI does not expose `create`/`delete` actions for them today (`xdb describe --actions` is authoritative).
+From the [CLI](../../cmd/xdb/cli/CONTEXT.md), `xdb namespaces list` lists the namespaces, and `xdb namespaces get xdb://ns` shows one namespace with its schemas. Namespaces are implicit. XDB creates a namespace on the first schema write in it. As a result, namespaces support only the `list` and `get` actions. Run `xdb describe --actions` for the live list.
 
 ## Structure
 
-A namespace _is_ its name — a plain string, the shortest level of a [URI](uris.md).
+A namespace is its name: a plain string, and the shortest level of a [URI](uris.md).
 
 ```
-┌──────────────────────────────────────────────┐
-│            Namespace: com.example              │
-├──────────────────────────────────────────────┤
-│  Schema: posts                                │
-│  Schema: users                                │
-│  Schema: comments                             │
-└──────────────────────────────────────────────┘
+┌──────────────────────────────┐
+│  Namespace: com.example      │
+├──────────────────────────────┤
+│  Schema: posts               │
+│  Schema: users               │
+│  Schema: comments            │
+└──────────────────────────────┘
 ```
 
 ## Naming Rules
 
-Namespace names must match: `[a-zA-Z0-9._-]` (no `/` — unlike a record ID, a
-namespace is a single URI component).
+A namespace name must match `[a-zA-Z0-9._-]`. It cannot contain `/`. Unlike a
+record ID, a namespace is a single URI component.
 
 | Valid         | Invalid           |
 | ------------- | ----------------- |
@@ -37,19 +37,19 @@ namespace is a single URI component).
 | `io.myapp`    | `org/team`        |
 
 Conventions:
-- **Reverse domain** — `com.example`, `io.myapp` — good for public or multi-tenant systems.
-- **Simple names** — `myapp`, `analytics` — fine for single-application use.
+- **Reverse domain** — `com.example`, `io.myapp`. Good for public or multi-tenant systems.
+- **Simple names** — `myapp`, `analytics`. Good for a single application.
 
 ## Creating Namespaces
 
-Namespaces are created implicitly when you create a schema within them:
+XDB creates a namespace when you create the first schema in it:
 
 ```bash
-# Creates the "com.example" namespace and "posts" schema
-xdb make-schema xdb://com.example/posts --schema posts.json
+# Creates the "com.example" namespace and the "posts" schema
+xdb schemas create xdb://com.example/posts --file posts.json
 ```
 
-In Go code a namespace is just the `NS` component of a [URI](uris.md):
+In Go code, a namespace is the `NS` component of a [URI](uris.md):
 
 ```go
 uri := core.MustNewURI("com.example")  // xdb://com.example
@@ -58,10 +58,10 @@ ns := uri.NS()                         // "com.example"
 
 ## URI Representation
 
-A namespace URI uses the `xdb://` scheme with just the namespace component (e.g., `xdb://com.example`). This is the shortest valid XDB [URI](uris.md). All other resources extend from the namespace.
+A namespace URI has the `xdb://` scheme and only the namespace component, for example `xdb://com.example`. This is the shortest valid XDB [URI](uris.md). All other resources extend the namespace URI.
 
 ## Related Concepts
 
-- [Schemas](schemas.md) — Grouped within namespaces
+- [Schemas](schemas.md) — Grouped in namespaces
 - [URIs](uris.md) — How namespaces are addressed
 - [Stores](stores.md) — Where namespace data is persisted

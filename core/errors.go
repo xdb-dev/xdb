@@ -22,10 +22,10 @@ var (
 	ErrAttrNotFound = errors.New("[xdb/core] attribute not found")
 
 	// ErrConflict is returned when an optimistic-concurrency compare-and-swap
-	// fails: the caller's expected base revision does not match the currently
-	// stored revision. It is the shared conflict sentinel for schema updates
-	// (and, in future, record _rev). It is deliberately standalone and must NOT
-	// wrap [ErrNotFound].
+	// fails: the expected base revision of the caller does not match the
+	// stored revision. It is the shared conflict sentinel for schema revision
+	// updates and for record _version preconditions. It is deliberately
+	// standalone and must NOT wrap [ErrNotFound].
 	ErrConflict = errors.New("[xdb/core] revision conflict")
 
 	// ErrUniqueViolation is returned when a write violates a field's unique

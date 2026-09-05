@@ -107,10 +107,11 @@ func planToFields(plan []fieldPlan, prefix string) map[string]schema.Field {
 	return fields
 }
 
-// CheckRename compares a re-imported schema against the stored one using proto
-// field numbers. A field whose number matches an existing field under a
-// different name is a rename; v1 surfaces it as [ErrRename] with instructions
-// rather than applying it, because renaming means rewriting stored tuples.
+// CheckRename compares a re-imported schema against the stored one using
+// proto field numbers. A field whose number matches an existing field under a
+// different name is a rename. CheckRename returns it as [ErrRename] with
+// instructions and does not apply it, because a rename means rewriting the
+// stored tuples.
 //
 // Numbers that are ambiguous (shared by more than one field in a namespace,
 // which happens when nested messages flatten) are skipped.

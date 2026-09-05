@@ -12,13 +12,15 @@ import (
 	"github.com/xdb-dev/xdb/store"
 )
 
-// CascadeStoreSuite runs tests that verify [store.SchemaStore.DeleteSchemaRecords]
-// across all store implementations.
+// CascadeStoreSuite pins [store.SchemaStore.DeleteSchemaRecords]. It is a
+// policy suite: the cascade lives in the facade middleware, so the suite
+// runs once, against the memory reference driver.
 type CascadeStoreSuite struct {
 	newStore func() store.Store
 }
 
 // NewCascadeStoreSuite creates a new suite using the given factory.
+// The factory is called before each test group to provide a fresh store.
 func NewCascadeStoreSuite(fn func() store.Store) *CascadeStoreSuite {
 	return &CascadeStoreSuite{newStore: fn}
 }

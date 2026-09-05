@@ -316,7 +316,7 @@ func (d *Driver) applyMutation(ctx context.Context, m store.Mutation) error {
 			return nil
 		}
 		if err := d.client.HSet(ctx, key, args...).Err(); err != nil {
-			return fmt.Errorf("xdbredis: merge: %w", err)
+			return fmt.Errorf("xdbredis: patch: %w", err)
 		}
 		return nil
 

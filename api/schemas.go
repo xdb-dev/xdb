@@ -189,13 +189,14 @@ type UpdateSchemaResponse struct {
 
 // Update updates an existing schema definition with patch semantics.
 // Patch fields (including Items) are added or replaced in the existing
-// definition; field removal is not supported. A non-zero Revision in the
-// patch is checked as an optimistic-concurrency CAS against the store's
-// current revision ([core.ErrConflict] on mismatch); omitting it (zero)
-// updates unconditionally.
-// The read-merge-write runs inside a transaction when the store
-// supports [store.TX]; otherwise it falls back to sequential
-// (non-atomic) operations.
+// definition. Field removal is not supported. A non-empty Mode in the
+// patch replaces the existing mode. Description and Annotations in the
+// patch are discarded, and the existing values are kept. A non-zero
+// Revision in the patch is checked as an optimistic-concurrency CAS
+// against the store's current revision ([core.ErrConflict] on
+// mismatch). A zero or omitted Revision updates unconditionally.
+// The read and the write-back run inside a transaction when the store
+// supports [store.TX]. Otherwise they run sequentially (non-atomic).
 func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*UpdateSchemaResponse, error) {
 	uri, err := parseURI(req.URI, "schemas.update", 2, 2, false)
 	if err != nil {
@@ -217,7 +218,7 @@ func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*
 	return &UpdateSchemaResponse{Data: updated}, nil
 }
 
-// applySchemaPatch fetches the schema, merges the patch data into it,
+// applySchemaPatch fetches the schema, applies the patch data to it,
 // and writes it back through the given store.
 func applySchemaPatch(
 	ctx context.Context,
@@ -230,12 +231,17 @@ func applySchemaPatch(
 		return nil, err
 	}
 
-	patch, err := unmarshalSchemaDef(data, uri)
+	var payload schemaDefPayload
+	if err = json.Unmarshal(data, &payload); err != nil {
+		return nil, err
+	}
+
+	patch, err := payloadToDef(payload, uri)
 	if err != nil {
 		return nil, err
 	}
 
-	// Build the merged definition as a fresh value rather than mutating
+	// Build the patched definition as a fresh value rather than mutating
 	// existing in place: some stores (e.g. xdbmemory) return the same
 	// *schema.Def pointer they hold internally, so an in-place edit would
 	// corrupt the stored definition (in particular its Revision) before
@@ -252,8 +258,20 @@ func applySchemaPatch(
 		merged.Fields[name] = field
 	}
 	// Fields (including Items) are added or replaced; removal is not
-	// supported.
+	// supported. indexed and unique are the exception: they are fixed at
+	// creation, so a patch that omits the key keeps the stored marker.
+	// Without this an edit to any other property of a marked field reads
+	// as a request to clear the marker, which ValidateUpdate rejects.
 	for name, field := range patch.Fields {
+		if old, ok := existing.Fields[name]; ok {
+			fp := payload.Fields[name]
+			if fp.Indexed == nil {
+				field.Indexed = old.Indexed
+			}
+			if fp.Unique == nil {
+				field.Unique = old.Unique
+			}
+		}
 		merged.Fields[name] = field
 	}
 
@@ -276,9 +294,6 @@ func applySchemaPatch(
 	return merged, nil
 }
 
-// schemasEquivalent reports whether a and b are the same schema
-// definition, ignoring Revision (which legitimately differs between a
-// freshly built create payload and the currently stored definition).
 // schemaCreateConflictError reports a create over an existing schema
 // with a different definition.
 func schemaCreateConflictError(uri *core.URI) error {
@@ -289,6 +304,9 @@ func schemaCreateConflictError(uri *core.URI) error {
 	)
 }
 
+// schemasEquivalent reports whether a and b are the same schema
+// definition, ignoring Revision (which legitimately differs between a
+// freshly built create payload and the currently stored definition).
 func schemasEquivalent(a, b *schema.Def) (bool, error) {
 	am, err := schemaDefMap(a)
 	if err != nil {
@@ -339,15 +357,19 @@ type DeleteSchemaResponse struct {
 // the schema package's own JSON format ({type, elem_type, items, ...}).
 // Items is recursive: it declares the element object schema for an
 // ARRAY<JSON> field, using the same field payload shape one level deeper.
+//
+// Indexed and Unique are pointers so that a patch can tell an omitted key
+// from an explicit false. Both markers are fixed at creation, so
+// [applySchemaPatch] keeps the stored marker when the patch omits the key.
 type schemaFieldPayload struct {
 	Annotations map[string]string             `json:"annotations,omitempty"`
 	Items       map[string]schemaFieldPayload `json:"items,omitempty"`
+	Indexed     *bool                         `json:"indexed,omitempty"`
+	Unique      *bool                         `json:"unique,omitempty"`
 	Type        string                        `json:"type"`
 	ElemType    string                        `json:"elem_type,omitempty"`
 	Description string                        `json:"description,omitempty"`
 	Required    bool                          `json:"required,omitempty"`
-	Indexed     bool                          `json:"indexed,omitempty"`
-	Unique      bool                          `json:"unique,omitempty"`
 }
 
 // schemaDefPayload is the JSON-safe subset of [schema.Def] used for
@@ -371,6 +393,13 @@ func unmarshalSchemaDef(data json.RawMessage, uri *core.URI) (schema.Def, error)
 		return schema.Def{}, err
 	}
 
+	return payloadToDef(p, uri)
+}
+
+// payloadToDef converts an already-decoded payload into a [schema.Def].
+// Split from [unmarshalSchemaDef] so that the patch path can keep the
+// payload and read its tri-state markers after the conversion.
+func payloadToDef(p schemaDefPayload, uri *core.URI) (schema.Def, error) {
 	var fields map[string]schema.Field
 	if len(p.Fields) > 0 {
 		var err error
@@ -415,8 +444,8 @@ func payloadToField(fp schemaFieldPayload) (schema.Field, error) {
 	field := schema.Field{
 		Type:        t,
 		Required:    fp.Required,
-		Indexed:     fp.Indexed,
-		Unique:      fp.Unique,
+		Indexed:     fp.Indexed != nil && *fp.Indexed,
+		Unique:      fp.Unique != nil && *fp.Unique,
 		Description: fp.Description,
 		Annotations: fp.Annotations,
 	}

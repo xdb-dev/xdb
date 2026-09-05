@@ -1,8 +1,9 @@
-// Package core provides the fundamental data structures for XDB — an agent-first data layer.
+// Package core provides the fundamental data structures for XDB, an
+// agent-first data layer.
 //
-// XDB Data Model:
+// # Data model
 //
-// XDB models data as a tree of Namespaces, Schemas, Records, and Tuples:
+// XDB models data as a tree of namespaces, schemas, records, and tuples:
 //
 //	┌─────────────────────────────────┐
 //	│            Namespace            │
@@ -19,34 +20,34 @@
 //	┌─────────────────────────────────┐
 //	│             Tuple               │
 //	├─────────────────────────────────┤
-//	│   ID | Attr | Value | Options   │
+//	│      Path | Attr | Value        │
 //	└─────────────────────────────────┘
 //
-// Core Types:
+// # Core types
 //
-// Tuple is the fundamental building block in XDB — an addressable fact,
-// xdb://ns/schema/id#attr = value. Each tuple contains:
-//   - Path: A URI identifying the record (NS + SCHEMA + ID)
-//   - Attr: An attribute name (e.g., "name", "profile.email")
-//   - Value: A typed value containing the actual data
+// [Tuple] is the fundamental building block in XDB. A tuple is an
+// addressable fact: xdb://ns/schema/id#attr = value. Each tuple contains:
+//   - Path: a [URI] that identifies the record (NS + SCHEMA + ID).
+//   - Attr: an attribute name, for example "name" or "profile.email".
+//   - Value: a typed [Value] that holds the data.
 //
-// Record is the set of tuples that share the same path; it groups tuples and
-// adds no data of its own. A record exists exactly when at least one tuple
-// exists at its path. Records are similar to objects, structs, or rows in a
-// database, and typically represent a single entity of domain data.
+// [Record] is the set of tuples that share the same path. A record groups
+// tuples and adds no data of its own. A record exists exactly when at least
+// one tuple exists at its path. Records are similar to objects, structs, or
+// rows in a database. A record usually represents one entity of domain data.
 //
-// Schema defines the structure of records and groups them together.
-// Schemas can be "strict" or "flexible" and are uniquely identified by name within a namespace.
+// Schema defines the structure of records and groups them together. A schema
+// is identified by name within a namespace. A schema has one of three modes:
+// strict, flexible, or dynamic. Declared fields type-check in every mode.
+// The mode controls only undeclared attributes. Strict rejects them.
+// Flexible accepts them as-is. Dynamic infers a field for each of them and
+// adds it to the schema. The schema package defines the modes.
 //
-// Namespace (NS) groups one or more Schemas.
-// Namespaces are typically used to organize schemas by domain, application, or tenant.
+// Namespace (NS) groups one or more schemas. Namespaces usually organize
+// schemas by domain, application, or tenant.
 //
-// Schema is a definition of your domain entities and their relationships.
-// Schemas can be "strict" or "flexible". Strict schemas enforce a predefined structure
-// on the data, while flexible schemas allow for arbitrary data.
-//
-// URI provides unique references to namespaces, schemas, records, and attributes.
-// The general format is:
+// [URI] gives a unique reference to a namespace, schema, record, or
+// attribute. The general format is:
 //
 //	xdb:// NS [ / SCHEMA ] [ / ID ] [ #ATTRIBUTE ]
 //
@@ -59,21 +60,25 @@
 //
 // NS identifies the namespace.
 // SCHEMA is the schema name.
-// ID is the record identifier
-// ATTRIBUTE is a specific attribute of a record (supports nesting like "profile.email").
-// Path: NS, SCHEMA, and ID combined uniquely identify a record (URI without xdb://).
+// ID is the record identifier.
+// ATTRIBUTE is one attribute of a record. Attribute names can nest, for
+// example "profile.email".
+// Path is NS, SCHEMA, and ID combined. The path identifies one record. It is
+// the URI without the xdb:// scheme.
 //
-// Value is a typed container supporting Go's basic types plus arrays and maps.
-// Values provide type-safe casting methods and automatic type inference.
+// [Value] is a typed container for the basic Go types, time.Time, []byte,
+// json.RawMessage, and arrays of these. Maps are not supported and are
+// rejected with [ErrUnsupportedValue]. Values provide typed As* accessors and
+// automatic type inference.
 //
-// Example usage:
+// # Example
 //
-//	// A record is the set of tuples sharing a path; Set adds one tuple each.
+//	// A record is the set of tuples that share a path. Each Set adds one tuple.
 //	record := NewRecord("com.example", "posts", "123-456-789").
 //		Set("title", "Hello World").
 //		Set("author.id", "user-001")
 //
-//	// Read a tuple back; As* is safe to chain on a missing attribute.
+//	// Read a tuple back. As* is safe to chain on a missing attribute.
 //	title, err := record.Get("title").AsStr()
 //
 //	// A standalone tuple, addressed by its path and attribute.
