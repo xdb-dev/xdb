@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XDB — Model once. Store anywhere.</title>
+<meta name="description" content="XDB is an agent-first data layer. Every fact is a tuple, records are sets of tuples, and one API and one CLI work over any backend.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+
+
+<div class="wrap">
+  <nav class="top">
+    <a class="logo" href="#">xdb <span>model once, store anywhere</span></a>
+    <ul>
+      <li><a href="#model">Model</a></li>
+      <li><a href="#backends">Backends</a></li>
+      <li><a href="#ops">Operations</a></li>
+      <li><a href="#agents">Agents</a></li>
+      <li><a href="#go">Go</a></li>
+      <li><a href="https://github.com/xdb-dev/xdb">GitHub</a></li>
+    </ul>
+  </nav>
+</div>
+
+<!-- 0. What is this? -->
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">An agent-first data layer · Go</span>
+      <h1>Model once.<br>Store anywhere.</h1>
+      <p class="lede">Every fact in XDB is a tuple: a path, an attribute, a typed value. Tuples make records, records go into any backend, and one API and one CLI read and write them all with the same rules.</p>
+      <div class="row">
+        <a class="btn" href="#start">Get started</a>
+        <a class="btn ghost" href="https://github.com/xdb-dev/xdb">View GitHub</a>
+      </div>
+      <div class="cmd"><span class="pr">$</span> go install github.com/xdb-dev/xdb/cmd/xdb@latest</div>
+    </div>
+    <figure>
+      <svg id="fig-hero" role="img" aria-label="A tuple is written to the store, which validates it and hands it to a driver for memory, filesystem, Redis or SQLite."></svg>
+      <figcaption><span>fig. 0</span><b>the whole idea</b></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- 1. What is the data? -->
+<section id="model">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">The model</span>
+      <h2>Everything is a tuple.</h2>
+      <p class="lede">A tuple is one addressable fact. Its URI says where it lives, its attribute says what it is, and its value carries a type. There is nothing smaller, and everything larger is built from it.</p>
+    </div>
+    <figure class="frame">
+      <svg id="fig-tuple" role="img" aria-label="Anatomy of the URI xdb://com.example/posts/p-1#title = Hello, with namespace, schema, id, attr and value called out."></svg>
+      <figcaption><span>fig. 1</span><b>anatomy of a tuple</b></figcaption>
+    </figure>
+
+    <div class="two" style="margin-top:56px">
+      <div>
+        <h3>Tuples make records. Records live in schemas. Schemas live in namespaces.</h3>
+        <p class="muted">Tuples that share a path are a record. A record adds no data of its own: it exists when its first tuple is written and disappears when its last one is deleted. A schema groups records and decides how strictly they are checked. A namespace groups schemas by domain, app or tenant.</p>
+        <p class="muted" style="margin-top:12px">Every level has a URI, so every level can be read, listed, written and watched by the same verbs. That includes the tuple: <code>get</code> on an attribute URI returns one fact, and <code>delete</code> on it removes just that fact.</p>
+        <div class="uris">
+          <span>namespace</span><span>xdb://<span class="p-ns">com.example</span></span>
+          <span>schema</span><span>xdb://<span class="p-ns">com.example</span>/<span class="p-schema">posts</span></span>
+          <span>record</span><span>xdb://<span class="p-ns">com.example</span>/<span class="p-schema">posts</span>/<span class="p-id">p-1</span></span>
+          <span>tuple</span><span>xdb://<span class="p-ns">com.example</span>/<span class="p-schema">posts</span>/<span class="p-id">p-1</span>#<span class="p-attr">author.name</span></span>
+        </div>
+        <p class="muted small" style="margin-top:14px">Dotted attributes unfold on output, so the record above reads back as nested JSON. The store stamps <code>_id</code>, <code>_version</code> and <code>_updated</code> on every record.</p>
+<pre style="margin-top:8px;font-size:12.5px">{ "title": "Hello", "author": { "name": "Ravi" }, "views": 42,
+  "_id": "p-1", "_version": 1, "_updated": "2026-09-04T09:12:00Z" }</pre>
+      </div>
+      <figure>
+        <svg id="fig-nest" role="img" aria-label="Nested boxes: a namespace contains a schema, which contains a record, which is a list of tuples."></svg>
+        <figcaption><span>fig. 2</span><b>what contains what</b></figcaption>
+      </figure>
+    </div>
+
+    <div class="two top" style="margin-top:56px">
+      <div>
+        <h3>Nine value types.</h3>
+        <p class="muted">Defined once in the model, mapped to a native column or encoding per backend. Every value has typed <code>As*</code> accessors, so a wrong type and a missing value are different errors.</p>
+        <div class="chips">
+          <span>string</span><span>integer</span><span>unsigned</span><span>float</span><span>boolean</span><span>time</span><span>json</span><span>bytes</span><span>array&lt;T&gt;</span>
+        </div>
+      </div>
+      <div>
+        <h3>What a schema can say.</h3>
+        <ul class="fine" style="margin-top:8px;columns:1">
+          <li><b>Mode.</b> Strict rejects undeclared fields, flexible accepts anything, dynamic grows the definition as data arrives.</li>
+          <li><b>Required, indexed, unique.</b> Required attrs cannot be deleted out of a record. Indexed and unique fields become real indexes on SQLite.</li>
+          <li><b>Arrays.</b> Every array declares its element type. Object arrays carry the shape of their items.</li>
+          <li><b>Revisions.</b> Every schema update is a compare-and-swap on its revision. Types and modes are immutable once set.</li>
+          <li><b>Cascade.</b> Deleting a schema with its records is one explicit flag, never an accident.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2. Do I have to re-model? -->
+<section id="import">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Bring your own types</span>
+      <h2>Import the model you already have.</h2>
+      <p class="lede">A schema can come from a Go struct with tags, a protobuf message, or a JSON Schema document. The struct is the schema, and your types go in and come out. Diff runs the same walk without writing, and fails CI when the code and the stored schema drift apart.</p>
+    </div>
+    <div class="two top">
+      <div class="win">
+        <div class="tab">types.go  ·  your structs, not tuples</div>
+<pre><span class="kw">type</span> Post <span class="kw">struct</span> {
+    Title  string    `xdb:"title,required"`
+    Author Author    `xdb:"author"`      <span class="cm">// → author.name</span>
+    Tags   []string  `xdb:"tags"`        <span class="cm">// → ARRAY&lt;string&gt;</span>
+    Views  int64     `xdb:"views"`
+}
+
+<span class="cm">// The struct is the schema.</span>
+def, err := xdbstruct.Def[Post](<span class="st">"xdb://com.example/posts"</span>)
+err = st.CreateSchema(ctx, def)
+
+<span class="cm">// Your types in, your types out.</span>
+rec, err := xdbstruct.Marshal(
+    <span class="st">"xdb://com.example/posts/p-1"</span>, post)
+err = st.CreateRecord(ctx, rec)
+
+<span class="kw">var</span> got Post
+rec, err = st.GetRecord(ctx, uri)
+err = xdbstruct.Unmarshal(rec, &amp;got)</pre>
+      </div>
+      <div class="stack">
+        <figure>
+          <svg id="fig-byot" role="img" aria-label="A proto file, a JSON Schema and a Go struct all import into one schema definition, which the store keeps. A dashed loop shows schemas diff checking for drift."></svg>
+          <figcaption><span>fig. 3</span><b>bring your own types</b></figcaption>
+        </figure>
+        <div class="win">
+          <div class="tab">shell  ·  import shows the delta, diff --check fails CI on drift</div>
+<pre><span class="pr">$</span> xdb schemas import ./api/user.proto --ns com.example
+<span class="pr">$</span> xdb schemas import ./user.schema.json --ns com.example
+<span class="pr">$</span> xdb schemas diff ./api/user.proto --ns com.example --check</pre>
+        </div>
+        <div class="win">
+          <div class="tab">go  ·  the same importers as a library</div>
+<pre>def, err := jsonschemaimport.Import(doc,
+    jsonschemaimport.WithNamespace(<span class="st">"com.example"</span>))
+
+def, err := protoimport.ImportMessage(md,
+    protoimport.WithNamespace(<span class="st">"com.example"</span>))</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3. Where does it live? -->
+<section id="backends">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Backends</span>
+      <h2>The same tuple, in every database.</h2>
+      <p class="lede">A backend only has to store tuples. The path becomes whatever that backend uses to address things, and the attribute and value become whatever it uses to hold them. Nothing about the model changes when the backend does.</p>
+    </div>
+    <figure class="frame">
+      <svg id="fig-backends" role="img" aria-label="One tuple fans out into a memory map, a JSON file in a directory tree, a Redis hash, a SQLite table, and a dashed box for your own database."></svg>
+      <figcaption><span>fig. 4</span><b>where it lives</b></figcaption>
+    </figure>
+    <div class="forms">
+      <div class="form"><b>Memory</b>m[<span class="p-ns">"com.example</span>/<span class="p-schema">posts</span>/<span class="p-id">p-1"</span>]
+ [<span class="p-attr">"title"</span>] = <span class="p-val">"Hello"</span></div>
+      <div class="form"><b>Filesystem</b><span class="p-ns">com.example</span>/<span class="p-schema">posts</span>/<span class="p-id">p-1</span>.json
+{ <span class="p-attr">"title"</span>: <span class="p-val">"Hello"</span> }</div>
+      <div class="form"><b>Redis</b>HSET xdb:<span class="p-ns">com.example</span>:<span class="p-schema">posts</span>:<span class="p-id">p-1</span>
+  <span class="p-attr">title</span> <span class="p-val">"Hello"</span></div>
+      <div class="form"><b>SQLite</b>INSERT INTO "t:<span class="p-ns">com.example</span>/<span class="p-schema">posts</span>"
+  (id, <span class="p-attr">title</span>)
+  VALUES (<span class="p-id">'p-1'</span>, <span class="p-val">'Hello'</span>)</div>
+    </div>
+
+    <div class="two top" style="margin-top:48px">
+      <div>
+        <table class="tbl">
+          <thead><tr><th>type</th><th>go</th><th>postgresql</th><th>sqlite</th></tr></thead>
+          <tbody>
+            <tr><td>string</td><td class="mono">string</td><td class="mono">TEXT</td><td class="mono">TEXT</td></tr>
+            <tr><td>integer</td><td class="mono">int64</td><td class="mono">BIGINT</td><td class="mono">INTEGER</td></tr>
+            <tr><td>unsigned</td><td class="mono">uint64</td><td class="mono">BIGINT</td><td class="mono">INTEGER</td></tr>
+            <tr><td>float</td><td class="mono">float64</td><td class="mono">DOUBLE PRECISION</td><td class="mono">REAL</td></tr>
+            <tr><td>boolean</td><td class="mono">bool</td><td class="mono">BOOLEAN</td><td class="mono">INTEGER</td></tr>
+            <tr><td>time</td><td class="mono">time.Time</td><td class="mono">TIMESTAMPTZ</td><td class="mono">INTEGER</td></tr>
+            <tr><td>json</td><td class="mono">json.RawMessage</td><td class="mono">JSONB</td><td class="mono">TEXT</td></tr>
+            <tr><td>bytes</td><td class="mono">[]byte</td><td class="mono">BYTEA</td><td class="mono">BLOB</td></tr>
+            <tr><td>array</td><td class="mono">[]*Value</td><td class="mono">[]T</td><td class="mono">TEXT</td></tr>
+          </tbody>
+        </table>
+        <p class="tbl-cap">the same value, in the native column.</p>
+      </div>
+      <div>
+        <h3>Pick one in the config.</h3>
+        <p class="muted">The daemon reads <code>~/.xdb/config.json</code>. Switching backends is one line and a restart; nothing above the driver changes.</p>
+        <div class="win" style="margin-top:14px">
+          <div class="tab">~/.xdb/config.json</div>
+<pre>{ "store": { "backend": "sqlite",
+             "sqlite": { "path": "/var/lib/xdb/xdb.db" } } }
+
+<span class="cm"># memory · fs · redis · sqlite, then</span>
+<span class="pr">$</span> xdb daemon restart</pre>
+        </div>
+        <p class="muted small" style="margin-top:14px">Schema enforcement and versioning are middleware, installed above every driver by <code>store.New</code>. A backend cannot skip them.</p>
+      </div>
+    </div>
+
+    <div class="two top" style="margin-top:56px">
+      <div>
+        <h3>A driver is capabilities, not an interface.</h3>
+        <p class="muted">Six methods on tuples and definitions, split into four roles. No <code>Record</code> ever crosses the boundary: the facade assembles records from tuple reads and compiles writes into mutations with their intent as data. Validation, modes and versioning all live above the line, so a new backend inherits every guarantee and cannot forget one.</p>
+        <ul>
+          <li>Add <code>Tx</code> and batches become atomic. Add <code>QueryTuples</code> and filters push down to the database.</li>
+          <li>Add neither and everything still works: the facade runs ops one by one and filters a scan.</li>
+          <li>One conformance suite. Pass it and you behave like every other backend.</li>
+        </ul>
+      </div>
+      <figure>
+        <svg id="fig-driver" role="img" aria-label="Four required roles, TupleReader, TupleWriter, SchemaReader and SchemaWriter, stack up to make a Driver. Two optional capabilities, TxDriver and QueryDriver, sit beside it, detected by store.New, with the facade filling in when they are absent."></svg>
+        <figcaption><span>fig. 5</span><b>what a backend implements</b></figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- 4. What can I do to it? -->
+<section id="ops">
+  <div class="wrap">
+    <div class="two wide-right">
+      <div>
+        <span class="eyebrow">Operations</span>
+        <h2>Six verbs. Three doors.</h2>
+        <p class="lede">Get, list, create, update, upsert, delete. Call them from Go, over JSON-RPC, or in a shell. The rules, the errors and the version numbers are the same behind every door, because every door leads to the same store.</p>
+      </div>
+      <figure>
+        <svg id="fig-doors" role="img" aria-label="Go, JSON-RPC and CLI arrows converge on one store, which talks to a driver."></svg>
+        <figcaption><span>fig. 6</span><b>three doors, one store</b></figcaption>
+      </figure>
+    </div>
+    <div class="doors">
+      <div class="win door">
+        <div class="tab"><b>Go</b> · in your service</div>
+<pre>rec := core.NewRecord(
+    <span class="st">"com.example"</span>, <span class="st">"posts"</span>, <span class="st">"p-1"</span>).
+    Set(<span class="st">"title"</span>, <span class="st">"Hello"</span>)
+
+err := st.CreateRecord(ctx, rec)</pre>
+      </div>
+      <div class="win door">
+        <div class="tab"><b>JSON-RPC</b> · over the wire</div>
+<pre>{ "method": "records.create",
+ "params": {
+  "uri": "xdb://com.example/posts/p-1",
+  "data": { "title": "Hello" } } }</pre>
+      </div>
+      <div class="win door">
+        <div class="tab"><b>CLI</b> · in a shell or an agent</div>
+<pre><span class="pr">$</span> xdb records create \
+    xdb://com.example/posts/p-1 \
+    --json '{"title":"Hello"}'</pre>
+      </div>
+    </div>
+
+    <div class="cards" style="margin-top:28px">
+      <div class="card">
+        <h3>Read.</h3>
+        <p>Get one, list many. One CEL predicate language on every backend, compiled to SQL on SQLite. Field masks keep responses bounded. Lists return a page envelope; <code>--page-all</code> fetches every page and <code>-o ndjson</code> streams items.</p>
+<pre>xdb records get xdb://…/p-1 \
+  --fields title,views
+
+xdb records list xdb://…/posts \
+  --filter 'views > 10 &amp;&amp; !draft' \
+  --fields _id,title --limit 10
+{ "items": [ … ], "total": 42,
+  "next_offset": 10 }</pre>
+      </div>
+      <div class="card">
+        <h3>Write.</h3>
+        <p>Create fails if the record exists. Update is a patch. Upsert replaces the whole record. Delete asks for <code>--force</code>, and deleting a schema with its records asks for <code>--cascade</code> too.</p>
+<pre>xdb records create xdb://…/p-1 \
+  --json '{"title":"Hello"}'
+<span class="cm"># ALREADY_EXISTS if p-1 is there</span>
+
+xdb records update xdb://…/p-1 \
+  --json '{"views":43}'    <span class="cm"># patch</span>
+xdb records upsert xdb://…/p-1 \
+  --json '{"title":"Hi"}'  <span class="cm"># replace</span>
+
+xdb records delete xdb://…/p-1 --force
+xdb schemas delete xdb://…/posts \
+  --force --cascade</pre>
+      </div>
+      <div class="card">
+        <h3>Never lose a write.</h3>
+        <p>Reads return <code>_version</code>. A write that includes it is conditional and fails with <code>CONFLICT</code> if someone else got there first. Write responses report the version just stamped. Delete takes the precondition as a flag.</p>
+<pre>$ xdb records get xdb://…/p-1 -o json
+{ "_id": "p-1", "_version": 3, … }
+
+$ xdb records update xdb://…/p-1 \
+    --json '{"_version":3,"title":"Hi"}'
+{ "_version": 4, … }
+
+$ xdb records delete xdb://…/p-1 \
+    --force --if-version 3
+{ "code": "CONFLICT", … }</pre>
+      </div>
+    </div>
+    <figure class="frame" style="margin-top:16px">
+      <svg id="fig-cas" role="img" aria-label="Two agents read version 3. Agent A writes with version 3 and succeeds, moving to 4. Agent B writes with version 3 and gets a conflict, re-reads version 4, writes again and succeeds."></svg>
+      <figcaption><span>fig. 7</span><b>compare-and-swap, by default</b></figcaption>
+    </figure>
+    <div class="cards" style="margin-top:16px">
+      <div class="card">
+        <h3>Rehearse a write.</h3>
+        <p>Dry run runs the full schema policy against the would-be write and writes nothing. An agent can check a payload, see the exact error it would get, and only then commit.</p>
+<pre>$ xdb records update xdb://…/p-1 \
+    --json '{"views": "lots"}' --dry-run
+{ "code": "SCHEMA_VIOLATION",
+  "message": "type mismatch: field=views
+     expected=INTEGER got=STRING", … }
+
+$ xdb records update xdb://…/p-1 \
+    --json '{"views": 43}' --dry-run
+{ "dry_run": { "would": "update",
+               "valid": true } }</pre>
+      </div>
+      <div class="card">
+        <h3>Bulk in, bulk out.</h3>
+        <p>Export a schema as NDJSON, import it back with upsert or create-only, or replay a stream of operations as one batch. A batch is atomic on SQLite and memory; on fs and redis, pass <code>--non-atomic</code>.</p>
+<pre>xdb export --uri xdb://…/posts \
+  &gt; posts.ndjson
+xdb import --uri xdb://…/posts \
+  -f posts.ndjson
+
+xdb batch - &lt; ops.ndjson
+<span class="cm"># {"op":"records.upsert",
+#  "uri":"…","data":{…}}</span></pre>
+      </div>
+      <div class="card">
+        <h3>Watch what changes.</h3>
+        <p>Stream change events for a namespace, a schema or one record as NDJSON. Each event carries the new version, so a jump from 3 to 7 tells a subscriber it missed writes and must re-read.</p>
+<pre>$ xdb watch xdb://com.example/posts
+{"ts":"…","type":"record.create",
+ "uri":"xdb://…/posts/p-2","version":1}
+{"ts":"…","type":"record.update",
+ "uri":"xdb://…/posts/p-1","version":4}</pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5. Why is it easier for an agent? -->
+<section id="agents">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Agents</span>
+      <h2>One grammar. Agents learn it once.</h2>
+      <p class="lede">Every invocation has the same shape. Resources are nouns, actions are a closed set, the URI says what you mean. There is one predicate language, one output protocol and one error shape, applied to every resource.</p>
+    </div>
+    <figure class="frame">
+      <svg id="fig-grammar" role="img" aria-label="The CLI grammar, xdb resource action URI with filter, fields, payload and output flags, each annotated."></svg>
+      <figcaption><span>fig. 8</span><b>the grammar</b></figcaption>
+    </figure>
+    <div class="cards" style="margin-top:24px">
+      <div class="card">
+        <h3>The manual is a command.</h3>
+        <p>An agent does not need to remember the reference. It asks the CLI, and the CLI answers in the same structured output as everything else.</p>
+<pre>xdb context             <span class="cm"># the guide</span>
+xdb describe --actions  <span class="cm"># what exists</span>
+xdb describe records.create
+xdb describe --uri xdb://…/posts
+xdb describe --filter
+xdb describe --errors
+xdb describe --value-types
+xdb describe --config</pre>
+      </div>
+      <div class="card">
+        <h3>Errors are data.</h3>
+        <p>Every error has the same fields in every output format, including a hint for what to try next. Exit codes are fixed: 0 ok, 1 application error, 2 connection, 3 invalid argument, 4 internal. <code>--quiet</code> gives you the code and nothing else.</p>
+<pre>{ "code": "NOT_FOUND",
+  "message": "record not found",
+  "resource": "records",
+  "action": "get",
+  "uri": "xdb://com.example/posts/nope",
+  "hint": "try xdb records list …" }</pre>
+      </div>
+      <div class="card">
+        <h3>Everything composes.</h3>
+        <p>Stdin <code>-</code> is the explicit pipe token. Output is a table on a terminal and JSON on a pipe, or <code>-o json|ndjson|table|yaml</code> when you say so.</p>
+        <figure>
+          <svg id="fig-pipe" role="img" aria-label="echo pipes JSON into xdb records create, which pipes JSON into jq or xdb batch."></svg>
+        </figure>
+      </div>
+      <div class="card">
+        <h3>Shorthand for humans.</h3>
+        <p>The URI depth picks the resource, so the short forms are macros over the full grammar. Scripts and agents use the full form; a shell uses the short one.</p>
+<pre>xdb get <span class="cm">&lt;uri&gt;</span>  → get, by URI depth
+xdb ls  <span class="cm">[uri]</span>  → list, ns without a URI
+xdb put <span class="cm">&lt;uri&gt;</span>  → records upsert
+xdb rm  <span class="cm">&lt;uri&gt;</span>  → delete, with --force</pre>
+      </div>
+      <div class="card">
+        <h3>Skills ship with the binary.</h3>
+        <p>Recipes an agent can list and fetch at runtime: getting started, bulk data, query and filter, schema evolution. Markdown, versioned with the CLI that runs them.</p>
+<pre>xdb skills
+xdb skills get bulk-data
+xdb skills get schema-evolution</pre>
+      </div>
+      <div class="card">
+        <h3>Discover all state.</h3>
+        <p>Three list calls walk everything the daemon holds. <code>namespaces get</code> returns the schemas inside it, so an agent never guesses a name.</p>
+<pre>xdb namespaces list
+xdb namespaces get xdb://com.example
+{ "data": "com.example",
+  "schemas": ["posts", …] }
+xdb records list xdb://com.example</pre>
+      </div>
+    </div>
+    <p class="muted small note">The CLI is a thin client. <code>xdb init</code> writes the config and starts the daemon; <code>xdb daemon status</code> exits 2 when it is stopped, so scripts can gate on it.</p>
+  </div>
+</section>
+
+<!-- 6. Can I embed it? -->
+<section id="go">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Go</span>
+      <h2>A repository layer you don't have to write.</h2>
+      <p class="lede">Construct a store over any driver and use it as the persistence layer of a Go service. Expose the same operations as JSON-RPC methods when you want a daemon, a sidecar or an agent endpoint. The XDB daemon is exactly that second thing.</p>
+    </div>
+    <div class="two top">
+      <div class="win">
+        <div class="tab">repository.go</div>
+<pre><span class="cm">// Pick a backend. Policy is installed by store.New,
+// never by the driver.</span>
+d, err := xdbsqlite.NewDriver(db)
+st := store.New(d, store.WithSchemaCache())
+
+<span class="cm">// Your struct from above, or a record built by hand.</span>
+rec, err := xdbstruct.Marshal(uri, post)
+err = st.CreateRecord(ctx, rec)
+
+<span class="cm">// Work at tuple granularity when you want to.</span>
+err = st.PutTuples(ctx,
+    core.NewTuple(<span class="st">"com.example/posts/p-1"</span>, <span class="st">"views"</span>, 43),
+)
+
+<span class="cm">// Filter with CEL, project with a field mask.</span>
+page, err := st.ListRecords(ctx, &amp;store.Query{
+    URI:    core.MustParseURI(<span class="st">"xdb://com.example/posts"</span>),
+    Filter: <span class="st">`views > 10 &amp;&amp; !draft`</span>,
+    Fields: []string{<span class="st">"title"</span>, <span class="st">"views"</span>},
+    Limit:  10,
+})
+
+<span class="cm">// Whole-batch atomicity where the driver has Tx.</span>
+err = st.(store.TX).Run(ctx, <span class="kw">func</span>(tx store.Store) error { … })</pre>
+      </div>
+      <div class="win">
+        <div class="tab">server.go</div>
+<pre>records := api.NewRecordService(st)
+schemas := api.NewSchemaService(st)
+
+r := rpc.NewRouter()
+rpc.RegisterHandler(r, <span class="st">"records.create"</span>, records.Create)
+rpc.RegisterHandler(r, <span class="st">"records.get"</span>,    records.Get)
+rpc.RegisterHandler(r, <span class="st">"records.list"</span>,   records.List)
+rpc.RegisterHandler(r, <span class="st">"schemas.create"</span>, schemas.Create)
+
+http.ListenAndServe(<span class="st">":8147"</span>, r)</pre>
+        <div class="tab" style="border-top:1px solid var(--line)">request</div>
+<pre>{ "jsonrpc": "2.0", "id": 1,
+  "method": "records.list",
+  "params": {
+    "uri":    "xdb://com.example/posts",
+    "filter": "views > 10 &amp;&amp; !draft",
+    "fields": ["title", "views"],
+    "limit":  10 } }</pre>
+      </div>
+    </div>
+    <div class="two top" style="margin-top:28px">
+      <div>
+        <h3>The wire is self-describing.</h3>
+        <p class="muted">The catalog behind the CLI's <code>describe</code> is served as RPC methods, so a client or an agent can fetch every method signature, every type and every error code from the daemon itself. Errors carry a JSON-RPC code as well as the XDB code, so a conflict is distinguishable from a not-found without parsing a message.</p>
+      </div>
+<pre>{ "method": "introspect.methods" }
+{ "method": "introspect.method",
+  "params": { "name": "records.create" } }
+{ "method": "introspect.types" }
+{ "method": "system.health" }</pre>
+    </div>
+  </div>
+</section>
+
+<!-- 7. How do I begin? -->
+<section id="start">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Get started</span>
+      <h2>Three commands to a first record.</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><i>1</i><b>Install</b><p>One Go binary. The CLI and the daemon are the same executable.</p>
+<pre>go install github.com/xdb-dev/xdb/cmd/xdb@latest</pre></div>
+      <div class="step"><i>2</i><b>Init</b><p>Creates the config and data dir and starts a daemon on SQLite. Switch to memory, redis or fs with one config line.</p>
+<pre>xdb init</pre></div>
+      <div class="step"><i>3</i><b>Write</b><p>Define a schema, write a record, read it back. Then ask describe for the rest.</p>
+<pre>xdb schemas create xdb://com.example/posts \
+  --json '{"fields":{"title":{"type":"string"}}}'
+xdb records create xdb://com.example/posts/p-1 \
+  --json '{"title":"Hello"}'</pre></div>
+    </div>
+    <p class="muted small note">Next: <code>xdb context</code> prints the agent guide, and the <a href="https://github.com/xdb-dev/xdb/tree/main/docs/concepts">concept docs</a> go one file per idea.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span><b>xdb</b> · an agent-first data layer</span>
+    <span>
+      <a href="https://github.com/xdb-dev/xdb">GitHub</a> ·
+      <a href="https://github.com/xdb-dev/xdb/tree/main/docs/concepts">Concepts</a> ·
+      <a href="https://raviatluri.in/articles/introducing-xdb">Introducing XDB</a>
+    </span>
+  </div>
+</footer>
+
+<script src="vendor/rough.js"></script>
+<script src="site.js"></script>
+</body>
+</html>
