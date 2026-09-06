@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>XDB — social card</title>
+<!-- Source for og.png. Rendered to a PNG by the command in README.md;
+     it is never linked from the site itself. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="site.css">
+<style>
+  html, body { margin: 0; }
+  .card {
+    position: relative;
+    width: 1200px;
+    height: 630px;
+    padding: 72px 76px;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+  }
+  .card svg { position: absolute; inset: 0; width: 1200px; height: 630px; pointer-events: none; }
+  .card > * { position: relative; }
+  .eyebrow { font-size: 17px; letter-spacing: .18em; margin: 0 0 26px; }
+  .card h1 {
+    font-size: 92px;
+    line-height: 1.0;
+    font-weight: 600;
+    letter-spacing: -.035em;
+  }
+  .card .lede { font-size: 27px; max-width: none; margin-top: 26px; }
+  .uri {
+    font-family: var(--mono);
+    font-size: 29px;
+    font-weight: 500;
+    letter-spacing: -.01em;
+    padding: 26px 30px;
+    align-self: flex-start;
+  }
+  .uri .dim { color: var(--muted); }
+  .foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 23px;
+  }
+  .foot b { font-weight: 600; letter-spacing: -.01em; }
+  .foot span { font-family: var(--mono); font-size: 20px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="card">
+  <svg id="sketch" viewBox="0 0 1200 630" aria-hidden="true"></svg>
+
+  <div>
+    <p class="eyebrow">AN AGENT-FIRST DATA LAYER · GO</p>
+    <h1>Model once.<br>Store anywhere.</h1>
+    <p class="lede">Every fact is a tuple. One API and one CLI, over any backend.</p>
+  </div>
+
+  <div class="uri">
+    <span class="dim">xdb://</span><span class="p-ns">com.example</span><span class="dim">/</span><span class="p-schema">posts</span><span class="dim">/</span><span class="p-id">p-1</span><span class="dim">#</span><span class="p-attr">author.name</span> <span class="dim">=</span> <span class="p-val">"Ada"</span>
+  </div>
+
+  <div class="foot">
+    <b>xdb.dev</b>
+    <span>go install github.com/xdb-dev/xdb/cmd/xdb@latest</span>
+  </div>
+</div>
+
+<script src="vendor/rough.js"></script>
+<script>
+  // Fixed seeds keep the sketch identical on every render, so regenerating
+  // og.png from an unchanged card produces an unchanged file.
+  const svg = document.getElementById("sketch");
+  const rc = rough.svg(svg);
+  const add = (el) => svg.appendChild(el);
+  const base = { roughness: 1.1, bowing: 1.2, strokeWidth: 1.6 };
+
+  // The box is measured from the tuple element rather than hardcoded, so it
+  // still fits when the URI or the type scale changes.
+  const uri = document.querySelector(".uri").getBoundingClientRect();
+  add(rc.rectangle(uri.x, uri.y, uri.width, uri.height, {
+    ...base, seed: 12, stroke: "#2b4ee6", fill: "#e8ecfb", fillStyle: "solid",
+  }));
+
+  // Underline under "Store anywhere.", the width of that line of the heading.
+  const head = document.querySelector("h1").getBoundingClientRect();
+  add(rc.line(78, head.bottom - 6, 768, head.bottom - 6, {
+    ...base, seed: 21, stroke: "#2b4ee6", strokeWidth: 3,
+  }));
+
+</script>
+</body>
+</html>
