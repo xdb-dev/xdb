@@ -10,40 +10,26 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-// Encoder converts XDB records to JSON.
-type Encoder struct {
-	opts options
-}
-
-// New creates an [Encoder] with functional options.
+// Unmarshal encodes a [core.Record] into a JSON document.
 //
-//	enc := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIDField("id"))
-func New(opts ...Option) *Encoder {
-	return &Encoder{opts: applyOptions(opts)}
-}
-
-// FromRecord converts a [core.Record] to JSON bytes.
+// Dotted attributes unflatten into nested objects and object arrays render as
+// arrays of nested objects. The record ID is always emitted; the namespace and
+// schema only with [WithIncludeNS] and [WithIncludeSchema].
 //
-// Use [EncodeOption] values to control output format:
-//
-//	data, err := enc.FromRecord(record, xdbjson.WithIndent("", "  "))
-//	data, err := enc.FromRecord(record, xdbjson.WithFields("name", "email"))
-func (e *Encoder) FromRecord(record *core.Record, opts ...EncodeOption) ([]byte, error) {
+//	data, err := xdbjson.Unmarshal(record, xdbjson.WithIndent("", "  "))
+//	data, err := xdbjson.Unmarshal(record, xdbjson.WithFields("name", "email"))
+func Unmarshal(record *core.Record, opts ...Option) ([]byte, error) {
 	if record == nil {
 		return nil, ErrNilRecord
 	}
 
-	var cfg encodeConfig
-	for _, opt := range opts {
-		opt(&cfg)
-	}
+	o := applyOptions(opts)
+	data := buildMap(record, o)
 
-	data := e.buildMap(record)
-
-	if len(cfg.fields) > 0 {
-		keep := make(map[string]bool, len(cfg.fields)+1)
-		keep[e.opts.idField] = true
-		for _, f := range cfg.fields {
+	if len(o.fields) > 0 {
+		keep := make(map[string]bool, len(o.fields)+1)
+		keep[o.idField] = true
+		for _, f := range o.fields {
 			keep[f] = true
 		}
 
@@ -54,25 +40,25 @@ func (e *Encoder) FromRecord(record *core.Record, opts ...EncodeOption) ([]byte,
 		}
 	}
 
-	if cfg.indent != "" {
-		return json.MarshalIndent(data, cfg.prefix, cfg.indent)
+	if o.indent != "" {
+		return json.MarshalIndent(data, o.prefix, o.indent)
 	}
 
 	return json.Marshal(data)
 }
 
-func (e *Encoder) buildMap(record *core.Record) map[string]any {
+func buildMap(record *core.Record, o options) map[string]any {
 	result := make(map[string]any)
 
 	uri := record.URI()
-	result[e.opts.idField] = uri.ID()
+	result[o.idField] = uri.ID()
 
-	if e.opts.includeNS {
-		result[e.opts.nsField] = uri.NS()
+	if o.includeNS {
+		result[o.nsField] = uri.NS()
 	}
 
-	if e.opts.includeSchema {
-		result[e.opts.schemaField] = uri.Schema()
+	if o.includeSchema {
+		result[o.schemaField] = uri.Schema()
 	}
 
 	tuples := record.Tuples()

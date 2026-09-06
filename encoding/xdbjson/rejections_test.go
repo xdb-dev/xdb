@@ -1,4 +1,4 @@
-package jsonschemaimport
+package xdbjson
 
 import (
 	"testing"
@@ -18,7 +18,7 @@ func TestReject_DottedAndInvalidKeys(t *testing.T) {
 		}
 	}`)
 
-	_, err := Import(data, WithNamespace("com.acme"))
+	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrInvalidKey)
 
@@ -37,7 +37,7 @@ func TestReject_AnyOf(t *testing.T) {
 		}
 	}`)
 
-	_, err := Import(data, WithNamespace("com.acme"))
+	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrUnion)
 	assert.Equal(t, "#/properties/x", fieldTag(t, err, "pointer"))
@@ -53,14 +53,14 @@ func TestReject_OneOf(t *testing.T) {
 		}
 	}`)
 
-	_, err := Import(data, WithNamespace("com.acme"))
+	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrUnion)
 	assert.Equal(t, "oneOf", fieldTag(t, err, "keyword"))
 }
 
 func TestReject_CyclicRefWithoutOptIn(t *testing.T) {
-	_, err := Import(readFixture(t, "cyclic.schema.json"), WithNamespace("com.acme"))
+	_, err := ImportSchema(readFixture(t, "cyclic.schema.json"), WithNS("com.acme"))
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrCyclicRef)
 	assert.Equal(t, "#/$defs/node", fieldTag(t, err, "ref"))
@@ -75,7 +75,7 @@ func TestReject_CrossDocumentRef(t *testing.T) {
 		}
 	}`)
 
-	_, err := Import(data, WithNamespace("com.acme"))
+	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrCrossDocument)
 	assert.Equal(t, "other.json#/foo", fieldTag(t, err, "ref"))
@@ -92,7 +92,7 @@ func TestReject_AllOfConflict(t *testing.T) {
 		]
 	}`)
 
-	_, err := Import(data, WithNamespace("com.acme"))
+	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrConflict)
 	assert.Equal(t, "a", fieldTag(t, err, "field"))
@@ -107,21 +107,21 @@ func TestReject_UnresolvedRef(t *testing.T) {
 		}
 	}`)
 
-	_, err := Import(data, WithNamespace("com.acme"))
+	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrUnresolvedRef)
 }
 
 func TestReject_NoNamespace(t *testing.T) {
 	data := []byte(`{"title": "X", "type": "object", "properties": {"a": {"type": "string"}}}`)
-	_, err := Import(data)
+	_, err := ImportSchema(data)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrNoNamespace)
+	assert.ErrorIs(t, err, ErrMissingNamespace)
 }
 
 func TestReject_RootNotObject(t *testing.T) {
 	data := []byte(`{"title": "X", "type": "string"}`)
-	_, err := Import(data, WithNamespace("com.acme"))
+	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
 	assert.ErrorIs(t, err, ErrUnsupported)
 }

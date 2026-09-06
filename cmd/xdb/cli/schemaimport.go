@@ -16,10 +16,10 @@ import (
 
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/encoding/xdbjson"
+	"github.com/xdb-dev/xdb/encoding/xdbproto"
 	"github.com/xdb-dev/xdb/rpc"
 	"github.com/xdb-dev/xdb/schema"
-	"github.com/xdb-dev/xdb/schema/jsonschemaimport"
-	"github.com/xdb-dev/xdb/schema/protoimport"
 )
 
 // srcFormat identifies an importable schema source format.
@@ -273,15 +273,15 @@ func loadSchemas(ctx context.Context, path, ns string, allowJSON []string) ([]*s
 
 	switch format {
 	case formatJSONSchema:
-		opts := []jsonschemaimport.Option{}
+		opts := []xdbjson.Option{}
 		if ns != "" {
-			opts = append(opts, jsonschemaimport.WithNamespace(ns))
+			opts = append(opts, xdbjson.WithNS(ns))
 		}
 		if len(allowJSON) > 0 {
-			opts = append(opts, jsonschemaimport.WithJSON(allowJSON...))
+			opts = append(opts, xdbjson.WithOpaqueJSON(allowJSON...))
 		}
 
-		def, err := jsonschemaimport.Import(data, opts...)
+		def, err := xdbjson.ImportSchema(data, opts...)
 		if err != nil {
 			return nil, format, err
 		}
@@ -322,15 +322,15 @@ func loadProto(ctx context.Context, path, ns string, allowJSON []string) ([]*sch
 		files = append(files, f)
 	}
 
-	opts := []protoimport.Option{}
+	opts := []xdbproto.Option{}
 	if ns != "" {
-		opts = append(opts, protoimport.WithNamespace(ns))
+		opts = append(opts, xdbproto.WithNamespace(ns))
 	}
 	if len(allowJSON) > 0 {
-		opts = append(opts, protoimport.WithAllowJSON(allowJSON...))
+		opts = append(opts, xdbproto.WithAllowJSON(allowJSON...))
 	}
 
-	return protoimport.ImportFiles(files, opts...)
+	return xdbproto.ImportFiles(files, opts...)
 }
 
 // --- Delta ---
@@ -469,10 +469,10 @@ func detectRenames(stored, imported *schema.Def, addedNames, removedNames []stri
 }
 
 // protoRenames pairs fields whose proto.number matches under a different name.
-// protoimport.CheckRename is the authoritative signal; it is consulted first so
+// xdbproto.CheckRename is the authoritative signal; it is consulted first so
 // that a source without a proto rename never reports one.
 func protoRenames(stored, imported *schema.Def, addedNames, removedNames []string) []renamePair {
-	if !errors.Is(protoimport.CheckRename(stored, imported), protoimport.ErrRename) {
+	if !errors.Is(xdbproto.CheckRename(stored, imported), xdbproto.ErrRename) {
 		return nil
 	}
 

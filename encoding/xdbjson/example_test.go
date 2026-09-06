@@ -7,13 +7,12 @@ import (
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
 )
 
-func ExampleEncoder_FromRecord() {
+func ExampleUnmarshal() {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe").
 		Set("email", "john@example.com")
 
-	encoder := xdbjson.New()
-	data, err := encoder.FromRecord(record)
+	data, err := xdbjson.Unmarshal(record)
 	if err != nil {
 		panic(err)
 	}
@@ -24,12 +23,11 @@ func ExampleEncoder_FromRecord() {
 	// {"_id":"123","email":"john@example.com","name":"John Doe"}
 }
 
-func ExampleEncoder_FromRecord_withMetadata() {
+func ExampleUnmarshal_withMetadata() {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe")
 
-	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
-	data, err := encoder.FromRecord(record)
+	data, err := xdbjson.Unmarshal(record, xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
 	if err != nil {
 		panic(err)
 	}
@@ -40,7 +38,7 @@ func ExampleEncoder_FromRecord_withMetadata() {
 	// {"_id":"123","_ns":"com.example","_schema":"users","name":"John Doe"}
 }
 
-func ExampleEncoder_FromRecord_nestedStruct() {
+func ExampleUnmarshal_nestedStruct() {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe").
 		Set("address.street", "123 Main St").
@@ -48,8 +46,7 @@ func ExampleEncoder_FromRecord_nestedStruct() {
 		Set("address.location.lat", 42.3601).
 		Set("address.location.lon", -71.0589)
 
-	encoder := xdbjson.New()
-	data, err := encoder.FromRecord(record, xdbjson.WithIndent("", "  "))
+	data, err := xdbjson.Unmarshal(record, xdbjson.WithIndent("", "  "))
 	if err != nil {
 		panic(err)
 	}
@@ -71,11 +68,10 @@ func ExampleEncoder_FromRecord_nestedStruct() {
 	// }
 }
 
-func ExampleDecoder_ToRecord() {
+func ExampleMarshal() {
 	data := []byte(`{"_id":"123","name":"John Doe","age":30}`)
 
-	decoder := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("users"))
-	record, err := decoder.ToRecord(data)
+	record, err := xdbjson.Marshal(data, xdbjson.WithNS("com.example"), xdbjson.WithSchema("users"))
 	if err != nil {
 		panic(err)
 	}
@@ -92,11 +88,10 @@ func ExampleDecoder_ToRecord() {
 	// Age: 30
 }
 
-func ExampleDecoder_ToRecord_withMetadata() {
+func ExampleMarshal_withMetadata() {
 	data := []byte(`{"_id":"123","_ns":"com.example","_schema":"users","name":"John Doe"}`)
 
-	decoder := xdbjson.NewDecoder()
-	record, err := decoder.ToRecord(data)
+	record, err := xdbjson.Marshal(data)
 	if err != nil {
 		panic(err)
 	}
@@ -113,16 +108,16 @@ func ExampleDecoder_ToRecord_withMetadata() {
 	// Name: John Doe
 }
 
-func ExampleDecoder_ToRecord_customFields() {
+func ExampleMarshal_customFields() {
 	data := []byte(`{"userId":"123","namespace":"com.example","type":"users","name":"John"}`)
 
-	decoder := xdbjson.NewDecoder(
+	decOpts := []xdbjson.Option{
 		xdbjson.WithIDField("userId"),
 		xdbjson.WithNSField("namespace"),
 		xdbjson.WithSchemaField("type"),
-	)
+	}
 
-	record, err := decoder.ToRecord(data)
+	record, err := xdbjson.Marshal(data, decOpts...)
 	if err != nil {
 		panic(err)
 	}
@@ -137,7 +132,7 @@ func ExampleDecoder_ToRecord_customFields() {
 	// Schema: users
 }
 
-func ExampleDecoder_ToRecord_nestedObject() {
+func ExampleMarshal_nestedObject() {
 	data := []byte(`{
 		"_id": "123",
 		"name": "John Doe",
@@ -147,8 +142,7 @@ func ExampleDecoder_ToRecord_nestedObject() {
 		}
 	}`)
 
-	decoder := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("users"))
-	record, err := decoder.ToRecord(data)
+	record, err := xdbjson.Marshal(data, xdbjson.WithNS("com.example"), xdbjson.WithSchema("users"))
 	if err != nil {
 		panic(err)
 	}
@@ -163,20 +157,36 @@ func ExampleDecoder_ToRecord_nestedObject() {
 	// City: Boston
 }
 
+func ExampleMarshalInto() {
+	// The caller owns the identity, so the document's metadata is ignored.
+	record := core.NewRecord("com.example", "users", "123")
+
+	data := []byte(`{"_id":"ignored","name":"John Doe","age":30}`)
+
+	if err := xdbjson.MarshalInto(data, record); err != nil {
+		panic(err)
+	}
+
+	fmt.Println("URI:", record.URI())
+	fmt.Println("Name:", vStr(record.Get("name").Value()))
+
+	// Output:
+	// URI: xdb://com.example/users/123
+	// Name: John Doe
+}
+
 func Example_roundTrip() {
 	original := core.NewRecord("com.example", "users", "user-789").
 		Set("name", "Alice").
 		Set("tags", []string{"admin", "developer"}).
 		Set("score", 100)
 
-	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
-	data, err := encoder.FromRecord(original)
+	data, err := xdbjson.Unmarshal(original, xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
 	if err != nil {
 		panic(err)
 	}
 
-	decoder := xdbjson.NewDecoder()
-	decoded, err := decoder.ToRecord(data)
+	decoded, err := xdbjson.Marshal(data)
 	if err != nil {
 		panic(err)
 	}

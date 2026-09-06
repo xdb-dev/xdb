@@ -153,14 +153,14 @@ func (d *Driver) readSchemaDirTuples(schemaURI *core.URI) ([]*core.Tuple, error)
 		return nil, fmt.Errorf("xdbfs: read schema dir: %w", err)
 	}
 
-	dec := d.newDecoder(schemaURI)
+	decOpts := d.decodeOpts(schemaURI)
 
 	var tuples []*core.Tuple
 	for _, e := range entries {
 		if !isRecordFile(e) {
 			continue
 		}
-		fileTuples, err := decodeRecordFile(dec, filepath.Join(dir, e.Name()))
+		fileTuples, err := decodeRecordFile(filepath.Join(dir, e.Name()), decOpts)
 		if err != nil {
 			return nil, err
 		}
@@ -277,7 +277,11 @@ func (d *Driver) applyDelete(m store.Mutation) error {
 func (d *Driver) encodeRecord(path *core.URI, tuples []*core.Tuple) ([]byte, error) {
 	record := core.NewRecordFromTuples(path, tuples)
 
-	data, err := d.enc.FromRecord(record, xdbjson.WithIndent("", d.opts.Indent))
+	data, err := xdbjson.Unmarshal(record,
+		xdbjson.WithIncludeNS(),
+		xdbjson.WithIncludeSchema(),
+		xdbjson.WithIndent("", d.opts.Indent),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("xdbfs: encode record: %w", err)
 	}
@@ -320,31 +324,30 @@ func removeRecordFile(file string) error {
 	return nil
 }
 
-// newDecoder builds a decoder for records of one schema. When the
+// decodeOpts builds the decode options for records of one schema. When the
 // schema's def file exists it guides type-aware decoding (typed
 // arrays, times, bytes); otherwise number inference alone applies.
-func (d *Driver) newDecoder(schemaURI *core.URI) *xdbjson.Decoder {
+func (d *Driver) decodeOpts(schemaURI *core.URI) []xdbjson.Option {
 	opts := []xdbjson.Option{
 		xdbjson.WithNS(schemaURI.NS()),
 		xdbjson.WithSchema(schemaURI.Schema()),
-		xdbjson.WithNumberInference(),
 	}
 	if def, err := readSchemaFile(d.schemaPath(schemaURI)); err == nil {
 		opts = append(opts, xdbjson.WithDef(def))
 	}
-	return xdbjson.NewDecoder(opts...)
+	return opts
 }
 
 // readRecordTuples decodes a single record file into its tuples.
 // Returns (nil, nil) if the file is absent.
 func (d *Driver) readRecordTuples(path *core.URI) ([]*core.Tuple, error) {
-	dec := d.newDecoder(path.SchemaURI())
-	return decodeRecordFile(dec, d.recordPath(path))
+	decOpts := d.decodeOpts(path.SchemaURI())
+	return decodeRecordFile(d.recordPath(path), decOpts)
 }
 
 // decodeRecordFile reads and decodes one record file. Returns
 // (nil, nil) if the file is absent.
-func decodeRecordFile(dec *xdbjson.Decoder, file string) ([]*core.Tuple, error) {
+func decodeRecordFile(file string, opts []xdbjson.Option) ([]*core.Tuple, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
 		if isNotExist(err) {
@@ -353,7 +356,7 @@ func decodeRecordFile(dec *xdbjson.Decoder, file string) ([]*core.Tuple, error) 
 		return nil, fmt.Errorf("xdbfs: read record: %w", err)
 	}
 
-	record, err := dec.ToRecord(data)
+	record, err := xdbjson.Marshal(data, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("xdbfs: decode record %s: %w", file, err)
 	}

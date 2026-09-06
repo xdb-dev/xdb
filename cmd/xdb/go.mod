@@ -9,8 +9,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.3.3
 	github.com/xdb-dev/xdb v0.0.0
-	github.com/xdb-dev/xdb/schema/jsonschemaimport v0.0.0-00010101000000-000000000000
-	github.com/xdb-dev/xdb/schema/protoimport v0.0.0-00010101000000-000000000000
+	github.com/xdb-dev/xdb/encoding/xdbproto v0.0.0-00010101000000-000000000000
 	github.com/xdb-dev/xdb/store/xdbredis v0.0.0-00010101000000-000000000000
 	github.com/xdb-dev/xdb/store/xdbsqlite v0.0.0-00010101000000-000000000000
 	google.golang.org/protobuf v1.36.10
@@ -39,8 +38,7 @@ require (
 
 replace (
 	github.com/xdb-dev/xdb => ../..
-	github.com/xdb-dev/xdb/schema/jsonschemaimport => ../../schema/jsonschemaimport
-	github.com/xdb-dev/xdb/schema/protoimport => ../../schema/protoimport
+	github.com/xdb-dev/xdb/encoding/xdbproto => ../../encoding/xdbproto
 	github.com/xdb-dev/xdb/store/xdbredis => ../../store/xdbredis
 	github.com/xdb-dev/xdb/store/xdbsqlite => ../../store/xdbsqlite
 )

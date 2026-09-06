@@ -47,7 +47,7 @@ func (s *RecordService) dryRunCreate(
 
 	switch {
 	case err == nil:
-		equivalent, cmpErr := recordsEquivalent(s.enc, record, existing)
+		equivalent, cmpErr := s.recordsEquivalent(record, existing)
 		if cmpErr != nil {
 			return nil, cmpErr
 		}
@@ -97,7 +97,7 @@ func (s *RecordService) dryRunUpdate(
 		return nil, vErr
 	}
 
-	data, encErr := s.enc.FromRecord(merged)
+	data, encErr := s.encode(merged)
 	if encErr != nil {
 		return nil, fmt.Errorf("api: encode record: %w", encErr)
 	}
@@ -127,7 +127,7 @@ func (s *RecordService) dryRunUpsert(
 		return nil, err
 	}
 
-	data, encErr := s.enc.FromRecord(record)
+	data, encErr := s.encode(record)
 	if encErr != nil {
 		return nil, fmt.Errorf("api: encode record: %w", encErr)
 	}

@@ -27,8 +27,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-
-	"github.com/xdb-dev/xdb/encoding/xdbjson"
 )
 
 const (
@@ -59,7 +57,6 @@ func (o Options) withDefaults() Options {
 // Driver is a filesystem-backed implementation of [store.Driver].
 // It stores one JSON file per record and one _schema.json per schema.
 type Driver struct {
-	enc  *xdbjson.Encoder
 	root string
 	opts Options
 	mu   sync.RWMutex
@@ -74,11 +71,8 @@ func NewDriver(root string, opts Options) (*Driver, error) {
 		return nil, fmt.Errorf("xdbfs: create root directory: %w", err)
 	}
 
-	enc := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
-
 	return &Driver{
 		root: root,
-		enc:  enc,
 		opts: opts,
 	}, nil
 }

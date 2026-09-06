@@ -1,4 +1,4 @@
-package jsonschemaimport
+package xdbjson
 
 import (
 	"encoding/json"

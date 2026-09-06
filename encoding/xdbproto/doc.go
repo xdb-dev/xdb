@@ -1,4 +1,4 @@
-// Package protoimport imports protobuf message descriptors into XDB schemas.
+// Package xdbproto imports protobuf message descriptors into XDB schemas.
 // It also marshals proto messages to and from [core.Record] values.
 //
 // The package works only through protoreflect on descriptors. It needs no
@@ -38,4 +38,4 @@
 // to reuse the compiled descriptors of the well-known types (timestamppb,
 // durationpb, wrapperspb, structpb) that are linked into the protobuf module.
 // The tests use both ways. Neither way invokes protoc.
-package protoimport
+package xdbproto

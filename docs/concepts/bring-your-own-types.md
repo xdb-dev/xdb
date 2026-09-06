@@ -1,7 +1,7 @@
 ---
 title: Bring Your Own Types
 description: Import protobuf, JSON Schema, and Go struct types into a schema.Def. The mapping tables, null handling, and documented rejections per source.
-package: schema/protoimport, schema/jsonschemaimport, encoding/xdbstruct
+package: encoding/xdbjson, encoding/xdbproto, encoding/xdbstruct
 ---
 
 # Bring Your Own Types
@@ -13,13 +13,13 @@ Two rules anchor the design:
 1. **The IR is one-way.** Proto files, JSON Schemas, and Go types stay the source of truth. `Def` is a projection that an importer produces. XDB never regenerates source from a stored schema.
 2. **The contract is data round-trip, not schema round-trip.** Import a `User`, write a `User`, and read the same `User` back. Filter or list it in between. Source-type details that do not affect the data round-trip (`int32` against `int64`, enum names, proto field numbers) are preserved in opaque per-field annotations, not modeled.
 
-There is one importer per source format:
+There is one adapter per source format, under `encoding/`. Each owns both halves: the schema path that builds a `Def`, and the data path that moves values in and out of a record.
 
-| Source        | Package                                                 | Entry point                        | CLI                                  |
-| ------------- | ------------------------------------------------------- | ---------------------------------- | ------------------------------------ |
-| Go structs    | `encoding/xdbstruct`                                    | `Def[T]`, `Marshal`, `Unmarshal`   | in-process only (Go embed)           |
-| Protobuf      | `schema/protoimport`                                    | `ImportFiles`, `ImportMessage`     | `xdb schemas import user.proto`      |
-| JSON Schema   | `schema/jsonschemaimport`                               | `Import`                           | `xdb schemas import user.schema.json` |
+| Source      | Package              | Schema path                    | Data path              | CLI                                   |
+| ----------- | -------------------- | ------------------------------ | ---------------------- | ------------------------------------- |
+| Go structs  | `encoding/xdbstruct` | `Def[T]`                       | `Marshal`, `Unmarshal` | in-process only (Go embed)            |
+| Protobuf    | `encoding/xdbproto`  | `ImportFiles`, `ImportMessage` | `Marshal`, `Unmarshal` | `xdb schemas import user.proto`       |
+| JSON Schema | `encoding/xdbjson`   | `ImportSchema`                 | `Marshal`, `Unmarshal` | `xdb schemas import user.schema.json` |
 
 The CLI imports proto and JSON Schema **files**, one file per command. The Go-struct path is in-process: you embed XDB and call `xdbstruct`. It is not a CLI file import.
 
@@ -34,7 +34,7 @@ Every importer shares one model for nested data. The model decides what you can 
 
 ## Protobuf → schema.Def
 
-`schema/protoimport` walks `protoreflect` descriptors. No code generation is needed. The proto package becomes the namespace, unless `WithNamespace` (`--ns`) overrides it.
+`encoding/xdbproto` walks `protoreflect` descriptors. No code generation is needed. The proto package becomes the namespace, unless `WithNamespace` (`--ns`) overrides it.
 
 | Proto construct                                   | schema.Def field type            | Notes                                                        |
 | ------------------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
@@ -63,7 +63,7 @@ Every field records `Annotations["proto.number"]`. The field number is what make
 
 ## JSON Schema → schema.Def
 
-`schema/jsonschemaimport` targets a documented subset of draft 2020-12. The root must describe an object. The namespace comes from `WithNamespace` (`--ns`). The schema name comes from `WithSchemaName`, the document `title`, or the `$id` filename, in that order.
+`encoding/xdbjson` targets a documented subset of draft 2020-12. The root must describe an object. The namespace comes from `WithNS` (`--ns`). The schema name comes from `WithSchema`, the document `title`, or the `$id` filename, in that order.
 
 | JSON Schema construct                    | schema.Def result                        | Notes                                             |
 | ---------------------------------------- | ---------------------------------------- | ------------------------------------------------- |
@@ -85,11 +85,11 @@ Every field records `Annotations["proto.number"]`. The field number is what make
 **Documented rejections** (each error names the JSON pointer to the offending node, where one exists):
 
 - input that is not valid JSON → `ErrInvalidJSON`.
-- no `WithNamespace` → `ErrNoNamespace`. No schema name from `WithSchemaName`, `title`, or `$id` → `ErrNoSchemaName`.
+- no `WithNS` → `ErrMissingNamespace`. No schema name from `WithSchema`, `title`, or `$id` → `ErrMissingSchema`.
 - `anyOf`/`oneOf` → `ErrUnion` (unions are a non-goal).
 - a property name that contains `.`, or that is not a single attribute segment → `ErrInvalidKey`. There is no escaping.
 - two definitions for the same field, from overlapping `allOf` branches or from a nested-object flatten → `ErrConflict`.
-- a cross-document `$ref` → `ErrCrossDocument`. A cyclic `$ref` → `ErrCyclicRef`. Pass `WithJSON("#/$defs/Node")` to store a cyclic node as JSON.
+- a cross-document `$ref` → `ErrCrossDocument`. A cyclic `$ref` → `ErrCyclicRef`. Pass `WithOpaqueJSON("#/$defs/Node")` to store a cyclic node as JSON.
 - an unresolved `$ref` → `ErrUnresolvedRef`.
 - arrays of arrays, an untyped array, `allOf` inside an array element, or any other unmapped construct → `ErrUnsupported`.
 
@@ -143,7 +143,7 @@ xdb schemas diff   ./api/user.proto --ns com.example --check # CI: non-zero on d
 
 ### Renames are proto-only
 
-Only proto has field numbers, so only a proto rename is detected **reliably**. A field whose `proto.number` matches an existing field under a different name is a rename. `protoimport.CheckRename(existing, updated)` finds such a field and returns `protoimport.ErrRename`, which names the number, the old name, and the new name. A Go caller can use it to refuse the update. The CLI uses it as the signal for a proto rename. It applies the rename without acknowledgment, as a removal of the old field and an addition of the new field. There is no tuple migration.
+Only proto has field numbers, so only a proto rename is detected **reliably**. A field whose `proto.number` matches an existing field under a different name is a rename. `xdbproto.CheckRename(existing, updated)` finds such a field and returns `xdbproto.ErrRename`, which names the number, the old name, and the new name. A Go caller can use it to refuse the update. The CLI uses it as the signal for a proto rename. It applies the rename without acknowledgment, as a removal of the old field and an addition of the new field. There is no tuple migration.
 
 A Go-struct or JSON-Schema rename cannot be distinguished from remove-old plus add-new. Applied silently, it orphans the stored tuples of the old attribute.
 
@@ -157,5 +157,5 @@ Guard: for a **non-proto** source, `import` **refuses** a suspected rename (matc
 
 - [Schemas](schemas.md) — The `Def` that importers produce, and its modes
 - [Types](types.md) — The XDB value types that source types map onto
-- [Encoding](encoding.md) — The JSON data path that `jsonschemaimport` and the CLI use
+- [Encoding](encoding.md) — The JSON data path that `xdbjson` and the CLI use
 - [Filters](filters.md) — Why dotted attributes are filterable and array elements are not

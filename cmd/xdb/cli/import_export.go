@@ -55,30 +55,37 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 		return invalidArgError("records", "import", err)
 	}
 
-	var reader io.Reader
+	reader, closeReader, err := importReader(cmd)
+	if err != nil {
+		return invalidArgError("records", "import", err)
+	}
+	defer closeReader()
 
-	fileFlag := cmd.String("file")
-	if fileFlag != "" {
-		path, pathErr := validate.FilePath(fileFlag)
-		if pathErr != nil {
-			return invalidArgError("records", "import", pathErr)
+	summary, importErr := a.importLines(ctx, cmd, reader, uri)
+
+	// The summary is reported even when the import stopped early, so a
+	// partial run still says how far it got.
+	if !cmd.Bool("quiet") {
+		if formatErr := formatOne(cmd, summary); formatErr != nil && importErr == nil {
+			importErr = formatErr
 		}
-
-		f, openErr := os.Open(path) // #nosec G304 - path validated above
-		if openErr != nil {
-			return invalidArgError("records", "import", fmt.Errorf("open file: %w", openErr))
-		}
-		defer func() { _ = f.Close() }()
-
-		reader = f
-	} else if !isTerminal(os.Stdin) {
-		reader = os.Stdin
-	} else {
-		return invalidArgError("records", "import", fmt.Errorf("import requires input (--file or stdin)"))
 	}
 
+	return importErr
+}
+
+// importLines writes every NDJSON record in reader, addressed under baseURI.
+// It returns the summary so far and the first error that stopped the import.
+// A --create-only conflict is a skip, not an error.
+func (a *App) importLines(
+	ctx context.Context,
+	cmd *cli.Command,
+	reader io.Reader,
+	baseURI string,
+) (importSummary, error) {
 	createOnly := cmd.Bool("create-only")
 	quiet := cmd.Bool("quiet")
+
 	op := "upsert"
 	if createOnly {
 		op = "create"
@@ -88,8 +95,6 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 	summary := importSummary{}
 	lineNum := 0
 
-	var importErr error
-
 	for scanner.Scan() {
 		lineNum++
 
@@ -98,27 +103,15 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 			continue
 		}
 
-		recordURI, uriErr := extractRecordURI(uri, line, lineNum)
+		recordURI, uriErr := extractRecordURI(baseURI, line, lineNum)
 		if uriErr != nil {
 			summary.Failed++
 			summary.FirstErrorLine = lineNum
-			importErr = invalidArgError("records", "import", uriErr)
-			break
+
+			return summary, invalidArgError("records", "import", uriErr)
 		}
 
-		if createOnly {
-			err = a.client.Call(ctx, "records.create", &api.CreateRecordRequest{
-				URI:  recordURI,
-				Data: json.RawMessage(line),
-			}, nil)
-		} else {
-			err = a.client.Call(ctx, "records.upsert", &api.UpsertRecordRequest{
-				URI:  recordURI,
-				Data: json.RawMessage(line),
-			}, nil)
-		}
-
-		if err != nil {
+		if err := a.writeRecord(ctx, createOnly, recordURI, line); err != nil {
 			wrapped := wrapRPCError("records", op, recordURI, err)
 
 			// Under --create-only an existing divergent record is an
@@ -130,8 +123,8 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 
 			summary.Failed++
 			summary.FirstErrorLine = lineNum
-			importErr = prefixLineError(wrapped, lineNum)
-			break
+
+			return summary, prefixLineError(wrapped, lineNum)
 		}
 
 		summary.Imported++
@@ -141,17 +134,57 @@ func (a *App) importRecords(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	if scanErr := scanner.Err(); scanErr != nil && importErr == nil {
-		importErr = fmt.Errorf("read input: %w", scanErr)
+	if scanErr := scanner.Err(); scanErr != nil {
+		return summary, fmt.Errorf("read input: %w", scanErr)
 	}
 
-	if !quiet {
-		if formatErr := formatOne(cmd, summary); formatErr != nil && importErr == nil {
-			importErr = formatErr
+	return summary, nil
+}
+
+// writeRecord creates or upserts one record, per the --create-only flag.
+func (a *App) writeRecord(
+	ctx context.Context,
+	createOnly bool,
+	uri string,
+	line []byte,
+) error {
+	if createOnly {
+		return a.client.Call(ctx, "records.create", &api.CreateRecordRequest{
+			URI:  uri,
+			Data: json.RawMessage(line),
+		}, nil)
+	}
+
+	return a.client.Call(ctx, "records.upsert", &api.UpsertRecordRequest{
+		URI:  uri,
+		Data: json.RawMessage(line),
+	}, nil)
+}
+
+// importReader resolves the import input: the --file path when given,
+// otherwise stdin when it is not a terminal. The returned func releases the
+// input and is always safe to call.
+func importReader(cmd *cli.Command) (io.Reader, func(), error) {
+	fileFlag := cmd.String("file")
+	if fileFlag == "" {
+		if isTerminal(os.Stdin) {
+			return nil, nil, fmt.Errorf("import requires input (--file or stdin)")
 		}
+
+		return os.Stdin, func() {}, nil
 	}
 
-	return importErr
+	path, err := validate.FilePath(fileFlag)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	f, err := os.Open(path) // #nosec G304 - path validated above
+	if err != nil {
+		return nil, nil, fmt.Errorf("open file: %w", err)
+	}
+
+	return f, func() { _ = f.Close() }, nil
 }
 
 // importSummary is the machine-readable import result printed to stdout.

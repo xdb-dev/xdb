@@ -1,4 +1,4 @@
-package jsonschemaimport
+package xdbjson
 
 import (
 	"os"
@@ -20,7 +20,7 @@ func readFixture(t *testing.T, name string) []byte {
 }
 
 func TestImport_Product(t *testing.T) {
-	def, err := Import(readFixture(t, "product.schema.json"), WithNamespace("com.acme"))
+	def, err := ImportSchema(readFixture(t, "product.schema.json"), WithNS("com.acme"))
 	require.NoError(t, err)
 
 	assert.Equal(t, "com.acme", def.URI.NS())
@@ -68,7 +68,7 @@ func TestImport_RequiredNested(t *testing.T) {
 		"required": ["ship"]
 	}`)
 
-	def, err := Import(data, WithNamespace("com.acme"))
+	def, err := ImportSchema(data, WithNS("com.acme"))
 	require.NoError(t, err)
 
 	// ship is required, so its required member propagates.
@@ -77,7 +77,7 @@ func TestImport_RequiredNested(t *testing.T) {
 }
 
 func TestImport_Event(t *testing.T) {
-	def, err := Import(readFixture(t, "event.schema.json"), WithNamespace("com.acme"))
+	def, err := ImportSchema(readFixture(t, "event.schema.json"), WithNS("com.acme"))
 	require.NoError(t, err)
 
 	assert.Equal(t, "Event", def.URI.Schema())
@@ -116,7 +116,7 @@ func TestImport_SchemaNameFromID(t *testing.T) {
 		"properties": {"name": {"type": "string"}}
 	}`)
 
-	def, err := Import(data, WithNamespace("com.acme"))
+	def, err := ImportSchema(data, WithNS("com.acme"))
 	require.NoError(t, err)
 	assert.Equal(t, "widget", def.URI.Schema())
 }
@@ -130,7 +130,7 @@ func TestImport_TypedAdditionalPropertiesIsJSON(t *testing.T) {
 		}
 	}`)
 
-	def, err := Import(data, WithNamespace("com.acme"))
+	def, err := ImportSchema(data, WithNS("com.acme"))
 	require.NoError(t, err)
 
 	labels := def.Fields["labels"]
@@ -149,7 +149,7 @@ func TestImport_AllOfMerge(t *testing.T) {
 		"properties": {"c": {"type": "boolean"}}
 	}`)
 
-	def, err := Import(data, WithNamespace("com.acme"))
+	def, err := ImportSchema(data, WithNS("com.acme"))
 	require.NoError(t, err)
 
 	assert.Equal(t, core.TIDString, def.Fields["a"].Type.ID())
@@ -165,7 +165,7 @@ func TestImport_NullableType(t *testing.T) {
 		"properties": {"nick": {"type": ["string", "null"]}}
 	}`)
 
-	def, err := Import(data, WithNamespace("com.acme"))
+	def, err := ImportSchema(data, WithNS("com.acme"))
 	require.NoError(t, err)
 	assert.Equal(t, core.TIDString, def.Fields["nick"].Type.ID())
 }
@@ -173,7 +173,7 @@ func TestImport_NullableType(t *testing.T) {
 func TestImport_CyclicRefWithJSONOptIn(t *testing.T) {
 	data := readFixture(t, "cyclic.schema.json")
 
-	def, err := Import(data, WithNamespace("com.acme"), WithJSON("#/$defs/node"))
+	def, err := ImportSchema(data, WithNS("com.acme"), WithOpaqueJSON("#/$defs/node"))
 	require.NoError(t, err)
 
 	children := def.Fields["children"]

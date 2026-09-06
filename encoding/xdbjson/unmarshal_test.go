@@ -12,14 +12,12 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-var defaultEncoder = xdbjson.New()
-
-func TestEncoder_BasicEncoding(t *testing.T) {
+func TestUnmarshal_BasicEncoding(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe").
 		Set("email", "john@example.com")
 
-	data, err := defaultEncoder.FromRecord(record)
+	data, err := xdbjson.Unmarshal(record)
 	require.NoError(t, err)
 
 	var m map[string]any
@@ -33,16 +31,16 @@ func TestEncoder_BasicEncoding(t *testing.T) {
 	assert.NotContains(t, m, "_schema")
 }
 
-func TestEncoder_WithMetadata(t *testing.T) {
+func TestUnmarshal_WithMetadata(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe")
 
-	encoder := xdbjson.New(
+	encOpts := []xdbjson.Option{
 		xdbjson.WithIncludeNS(),
 		xdbjson.WithIncludeSchema(),
-	)
+	}
 
-	data, err := encoder.FromRecord(record)
+	data, err := xdbjson.Unmarshal(record, encOpts...)
 	require.NoError(t, err)
 
 	var m map[string]any
@@ -55,19 +53,19 @@ func TestEncoder_WithMetadata(t *testing.T) {
 	assert.Equal(t, "John Doe", m["name"])
 }
 
-func TestEncoder_CustomFieldNames(t *testing.T) {
+func TestUnmarshal_CustomFieldNames(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe")
 
-	encoder := xdbjson.New(
+	encOpts := []xdbjson.Option{
 		xdbjson.WithIDField("userId"),
 		xdbjson.WithNSField("namespace"),
 		xdbjson.WithSchemaField("type"),
 		xdbjson.WithIncludeNS(),
 		xdbjson.WithIncludeSchema(),
-	)
+	}
 
-	data, err := encoder.FromRecord(record)
+	data, err := xdbjson.Unmarshal(record, encOpts...)
 	require.NoError(t, err)
 
 	var m map[string]any
@@ -82,7 +80,7 @@ func TestEncoder_CustomFieldNames(t *testing.T) {
 	assert.NotContains(t, m, "_schema")
 }
 
-func TestEncoder_NestedAttributes(t *testing.T) {
+func TestUnmarshal_NestedAttributes(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe").
 		Set("address.street", "123 Main St").
@@ -90,7 +88,7 @@ func TestEncoder_NestedAttributes(t *testing.T) {
 		Set("address.location.lat", 42.3601).
 		Set("address.location.lon", -71.0589)
 
-	data, err := defaultEncoder.FromRecord(record)
+	data, err := xdbjson.Unmarshal(record)
 	require.NoError(t, err)
 
 	var m map[string]any
@@ -110,7 +108,7 @@ func TestEncoder_NestedAttributes(t *testing.T) {
 	assert.Equal(t, -71.0589, location["lon"])
 }
 
-func TestEncoder_BasicTypes(t *testing.T) {
+func TestUnmarshal_BasicTypes(t *testing.T) {
 	tests := []struct {
 		name     string
 		attr     string
@@ -132,7 +130,7 @@ func TestEncoder_BasicTypes(t *testing.T) {
 			record := core.NewRecord("com.example", "test", "123").
 				Set(tt.attr, tt.value)
 
-			data, err := defaultEncoder.FromRecord(record)
+			data, err := xdbjson.Unmarshal(record)
 			require.NoError(t, err)
 
 			var m map[string]any
@@ -144,7 +142,7 @@ func TestEncoder_BasicTypes(t *testing.T) {
 	}
 }
 
-func TestEncoder_ArrayTypes(t *testing.T) {
+func TestUnmarshal_ArrayTypes(t *testing.T) {
 	tests := []struct {
 		name     string
 		attr     string
@@ -176,7 +174,7 @@ func TestEncoder_ArrayTypes(t *testing.T) {
 			record := core.NewRecord("com.example", "test", "123").
 				Set(tt.attr, tt.value)
 
-			data, err := defaultEncoder.FromRecord(record)
+			data, err := xdbjson.Unmarshal(record)
 			require.NoError(t, err)
 
 			var m map[string]any
@@ -188,14 +186,14 @@ func TestEncoder_ArrayTypes(t *testing.T) {
 	}
 }
 
-func TestEncoder_ObjectArray(t *testing.T) {
+func TestUnmarshal_ObjectArray(t *testing.T) {
 	record := core.NewRecord("com.example", "orders", "o1").
 		Set("lines", core.ArrayVal(core.TIDJSON,
 			core.JSONVal([]byte(`{"qty":3,"sku":"A-1"}`)),
 			core.JSONVal([]byte(`{"qty":5,"sku":"B-2"}`)),
 		))
 
-	data, err := defaultEncoder.FromRecord(record)
+	data, err := xdbjson.Unmarshal(record)
 	require.NoError(t, err)
 
 	var m map[string]any
@@ -211,11 +209,11 @@ func TestEncoder_ObjectArray(t *testing.T) {
 	assert.Equal(t, float64(3), first["qty"])
 }
 
-func TestEncoder_EmptyArray(t *testing.T) {
+func TestUnmarshal_EmptyArray(t *testing.T) {
 	record := core.NewRecord("com.example", "test", "123").
 		Set("empty", []string{})
 
-	data, err := defaultEncoder.FromRecord(record)
+	data, err := xdbjson.Unmarshal(record)
 	require.NoError(t, err)
 
 	var m map[string]any
@@ -227,11 +225,11 @@ func TestEncoder_EmptyArray(t *testing.T) {
 	assert.Equal(t, []any{}, m["empty"])
 }
 
-func TestEncoder_IndentOutput(t *testing.T) {
+func TestUnmarshal_IndentOutput(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe")
 
-	data, err := defaultEncoder.FromRecord(record, xdbjson.WithIndent("", "  "))
+	data, err := xdbjson.Unmarshal(record, xdbjson.WithIndent("", "  "))
 	require.NoError(t, err)
 
 	expected := `{
@@ -241,13 +239,13 @@ func TestEncoder_IndentOutput(t *testing.T) {
 	assert.Equal(t, expected, string(data))
 }
 
-func TestEncoder_SortedKeys(t *testing.T) {
+func TestUnmarshal_SortedKeys(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("zebra", "last").
 		Set("alpha", "first").
 		Set("middle", "middle")
 
-	data, err := defaultEncoder.FromRecord(record)
+	data, err := xdbjson.Unmarshal(record)
 	require.NoError(t, err)
 
 	var m map[string]any
@@ -262,7 +260,7 @@ func TestEncoder_SortedKeys(t *testing.T) {
 // A declared ARRAY<INTEGER> field built directly (not from JSON) round-trips
 // through encode -> decode with its element type preserved, including a
 // value beyond the float64 exact-integer boundary.
-func TestEncoder_RoundTrip_ArrayInteger(t *testing.T) {
+func TestUnmarshal_RoundTrip_ArrayInteger(t *testing.T) {
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/metrics"),
 		Mode: schema.ModeStrict,
@@ -274,12 +272,12 @@ func TestEncoder_RoundTrip_ArrayInteger(t *testing.T) {
 	original := core.NewRecord("com.example", "metrics", "1").
 		Set("nums", []int64{1, 2, 9007199254740993})
 
-	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
-	data, err := encoder.FromRecord(original)
+	encOpts := []xdbjson.Option{xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema()}
+	data, err := xdbjson.Unmarshal(original, encOpts...)
 	require.NoError(t, err)
 
-	decoder := xdbjson.NewDecoder(xdbjson.WithDef(def))
-	decoded, err := decoder.ToRecord(data)
+	decOpts := []xdbjson.Option{xdbjson.WithDef(def)}
+	decoded, err := xdbjson.Marshal(data, decOpts...)
 	require.NoError(t, err)
 
 	nums := decoded.Get("nums").Value()
@@ -295,7 +293,7 @@ func TestEncoder_RoundTrip_ArrayInteger(t *testing.T) {
 
 // A declared JSON field built directly round-trips through encode -> decode
 // as the same nested structure, not flattened into dotted sub-attributes.
-func TestEncoder_RoundTrip_JSONField(t *testing.T) {
+func TestUnmarshal_RoundTrip_JSONField(t *testing.T) {
 	def := &schema.Def{
 		URI:  core.MustParseURI("xdb://com.example/events"),
 		Mode: schema.ModeStrict,
@@ -307,12 +305,12 @@ func TestEncoder_RoundTrip_JSONField(t *testing.T) {
 	original := core.NewRecord("com.example", "events", "1").
 		Set("settings", core.JSONVal(json.RawMessage(`{"theme":"dark","level":2}`)))
 
-	encoder := xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema())
-	data, err := encoder.FromRecord(original)
+	encOpts := []xdbjson.Option{xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema()}
+	data, err := xdbjson.Unmarshal(original, encOpts...)
 	require.NoError(t, err)
 
-	decoder := xdbjson.NewDecoder(xdbjson.WithDef(def))
-	decoded, err := decoder.ToRecord(data)
+	decOpts := []xdbjson.Option{xdbjson.WithDef(def)}
+	decoded, err := xdbjson.Marshal(data, decOpts...)
 	require.NoError(t, err)
 
 	assert.Nil(t, decoded.Get("settings.theme"), "no synthetic dotted sub-attribute")
@@ -322,28 +320,28 @@ func TestEncoder_RoundTrip_JSONField(t *testing.T) {
 	assert.JSONEq(t, `{"theme":"dark","level":2}`, string(raw))
 }
 
-func TestEncoder_ErrorNilRecord(t *testing.T) {
-	data, err := defaultEncoder.FromRecord(nil)
+func TestUnmarshal_ErrorNilRecord(t *testing.T) {
+	data, err := xdbjson.Unmarshal(nil)
 	assert.Error(t, err)
 	assert.Nil(t, data)
 	assert.ErrorIs(t, err, xdbjson.ErrNilRecord)
 }
 
-func TestEncoder_ErrorNilRecordIndent(t *testing.T) {
-	data, err := defaultEncoder.FromRecord(nil, xdbjson.WithIndent("", "  "))
+func TestUnmarshal_ErrorNilRecordIndent(t *testing.T) {
+	data, err := xdbjson.Unmarshal(nil, xdbjson.WithIndent("", "  "))
 	assert.Error(t, err)
 	assert.Nil(t, data)
 	assert.ErrorIs(t, err, xdbjson.ErrNilRecord)
 }
 
-func TestEncoder_FromRecordFields(t *testing.T) {
+func TestUnmarshal_FromRecordFields(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123").
 		Set("name", "John Doe").
 		Set("email", "john@example.com").
 		Set("age", int64(30))
 
 	t.Run("projects to subset", func(t *testing.T) {
-		data, err := defaultEncoder.FromRecord(record, xdbjson.WithFields("name"))
+		data, err := xdbjson.Unmarshal(record, xdbjson.WithFields("name"))
 		require.NoError(t, err)
 
 		var m map[string]any
@@ -356,7 +354,7 @@ func TestEncoder_FromRecordFields(t *testing.T) {
 	})
 
 	t.Run("projects multiple fields", func(t *testing.T) {
-		data, err := defaultEncoder.FromRecord(record, xdbjson.WithFields("name", "age"))
+		data, err := xdbjson.Unmarshal(record, xdbjson.WithFields("name", "age"))
 		require.NoError(t, err)
 
 		var m map[string]any
@@ -369,7 +367,7 @@ func TestEncoder_FromRecordFields(t *testing.T) {
 	})
 
 	t.Run("no fields returns all", func(t *testing.T) {
-		data, err := defaultEncoder.FromRecord(record)
+		data, err := xdbjson.Unmarshal(record)
 		require.NoError(t, err)
 
 		var m map[string]any
@@ -379,7 +377,7 @@ func TestEncoder_FromRecordFields(t *testing.T) {
 	})
 
 	t.Run("nil record returns error", func(t *testing.T) {
-		_, err := defaultEncoder.FromRecord(nil, xdbjson.WithFields("name"))
+		_, err := xdbjson.Unmarshal(nil, xdbjson.WithFields("name"))
 		assert.ErrorIs(t, err, xdbjson.ErrNilRecord)
 	})
 }

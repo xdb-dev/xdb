@@ -20,8 +20,8 @@ import (
 // importer's typed encode/decode functions. Value is the original Go value; the
 // harness asserts the decoded value equals it.
 //
-// The three importer packages (encoding/xdbstruct, schema/protoimport,
-// schema/jsonschemaimport) reuse [RunRoundTrip] with their own
+// The three importer packages (encoding/xdbstruct, encoding/xdbproto,
+// encoding/xdbjson) reuse [RunRoundTrip] with their own
 // Marshal/Unmarshal closures, so the round-trip contract is exercised
 // identically for every source format.
 type RoundTrip struct {

@@ -75,6 +75,6 @@
 // registered once, by the memory reference driver.
 //
 // [RoundTrip] in rtharness.go is unrelated to the store suites. It is the
-// conformance harness for the schema importers (xdbstruct, protoimport,
-// jsonschemaimport). It runs them against an in-memory store.
+// conformance harness for the schema importers (xdbstruct, xdbproto,
+// xdbjson). It runs them against an in-memory store.
 package tests

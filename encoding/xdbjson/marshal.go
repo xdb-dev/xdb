@@ -13,67 +13,69 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-// Decoder converts JSON to XDB records.
-type Decoder struct {
-	opts options
-}
-
-// NewDecoder creates a [Decoder] with functional options.
+// Marshal decodes a JSON document into a new [core.Record].
 //
-//	dec := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("posts"))
-func NewDecoder(opts ...Option) *Decoder {
-	return &Decoder{opts: applyOptions(opts)}
-}
+// The record identity comes from the document's ID, namespace, and schema
+// fields, falling back to [WithNS] and [WithSchema]. Declared fields are typed
+// against [WithDef]; nested objects flatten to dotted attributes.
+//
+// Unlike xdbstruct and xdbproto, Marshal takes no URI: a JSON document
+// carries its own identity. Use [MarshalInto] when the caller owns it.
+//
+//	rec, err := xdbjson.Marshal(doc, xdbjson.WithNS("com.example"), xdbjson.WithSchema("posts"))
+func Marshal(doc []byte, opts ...Option) (*core.Record, error) {
+	o := applyOptions(opts)
 
-// ToRecord converts JSON bytes to a new [core.Record].
-func (d *Decoder) ToRecord(data []byte) (*core.Record, error) {
-	m, err := d.unmarshal(data)
+	m, err := decodeDoc(doc)
 	if err != nil {
 		return nil, err
 	}
 
-	id, err := d.extractID(m)
+	id, err := extractID(m, o)
 	if err != nil {
 		return nil, err
 	}
 
-	ns := d.extractNS(m)
+	ns := extractNS(m, o)
 	if ns == "" {
 		return nil, ErrMissingNamespace
 	}
 
-	schema := d.extractSchema(m)
-	if schema == "" {
+	name := extractSchema(m, o)
+	if name == "" {
 		return nil, ErrMissingSchema
 	}
 
-	record := core.NewRecord(ns, schema, id)
-	if err := d.populateRecord(record, m); err != nil {
+	record := core.NewRecord(ns, name, id)
+	if err := populateRecord(record, m, o); err != nil {
 		return nil, err
 	}
 
 	return record, nil
 }
 
-// ToExistingRecord populates an existing record from JSON bytes.
-// The record's NS, Schema, and ID are preserved; only attributes are updated.
-func (d *Decoder) ToExistingRecord(data []byte, record *core.Record) error {
+// MarshalInto decodes a JSON document into an existing record. The record's
+// NS, Schema, and ID are preserved and any metadata fields in the document are
+// ignored; only attributes are updated.
+func MarshalInto(doc []byte, record *core.Record, opts ...Option) error {
 	if record == nil {
 		return ErrNilRecord
 	}
 
-	m, err := d.unmarshal(data)
+	o := applyOptions(opts)
+
+	m, err := decodeDoc(doc)
 	if err != nil {
 		return err
 	}
 
-	return d.populateRecord(record, m)
+	return populateRecord(record, m, o)
 }
 
-// unmarshal decodes JSON into a map. Numbers decode as [json.Number] so
+// decodeDoc decodes a JSON document into a map. Numbers decode as [json.Number] so
 // integer and float types can be preserved (see [inferNumbers] and
 // [convertToType]).
-func (d *Decoder) unmarshal(data []byte) (map[string]any, error) {
+func decodeDoc(data []byte) (map[string]any, error) {
 	var m map[string]any
 
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -84,8 +86,8 @@ func (d *Decoder) unmarshal(data []byte) (map[string]any, error) {
 	return m, nil
 }
 
-func (d *Decoder) extractID(m map[string]any) (string, error) {
-	v, ok := m[d.opts.idField]
+func extractID(m map[string]any, o options) (string, error) {
+	v, ok := m[o.idField]
 	if !ok {
 		return "", ErrMissingID
 	}
@@ -102,22 +104,22 @@ func (d *Decoder) extractID(m map[string]any) (string, error) {
 	return id, nil
 }
 
-func (d *Decoder) extractNS(m map[string]any) string {
-	if v, ok := m[d.opts.nsField]; ok {
+func extractNS(m map[string]any, o options) string {
+	if v, ok := m[o.nsField]; ok {
 		if ns, ok := v.(string); ok {
 			return ns
 		}
 	}
-	return d.opts.ns
+	return o.ns
 }
 
-func (d *Decoder) extractSchema(m map[string]any) string {
-	if v, ok := m[d.opts.schemaField]; ok {
+func extractSchema(m map[string]any, o options) string {
+	if v, ok := m[o.schemaField]; ok {
 		if schema, ok := v.(string); ok {
 			return schema
 		}
 	}
-	return d.opts.schema
+	return o.schema
 }
 
 // populateRecord sets record's attributes from the decoded JSON map m.
@@ -127,17 +129,17 @@ func (d *Decoder) extractSchema(m map[string]any) string {
 // [setDeclaredField]. An undeclared attribute that XDB cannot type (e.g. an
 // empty or heterogeneous JSON array) is treated as absent, consistent with
 // how null is handled.
-func (d *Decoder) populateRecord(record *core.Record, m map[string]any) error {
+func populateRecord(record *core.Record, m map[string]any, o options) error {
 	flat := make(map[string]any)
-	flattenWithDef(m, "", d.opts.def, flat)
+	flattenWithDef(m, "", o.def, flat)
 
 	for attr, value := range flat {
-		if d.isMetadataField(attr) || value == nil {
+		if isMetadataField(attr, o) || value == nil {
 			continue
 		}
 
-		if d.opts.def != nil {
-			if field, ok := d.opts.def.Fields[attr]; ok {
+		if o.def != nil {
+			if field, ok := o.def.Fields[attr]; ok {
 				if err := setDeclaredField(record, attr, value, field); err != nil {
 					return err
 				}
@@ -415,10 +417,10 @@ func convertArrayElements(value any, elemTID core.TID) any {
 	return elems
 }
 
-func (d *Decoder) isMetadataField(attr string) bool {
-	return attr == d.opts.idField ||
-		attr == d.opts.nsField ||
-		attr == d.opts.schemaField
+func isMetadataField(attr string, o options) bool {
+	return attr == o.idField ||
+		attr == o.nsField ||
+		attr == o.schemaField
 }
 
 // flattenWithDef flattens nested JSON objects into dot-notation attributes.

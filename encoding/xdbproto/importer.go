@@ -1,4 +1,4 @@
-package protoimport
+package xdbproto
 
 import (
 	"github.com/gojekfarm/xtools/errors"

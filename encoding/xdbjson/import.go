@@ -1,4 +1,4 @@
-package jsonschemaimport
+package xdbjson
 
 import (
 	"encoding/json"
@@ -15,14 +15,14 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-// Import parses a JSON Schema document (a documented subset of draft 2020-12)
+// ImportSchema parses a JSON Schema document (a documented subset of draft 2020-12)
 // into a [schema.Def]. The root must describe an object.
 //
-// The namespace comes from [WithNamespace]; the schema name from
-// [WithSchemaName], the document title, or the $id filename. Every unsupported
+// The namespace comes from [WithNS]; the schema name from
+// [WithSchema], the document title, or the $id filename. Every unsupported
 // construct returns an error naming the JSON pointer to the offending node.
-func Import(data []byte, opts ...Option) (*schema.Def, error) {
-	o := buildOptions(opts)
+func ImportSchema(data []byte, opts ...Option) (*schema.Def, error) {
+	o := applyOptions(opts)
 
 	var rootAny any
 	if err := json.Unmarshal(data, &rootAny); err != nil {
@@ -34,7 +34,7 @@ func Import(data []byte, opts ...Option) (*schema.Def, error) {
 		return nil, err
 	}
 
-	im := &importer{root: rootAny, allowJSON: o.allowJSON}
+	im := &importer{root: rootAny, opaqueJSON: o.opaqueJSON}
 
 	// A root $ref resolves once into the target node.
 	rootPtr := "#"
@@ -101,7 +101,7 @@ func parseSchema(raw json.RawMessage) (*jsonschema.Schema, error) {
 }
 
 // resolveURI builds the schema URI from the namespace and schema-name sources.
-func resolveURI(o Options, root *jsonschema.Schema) (*core.URI, error) {
+func resolveURI(o options, root *jsonschema.Schema) (*core.URI, error) {
 	ns, err := resolveNamespace(o)
 	if err != nil {
 		return nil, err
@@ -126,9 +126,9 @@ func defAnnotations(root *jsonschema.Schema) map[string]string {
 // opt-in set, and the stack of $ref pointers currently being expanded (for
 // cycle detection).
 type importer struct {
-	root      any
-	allowJSON map[string]bool
-	stack     []string
+	root       any
+	opaqueJSON map[string]bool
+	stack      []string
 }
 
 // built is the result of walking a single schema node: exactly one of field
@@ -380,7 +380,7 @@ func (im *importer) deref(s *jsonschema.Schema, ptr string) (*jsonschema.Schema,
 				"ref", ref,
 			)
 		}
-		if im.allowJSON[ref] {
+		if im.opaqueJSON[ref] {
 			return cur, ref, true, pop, nil
 		}
 		if im.onStack(ref) {
@@ -604,18 +604,18 @@ func isArray(n *jsonschema.Schema) bool {
 	return n.Items != nil
 }
 
-func resolveNamespace(o Options) (string, error) {
+func resolveNamespace(o options) (string, error) {
 	if o.ns != "" {
 		return o.ns, nil
 	}
-	return "", errors.Wrap(ErrNoNamespace,
+	return "", errors.Wrap(ErrMissingNamespace,
 		"fix", "pass WithNamespace to set the target namespace",
 	)
 }
 
-func resolveSchemaName(o Options, root *jsonschema.Schema) (string, error) {
-	if o.schemaName != "" {
-		return o.schemaName, nil
+func resolveSchemaName(o options, root *jsonschema.Schema) (string, error) {
+	if o.schema != "" {
+		return o.schema, nil
 	}
 	if n := sanitizeName(root.Title); n != "" {
 		return n, nil
@@ -623,7 +623,7 @@ func resolveSchemaName(o Options, root *jsonschema.Schema) (string, error) {
 	if n := nameFromID(root.ID); n != "" {
 		return n, nil
 	}
-	return "", errors.Wrap(ErrNoSchemaName,
+	return "", errors.Wrap(ErrMissingSchema,
 		"fix", "pass WithSchemaName, or add a title to the schema",
 	)
 }

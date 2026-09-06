@@ -59,16 +59,15 @@ cmd/xdb/            # The `xdb` binary
   cli/              # CLI commands, CONTEXT.md, and the embedded skills
 core/               # URI, Tuple, Record, Value, Type: the data model
 schema/             # Definitions and validation
-  jsonschemaimport/ # Import JSON Schema documents as definitions
-  protoimport/      # Import protobuf messages as definitions
 store/              # Store facade, middleware, and driver interfaces
   xdbfs/            # Filesystem driver
   xdbmemory/        # In-memory driver (reference/testing)
-  xdbredis/         # Redis driver (requires `make services-up`)
-  xdbsqlite/        # SQLite driver
-encoding/
-  xdbjson/          # JSON encoder/decoder for records
-  xdbstruct/        # Go struct import and encoder/decoder for records
+  xdbredis/         # Redis driver [module] (requires `make services-up`)
+  xdbsqlite/        # SQLite driver [module]
+encoding/           # Format adapters: one package per external format
+  xdbjson/          # JSON Schema import; JSON record encode/decode
+  xdbproto/         # Protobuf message import; proto record encode/decode [module]
+  xdbstruct/        # Go struct import; struct record encode/decode
 filter/             # CEL filter parsing and evaluation
   sqlgen/           # Compiled CEL filter to parameterized SQL
 rpc/                # JSON-RPC 2.0 server
@@ -81,6 +80,8 @@ docs/
   plans/            # Plans: YYYY-MM-DD-plan-name.md
   research/         # Research: YYYY-MM-DD-research-name.md
 ```
+
+`[module]` marks a directory with its own `go.mod`, alongside `cmd/xdb`. Each one exists to keep a heavy driver or codec dependency out of the root module, so it is a separate module only when the dependency justifies it. `make` targets discover these automatically; nothing needs registering.
 
 ## Plans and Research
 

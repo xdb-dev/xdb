@@ -1,4 +1,4 @@
-package jsonschemaimport
+package xdbjson
 
 import (
 	"encoding/json"
@@ -15,16 +15,18 @@ import (
 //
 // The harness compares Go values with require.Equal, but JSON documents have no
 // canonical byte form, so the round-trip value is the document normalized to a
-// map[string]any (numbers as float64, keys unordered). Marshal decodes that map
-// into a record via xdbjson (typing declared fields), and Unmarshal encodes the
+// map[string]any (numbers as float64, keys unordered). [Marshal] decodes that
+// map into a record (typing declared fields), and [Unmarshal] encodes the
 // stored record back to a map. The assertion is real: it verifies
 // decode -> store -> encode preserves the document.
 func runDocRoundTrip(t *testing.T, def *schema.Def, id string, doc []byte) {
 	t.Helper()
 
-	recURI, err := core.NewURI(def.URI.NS(), def.URI.Schema(), id)
-	require.NoError(t, err)
-	uri := recURI.String()
+	decOpts := []Option{
+		WithNS(def.URI.NS()),
+		WithSchema(def.URI.Schema()),
+		WithDef(def),
+	}
 
 	var want map[string]any
 	require.NoError(t, json.Unmarshal(doc, &want))
@@ -38,7 +40,7 @@ func runDocRoundTrip(t *testing.T, def *schema.Def, id string, doc []byte) {
 			if err != nil {
 				return nil, err
 			}
-			return Marshal(uri, raw, def)
+			return Marshal(raw, decOpts...)
 		},
 		Unmarshal: func(rec *core.Record, dst any) error {
 			out, err := Unmarshal(rec)
@@ -60,7 +62,7 @@ func runDocRoundTrip(t *testing.T, def *schema.Def, id string, doc []byte) {
 }
 
 func TestRoundTrip_Product(t *testing.T) {
-	def, err := Import(readFixture(t, "product.schema.json"), WithNamespace("com.acme"))
+	def, err := ImportSchema(readFixture(t, "product.schema.json"), WithNS("com.acme"))
 	require.NoError(t, err)
 
 	doc := []byte(`{
@@ -75,7 +77,7 @@ func TestRoundTrip_Product(t *testing.T) {
 }
 
 func TestRoundTrip_Event(t *testing.T) {
-	def, err := Import(readFixture(t, "event.schema.json"), WithNamespace("com.acme"))
+	def, err := ImportSchema(readFixture(t, "event.schema.json"), WithNS("com.acme"))
 	require.NoError(t, err)
 
 	doc := []byte(`{
@@ -95,7 +97,7 @@ func TestRoundTrip_Event(t *testing.T) {
 func TestRoundTrip_FlexibleUndeclared(t *testing.T) {
 	// Product is flexible (no additionalProperties), so an undeclared field
 	// round-trips as an inferred value.
-	def, err := Import(readFixture(t, "product.schema.json"), WithNamespace("com.acme"))
+	def, err := ImportSchema(readFixture(t, "product.schema.json"), WithNS("com.acme"))
 	require.NoError(t, err)
 
 	doc := []byte(`{

@@ -32,7 +32,7 @@ The [CLI](../../cmd/xdb/cli/CONTEXT.md) exposes these concepts as the parts of a
 
 - [Stores](stores.md) — The store facade, its middleware, and construction with `store.New`
 - [Drivers](drivers.md) — The storage contract that a driver implements
-- [Encoding](encoding.md) — JSON encoding and decoding of records
+- [Encoding](encoding.md) — JSON Schema import and JSON encoding of records
 
 ## CLI & Daemon
 

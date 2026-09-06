@@ -1,12 +1,17 @@
 ---
 title: Encoding
-description: JSON encoding and decoding of records with automatic dot-notation nesting.
+description: JSON Schema import and JSON encoding of records with automatic dot-notation nesting.
 package: encoding/xdbjson
 ---
 
 # Encoding
 
-The `encoding/xdbjson` package converts JSON to XDB [Records](records.md) and back. It translates between flat [Tuple](tuples.md) attributes (with dot notation) and nested JSON objects.
+The `encoding/xdbjson` package is the JSON adapter. It has two paths that share one option set:
+
+- The **data path** converts JSON documents to XDB [Records](records.md) and back. It translates between flat [Tuple](tuples.md) attributes (with dot notation) and nested JSON objects.
+- The **schema path** imports a JSON Schema document into a [Schema](schemas.md) definition.
+
+The two compose: import a schema once, then pass the resulting def to the data path with `WithDef` so that declared fields decode as their declared types.
 
 ## Overview
 
@@ -14,33 +19,31 @@ The `encoding/xdbjson` package converts JSON to XDB [Records](records.md) and ba
 Record (flat tuples)              JSON (nested objects)
 ┌─────────────────────┐           ┌─────────────────────┐
 │ _id       = "123"   │           │ {                   │
-│ title     = "Hello" │  encode   │   "_id": "123",     │
+│ title     = "Hello" │ Unmarshal │   "_id": "123",     │
 │ author.id = "u-1"   │ ───────→  │   "title": "Hello", │
 │ author.name = "Bob" │           │   "author": {       │
-└─────────────────────┘  decode   │     "id": "u-1",    │
+└─────────────────────┘  Marshal  │     "id": "u-1",    │
                         ←───────  │     "name": "Bob"   │
                                   │   }                 │
                                   │ }                   │
                                   └─────────────────────┘
 ```
 
-The encoder **unfolds** dot-separated attributes into nested objects. The decoder **flattens** nested objects back into dot-separated attributes.
+`Unmarshal` **unfolds** dot-separated attributes into nested objects. `Marshal` **flattens** nested objects back into dot-separated attributes.
 
-## Encoder
+> **Direction convention.** In XDB, `Marshal` produces a **record** and `Unmarshal` consumes one. This is the inverse of `encoding/json`, and it holds for every format adapter: `xdbjson`, `xdbproto`, and `xdbstruct` all marshal *into* the XDB data model and unmarshal *out of* it.
 
-The encoder converts records to JSON.
+## Encoding records to JSON
 
 ```go
-encoder := xdbjson.New()
-
 // Compact JSON
-data, err := encoder.FromRecord(record)
+data, err := xdbjson.Unmarshal(record)
 
 // Indented JSON
-data, err := encoder.FromRecord(record, xdbjson.WithIndent("", "  "))
+data, err := xdbjson.Unmarshal(record, xdbjson.WithIndent("", "  "))
 
 // Field projection
-data, err := encoder.FromRecord(record, xdbjson.WithFields("name", "email"))
+data, err := xdbjson.Unmarshal(record, xdbjson.WithFields("name", "email"))
 ```
 
 `WithFields` limits the output to the named fields. The ID field is always included.
@@ -48,7 +51,7 @@ data, err := encoder.FromRecord(record, xdbjson.WithFields("name", "email"))
 ### Options
 
 ```go
-encoder := xdbjson.New(
+data, err := xdbjson.Unmarshal(record,
     xdbjson.WithIDField("_id"),          // JSON field for the record ID (default: "_id")
     xdbjson.WithNSField("_ns"),          // JSON field for the namespace (default: "_ns")
     xdbjson.WithSchemaField("_schema"),  // JSON field for the schema (default: "_schema")
@@ -56,6 +59,8 @@ encoder := xdbjson.New(
     xdbjson.WithIncludeSchema(),         // Include the schema in the output
 )
 ```
+
+By default only the ID is emitted. The namespace and the schema need `WithIncludeNS` and `WithIncludeSchema`.
 
 ### Output
 
@@ -86,20 +91,26 @@ encoder := xdbjson.New(
 | `bytes`    | String (base64-encoded) |
 | `array`    | Array                   |
 
-## Decoder
+## Decoding JSON to records
 
-The decoder parses JSON into records.
+`Marshal` builds a new record. The defaults apply when the document carries no namespace or schema field:
 
 ```go
-// With a default NS and Schema (used when the JSON does not carry them)
-decoder := xdbjson.NewDecoder(xdbjson.WithNS("com.example"), xdbjson.WithSchema("posts"))
-
-// Parse JSON into a new record
-record, err := decoder.ToRecord(jsonData)
-
-// Parse JSON into an existing record
-err := decoder.ToExistingRecord(jsonData, record)
+record, err := xdbjson.Marshal(jsonData,
+    xdbjson.WithNS("com.example"),
+    xdbjson.WithSchema("posts"),
+)
 ```
+
+`MarshalInto` populates a record the caller already owns:
+
+```go
+record := core.NewRecord("com.example", "posts", "p1")
+
+err := xdbjson.MarshalInto(jsonData, record)
+```
+
+`Marshal` takes no URI, unlike `xdbproto.Marshal` and `xdbstruct.Marshal`, because a JSON document carries its own identity. `MarshalInto` keeps the identity of the record you pass and ignores any metadata fields in the document, so it is the one to use when the caller owns the URI.
 
 ### Numbers
 
@@ -107,7 +118,7 @@ The decoder reads JSON numbers with `UseNumber`, so no precision is lost through
 
 ### Schema-aware Decoding
 
-When you give the decoder a schema definition with `WithDef()`, the decoder converts each declared field to its declared type:
+When you pass a schema definition with `WithDef()`, each declared field is converted to its declared type:
 
 - `integer`, `unsigned`, and `float` fields are converted from JSON numbers.
 - `time` fields are parsed from RFC 3339 strings.
@@ -118,10 +129,8 @@ When you give the decoder a schema definition with `WithDef()`, the decoder conv
 
 If a declared field cannot be decoded as its declared type, the decoder returns an error that wraps `core.ErrSchemaViolation`. The error names the field and the expected type. Undeclared attributes get their types from the number rules above. An undeclared attribute that XDB cannot type, for example an empty or mixed JSON array, is dropped in the same way as a null.
 
-`WithNumberInference()` is deprecated and has no effect. The decoder always infers numbers as described above.
-
 ```go
-decoder := xdbjson.NewDecoder(
+record, err := xdbjson.Marshal(jsonData,
     xdbjson.WithNS("com.example"),
     xdbjson.WithSchema("posts"),
     xdbjson.WithDef(schemaDef),  // enables type conversion
@@ -130,28 +139,45 @@ decoder := xdbjson.NewDecoder(
 
 ### Resolution Order
 
-The decoder resolves the record identity (ID, NS, Schema) in this order:
+`Marshal` resolves the record identity (ID, NS, Schema) in this order:
 
 1. **JSON fields** — the values in the JSON data (`_id`, `_ns`, `_schema`).
 2. **Option defaults** — the values from `WithNS` and `WithSchema`.
 
-If neither source gives a required value, the decoder returns an error.
+If neither source gives a required value, `Marshal` returns an error.
 
-### Errors
+## Importing a JSON Schema
 
-| Error                     | Cause                                                        |
-| ------------------------- | ------------------------------------------------------------ |
-| `ErrInvalidJSON`          | The JSON did not parse                                       |
-| `ErrMissingID`            | No ID field in the JSON                                      |
-| `ErrEmptyID`              | The ID field is present but empty                            |
-| `ErrMissingNamespace`     | No namespace in the JSON and no default                      |
-| `ErrMissingSchema`        | No schema in the JSON and no default                         |
-| `ErrNilRecord`            | A nil record was passed to `FromRecord` or `ToExistingRecord` |
-| `core.ErrSchemaViolation` | A declared field cannot be decoded as its declared type      |
+`ImportSchema` parses a JSON Schema document (a documented subset of draft 2020-12) into a `schema.Def`:
+
+```go
+def, err := xdbjson.ImportSchema(doc, xdbjson.WithNS("com.example"))
+```
+
+The namespace comes from `WithNS` and is required: the importer never derives one from the document. The schema name comes from `WithSchema`, the document `title`, or the `$id` filename, in that order. `WithOpaqueJSON` imports a named `$ref` pointer as an opaque JSON field, which is the escape hatch for a cyclic `$ref`.
+
+See [Bring Your Own Types](bring-your-own-types.md) for the full type mapping, the two nesting representations, and the list of rejected constructs.
+
+## Errors
+
+The data path returns these:
+
+| Error                     | Cause                                                   |
+| ------------------------- | ------------------------------------------------------- |
+| `ErrInvalidJSON`          | The document did not parse                              |
+| `ErrMissingID`            | No ID field in the document                             |
+| `ErrEmptyID`              | The ID field is present but empty                       |
+| `ErrMissingNamespace`     | No namespace in the document and no `WithNS`            |
+| `ErrMissingSchema`        | No schema in the document and no `WithSchema`           |
+| `ErrNilRecord`            | A nil record was passed to `Unmarshal` or `MarshalInto` |
+| `core.ErrSchemaViolation` | A declared field cannot be decoded as its declared type |
+
+`ImportSchema` shares `ErrInvalidJSON`, returns `ErrMissingNamespace` when `WithNS` was not given, and returns `ErrMissingSchema` when no name resolves from `WithSchema`, `title`, or `$id`. Every unsupported construct has its own error that names the JSON pointer to the offending node: `ErrInvalidKey`, `ErrUnion`, `ErrConflict`, `ErrCrossDocument`, `ErrCyclicRef`, `ErrUnresolvedRef`, and `ErrUnsupported`.
 
 ## Related Concepts
 
 - [Records](records.md) — The data that is encoded
 - [Tuples](tuples.md) — Dot-notation attributes
 - [Types](types.md) — Type conversions during encoding
+- [Bring Your Own Types](bring-your-own-types.md) — The schema import path, and the sibling proto and Go-struct adapters
 - [Stores](stores.md) — The drivers use encoding for persistence

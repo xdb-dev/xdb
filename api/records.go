@@ -19,9 +19,9 @@ type RecordService struct {
 	store   store.Store
 	schemas store.SchemaStore
 	tuples  store.TupleStore
-	tx      store.TX // nil when the store does not support transactions
-	enc     *xdbjson.Encoder
-	events  *Bus // nil when change notifications are disabled
+	tx      store.TX
+	events  *Bus
+	encOpts []xdbjson.Option
 }
 
 // NewRecordService creates a [RecordService] backed by the given [store.Store].
@@ -32,7 +32,7 @@ func NewRecordService(s store.Store, opts ...ServiceOption) *RecordService {
 		store:   s,
 		schemas: s,
 		tuples:  s,
-		enc:     xdbjson.New(xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema()),
+		encOpts: []xdbjson.Option{xdbjson.WithIncludeNS(), xdbjson.WithIncludeSchema()},
 		events:  o.events,
 	}
 	if tx, ok := s.(store.TX); ok {
@@ -74,7 +74,7 @@ func (s *RecordService) stored(
 		return nil, 0, err
 	}
 
-	data, err := s.enc.FromRecord(record)
+	data, err := s.encode(record)
 	if err != nil {
 		return nil, 0, fmt.Errorf("api: encode record: %w", err)
 	}
@@ -131,8 +131,7 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 			return nil, optsErr
 		}
 
-		dec := xdbjson.NewDecoder(decOpts...)
-		if decErr := dec.ToExistingRecord(req.Data, record); decErr != nil {
+		if decErr := xdbjson.MarshalInto(req.Data, record, decOpts...); decErr != nil {
 			return nil, decErr
 		}
 	}
@@ -148,7 +147,7 @@ func (s *RecordService) Create(ctx context.Context, req *CreateRecordRequest) (*
 			return nil, getErr
 		}
 
-		equivalent, cmpErr := recordsEquivalent(s.enc, record, existing)
+		equivalent, cmpErr := s.recordsEquivalent(record, existing)
 		if cmpErr != nil {
 			return nil, cmpErr
 		}
@@ -216,12 +215,12 @@ func (s *RecordService) Get(ctx context.Context, req *GetRecordRequest) (*GetRec
 		}
 	}
 
-	var encOpts []xdbjson.EncodeOption
+	var encOpts []xdbjson.Option
 	if len(req.Fields) > 0 {
 		encOpts = append(encOpts, xdbjson.WithFields(req.Fields...))
 	}
 
-	data, encErr := s.enc.FromRecord(record, encOpts...)
+	data, encErr := s.encode(record, encOpts...)
 	if encErr != nil {
 		return nil, fmt.Errorf("api: encode record: %w", encErr)
 	}
@@ -264,14 +263,14 @@ func (s *RecordService) List(ctx context.Context, req *ListRecordsRequest) (*Lis
 		return nil, err
 	}
 
-	var encOpts []xdbjson.EncodeOption
+	var encOpts []xdbjson.Option
 	if len(req.Fields) > 0 {
 		encOpts = append(encOpts, xdbjson.WithFields(req.Fields...))
 	}
 
 	items := make([]json.RawMessage, len(page.Items))
 	for i, rec := range page.Items {
-		data, encErr := s.enc.FromRecord(rec, encOpts...)
+		data, encErr := s.encode(rec, encOpts...)
 		if encErr != nil {
 			return nil, fmt.Errorf("api: encode record: %w", encErr)
 		}
@@ -423,8 +422,7 @@ func mergeRecordPatch(
 		return nil, optsErr
 	}
 
-	dec := xdbjson.NewDecoder(decOpts...)
-	if decErr := dec.ToExistingRecord(data, existing); decErr != nil {
+	if decErr := xdbjson.MarshalInto(data, existing, decOpts...); decErr != nil {
 		return nil, decErr
 	}
 
@@ -463,8 +461,7 @@ func (s *RecordService) Upsert(ctx context.Context, req *UpsertRecordRequest) (*
 			return nil, optsErr
 		}
 
-		dec := xdbjson.NewDecoder(decOpts...)
-		if decErr := dec.ToExistingRecord(req.Data, record); decErr != nil {
+		if decErr := xdbjson.MarshalInto(req.Data, record, decOpts...); decErr != nil {
 			return nil, decErr
 		}
 	}
@@ -573,17 +570,27 @@ func decoderOpts(
 	return opts, nil
 }
 
+// encode renders a record as a JSON document using the service's base options
+// plus extra.
+func (s *RecordService) encode(rec *core.Record, extra ...xdbjson.Option) ([]byte, error) {
+	opts := make([]xdbjson.Option, 0, len(s.encOpts)+len(extra))
+	opts = append(opts, s.encOpts...)
+	opts = append(opts, extra...)
+
+	return xdbjson.Unmarshal(rec, opts...)
+}
+
 // recordsEquivalent reports whether a and b encode to the same canonical
 // JSON representation. It distinguishes an idempotent re-create (same
 // data) from a conflicting one (different data) on [core.ErrAlreadyExists].
 // The system attrs that the store derives are excluded from the comparison.
-func recordsEquivalent(enc *xdbjson.Encoder, a, b *core.Record) (bool, error) {
-	aData, err := enc.FromRecord(a)
+func (s *RecordService) recordsEquivalent(a, b *core.Record) (bool, error) {
+	aData, err := s.encode(a)
 	if err != nil {
 		return false, err
 	}
 
-	bData, err := enc.FromRecord(b)
+	bData, err := s.encode(b)
 	if err != nil {
 		return false, err
 	}
@@ -609,7 +616,7 @@ func recordsEquivalent(enc *xdbjson.Encoder, a, b *core.Record) (bool, error) {
 
 // recordResponse encodes a [core.Record] into a [CreateRecordResponse].
 func (s *RecordService) recordResponse(rec *core.Record) (*CreateRecordResponse, error) {
-	data, err := s.enc.FromRecord(rec)
+	data, err := s.encode(rec)
 	if err != nil {
 		return nil, fmt.Errorf("api: encode record: %w", err)
 	}
