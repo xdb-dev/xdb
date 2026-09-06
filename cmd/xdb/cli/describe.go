@@ -700,7 +700,7 @@ func describeSchemaFormat(cmd *cli.Command) error {
 			{"key": "type", "description": "Value type name (required)"},
 			{"key": "required", "description": "Reject writes missing this field"},
 			{"key": "indexed", "description": "Build a lookup index on this scalar field (SQLite strict and dynamic schemas; a hint elsewhere)"},
-			{"key": "unique", "description": "Enforce values are unique across records, on every backend; fixed at create"},
+			{"key": "unique", "description": "Reject duplicate values on a backend that materializes a unique index (SQLite strict and dynamic schemas); a hint elsewhere. Fixed at create"},
 			{"key": "elem_type", "description": "Element type; required when type is array"},
 			{"key": "items", "description": "Member field definitions for array fields with json elements"},
 			{"key": "description", "description": "Human-readable field description"},
@@ -723,7 +723,7 @@ func describeSchemaFormat(cmd *cli.Command) error {
 		"notes": []string{
 			"all keys are lowercase",
 			"schemas update adds or replaces fields; removal is not supported",
-			"indexed and unique are scalar-only and fixed at creation. unique is enforced on every backend and in every mode, and a duplicate write fails with UNIQUE_VIOLATION. indexed only speeds up lookups where the backend materializes an index (SQLite strict and dynamic schemas); elsewhere it is a hint",
+			"indexed and unique are scalar-only and fixed at creation. Both are backend capabilities: only a backend that materializes an index applies them (SQLite strict and dynamic schemas), where indexed speeds up lookups and a duplicate write on a unique field fails with UNIQUE_VIOLATION. Elsewhere both are stored declarations that change no behavior",
 		},
 	}
 

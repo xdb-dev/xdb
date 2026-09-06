@@ -70,6 +70,12 @@ func validModeList() string {
 // (including Required within the element and one level of further nesting).
 // Items is arrays-of-objects only — a single nested object flattens to dotted
 // attributes (e.g. profile.name) and never uses Items.
+//
+// Indexed and Unique are scalar-only declarations that a backend applies if
+// it can. They are backend capabilities, not store policy: a backend that
+// materializes an index speeds up lookups and rejects a duplicate write on
+// a Unique field with [core.ErrUniqueViolation]. A backend without one
+// stores the markers and enforces nothing.
 type Field struct {
 	Annotations map[string]string
 	Items       map[string]Field

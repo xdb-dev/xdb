@@ -206,7 +206,7 @@ type Page[T any] struct {
 - `NextOffset` is 0 when there are no more pages
 - `Total` is the total count of matching items, not only the current page
 
-The facade synthesizes lists from tuple scans, filters in-process, and paginates. A driver with native filter pushdown handles schema-scoped queries in the database instead. The sqlite driver compiles CEL to SQL WHERE clauses. A field marked `indexed` or `unique` in its [schema](schemas.md) accelerates that pushdown on sqlite. Other drivers store the flags but build no index. `unique` rejects duplicate writes with `ErrUniqueViolation` on every driver, because the enforcement middleware checks it above them.
+The facade synthesizes lists from tuple scans, filters in-process, and paginates. A driver with native filter pushdown handles schema-scoped queries in the database instead. The sqlite driver compiles CEL to SQL WHERE clauses. A field marked `indexed` or `unique` in its [schema](schemas.md) accelerates that pushdown on sqlite. Both markers are backend capabilities, not store policy: the sqlite column engine materializes an index and rejects a duplicate write on a `unique` field with `ErrUniqueViolation`. Other drivers store the markers but build no index and enforce nothing.
 
 ## Errors
 
@@ -216,7 +216,7 @@ The facade synthesizes lists from tuple scans, filters in-process, and paginates
 | `core.ErrAlreadyExists`     | Create                                                                             | Resource already exists                                                    |
 | `core.ErrSchemaViolation`   | `CreateRecord`, `UpsertRecord`, `PutTuples`, `DeleteTuples`, `CreateSchema`, `UpdateSchema` | Data or definition violates the schema                            |
 | `core.ErrConflict`          | `UpdateSchema`, record writes                                                      | Revision or `_version` CAS failed. The base of the caller is stale         |
-| `core.ErrUniqueViolation`   | `CreateRecord`, `UpsertRecord`, `PutTuples`                                        | A write collides with a `unique` field on another record                   |
+| `core.ErrUniqueViolation`   | `CreateRecord`, `UpsertRecord`, `PutTuples`                                        | A write collides with a `unique` field on another record. Only a backend with a unique index returns it |
 
 All errors are sentinel values. Use `errors.Is(err, core.ErrNotFound)` to test for one.
 

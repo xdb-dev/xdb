@@ -1,22 +1,24 @@
 package store
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"iter"
-	"time"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 )
 
 // enforce wraps a Driver with schema policy: per-tuple validation,
-// mode enforcement, dynamic evolution, required-field checks, unique
-// constraints, and revision stamping with CAS on schema writes. It is the ONE place
-// this policy exists — drivers store verbatim, and [New] installs it
+// mode enforcement, dynamic evolution, required-field checks, and
+// revision stamping with CAS on schema writes. It is the ONE place this
+// policy exists — drivers store verbatim, and [New] installs it
 // unconditionally, so a Store without enforcement is unrepresentable.
+//
+// The indexed and unique markers are not policy. They are backend
+// capabilities: a driver that materializes an index enforces them, and
+// a driver that does not stores them as declarations. See [schema.Field].
 func enforce(next Driver) Driver {
 	return &enforcer{next: next}
 }
@@ -146,17 +148,11 @@ func checkAgainstDef(
 		if err := checkRequired(def, m.Tuples); err != nil {
 			return nil, err
 		}
-		if err := checkUnique(ctx, d, def, m); err != nil {
-			return nil, err
-		}
 		return typeCheckOrEvolve(def, m.Tuples)
 
 	case OpPatch:
 		evolved, err := typeCheckOrEvolve(def, m.Tuples)
 		if err != nil {
-			return nil, err
-		}
-		if err = checkUnique(ctx, d, def, m); err != nil {
 			return nil, err
 		}
 		// A patch can only add or overwrite tuples, so a record
@@ -232,130 +228,6 @@ func checkRequired(def *schema.Def, tuples []*core.Tuple) error {
 		return fmt.Errorf("%w: %w", core.ErrSchemaViolation, err)
 	}
 	return nil
-}
-
-// uniqueValues returns the values a mutation writes into unique fields,
-// keyed by attr. It returns nil when the schema declares no unique field
-// or the mutation carries none, so an ordinary write pays no scan.
-//
-// A null is skipped: it carries no value, and unique constrains present
-// values only, so many records can leave the field empty.
-func uniqueValues(def *schema.Def, tuples []*core.Tuple) map[string]*core.Value {
-	var wanted map[string]*core.Value
-
-	for _, tuple := range tuples {
-		field, ok := def.Fields[tuple.Attr()]
-		if !ok || !field.Unique {
-			continue
-		}
-		if tuple.Value() == nil {
-			continue
-		}
-		if wanted == nil {
-			wanted = make(map[string]*core.Value, 1)
-		}
-		wanted[tuple.Attr()] = tuple.Value()
-	}
-
-	return wanted
-}
-
-// checkUnique returns [core.ErrUniqueViolation] when another record in the
-// same schema already holds a value this mutation writes into a unique
-// field. Enforcing it here makes unique portable: every driver gets the
-// same answer, including the SQLite key-value layout of a flexible schema,
-// which materializes no index.
-//
-// Like the required-field check this reads before it writes, so a
-// concurrent writer can still slip a duplicate past it. A backend that
-// materializes a unique index rejects that race at write time.
-func checkUnique(ctx context.Context, d Driver, def *schema.Def, m Mutation) error {
-	wanted := uniqueValues(def, m.Tuples)
-	if len(wanted) == 0 {
-		return nil
-	}
-
-	self := m.Path.String()
-
-	for tuple, err := range d.ScanTuples(ctx, m.Path.SchemaURI()) {
-		if err != nil {
-			return err
-		}
-
-		want, ok := wanted[tuple.Attr()]
-		if !ok {
-			continue
-		}
-		// A record never collides with itself.
-		if tuple.Path().String() == self {
-			continue
-		}
-		if sameValue(want, tuple.Value()) {
-			return fmt.Errorf(
-				"%w: field %q", core.ErrUniqueViolation, tuple.Attr(),
-			)
-		}
-	}
-
-	return nil
-}
-
-// sameValue reports whether two scalar values are equal. A unique field is
-// scalar-only (schema validation rejects ARRAY and JSON), so this covers
-// every type such a field can hold.
-func sameValue(a, b *core.Value) bool {
-	if a == nil || b == nil {
-		return false
-	}
-	if a.Type().ID() != b.Type().ID() {
-		return false
-	}
-
-	switch a.Type().ID() {
-	case core.TIDString:
-		return sameAs(a, b, (*core.Value).AsStr)
-	case core.TIDInteger:
-		return sameAs(a, b, (*core.Value).AsInt)
-	case core.TIDUnsigned:
-		return sameAs(a, b, (*core.Value).AsUint)
-	case core.TIDFloat:
-		return sameAs(a, b, (*core.Value).AsFloat)
-	case core.TIDBoolean:
-		return sameAs(a, b, (*core.Value).AsBool)
-	case core.TIDBytes:
-		return sameBy(a, b, (*core.Value).AsBytes, bytes.Equal)
-	case core.TIDTime:
-		return sameBy(a, b, (*core.Value).AsTime, time.Time.Equal)
-	default:
-		return false
-	}
-}
-
-// sameAs reads both values through the same typed accessor and compares
-// them. A read error means the value does not hold that type, so it is
-// not equal to anything.
-func sameAs[T comparable](a, b *core.Value, as func(*core.Value) (T, error)) bool {
-	return sameBy(a, b, as, func(x, y T) bool { return x == y })
-}
-
-// sameBy is [sameAs] for types that need their own equality, such as
-// []byte and [time.Time].
-func sameBy[T any](
-	a, b *core.Value,
-	as func(*core.Value) (T, error),
-	equal func(T, T) bool,
-) bool {
-	x, err := as(a)
-	if err != nil {
-		return false
-	}
-
-	y, err := as(b)
-	if err != nil {
-		return false
-	}
-
-	return equal(x, y)
 }
 
 // hasRequiredFields reports whether the schema declares any required

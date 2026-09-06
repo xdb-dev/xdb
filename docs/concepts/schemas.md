@@ -87,7 +87,8 @@ not use `Items`. It flattens to dotted attributes, for example
 #### Indexed and unique fields
 
 A scalar field can be marked `indexed` to make equality and `in` lookups
-faster, or `unique` to reject duplicate values. Both are declared per field:
+faster, or `unique` to declare that its values must not repeat. Both are
+declared per field:
 
 ```go
 schema.Field{Type: core.NewType(core.TIDString), Indexed: true} // lookup key
@@ -96,17 +97,19 @@ schema.Field{Type: core.NewType(core.TIDString), Unique: true}  // unique constr
 
 In JSON: `{"type": "string", "indexed": true}` or `{"type": "string", "unique": true}`.
 
-`unique` is enforced on every backend and in every mode. The store's
-enforcement middleware checks the value before the write, and a duplicate
-fails with `core.ErrUniqueViolation`. Because the check reads before it
-writes, two concurrent writers can still race a duplicate past it.
+Both markers are backend capabilities, not store policy. XDB stores them
+on every backend, and the backend applies them if it can.
 
-`indexed` only makes lookups faster where the backend materializes an
-index. On SQLite, a `strict` or `dynamic` schema gets a real index on the
-column table (`CREATE INDEX`, or `CREATE UNIQUE INDEX` for `unique`), which
-also closes the race above. Everywhere else — memory, filesystem, redis, and
-the SQLite key-value tables of a `flexible` schema — `indexed` is a stored
-hint that changes no behavior.
+On SQLite, a `strict` or `dynamic` schema gets a real index on the column
+table (`CREATE INDEX`, or `CREATE UNIQUE INDEX` for `unique`). There
+`indexed` makes lookups faster, and a duplicate write on a `unique` field
+fails with `core.ErrUniqueViolation`. Everywhere else — memory,
+filesystem, redis, and the SQLite key-value tables of a `flexible`
+schema — both markers are stored declarations that change no behavior. A
+duplicate value is accepted.
+
+Declare `unique` for the intent, and pick a backend that materializes it
+if you need the guarantee.
 
 Rules:
 
@@ -121,8 +124,9 @@ Rules:
   `indexed` or `unique` keeps the stored value, so you can edit the
   description or the required flag of a marked field without restating the
   marker. A patch that gives the key a new value is still rejected.
-- **Present values only.** `unique` constrains present values only. Many
-  records can omit the field, because NULL values are distinct.
+- **Present values only.** Where `unique` is materialized, it constrains
+  present values only. Many records can omit the field, because NULL values
+  are distinct.
 
 ## Modes
 

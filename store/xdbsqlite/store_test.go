@@ -82,17 +82,6 @@ func TestVersioning(t *testing.T) {
 	}).Run(t)
 }
 
-// TestUnique runs the policy suite here as well as against the memory
-// reference. SQLite is the one backend with a second, independent
-// enforcement path — the UNIQUE index on a column table — so this pins
-// the two against each other, including the flexible-mode key-value
-// layout, which materializes no index.
-func TestUnique(t *testing.T) {
-	tests.NewUniqueStoreSuite(func() store.Store {
-		return newTestStore(t)
-	}).Run(t)
-}
-
 // The other policy suites (ModeStoreSuite, CascadeStoreSuite) are
 // driver-independent and run once against the memory reference; see
 // the tests package doc. This backend's storage behavior is pinned by
