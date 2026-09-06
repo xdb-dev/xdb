@@ -33,3 +33,10 @@ Inter and JetBrains Mono load from Google Fonts and fall back to system fonts wh
 The design exploration that led here is in `docs/landing/mock.html`. The
 information architecture and the reasoning behind it are in
 `docs/plans/2026-09-05-landing-page-ia.md`.
+
+## Deploying
+
+`.github/workflows/pages.yml` publishes this directory to GitHub Pages at
+<https://xdb-dev.github.io/xdb/>. It runs on every push to `main` that touches
+`site/`, and can be run by hand from the Actions tab. There is no build step:
+the workflow uploads `site/` as-is, so keep every asset path relative.
