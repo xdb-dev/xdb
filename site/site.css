@@ -100,6 +100,19 @@ figcaption b { font-weight: 400; color: var(--ink); }
 .frame { border: 1px solid var(--line); background: #fff; padding: 18px; }
 
 /* hero */
+/* Hand-drawn underline. The two paths are rough.js output for a single line,
+   drawn with the same base the figures use in site.js (roughness 1.1,
+   strokeWidth 1.4, bowing 1.2, seed 25), then baked in so the hero needs no
+   JS. rough.js strokes every line twice; that doubling is what reads as a pen
+   rather than a rule. See site/README.md to regenerate. */
+.sketch {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 14' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%232b4ee6' stroke-width='1.4' stroke-linecap='round'%3E%3Cpath d='M3.16 7.07C61.23 10.57 122.09 10.30 298.13 8.47'/%3E%3Cpath d='M1.82 7.50C101.60 4.98 199.73 4.78 297.58 7.66'/%3E%3C/g%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% .26em;
+  padding-bottom: .1em;
+}
+
 .hero-grid { display: grid; grid-template-columns: 1fr 1.15fr; gap: 48px; align-items: center; padding-bottom: 56px; }
 @media (max-width: 860px) { .hero-grid { grid-template-columns: 1fr; } }
 .hero .lede { margin-top: 18px; }

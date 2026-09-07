@@ -24,6 +24,8 @@ python3 -m http.server -d site 8000
   Every feature has exactly one home. When you add one, put it in the section
   whose question it answers rather than appending a card to the end.
 - `site.css` — styles. Cream background, one blue accent, dashed section rules.
+  The `.sketch` rule holds the hero underline: a rough.js stroke baked into a
+  data URI, so the headline needs no JS. See below.
 - `site.js` — the hand-drawn figures. Each `figure(...)` call renders one SVG with [rough.js](https://roughjs.com) using fixed seeds, so the sketches are identical on every load.
 - `vendor/rough.js` — rough.js 4.6.6 (MIT).
 - `og.html` / `og.png` — the social card. See below.
@@ -34,6 +36,28 @@ Inter and JetBrains Mono load from Google Fonts and fall back to system fonts wh
 The design exploration that led here is in `docs/landing/mock.html`. The
 information architecture and the reasoning behind it are in
 `docs/plans/2026-09-05-landing-page-ia.md`.
+
+## The hero underline
+
+`.sketch` in `site.css` underlines "Store anywhere." with the same pen as the
+figures. It is one rough.js line drawn with the base from `site.js` — roughness
+1.1, strokeWidth 1.4, bowing 1.2, seed 25 — with the resulting two paths baked
+into a data URI. rough.js strokes every line twice, and that doubling is what
+reads as a pen rather than a rule.
+
+To draw a different one, load `vendor/rough.js` in a page and dump the paths:
+
+```js
+const rc = rough.svg(document.querySelector("svg")); // viewBox 0 0 300 14
+const g = rc.line(2, 7, 298, 7,
+  { roughness: 1.1, strokeWidth: 1.4, bowing: 1.2, seed: 25, stroke: "#2b4ee6" });
+[...g.querySelectorAll("path")].map((p) => p.getAttribute("d"));
+```
+
+Try a few seeds and keep one whose two strokes stay inside the viewBox. Then
+substitute the paths into the data URI, encoding `<`, `>` and `#` as `%3C`,
+`%3E` and `%23`. The SVG is `preserveAspectRatio="none"`, so it stretches to the
+width of the headline at every breakpoint.
 
 ## Social card
 

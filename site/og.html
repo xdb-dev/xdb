@@ -86,9 +86,11 @@
   }));
 
   // Underline under "Store anywhere.", the width of that line of the heading.
+  // Heavier than the box and than the site's own underline: a social card is
+  // read at a few hundred pixels wide in a feed, where a hairline disappears.
   const head = document.querySelector("h1").getBoundingClientRect();
   add(rc.line(78, head.bottom - 6, 768, head.bottom - 6, {
-    ...base, seed: 21, stroke: "#2b4ee6", strokeWidth: 3,
+    ...base, seed: 21, stroke: "#2b4ee6", strokeWidth: 6,
   }));
 
 </script>
