@@ -24,6 +24,10 @@ type Tuple struct {
 }
 
 // NewTuple creates a new Tuple.
+//
+// It panics if path is not a valid record path, if attr is not a valid
+// attribute name, or if value is not a supported type. See [NewValue] for
+// the supported set, and validate external input before calling.
 func NewTuple(path, attr string, value any) *Tuple {
 	p, err := ParsePath(path)
 	if err != nil {
@@ -39,7 +43,7 @@ func newTuple(path *URI, attr string, value any) *Tuple {
 	return &Tuple{
 		path:  path,
 		attr:  attr,
-		value: NewValue(value),
+		value: MustNewValue(value),
 	}
 }
 

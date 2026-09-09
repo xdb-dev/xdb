@@ -80,7 +80,7 @@ func JSONVal(v json.RawMessage) *Value {
 //
 // ArrayVal retains elems and its values without copying them.
 // It does not verify that each element's type matches elemTypeID.
-// [NewValue] and [NewSafeValue] derive and validate the
+// [MustNewValue] and [NewValue] derive and validate the
 // element type when building arrays from Go slices.
 func ArrayVal(elemTypeID TID, elems ...*Value) *Value {
 	return &Value{
@@ -268,24 +268,15 @@ var (
 )
 
 // NewValue creates a new [Value] from the given input.
-// Panics if the input type is not supported.
-//
-// Supported types: bool, int*, uint*, float*, string, []byte, byte arrays,
-// [time.Time], [json.RawMessage], and slices of supported types.
-func NewValue(input any) *Value {
-	v, err := NewSafeValue(input)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-// NewSafeValue creates a new [Value] from the given input.
 // Returns [ErrUnsupportedValue] if the input type is not supported.
 //
-// A slice or an array whose element type is a byte becomes [TypeBytes];
-// the bytes of an array are copied, so the value does not alias the input.
-func NewSafeValue(input any) (*Value, error) {
+// Supported types: bool, int*, uint*, float*, string, []byte, byte arrays,
+// [time.Time], [json.RawMessage], and slices of supported types. A slice or
+// an array whose element type is a byte becomes [TypeBytes]. The bytes of
+// an array are copied, so the value does not alias the input.
+//
+// Use [MustNewValue] for input known to be supported at compile time.
+func NewValue(input any) (*Value, error) {
 	if input == nil {
 		return nil, nil
 	}
@@ -304,6 +295,18 @@ func NewSafeValue(input any) (*Value, error) {
 	}
 
 	return newReflectValue(iv)
+}
+
+// MustNewValue is like [NewValue] but panics if the input type is not
+// supported. It is for values fixed at compile time, such as literals in
+// tests and package initialization.
+func MustNewValue(input any) *Value {
+	v, err := NewValue(input)
+	if err != nil {
+		panic(err)
+	}
+
+	return v
 }
 
 func newReflectValue(iv reflect.Value) (*Value, error) {
@@ -353,7 +356,7 @@ func newSliceValue(iv reflect.Value) (*Value, error) {
 	var elemType Type
 	haveType := false
 	for i := range iv.Len() {
-		v, err := NewSafeValue(iv.Index(i).Interface())
+		v, err := NewValue(iv.Index(i).Interface())
 		if err != nil {
 			return nil, err
 		}

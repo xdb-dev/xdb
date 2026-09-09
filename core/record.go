@@ -47,6 +47,11 @@ func (r *Record) GoString() string {
 
 // Set adds or updates a tuple in the Record with the given attribute and value.
 // If a tuple with the same attribute already exists, it will be replaced.
+//
+// It panics if attr is not a valid attribute name, or if value is not a
+// supported type. See [NewValue] for the supported set. Set is the usual
+// way to assemble a record from external data, so validate that data with
+// [NewValue] first rather than relying on Set to be forgiving.
 func (r *Record) Set(attr string, value any) *Record {
 	r.mu.Lock()
 	defer r.mu.Unlock()

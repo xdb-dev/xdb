@@ -288,23 +288,23 @@ func TestAsArray(t *testing.T) {
 	})
 }
 
-// --- NewValue / NewSafeValue ---
+// --- MustNewValue / NewValue ---
 
 func TestNewSafeValueNil(t *testing.T) {
-	v, err := NewSafeValue(nil)
+	v, err := NewValue(nil)
 	require.NoError(t, err)
 	assert.Nil(t, v)
 }
 
 func TestNewSafeValuePassThrough(t *testing.T) {
 	orig := BoolVal(true)
-	v, err := NewSafeValue(orig)
+	v, err := NewValue(orig)
 	require.NoError(t, err)
 	assert.Same(t, orig, v)
 }
 
 func TestNewSafeValueBool(t *testing.T) {
-	v, err := NewSafeValue(true)
+	v, err := NewValue(true)
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDBoolean, v.Type().ID())
@@ -326,7 +326,7 @@ func TestNewSafeValueInts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v, err := NewSafeValue(tt.input)
+			v, err := NewValue(tt.input)
 			require.NoError(t, err)
 			require.NotNil(t, v)
 			assert.Equal(t, TIDInteger, v.Type().ID())
@@ -349,7 +349,7 @@ func TestNewSafeValueUints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v, err := NewSafeValue(tt.input)
+			v, err := NewValue(tt.input)
 			require.NoError(t, err)
 			require.NotNil(t, v)
 			assert.Equal(t, TIDUnsigned, v.Type().ID())
@@ -359,7 +359,7 @@ func TestNewSafeValueUints(t *testing.T) {
 }
 
 func TestNewSafeValueUint8IsByte(t *testing.T) {
-	v, err := NewSafeValue(uint8(7))
+	v, err := NewValue(uint8(7))
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDUnsigned, v.Type().ID())
@@ -377,7 +377,7 @@ func TestNewSafeValueFloats(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v, err := NewSafeValue(tt.input)
+			v, err := NewValue(tt.input)
 			require.NoError(t, err)
 			require.NotNil(t, v)
 			assert.Equal(t, TIDFloat, v.Type().ID())
@@ -387,7 +387,7 @@ func TestNewSafeValueFloats(t *testing.T) {
 }
 
 func TestNewSafeValueString(t *testing.T) {
-	v, err := NewSafeValue("hello")
+	v, err := NewValue("hello")
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDString, v.Type().ID())
@@ -395,7 +395,7 @@ func TestNewSafeValueString(t *testing.T) {
 }
 
 func TestNewSafeValueBytes(t *testing.T) {
-	v, err := NewSafeValue([]byte("hello"))
+	v, err := NewValue([]byte("hello"))
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDBytes, v.Type().ID())
@@ -417,7 +417,7 @@ func TestNewSafeValueByteArray(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v, err := NewSafeValue(tt.input)
+			v, err := NewValue(tt.input)
 			require.NoError(t, err)
 			require.NotNil(t, v)
 			assert.Equal(t, TIDBytes, v.Type().ID())
@@ -428,7 +428,7 @@ func TestNewSafeValueByteArray(t *testing.T) {
 
 func TestNewSafeValueTime(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
-	v, err := NewSafeValue(now)
+	v, err := NewValue(now)
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDTime, v.Type().ID())
@@ -437,7 +437,7 @@ func TestNewSafeValueTime(t *testing.T) {
 
 func TestNewSafeValueJSONRawMessage(t *testing.T) {
 	raw := json.RawMessage(`{"key":"value"}`)
-	v, err := NewSafeValue(raw)
+	v, err := NewValue(raw)
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDJSON, v.Type().ID())
@@ -446,7 +446,7 @@ func TestNewSafeValueJSONRawMessage(t *testing.T) {
 
 func TestNewSafeValuePointer(t *testing.T) {
 	s := "hello"
-	v, err := NewSafeValue(&s)
+	v, err := NewValue(&s)
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDString, v.Type().ID())
@@ -455,13 +455,13 @@ func TestNewSafeValuePointer(t *testing.T) {
 
 func TestNewSafeValueNilPointer(t *testing.T) {
 	var s *string
-	v, err := NewSafeValue(s)
+	v, err := NewValue(s)
 	require.NoError(t, err)
 	assert.Nil(t, v)
 }
 
 func TestNewSafeValueSlice(t *testing.T) {
-	v, err := NewSafeValue([]string{"a", "b", "c"})
+	v, err := NewValue([]string{"a", "b", "c"})
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDArray, v.Type().ID())
@@ -473,7 +473,7 @@ func TestNewSafeValueSlice(t *testing.T) {
 }
 
 func TestNewSafeValueSliceInt(t *testing.T) {
-	v, err := NewSafeValue([]int64{1, 2, 3})
+	v, err := NewValue([]int64{1, 2, 3})
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDArray, v.Type().ID())
@@ -483,7 +483,7 @@ func TestNewSafeValueSliceInt(t *testing.T) {
 func TestNewSafeValueEmptySlice(t *testing.T) {
 	// An empty typed slice is an empty array, not nil — the element type is
 	// derived from the slice's static element type.
-	v, err := NewSafeValue([]string{})
+	v, err := NewValue([]string{})
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDArray, v.Type().ID())
@@ -495,7 +495,7 @@ func TestNewSafeValueEmptySlice(t *testing.T) {
 }
 
 func TestNewSafeValueEmptySliceInt(t *testing.T) {
-	v, err := NewSafeValue([]int64{})
+	v, err := NewValue([]int64{})
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDArray, v.Type().ID())
@@ -504,25 +504,25 @@ func TestNewSafeValueEmptySliceInt(t *testing.T) {
 
 func TestNewSafeValueEmptyAnySlice(t *testing.T) {
 	// An empty []any has no derivable element type.
-	_, err := NewSafeValue([]any{})
+	_, err := NewValue([]any{})
 	assert.ErrorIs(t, err, ErrUnsupportedValue)
 }
 
 func TestNewSafeValueHeterogeneousSlice(t *testing.T) {
 	// Mixed element types are rejected, wrapped with the offending index.
-	_, err := NewSafeValue([]any{1, "a"})
+	_, err := NewValue([]any{1, "a"})
 	assert.ErrorIs(t, err, ErrUnsupportedValue)
 }
 
 func TestNewSafeValueHomogeneousAnySlice(t *testing.T) {
-	v, err := NewSafeValue([]any{int64(1), int64(2)})
+	v, err := NewValue([]any{int64(1), int64(2)})
 	require.NoError(t, err)
 	assert.Equal(t, TIDArray, v.Type().ID())
 	assert.Equal(t, TIDInteger, v.Type().ElemTypeID())
 }
 
 func TestNewSafeValueNestedSlice(t *testing.T) {
-	v, err := NewSafeValue([][]string{{"a"}, {"b"}})
+	v, err := NewValue([][]string{{"a"}, {"b"}})
 	require.NoError(t, err)
 	assert.Equal(t, TIDArray, v.Type().ID())
 	assert.Equal(t, TIDArray, v.Type().ElemTypeID())
@@ -530,7 +530,7 @@ func TestNewSafeValueNestedSlice(t *testing.T) {
 
 func TestNewSafeValueSliceOfBytes(t *testing.T) {
 	// []byte is bytes; [][]byte is an array of bytes.
-	v, err := NewSafeValue([][]byte{[]byte("a"), []byte("b")})
+	v, err := NewValue([][]byte{[]byte("a"), []byte("b")})
 	require.NoError(t, err)
 	assert.Equal(t, TIDArray, v.Type().ID())
 	assert.Equal(t, TIDBytes, v.Type().ElemTypeID())
@@ -549,24 +549,24 @@ func TestNewSafeValueUnsupported(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewSafeValue(tt.input)
+			_, err := NewValue(tt.input)
 			assert.ErrorIs(t, err, ErrUnsupportedValue)
 		})
 	}
 }
 
 func TestNewValuePanicsOnUnsupported(t *testing.T) {
-	assert.Panics(t, func() { NewValue(struct{}{}) })
+	assert.Panics(t, func() { MustNewValue(struct{}{}) })
 }
 
 func TestNewValuePrimitives(t *testing.T) {
-	assert.Equal(t, TIDBoolean, NewValue(true).Type().ID())
-	assert.Equal(t, TIDInteger, NewValue(42).Type().ID())
-	assert.Equal(t, TIDString, NewValue("hello").Type().ID())
+	assert.Equal(t, TIDBoolean, MustNewValue(true).Type().ID())
+	assert.Equal(t, TIDInteger, MustNewValue(42).Type().ID())
+	assert.Equal(t, TIDString, MustNewValue("hello").Type().ID())
 }
 
 func TestNewValueNilReturnsNil(t *testing.T) {
-	assert.Nil(t, NewValue(nil))
+	assert.Nil(t, MustNewValue(nil))
 }
 
 // --- NewTypedValue ---

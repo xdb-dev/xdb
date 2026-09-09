@@ -149,7 +149,7 @@ func populateRecord(record *core.Record, m map[string]any, o options) error {
 
 		value = inferNumbers(value)
 
-		v, err := core.NewSafeValue(value)
+		v, err := core.NewValue(value)
 		if err != nil || v == nil {
 			continue
 		}
@@ -200,7 +200,7 @@ func convertDeclaredValue(value any, t core.Type) (*core.Value, bool) {
 		}
 	}
 
-	v, err := core.NewSafeValue(converted)
+	v, err := core.NewValue(converted)
 	if err != nil || v == nil || !typeMatches(v.Type(), t) {
 		return nil, false
 	}
@@ -332,7 +332,7 @@ func convertMember(v any, field schema.Field) any {
 }
 
 // convertToType converts value to the Go representation of t, always
-// returning something that either [core.NewSafeValue] can wrap directly or —
+// returning something that either [core.NewValue] can wrap directly or —
 // for an object-array element member — can be re-marshaled to JSON as-is.
 // It never returns a [*core.Value]: the same conversion is used both to build
 // top-level declared values (via [convertDeclaredValue]) and to type members
