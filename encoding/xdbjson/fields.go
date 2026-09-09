@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gojekfarm/xtools/errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 	"github.com/google/jsonschema-go/jsonschema"
 
 	"github.com/xdb-dev/xdb/core"
@@ -31,10 +31,10 @@ func scalarTID(n *jsonschema.Schema, ptr string) (core.TID, error) {
 	types := nonNullTypes(n)
 
 	if len(types) > 1 {
-		return "", errors.Wrap(ErrUnsupported,
+		return "", xerrors.Wrap(ErrUnsupported,
 			"pointer", ptr,
 			"reason", "multiple non-null types are not supported",
-			"types", strings.Join(types, ","),
+			"type", strings.Join(types, ","),
 		)
 	}
 
@@ -47,7 +47,7 @@ func scalarTID(n *jsonschema.Schema, ptr string) (core.TID, error) {
 	case n.Const != nil:
 		t = inferJSONType(*n.Const)
 	default:
-		return "", errors.Wrap(ErrUnsupported,
+		return "", xerrors.Wrap(ErrUnsupported,
 			"pointer", ptr,
 			"reason", "node has no mappable type",
 		)
@@ -66,7 +66,7 @@ func scalarTID(n *jsonschema.Schema, ptr string) (core.TID, error) {
 	case "boolean":
 		return core.TIDBoolean, nil
 	default:
-		return "", errors.Wrap(ErrUnsupported,
+		return "", xerrors.Wrap(ErrUnsupported,
 			"pointer", ptr,
 			"reason", "unsupported scalar type",
 			"type", t,

@@ -66,7 +66,7 @@ func NewDriver(root string, opts Options) (*Driver, error) {
 	opts = opts.withDefaults()
 
 	if err := os.MkdirAll(root, dirPerm); err != nil {
-		return nil, fmt.Errorf("xdbfs: create root directory: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbfs] create root directory: %w", err)
 	}
 
 	return &Driver{
@@ -87,17 +87,17 @@ func (d *Driver) Close() error { return nil }
 func (d *Driver) Health(_ context.Context) error {
 	info, err := os.Stat(d.root)
 	if err != nil {
-		return fmt.Errorf("xdbfs: root directory: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] root directory: %w", err)
 	}
 
 	if !info.IsDir() {
-		return fmt.Errorf("xdbfs: root is not a directory: %s", d.root)
+		return fmt.Errorf("[xdb/xdbfs] root is not a directory: %s", d.root)
 	}
 
 	// Check write access by creating and removing a temp file.
 	f, err := os.CreateTemp(d.root, ".health-*")
 	if err != nil {
-		return fmt.Errorf("xdbfs: root not writable: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] root not writable: %w", err)
 	}
 
 	name := f.Name()

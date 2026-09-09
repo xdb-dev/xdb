@@ -1,6 +1,10 @@
 package xdbstruct
 
-import "github.com/gojekfarm/xtools/errors"
+import (
+	"errors"
+
+	xerrors "github.com/gojekfarm/xtools/errors"
+)
 
 var (
 	// ErrNotStruct is returned when the reflected type is not a struct.
@@ -18,9 +22,9 @@ var (
 // rejectErr builds an [ErrUnsupported] naming the field, the offending kind,
 // and the fix.
 func rejectErr(field, kind, fix string) error {
-	return errors.Wrap(ErrUnsupported,
+	return xerrors.Wrap(ErrUnsupported,
 		"field", field,
-		"kind", kind,
+		"type", kind,
 		"fix", fix,
 	)
 }

@@ -284,3 +284,41 @@ func TestCodeFromRPC_UniqueViolation(t *testing.T) {
 	assert.Equal(t, CodeUniqueViolation, codeFromRPC(rpc.CodeUniqueViolation))
 	assert.Equal(t, CodeConflict, codeFromRPC(rpc.CodeConflict))
 }
+
+func TestWrapRPCErrorCarriesTags(t *testing.T) {
+	t.Run("details and fix come from the error data", func(t *testing.T) {
+		err := wrapRPCError("records", "put", "xdb://ns/s/id", &rpc.Error{
+			Code:    rpc.CodeSchemaViolation,
+			Message: "schema violation",
+			Data: map[string]any{
+				"field":    "age",
+				"expected": "INTEGER",
+				"got":      "STRING",
+				"fix":      "send age as an integer",
+			},
+		})
+
+		var env *output.ErrorEnvelope
+		require.ErrorAs(t, err, &env)
+
+		assert.Equal(t, "send age as an integer", env.Hint)
+		assert.Equal(t, map[string]string{
+			"field":    "age",
+			"expected": "INTEGER",
+			"got":      "STRING",
+		}, env.Details)
+	})
+
+	t.Run("no data leaves details unset and keeps the generic hint", func(t *testing.T) {
+		err := wrapRPCError("records", "get", "xdb://ns/s/id", &rpc.Error{
+			Code:    rpc.CodeNotFound,
+			Message: "not found",
+		})
+
+		var env *output.ErrorEnvelope
+		require.ErrorAs(t, err, &env)
+
+		assert.Nil(t, env.Details)
+		assert.NotEmpty(t, env.Hint)
+	})
+}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"testing"
 
+	xerrors "github.com/gojekfarm/xtools/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,6 +21,7 @@ func TestMapError(t *testing.T) {
 	tests := []struct {
 		name           string
 		err            error
+		wantData       map[string]string
 		wantCode       int
 		wantDataReason string
 	}{
@@ -30,7 +32,7 @@ func TestMapError(t *testing.T) {
 		},
 		{
 			name:     "wrapped ErrNotFound maps to CodeNotFound",
-			err:      fmt.Errorf("api: records.get xdb://ns/s/id: %w", core.ErrNotFound),
+			err:      fmt.Errorf("[xdb/api] records.get xdb://ns/s/id: %w", core.ErrNotFound),
 			wantCode: CodeNotFound,
 		},
 		{
@@ -75,7 +77,7 @@ func TestMapError(t *testing.T) {
 		},
 		{
 			name:     "wrapped ErrNotImplemented maps to CodeNotImplemented",
-			err:      fmt.Errorf("api: batch.execute: %w", core.ErrNotImplemented),
+			err:      fmt.Errorf("[xdb/api] batch.execute: %w", core.ErrNotImplemented),
 			wantCode: CodeNotImplemented,
 		},
 		{
@@ -122,6 +124,40 @@ func TestMapError(t *testing.T) {
 			err:      fmt.Errorf("validate def: %w", schema.ErrInvalidMode),
 			wantCode: CodeSchemaViolation,
 		},
+		{
+			name: "tags reach Data",
+			err: xerrors.Wrap(core.ErrSchemaViolation,
+				"field", "age",
+				"expected", "INTEGER",
+				"got", "STRING",
+			),
+			wantCode: CodeSchemaViolation,
+			wantData: map[string]string{
+				"field":    "age",
+				"expected": "INTEGER",
+				"got":      "STRING",
+			},
+		},
+		{
+			name: "tags survive an outer fmt.Errorf",
+			err: fmt.Errorf("[xdb/api] records.put: %w", xerrors.Wrap(
+				core.ErrSchemaViolation, "field", "age",
+			)),
+			wantCode: CodeSchemaViolation,
+			wantData: map[string]string{"field": "age"},
+		},
+		{
+			name: "a tagged reason wins over the sentinel default",
+			err: xerrors.Wrap(core.ErrInvalidURI,
+				"reason", "attr_not_allowed",
+				"parts", "a/b/c",
+			),
+			wantCode: CodeInvalidParams,
+			wantData: map[string]string{
+				"reason": "attr_not_allowed",
+				"parts":  "a/b/c",
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -130,9 +166,15 @@ func TestMapError(t *testing.T) {
 			assert.Equal(t, tt.wantCode, rpcErr.Code)
 
 			if tt.wantDataReason != "" {
-				data, ok := rpcErr.Data.(map[string]any)
-				require.True(t, ok, "expected Data to be map[string]any, got %T", rpcErr.Data)
+				data, ok := rpcErr.Data.(map[string]string)
+				require.True(t, ok, "expected Data to be map[string]string, got %T", rpcErr.Data)
 				assert.Equal(t, tt.wantDataReason, data["reason"])
+			}
+
+			if tt.wantData != nil {
+				assert.Equal(t, tt.wantData, rpcErr.Data)
+			} else if tt.wantDataReason == "" {
+				assert.Nil(t, rpcErr.Data)
 			}
 		})
 	}

@@ -49,7 +49,7 @@ func WithSchemaCache() Option {
 // when Close or Health is called.
 func New(d Driver, opts ...Option) Store {
 	if d == nil {
-		panic("store: New requires a non-nil Driver")
+		panic("[xdb/store] New requires a non-nil Driver")
 	}
 
 	var o options
@@ -536,10 +536,10 @@ func requireAttrURI(uri *core.URI, op, hint string) error {
 	}
 
 	if hint == "" {
-		return fmt.Errorf("store: %s requires an attr-level URI, got %s", op, uri)
+		return fmt.Errorf("[xdb/store] %s requires an attr-level URI, got %s", op, uri)
 	}
 
-	return fmt.Errorf("store: %s requires an attr-level URI, got %s (use %s)",
+	return fmt.Errorf("[xdb/store] %s requires an attr-level URI, got %s (use %s)",
 		op, uri, hint)
 }
 

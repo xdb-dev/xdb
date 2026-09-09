@@ -84,4 +84,47 @@
 //	// A standalone tuple, addressed by its path and attribute.
 //	tuple := NewTuple("com.example/posts/123-456-789", "title", "Hello World")
 //	uri := tuple.URI() // xdb://com.example/posts/123-456-789#title
+//
+// # Error tags
+//
+// XDB attaches structured data to an error with xerrors.Wrap from
+// github.com/gojekfarm/xtools/errors, imported under that alias
+// everywhere. New, Is, As, Join, and Unwrap come from the standard
+// library. A call site using xerrors. is therefore attaching structured
+// data, and one using plain errors. is not.
+//
+// The tags reach callers as the data object of a JSON-RPC error, so the
+// key set is part of the public API rather than an internal detail. Only
+// these keys are permitted:
+//
+//	field      the attribute or struct field at fault
+//	member     a name inside field, for object-valued attributes
+//	pointer    a JSON Pointer locating the fault in the source document
+//	reason     a short machine-readable cause, in snake_case
+//	fix        one sentence telling the caller what to do instead
+//	type       a type name, or a comma-separated list of them
+//	expected   the value or type required
+//	got        the value or type supplied
+//	from       the prior value, for a genuine transition
+//	to         the new value, for a genuine transition
+//	valid      a comma-separated list of the permitted values
+//	ref        an unresolved $ref
+//	keys       a comma-separated list of offending keys in the source
+//	keyword    the source-format keyword at fault, e.g. oneOf
+//	cycle      a rendered type cycle
+//	index      the position of the offending element
+//	mode       a schema mode name
+//	message    a protobuf message name
+//	number     a protobuf field number
+//	oneof      a protobuf oneof name
+//	parts      the components of a malformed URI
+//	conflict   a colliding declaration
+//
+// Use expected/got for a mismatch and from/to only for a transition such
+// as schema evolution. Adding a key means adding it here first.
+//
+// xerrors.Wrap panics on an odd number of attrs, so the pairs must
+// balance. It also mutates an existing *xerrors.ErrorTags in the chain
+// in place rather than wrapping it. Tag an error once, at the point the
+// fault is detected, and never re-wrap one that already carries tags.
 package core

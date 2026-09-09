@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gojekfarm/xtools/errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
 )
@@ -344,7 +344,7 @@ func cycleErr(stack []reflect.Type, t reflect.Type, field string) error {
 	}
 	names = append(names, t.Name())
 
-	return errors.Wrap(ErrRecursive,
+	return xerrors.Wrap(ErrRecursive,
 		"field", field,
 		"cycle", strings.Join(names, " → "),
 		"fix", "add `xdb:\"...,json\"` to store the field as JSON",

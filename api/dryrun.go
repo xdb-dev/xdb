@@ -99,7 +99,7 @@ func (s *RecordService) dryRunUpdate(
 
 	data, encErr := s.encode(merged)
 	if encErr != nil {
-		return nil, fmt.Errorf("api: encode record: %w", encErr)
+		return nil, fmt.Errorf("[xdb/api] encode record: %w", encErr)
 	}
 
 	return &UpdateRecordResponse{
@@ -129,7 +129,7 @@ func (s *RecordService) dryRunUpsert(
 
 	data, encErr := s.encode(record)
 	if encErr != nil {
-		return nil, fmt.Errorf("api: encode record: %w", encErr)
+		return nil, fmt.Errorf("[xdb/api] encode record: %w", encErr)
 	}
 
 	return &UpsertRecordResponse{
@@ -173,7 +173,7 @@ func (s *SchemaService) dryRunCreateSchema(
 	def *schema.Def,
 ) (*CreateSchemaResponse, error) {
 	if vErr := def.Validate(); vErr != nil {
-		return nil, fmt.Errorf("api: schemas.create: %w: %w", core.ErrSchemaViolation, vErr)
+		return nil, fmt.Errorf("[xdb/api] schemas.create: %w: %w", core.ErrSchemaViolation, vErr)
 	}
 
 	existing, err := s.store.GetSchema(ctx, uri)
@@ -182,7 +182,7 @@ func (s *SchemaService) dryRunCreateSchema(
 	case err == nil:
 		equivalent, cmpErr := schemasEquivalent(def, existing)
 		if cmpErr != nil {
-			return nil, fmt.Errorf("api: schemas.create: %w", cmpErr)
+			return nil, fmt.Errorf("[xdb/api] schemas.create: %w", cmpErr)
 		}
 		if !equivalent {
 			return nil, schemaCreateConflictError(uri)
@@ -200,7 +200,7 @@ func (s *SchemaService) dryRunCreateSchema(
 		}, nil
 
 	default:
-		return nil, fmt.Errorf("api: schemas.create: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.create: %w", err)
 	}
 }
 
@@ -214,7 +214,7 @@ func (s *SchemaService) dryRunDeleteSchema(
 	if errors.Is(err, core.ErrNotFound) {
 		would = "noop"
 	} else if err != nil {
-		return nil, fmt.Errorf("api: schemas.delete: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.delete: %w", err)
 	}
 
 	return &DeleteSchemaResponse{

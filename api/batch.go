@@ -162,7 +162,7 @@ func allowedBatchOps() string {
 
 // errBatchAborted aborts the batch transaction after a per-op failure
 // so the driver rolls back; the failure itself is reported per-op.
-var errBatchAborted = errors.New("api: batch aborted")
+var errBatchAborted = errors.New("[xdb/api] batch aborted")
 
 // Execute runs a batch of operations. On transactional backends the
 // batch is atomic: any failure rolls back every operation. On

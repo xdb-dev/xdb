@@ -76,7 +76,7 @@ func (s *RecordService) stored(
 
 	data, err := s.encode(record)
 	if err != nil {
-		return nil, 0, fmt.Errorf("api: encode record: %w", err)
+		return nil, 0, fmt.Errorf("[xdb/api] encode record: %w", err)
 	}
 
 	return data, recordVersion(record), nil
@@ -204,14 +204,14 @@ func (s *RecordService) Get(ctx context.Context, req *GetRecordRequest) (*GetRec
 	if uri.Attr() != "" {
 		tuple, tupleErr := s.tuples.GetTuple(ctx, uri)
 		if tupleErr != nil {
-			return nil, fmt.Errorf("api: records.get %s: %w", uri, tupleErr)
+			return nil, fmt.Errorf("[xdb/api] records.get %s: %w", uri, tupleErr)
 		}
 		record = core.NewRecord(uri.NS(), uri.Schema(), uri.ID())
 		record.Set(tuple.Attr(), tuple.Value())
 	} else {
 		record, err = s.store.GetRecord(ctx, uri)
 		if err != nil {
-			return nil, fmt.Errorf("api: records.get %s: %w", uri, err)
+			return nil, fmt.Errorf("[xdb/api] records.get %s: %w", uri, err)
 		}
 	}
 
@@ -222,7 +222,7 @@ func (s *RecordService) Get(ctx context.Context, req *GetRecordRequest) (*GetRec
 
 	data, encErr := s.encode(record, encOpts...)
 	if encErr != nil {
-		return nil, fmt.Errorf("api: encode record: %w", encErr)
+		return nil, fmt.Errorf("[xdb/api] encode record: %w", encErr)
 	}
 
 	return &GetRecordResponse{Data: data}, nil
@@ -272,7 +272,7 @@ func (s *RecordService) List(ctx context.Context, req *ListRecordsRequest) (*Lis
 	for i, rec := range page.Items {
 		data, encErr := s.encode(rec, encOpts...)
 		if encErr != nil {
-			return nil, fmt.Errorf("api: encode record: %w", encErr)
+			return nil, fmt.Errorf("[xdb/api] encode record: %w", encErr)
 		}
 
 		items[i] = data
@@ -564,7 +564,7 @@ func decoderOpts(
 	case errors.Is(err, core.ErrNotFound):
 		// No schema: the record is schema-free, so skip type coercion.
 	case err != nil:
-		return nil, fmt.Errorf("api: lookup schema %s: %w", uri, err)
+		return nil, fmt.Errorf("[xdb/api] lookup schema %s: %w", uri, err)
 	}
 
 	return opts, nil
@@ -618,7 +618,7 @@ func (s *RecordService) recordsEquivalent(a, b *core.Record) (bool, error) {
 func (s *RecordService) recordResponse(rec *core.Record) (*CreateRecordResponse, error) {
 	data, err := s.encode(rec)
 	if err != nil {
-		return nil, fmt.Errorf("api: encode record: %w", err)
+		return nil, fmt.Errorf("[xdb/api] encode record: %w", err)
 	}
 
 	return &CreateRecordResponse{Data: data}, nil

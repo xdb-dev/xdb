@@ -1,6 +1,6 @@
 package xdbjson
 
-import "github.com/gojekfarm/xtools/errors"
+import "errors"
 
 // Errors returned by the data path ([Marshal], [MarshalInto], [Unmarshal]).
 var (

@@ -8,14 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gojekfarm/xtools/errors"
-)
-
-var (
-	// ErrUnsupportedValue is returned when a value is not supported.
-	ErrUnsupportedValue = errors.New("[xdb/core] unsupported value")
-	// ErrTypeMismatch is returned when a value is not of the expected type.
-	ErrTypeMismatch = errors.New("[xdb/core] type mismatch")
+	xerrors "github.com/gojekfarm/xtools/errors"
 )
 
 // Value represents an attribute value using a tagged union.
@@ -332,7 +325,7 @@ func newReflectValue(iv reflect.Value) (*Value, error) {
 	case reflect.Slice, reflect.Array:
 		return newSliceValue(iv)
 	default:
-		return nil, errors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
+		return nil, xerrors.Wrap(ErrUnsupportedValue, "type", iv.Type().String())
 	}
 }
 
@@ -371,7 +364,7 @@ func newSliceValue(iv reflect.Value) (*Value, error) {
 			continue
 		}
 		if v.Type() != elemType {
-			return nil, errors.Wrap(ErrUnsupportedValue, "index", strconv.Itoa(i))
+			return nil, xerrors.Wrap(ErrUnsupportedValue, "index", strconv.Itoa(i))
 		}
 	}
 
@@ -434,6 +427,6 @@ func elemTIDFromType(t reflect.Type) (TID, error) {
 		}
 		return TIDArray, nil
 	default:
-		return TIDUnknown, errors.Wrap(ErrUnsupportedValue, "type", t.String())
+		return TIDUnknown, xerrors.Wrap(ErrUnsupportedValue, "type", t.String())
 	}
 }

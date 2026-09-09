@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	xerrors "github.com/gojekfarm/xtools/errors"
+
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 )
@@ -177,14 +179,44 @@ func setDeclaredField(record *core.Record, attr string, value any, field schema.
 	}
 
 	if !ok {
-		return fmt.Errorf(
-			"%w: field %q: cannot decode as %s",
-			core.ErrSchemaViolation, attr, typeName(field.Type),
+		want := typeName(field.Type)
+
+		return xerrors.Wrap(
+			fmt.Errorf("%w: field %q: cannot decode as %s",
+				core.ErrSchemaViolation, attr, want),
+			"field", attr,
+			"expected", want,
+			"got", jsonTypeName(value),
+			"reason", "decode_failed",
 		)
 	}
 
 	record.Set(attr, v)
 	return nil
+}
+
+// jsonTypeName names the JSON shape of a decoded value, for the got tag.
+// The caller wrote JSON, so it reports that shape rather than the Go type
+// the value decoded into. The names are upper-cased to sit alongside the
+// declared XDB type in expected. NUMBER and OBJECT have no XDB equivalent,
+// which is why they are worth reporting.
+func jsonTypeName(value any) string {
+	switch value.(type) {
+	case nil:
+		return "NULL"
+	case bool:
+		return "BOOLEAN"
+	case float64, int, int64, json.Number:
+		return "NUMBER"
+	case string:
+		return "STRING"
+	case []any:
+		return "ARRAY"
+	case map[string]any:
+		return "OBJECT"
+	default:
+		return "UNKNOWN"
+	}
 }
 
 // convertDeclaredValue converts value to type t and wraps it as a

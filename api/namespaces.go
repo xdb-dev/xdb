@@ -48,15 +48,15 @@ type GetNamespaceResponse struct {
 func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*GetNamespaceResponse, error) {
 	uri, err := parseURI(req.URI, "namespaces.get", 1, 1, false)
 	if err != nil {
-		return nil, fmt.Errorf("api: namespaces.get: %w", err)
+		return nil, fmt.Errorf("[xdb/api] namespaces.get: %w", err)
 	}
 
 	exists, err := s.store.NamespaceExists(ctx, uri)
 	if err != nil {
-		return nil, fmt.Errorf("api: namespaces.get: %w", err)
+		return nil, fmt.Errorf("[xdb/api] namespaces.get: %w", err)
 	}
 	if !exists {
-		return nil, fmt.Errorf("api: namespaces.get %s: %w", uri, core.ErrNotFound)
+		return nil, fmt.Errorf("[xdb/api] namespaces.get %s: %w", uri, core.ErrNotFound)
 	}
 
 	var (
@@ -72,7 +72,7 @@ func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*
 			Offset: offset,
 		})
 		if err != nil {
-			return nil, fmt.Errorf("api: namespaces.get: %w", err)
+			return nil, fmt.Errorf("[xdb/api] namespaces.get: %w", err)
 		}
 
 		for _, def := range page.Items {
@@ -120,7 +120,7 @@ func (s *NamespaceService) List(ctx context.Context, req *ListNamespacesRequest)
 
 	page, err := s.store.ListNamespaces(ctx, q)
 	if err != nil {
-		return nil, fmt.Errorf("api: namespaces.list: %w", err)
+		return nil, fmt.Errorf("[xdb/api] namespaces.list: %w", err)
 	}
 
 	return &ListNamespacesResponse{

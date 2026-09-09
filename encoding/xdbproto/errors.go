@@ -1,6 +1,6 @@
 package xdbproto
 
-import "github.com/gojekfarm/xtools/errors"
+import "errors"
 
 var (
 	// ErrNoNamespace is returned when a file descriptor has no proto package and

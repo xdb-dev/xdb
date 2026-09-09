@@ -1,9 +1,8 @@
 package schema
 
 import (
+	"errors"
 	"strings"
-
-	"github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
 )

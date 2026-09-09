@@ -1,7 +1,7 @@
 package xdbproto
 
 import (
-	"github.com/gojekfarm/xtools/errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/xdb-dev/xdb/core"
@@ -40,7 +40,7 @@ func importMessage(md protoreflect.MessageDescriptor, o Options) (*schema.Def, e
 		ns = string(md.ParentFile().Package())
 	}
 	if ns == "" {
-		return nil, errors.Wrap(ErrNoNamespace,
+		return nil, xerrors.Wrap(ErrNoNamespace,
 			"message", string(md.FullName()),
 			"fix", "pass WithNamespace to set the target namespace",
 		)
@@ -130,7 +130,7 @@ func CheckRename(existing, updated *schema.Def) error {
 		if _, stillThere := existing.Fields[name]; stillThere {
 			continue // the new name already existed; not a rename
 		}
-		return errors.Wrap(ErrRename,
+		return xerrors.Wrap(ErrRename,
 			"number", num,
 			"from", oldName,
 			"to", name,

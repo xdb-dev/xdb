@@ -139,6 +139,6 @@ func runMutation(ctx context.Context, eng engine, m store.Mutation) error {
 		return writeFull(store.RemoveAttrs(current, m.Attrs))
 
 	default:
-		return fmt.Errorf("xdbsqlite: unknown op %s", m.Op)
+		return fmt.Errorf("[xdb/xdbsqlite] unknown op %s", m.Op)
 	}
 }

@@ -70,13 +70,23 @@ func wrapRPCError(resource, action, uri string, err error) error {
 	var rpcErr *rpc.Error
 	if errors.As(err, &rpcErr) {
 		code := codeFromRPC(rpcErr.Code)
+		details, fix := splitErrorData(rpcErr.Data)
+
+		// The server's fix tag names the specific fault. hintFor has only the
+		// code and the verb, so prefer the fix tag when it is present.
+		hint := fix
+		if hint == "" {
+			hint = hintFor(code, resource, action, uri)
+		}
+
 		return &output.ErrorEnvelope{
 			Code:     code,
 			Message:  rpcErr.Message,
 			Resource: resource,
 			Action:   action,
 			URI:      uri,
-			Hint:     hintFor(code, resource, action, uri),
+			Hint:     hint,
+			Details:  details,
 		}
 	}
 
@@ -92,6 +102,47 @@ func wrapRPCError(resource, action, uri string, err error) error {
 	}
 
 	return err
+}
+
+// splitErrorData turns an RPC error's data object into the envelope's
+// details map, lifting the fix tag out to be returned separately. The tag
+// vocabulary is string-valued, so non-string values are dropped: a
+// renderer is the wrong place to invent a spelling for them.
+func splitErrorData(data any) (details map[string]string, fix string) {
+	// map[string]string in process, map[string]any once it has been
+	// through JSON.
+	var raw map[string]any
+
+	switch typed := data.(type) {
+	case map[string]string:
+		raw = make(map[string]any, len(typed))
+		for k, v := range typed {
+			raw[k] = v
+		}
+	case map[string]any:
+		raw = typed
+	default:
+		return nil, ""
+	}
+
+	for k, v := range raw {
+		s, ok := v.(string)
+		if !ok {
+			continue
+		}
+
+		if k == "fix" {
+			fix = s
+			continue
+		}
+
+		if details == nil {
+			details = make(map[string]string, len(raw))
+		}
+		details[k] = s
+	}
+
+	return details, fix
 }
 
 // invalidArgError wraps a user input error into an envelope.

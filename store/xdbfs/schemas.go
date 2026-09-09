@@ -92,14 +92,14 @@ func (d *Driver) CreateSchema(_ context.Context, def *schema.Def) error {
 
 	path := d.schemaPath(def.URI)
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
-		return fmt.Errorf("xdbfs: create schema dir: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] create schema dir: %w", err)
 	}
 
 	if err := writeFileExclusive(path, data); err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return core.ErrAlreadyExists
 		}
-		return fmt.Errorf("xdbfs: create schema: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] create schema: %w", err)
 	}
 	return nil
 }
@@ -116,11 +116,11 @@ func (d *Driver) PutSchema(_ context.Context, def *schema.Def) error {
 
 	path := d.schemaPath(def.URI)
 	if err := os.MkdirAll(filepath.Dir(path), dirPerm); err != nil {
-		return fmt.Errorf("xdbfs: create schema dir: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] create schema dir: %w", err)
 	}
 
 	if err := writeFileAtomic(path, data); err != nil {
-		return fmt.Errorf("xdbfs: write schema: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] write schema: %w", err)
 	}
 	return nil
 }
@@ -137,7 +137,7 @@ func (d *Driver) DeleteSchema(_ context.Context, uri *core.URI) error {
 		if isNotExist(err) {
 			return core.ErrNotFound
 		}
-		return fmt.Errorf("xdbfs: delete schema: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] delete schema: %w", err)
 	}
 
 	removeIfEmpty(d.schemaDir(uri))
@@ -159,7 +159,7 @@ func (d *Driver) DropRecords(_ context.Context, uri *core.URI) error {
 		if isNotExist(err) {
 			return nil
 		}
-		return fmt.Errorf("xdbfs: read schema dir: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] read schema dir: %w", err)
 	}
 
 	for _, e := range entries {
@@ -167,7 +167,7 @@ func (d *Driver) DropRecords(_ context.Context, uri *core.URI) error {
 			continue
 		}
 		if err := os.Remove(filepath.Join(dir, e.Name())); err != nil {
-			return fmt.Errorf("xdbfs: delete record: %w", err)
+			return fmt.Errorf("[xdb/xdbfs] delete record: %w", err)
 		}
 	}
 
@@ -186,7 +186,7 @@ func readSchemaFile(path string) (*schema.Def, error) {
 
 	var def schema.Def
 	if err := json.Unmarshal(data, &def); err != nil {
-		return nil, fmt.Errorf("xdbfs: unmarshal schema %s: %w", path, err)
+		return nil, fmt.Errorf("[xdb/xdbfs] unmarshal schema %s: %w", path, err)
 	}
 
 	return &def, nil
@@ -197,7 +197,7 @@ func readSchemaFile(path string) (*schema.Def, error) {
 func (d *Driver) marshalDef(def *schema.Def) ([]byte, error) {
 	data, err := json.MarshalIndent(def, "", d.opts.Indent)
 	if err != nil {
-		return nil, fmt.Errorf("xdbfs: marshal schema: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbfs] marshal schema: %w", err)
 	}
 	return data, nil
 }

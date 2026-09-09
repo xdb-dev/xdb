@@ -449,7 +449,7 @@ func applyMutation(
 		}
 
 	default:
-		return fmt.Errorf("xdbmemory: unknown op %s", m.Op)
+		return fmt.Errorf("[xdb/xdbmemory] unknown op %s", m.Op)
 	}
 
 	return nil

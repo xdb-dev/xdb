@@ -113,7 +113,7 @@ func (d *Driver) schemaDirsUnder(scope *core.URI) ([]*core.URI, error) {
 	} else {
 		entries, err := os.ReadDir(d.root)
 		if err != nil {
-			return nil, fmt.Errorf("xdbfs: read root: %w", err)
+			return nil, fmt.Errorf("[xdb/xdbfs] read root: %w", err)
 		}
 		for _, e := range entries {
 			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
@@ -129,7 +129,7 @@ func (d *Driver) schemaDirsUnder(scope *core.URI) ([]*core.URI, error) {
 			if isNotExist(err) {
 				continue
 			}
-			return nil, fmt.Errorf("xdbfs: read namespace dir: %w", err)
+			return nil, fmt.Errorf("[xdb/xdbfs] read namespace dir: %w", err)
 		}
 		for _, e := range entries {
 			if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
@@ -150,7 +150,7 @@ func (d *Driver) readSchemaDirTuples(schemaURI *core.URI) ([]*core.Tuple, error)
 		if isNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("xdbfs: read schema dir: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbfs] read schema dir: %w", err)
 	}
 
 	decOpts := d.decodeOpts(schemaURI)
@@ -203,7 +203,7 @@ func (d *Driver) applyMutation(m store.Mutation) error {
 	case store.OpDelete:
 		return d.applyDelete(m)
 	default:
-		return fmt.Errorf("xdbfs: unknown op %s", m.Op)
+		return fmt.Errorf("[xdb/xdbfs] unknown op %s", m.Op)
 	}
 }
 
@@ -244,14 +244,14 @@ func (d *Driver) applyCreate(m store.Mutation) error {
 	}
 
 	if err := os.MkdirAll(filepath.Dir(file), dirPerm); err != nil {
-		return fmt.Errorf("xdbfs: create record dir: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] create record dir: %w", err)
 	}
 
 	if err := writeFileExclusive(file, data); err != nil {
 		if errors.Is(err, os.ErrExist) {
 			return core.ErrAlreadyExists
 		}
-		return fmt.Errorf("xdbfs: create record: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] create record: %w", err)
 	}
 	return nil
 }
@@ -283,7 +283,7 @@ func (d *Driver) encodeRecord(path *core.URI, tuples []*core.Tuple) ([]byte, err
 		xdbjson.WithIndent("", d.opts.Indent),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("xdbfs: encode record: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbfs] encode record: %w", err)
 	}
 	return data, nil
 }
@@ -298,11 +298,11 @@ func (d *Driver) writeRecord(path *core.URI, tuples []*core.Tuple) error {
 
 	file := d.recordPath(path)
 	if err := os.MkdirAll(filepath.Dir(file), dirPerm); err != nil {
-		return fmt.Errorf("xdbfs: create record dir: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] create record dir: %w", err)
 	}
 
 	if err := writeFileAtomic(file, data); err != nil {
-		return fmt.Errorf("xdbfs: write record: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] write record: %w", err)
 	}
 	return nil
 }
@@ -319,7 +319,7 @@ func (d *Driver) writeOrRemove(path *core.URI, tuples []*core.Tuple) error {
 // removeRecordFile removes a record file, tolerating absence.
 func removeRecordFile(file string) error {
 	if err := os.Remove(file); err != nil && !isNotExist(err) {
-		return fmt.Errorf("xdbfs: delete record: %w", err)
+		return fmt.Errorf("[xdb/xdbfs] delete record: %w", err)
 	}
 	return nil
 }
@@ -353,12 +353,12 @@ func decodeRecordFile(file string, opts []xdbjson.Option) ([]*core.Tuple, error)
 		if isNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("xdbfs: read record: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbfs] read record: %w", err)
 	}
 
 	record, err := xdbjson.Marshal(data, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("xdbfs: decode record %s: %w", file, err)
+		return nil, fmt.Errorf("[xdb/xdbfs] decode record %s: %w", file, err)
 	}
 	return record.Tuples(), nil
 }

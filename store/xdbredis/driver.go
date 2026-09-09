@@ -130,7 +130,7 @@ func (d *Driver) scanKeys(ctx context.Context, pattern string) ([]string, error)
 	for {
 		batch, next, err := d.client.Scan(ctx, cursor, pattern, 256).Result()
 		if err != nil {
-			return nil, fmt.Errorf("xdbredis: scan %q: %w", pattern, err)
+			return nil, fmt.Errorf("[xdb/xdbredis] scan %q: %w", pattern, err)
 		}
 		keys = append(keys, batch...)
 		cursor = next
@@ -162,7 +162,7 @@ func (d *Driver) GetTuples(
 		cmds[i] = pipe.HGet(ctx, d.recordKey(uri), uri.Attr())
 	}
 	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) {
-		return nil, fmt.Errorf("xdbredis: get tuples: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] get tuples: %w", err)
 	}
 
 	got := make([]*core.Tuple, 0, len(uris))
@@ -172,7 +172,7 @@ func (d *Driver) GetTuples(
 			continue
 		}
 		if err != nil {
-			return nil, fmt.Errorf("xdbredis: hget %s: %w", uris[i], err)
+			return nil, fmt.Errorf("[xdb/xdbredis] hget %s: %w", uris[i], err)
 		}
 
 		path := recordPath(uris[i])
@@ -207,7 +207,7 @@ func (d *Driver) ScanTuples(
 
 			fields, err := d.client.HGetAll(ctx, key).Result()
 			if err != nil {
-				yield(nil, fmt.Errorf("xdbredis: hgetall %s: %w", key, err))
+				yield(nil, fmt.Errorf("[xdb/xdbredis] hgetall %s: %w", key, err))
 				return
 			}
 
@@ -262,7 +262,7 @@ func recordPath(uri *core.URI) string {
 func decodeTuple(path, attr, raw string) (*core.Tuple, error) {
 	val, err := decodeValue(raw)
 	if err != nil {
-		return nil, fmt.Errorf("xdbredis: decode field %s: %w", attr, err)
+		return nil, fmt.Errorf("[xdb/xdbredis] decode field %s: %w", attr, err)
 	}
 	return core.NewTuple(path, attr, val), nil
 }
@@ -316,7 +316,7 @@ func (d *Driver) applyMutation(ctx context.Context, m store.Mutation) error {
 			return nil
 		}
 		if err := d.client.HSet(ctx, key, args...).Err(); err != nil {
-			return fmt.Errorf("xdbredis: patch: %w", err)
+			return fmt.Errorf("[xdb/xdbredis] patch: %w", err)
 		}
 		return nil
 
@@ -329,17 +329,17 @@ func (d *Driver) applyMutation(ctx context.Context, m store.Mutation) error {
 	case store.OpDelete:
 		if len(m.Attrs) == 0 {
 			if err := d.client.Del(ctx, key).Err(); err != nil {
-				return fmt.Errorf("xdbredis: delete: %w", err)
+				return fmt.Errorf("[xdb/xdbredis] delete: %w", err)
 			}
 			return nil
 		}
 		if err := d.client.HDel(ctx, key, m.Attrs...).Err(); err != nil {
-			return fmt.Errorf("xdbredis: delete attrs: %w", err)
+			return fmt.Errorf("[xdb/xdbredis] delete attrs: %w", err)
 		}
 		return nil
 
 	default:
-		return fmt.Errorf("xdbredis: unknown op %s", m.Op)
+		return fmt.Errorf("[xdb/xdbredis] unknown op %s", m.Op)
 	}
 }
 
@@ -360,7 +360,7 @@ func (d *Driver) runReplaceScript(
 
 	ok, err := script.Run(ctx, d.client, []string{key}, args...).Int()
 	if err != nil {
-		return fmt.Errorf("xdbredis: apply: %w", err)
+		return fmt.Errorf("[xdb/xdbredis] apply: %w", err)
 	}
 	if ok == 0 {
 		return gateErr
@@ -375,7 +375,7 @@ func encodeTuples(tuples []*core.Tuple) ([]any, error) {
 	for _, t := range tuples {
 		encoded, err := encodeValue(t.Value())
 		if err != nil {
-			return nil, fmt.Errorf("xdbredis: encode field %s: %w", t.Attr(), err)
+			return nil, fmt.Errorf("[xdb/xdbredis] encode field %s: %w", t.Attr(), err)
 		}
 		args = append(args, t.Attr(), encoded)
 	}
@@ -392,7 +392,7 @@ func (d *Driver) GetSchema(ctx context.Context, uri *core.URI) (*schema.Def, err
 		return nil, core.ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("xdbredis: get def: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] get def: %w", err)
 	}
 	return decodeDef(data)
 }
@@ -416,7 +416,7 @@ func (d *Driver) ScanSchemas(
 				continue
 			}
 			if err != nil {
-				yield(nil, fmt.Errorf("xdbredis: get def %s: %w", key, err))
+				yield(nil, fmt.Errorf("[xdb/xdbredis] get def %s: %w", key, err))
 				return
 			}
 
@@ -445,7 +445,7 @@ func (d *Driver) defPattern(scope *core.URI) string {
 func decodeDef(data []byte) (*schema.Def, error) {
 	var def schema.Def
 	if err := json.Unmarshal(data, &def); err != nil {
-		return nil, fmt.Errorf("xdbredis: unmarshal def: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] unmarshal def: %w", err)
 	}
 	return &def, nil
 }
@@ -458,12 +458,12 @@ func decodeDef(data []byte) (*schema.Def, error) {
 func (d *Driver) CreateSchema(ctx context.Context, def *schema.Def) error {
 	data, err := json.Marshal(def)
 	if err != nil {
-		return fmt.Errorf("xdbredis: marshal def: %w", err)
+		return fmt.Errorf("[xdb/xdbredis] marshal def: %w", err)
 	}
 
 	ok, err := d.client.SetNX(ctx, d.defKey(def.URI), data, 0).Result()
 	if err != nil {
-		return fmt.Errorf("xdbredis: create def: %w", err)
+		return fmt.Errorf("[xdb/xdbredis] create def: %w", err)
 	}
 	if !ok {
 		return core.ErrAlreadyExists
@@ -475,11 +475,11 @@ func (d *Driver) CreateSchema(ctx context.Context, def *schema.Def) error {
 func (d *Driver) PutSchema(ctx context.Context, def *schema.Def) error {
 	data, err := json.Marshal(def)
 	if err != nil {
-		return fmt.Errorf("xdbredis: marshal def: %w", err)
+		return fmt.Errorf("[xdb/xdbredis] marshal def: %w", err)
 	}
 
 	if err := d.client.Set(ctx, d.defKey(def.URI), data, 0).Err(); err != nil {
-		return fmt.Errorf("xdbredis: put def: %w", err)
+		return fmt.Errorf("[xdb/xdbredis] put def: %w", err)
 	}
 	return nil
 }
@@ -488,7 +488,7 @@ func (d *Driver) PutSchema(ctx context.Context, def *schema.Def) error {
 func (d *Driver) DeleteSchema(ctx context.Context, uri *core.URI) error {
 	n, err := d.client.Del(ctx, d.defKey(uri)).Result()
 	if err != nil {
-		return fmt.Errorf("xdbredis: delete def: %w", err)
+		return fmt.Errorf("[xdb/xdbredis] delete def: %w", err)
 	}
 	if n == 0 {
 		return core.ErrNotFound
@@ -514,7 +514,7 @@ func (d *Driver) DropRecords(ctx context.Context, uri *core.URI) error {
 	}
 
 	if err := d.client.Del(ctx, records...).Err(); err != nil {
-		return fmt.Errorf("xdbredis: delete schema records: %w", err)
+		return fmt.Errorf("[xdb/xdbredis] delete schema records: %w", err)
 	}
 	return nil
 }

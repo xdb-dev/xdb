@@ -4,11 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/gojekfarm/xtools/errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 )
-
-// ErrUnknownType is returned when an unknown type is encountered.
-var ErrUnknownType = errors.New("[xdb/core] unknown type")
 
 // TID represents the type of a value.
 // It is a string; only the built-in identifiers below are recognized.
@@ -82,7 +79,7 @@ func ParseType(name string) (TID, error) {
 	tid := TID(strings.TrimSpace(strings.ToUpper(name)))
 
 	if _, ok := builtinTypes[tid]; !ok {
-		return TIDUnknown, errors.Wrap(ErrUnknownType,
+		return TIDUnknown, xerrors.Wrap(ErrUnknownType,
 			"type", string(tid),
 			"valid", strings.Join(ValueTypeNames(), ", "),
 		)

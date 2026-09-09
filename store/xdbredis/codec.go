@@ -45,7 +45,7 @@ func encodeValue(v *core.Value) (string, error) {
 	case core.TIDArray:
 		return encodeArray(v)
 	default:
-		return "", fmt.Errorf("xdbredis: unsupported type %s", v.Type().ID())
+		return "", fmt.Errorf("[xdb/xdbredis] unsupported type %s", v.Type().ID())
 	}
 }
 
@@ -124,7 +124,7 @@ func encodeArray(v *core.Value) (string, error) {
 	for i, elem := range elems {
 		enc, encErr := encodeValue(elem)
 		if encErr != nil {
-			return "", fmt.Errorf("xdbredis: encode array element %d: %w", i, encErr)
+			return "", fmt.Errorf("[xdb/xdbredis] encode array element %d: %w", i, encErr)
 		}
 		encoded[i] = enc
 	}
@@ -136,7 +136,7 @@ func encodeArray(v *core.Value) (string, error) {
 
 	data, err := json.Marshal(wrapper)
 	if err != nil {
-		return "", fmt.Errorf("xdbredis: marshal array: %w", err)
+		return "", fmt.Errorf("[xdb/xdbredis] marshal array: %w", err)
 	}
 
 	return prefixArray + string(data), nil
@@ -151,7 +151,7 @@ type arrayEnvelope struct {
 // decodeValue decodes a type-prefixed string back into a [core.Value].
 func decodeValue(s string) (*core.Value, error) {
 	if len(s) < 2 {
-		return nil, fmt.Errorf("xdbredis: value too short: %q", s)
+		return nil, fmt.Errorf("[xdb/xdbredis] value too short: %q", s)
 	}
 
 	prefix := s[:2]
@@ -177,14 +177,14 @@ func decodeValue(s string) (*core.Value, error) {
 	case prefixArray:
 		return decodeArray(payload)
 	default:
-		return nil, fmt.Errorf("xdbredis: unknown type prefix %q", prefix)
+		return nil, fmt.Errorf("[xdb/xdbredis] unknown type prefix %q", prefix)
 	}
 }
 
 func decodeBool(payload string) (*core.Value, error) {
 	b, err := strconv.ParseBool(payload)
 	if err != nil {
-		return nil, fmt.Errorf("xdbredis: decode bool: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] decode bool: %w", err)
 	}
 	return core.BoolVal(b), nil
 }
@@ -192,7 +192,7 @@ func decodeBool(payload string) (*core.Value, error) {
 func decodeInt(payload string) (*core.Value, error) {
 	i, err := strconv.ParseInt(payload, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("xdbredis: decode int: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] decode int: %w", err)
 	}
 	return core.IntVal(i), nil
 }
@@ -200,7 +200,7 @@ func decodeInt(payload string) (*core.Value, error) {
 func decodeUnsigned(payload string) (*core.Value, error) {
 	u, err := strconv.ParseUint(payload, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("xdbredis: decode uint: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] decode uint: %w", err)
 	}
 	return core.UintVal(u), nil
 }
@@ -208,7 +208,7 @@ func decodeUnsigned(payload string) (*core.Value, error) {
 func decodeFloat(payload string) (*core.Value, error) {
 	f, err := strconv.ParseFloat(payload, 64)
 	if err != nil {
-		return nil, fmt.Errorf("xdbredis: decode float: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] decode float: %w", err)
 	}
 	return core.FloatVal(f), nil
 }
@@ -216,7 +216,7 @@ func decodeFloat(payload string) (*core.Value, error) {
 func decodeBytes(payload string) (*core.Value, error) {
 	b, err := base64.StdEncoding.DecodeString(payload)
 	if err != nil {
-		return nil, fmt.Errorf("xdbredis: decode bytes: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] decode bytes: %w", err)
 	}
 	return core.BytesVal(b), nil
 }
@@ -224,7 +224,7 @@ func decodeBytes(payload string) (*core.Value, error) {
 func decodeTime(payload string) (*core.Value, error) {
 	t, err := time.Parse(time.RFC3339Nano, payload)
 	if err != nil {
-		return nil, fmt.Errorf("xdbredis: decode time: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] decode time: %w", err)
 	}
 	return core.TimeVal(t), nil
 }
@@ -233,7 +233,7 @@ func decodeTime(payload string) (*core.Value, error) {
 func decodeArray(payload string) (*core.Value, error) {
 	var env arrayEnvelope
 	if err := json.Unmarshal([]byte(payload), &env); err != nil {
-		return nil, fmt.Errorf("xdbredis: unmarshal array: %w", err)
+		return nil, fmt.Errorf("[xdb/xdbredis] unmarshal array: %w", err)
 	}
 
 	elemTID := core.TID(env.ElemType)
@@ -242,7 +242,7 @@ func decodeArray(payload string) (*core.Value, error) {
 	for i, item := range env.Items {
 		v, err := decodeValue(item)
 		if err != nil {
-			return nil, fmt.Errorf("xdbredis: decode array element %d: %w", i, err)
+			return nil, fmt.Errorf("[xdb/xdbredis] decode array element %d: %w", i, err)
 		}
 		elems[i] = v
 	}

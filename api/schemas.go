@@ -71,12 +71,12 @@ type CreateSchemaResponse struct {
 func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*CreateSchemaResponse, error) {
 	uri, err := parseURI(req.URI, "schemas.create", 2, 2, false)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.create: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.create: %w", err)
 	}
 
 	def, err := unmarshalSchemaDef(req.Data, uri)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.create: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.create: %w", err)
 	}
 	if def.Mode == "" {
 		def.Mode = schema.ModeStrict
@@ -90,12 +90,12 @@ func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*
 	if errors.Is(err, core.ErrAlreadyExists) {
 		existing, getErr := s.store.GetSchema(ctx, uri)
 		if getErr != nil {
-			return nil, fmt.Errorf("api: schemas.create: %w", getErr)
+			return nil, fmt.Errorf("[xdb/api] schemas.create: %w", getErr)
 		}
 
 		equivalent, cmpErr := schemasEquivalent(&def, existing)
 		if cmpErr != nil {
-			return nil, fmt.Errorf("api: schemas.create: %w", cmpErr)
+			return nil, fmt.Errorf("[xdb/api] schemas.create: %w", cmpErr)
 		}
 		if !equivalent {
 			return nil, schemaCreateConflictError(uri)
@@ -104,14 +104,14 @@ func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*
 		return &CreateSchemaResponse{Data: existing}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.create: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.create: %w", err)
 	}
 
 	// Read back rather than returning def: the store stamps the system
 	// fields and revision 1, and def carries neither.
 	stored, err := s.store.GetSchema(ctx, uri)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.create: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.create: %w", err)
 	}
 
 	s.publish("schema.create", uri, stored)
@@ -133,12 +133,12 @@ type GetSchemaResponse struct {
 func (s *SchemaService) Get(ctx context.Context, req *GetSchemaRequest) (*GetSchemaResponse, error) {
 	uri, err := parseURI(req.URI, "schemas.get", 2, 2, false)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.get: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.get: %w", err)
 	}
 
 	def, err := s.store.GetSchema(ctx, uri)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.get: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.get: %w", err)
 	}
 
 	return &GetSchemaResponse{Data: def}, nil
@@ -162,7 +162,7 @@ type ListSchemasResponse struct {
 func (s *SchemaService) List(ctx context.Context, req *ListSchemasRequest) (*ListSchemasResponse, error) {
 	uri, err := parseURI(req.URI, "schemas.list", 1, 1, false)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.list: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.list: %w", err)
 	}
 
 	q := &store.Query{
@@ -173,7 +173,7 @@ func (s *SchemaService) List(ctx context.Context, req *ListSchemasRequest) (*Lis
 
 	page, err := s.store.ListSchemas(ctx, q)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.list: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.list: %w", err)
 	}
 
 	return &ListSchemasResponse{
@@ -210,7 +210,7 @@ type UpdateSchemaResponse struct {
 func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*UpdateSchemaResponse, error) {
 	uri, err := parseURI(req.URI, "schemas.update", 2, 2, false)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.update: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.update: %w", err)
 	}
 
 	var updated *schema.Def
@@ -220,7 +220,7 @@ func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*
 		return patchErr
 	})
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.update: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.update: %w", err)
 	}
 
 	s.publish("schema.update", uri, updated)
@@ -309,7 +309,7 @@ func applySchemaPatch(
 // with a different definition.
 func schemaCreateConflictError(uri *core.URI) error {
 	return fmt.Errorf(
-		"api: schemas.create %s: schema exists with a different definition "+
+		"[xdb/api] schemas.create %s: schema exists with a different definition "+
 			"(run schemas.get to inspect; use schemas.update to evolve): %w",
 		uri, core.ErrConflict,
 	)
@@ -498,7 +498,7 @@ func fieldPayloadType(fp schemaFieldPayload) (core.Type, error) {
 func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*DeleteSchemaResponse, error) {
 	uri, err := parseURI(req.URI, "schemas.delete", 2, 2, false)
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.delete: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.delete: %w", err)
 	}
 
 	if req.DryRun {
@@ -507,7 +507,7 @@ func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*
 
 	if req.Cascade {
 		if cascadeErr := s.cascadeDelete(ctx, uri); cascadeErr != nil {
-			return nil, fmt.Errorf("api: schemas.delete: %w", cascadeErr)
+			return nil, fmt.Errorf("[xdb/api] schemas.delete: %w", cascadeErr)
 		}
 		s.publish("schema.delete", uri, nil)
 		return &DeleteSchemaResponse{}, nil
@@ -518,7 +518,7 @@ func (s *SchemaService) Delete(ctx context.Context, req *DeleteSchemaRequest) (*
 		return &DeleteSchemaResponse{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("api: schemas.delete: %w", err)
+		return nil, fmt.Errorf("[xdb/api] schemas.delete: %w", err)
 	}
 
 	s.publish("schema.delete", uri, nil)

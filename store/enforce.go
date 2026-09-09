@@ -184,7 +184,7 @@ func checkAgainstDef(
 		return nil, nil
 
 	default:
-		return nil, fmt.Errorf("store: unknown op %s", m.Op)
+		return nil, fmt.Errorf("[xdb/store] unknown op %s", m.Op)
 	}
 }
 

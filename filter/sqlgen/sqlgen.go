@@ -17,7 +17,7 @@ import (
 // filter references an identifier that is not among the compiled filter's
 // schema fields. Callers map it to a query-pushdown refusal so the record
 // store can fall back to an in-memory scan.
-var ErrUnknownColumn = errors.New("sqlgen: unknown column")
+var ErrUnknownColumn = errors.New("[xdb/sqlgen] unknown column")
 
 // Strategy identifies the SQL table layout.
 type Strategy int
@@ -83,7 +83,7 @@ func (g *generator) walk(expr ast.Expr) (string, error) {
 	case ast.ListKind:
 		return g.walkList(expr)
 	default:
-		return "", fmt.Errorf("sqlgen: unsupported expression kind: %v", expr.Kind())
+		return "", fmt.Errorf("[xdb/sqlgen] unsupported expression kind: %v", expr.Kind())
 	}
 }
 
@@ -156,7 +156,7 @@ func (g *generator) walkCall(expr ast.Expr) (string, error) {
 		return g.walkIn(args)
 
 	default:
-		return "", fmt.Errorf("sqlgen: unsupported function: %s", fn)
+		return "", fmt.Errorf("[xdb/sqlgen] unsupported function: %s", fn)
 	}
 }
 
@@ -214,7 +214,7 @@ func (g *generator) walkStringFn(call ast.CallExpr, fn string) (string, error) {
 	}
 
 	if len(call.Args()) != 1 {
-		return "", fmt.Errorf("sqlgen: %s expects 1 argument", fn)
+		return "", fmt.Errorf("[xdb/sqlgen] %s expects 1 argument", fn)
 	}
 
 	argVal := call.Args()[0].AsLiteral()
@@ -237,14 +237,14 @@ func (g *generator) walkStringFn(call ast.CallExpr, fn string) (string, error) {
 		g.params = append(g.params, argVal.Value())
 		return fmt.Sprintf("(substr(%s, -length(?)) = ?)", target), nil
 	default:
-		return "", fmt.Errorf("sqlgen: unsupported string function: %s", fn)
+		return "", fmt.Errorf("[xdb/sqlgen] unsupported string function: %s", fn)
 	}
 }
 
 // walkSize handles size(field) -> LENGTH(field).
 func (g *generator) walkSize(args []ast.Expr) (string, error) {
 	if len(args) != 1 {
-		return "", fmt.Errorf("sqlgen: size expects 1 argument")
+		return "", fmt.Errorf("[xdb/sqlgen] size expects 1 argument")
 	}
 
 	inner, err := g.walk(args[0])
@@ -258,7 +258,7 @@ func (g *generator) walkSize(args []ast.Expr) (string, error) {
 // walkIn handles x in [a, b, c] -> x IN (?, ?, ?).
 func (g *generator) walkIn(args []ast.Expr) (string, error) {
 	if len(args) != 2 {
-		return "", fmt.Errorf("sqlgen: in expects 2 arguments")
+		return "", fmt.Errorf("[xdb/sqlgen] in expects 2 arguments")
 	}
 
 	field, err := g.walk(args[0])
@@ -311,7 +311,7 @@ func (g *generator) walkSelect(expr ast.Expr) (string, error) {
 // argument of @in directly, so a list that reaches walkList is not an @in
 // argument and has no SQL form.
 func (g *generator) walkList(expr ast.Expr) (string, error) {
-	return "", fmt.Errorf("sqlgen: unexpected standalone list expression")
+	return "", fmt.Errorf("[xdb/sqlgen] unexpected standalone list expression")
 }
 
 // --- KV strategy helpers ---
@@ -359,7 +359,7 @@ func (g *generator) walkKVStringFn(attrName, fn string) (string, error) {
 		pattern = "substr(CAST(_val AS TEXT), -length(?)) = ?"
 		g.params = append(g.params, argVal)
 	default:
-		return "", fmt.Errorf("sqlgen: unsupported KV string function: %s", fn)
+		return "", fmt.Errorf("[xdb/sqlgen] unsupported KV string function: %s", fn)
 	}
 
 	return fmt.Sprintf("(_id IN (SELECT _id FROM %s WHERE _attr = ? AND %s))",
@@ -379,7 +379,7 @@ func (g *generator) resolveAttrName(expr ast.Expr) (string, error) {
 		}
 		return parent + "." + sel.FieldName(), nil
 	default:
-		return "", fmt.Errorf("sqlgen: cannot resolve attribute from expression kind %v", expr.Kind())
+		return "", fmt.Errorf("[xdb/sqlgen] cannot resolve attribute from expression kind %v", expr.Kind())
 	}
 }
 

@@ -22,7 +22,7 @@ func (f *Filter) Match(record *core.Record) (bool, error) {
 	}
 
 	if out.Type() != types.BoolType {
-		return false, fmt.Errorf("filter: expression did not evaluate to bool, got %s", out.Type())
+		return false, fmt.Errorf("[xdb/filter] expression did not evaluate to bool, got %s", out.Type())
 	}
 
 	return out.Value().(bool), nil

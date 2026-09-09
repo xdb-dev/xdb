@@ -1,9 +1,10 @@
 package xdbproto
 
 import (
+	"errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 	"testing"
 
-	"github.com/gojekfarm/xtools/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -134,7 +135,7 @@ func fieldOf(err error) string {
 
 // errValue extracts a keyed attribute from an xtools/errors-wrapped error.
 func errValue(err error, key string) string {
-	var e *errors.ErrorTags
+	var e *xerrors.ErrorTags
 	if errors.As(err, &e) {
 		return e.All()[key]
 	}

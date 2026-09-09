@@ -67,7 +67,7 @@ type MutationError struct {
 
 // Error implements the error interface.
 func (e *MutationError) Error() string {
-	return fmt.Sprintf("store: mutation %d (%s): %v", e.Index, e.Path, e.Err)
+	return fmt.Sprintf("[xdb/store] mutation %d (%s): %v", e.Index, e.Path, e.Err)
 }
 
 // Unwrap returns the underlying error for [errors.Is] / [errors.As].

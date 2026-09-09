@@ -2,14 +2,12 @@ package core
 
 import (
 	"encoding/json"
+	"errors"
 	"net/url"
 	"strings"
 
-	"github.com/gojekfarm/xtools/errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 )
-
-// ErrInvalidURI is returned when an invalid URI is encountered.
-var ErrInvalidURI = errors.New("[xdb/core] invalid URI")
 
 // URI is a reference to XDB data.
 //
@@ -131,7 +129,7 @@ func (u *URI) UnmarshalJSON(data []byte) error {
 // Returns an error if any component is invalid.
 func NewURI(ns string, parts ...string) (*URI, error) {
 	if len(parts) > 2 {
-		return nil, errors.Wrap(ErrInvalidURI, "parts", strings.Join(parts, "/"))
+		return nil, xerrors.Wrap(ErrInvalidURI, "parts", strings.Join(parts, "/"))
 	}
 
 	if err := validateComponent("ns", ns, false); err != nil {
@@ -240,7 +238,7 @@ func MustParseURI(uri string) *URI {
 // forbid '/'; ID allows it (trailing path segments join into the ID).
 func validateComponent(kind, raw string, allowSlash bool) error {
 	if raw == "" {
-		return errors.Wrap(ErrInvalidURI, kind, "empty")
+		return xerrors.Wrap(ErrInvalidURI, kind, "empty")
 	}
 	for _, ch := range raw {
 		ok := (ch >= 'a' && ch <= 'z') ||
@@ -249,7 +247,7 @@ func validateComponent(kind, raw string, allowSlash bool) error {
 			ch == '.' || ch == '_' || ch == '-' ||
 			(allowSlash && ch == '/')
 		if !ok {
-			return errors.Wrap(ErrInvalidURI, kind, raw)
+			return xerrors.Wrap(ErrInvalidURI, kind, raw)
 		}
 	}
 	return nil

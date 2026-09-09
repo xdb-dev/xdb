@@ -3,10 +3,11 @@ package schema
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
-	"github.com/gojekfarm/xtools/errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
 )
@@ -55,7 +56,7 @@ var (
 // field (external documents routinely carry one).
 func (d *Def) Validate() error {
 	if _, ok := validModes[d.Mode]; !ok {
-		return errors.Wrap(ErrInvalidMode,
+		return xerrors.Wrap(ErrInvalidMode,
 			"mode", string(d.Mode),
 			"valid", validModeList(),
 		)
@@ -63,7 +64,7 @@ func (d *Def) Validate() error {
 
 	for name := range d.Fields {
 		if IsSystemField(name) {
-			return errors.Wrap(ErrInvalidField,
+			return xerrors.Wrap(ErrInvalidField,
 				"field", name,
 				"reason", "field names starting with "+SystemPrefix+
 					" are reserved for system metadata",
@@ -80,7 +81,7 @@ func (d *Def) Validate() error {
 func validateFields(fields map[string]Field) error {
 	for name, field := range fields {
 		if !validFieldName(name) {
-			return errors.Wrap(ErrInvalidField,
+			return xerrors.Wrap(ErrInvalidField,
 				"field", name,
 				"reason", "field name is not a valid attribute path",
 			)
@@ -88,7 +89,7 @@ func validateFields(fields map[string]Field) error {
 
 		isArray := field.Type.ID() == core.TIDArray
 		if isArray && field.Type.ElemTypeID() == "" {
-			return errors.Wrap(ErrInvalidField,
+			return xerrors.Wrap(ErrInvalidField,
 				"field", name,
 				"reason", "array field requires elem_type",
 			)
@@ -96,7 +97,7 @@ func validateFields(fields map[string]Field) error {
 
 		if field.HasIndex() {
 			if !isIndexable(field.Type) {
-				return errors.Wrap(ErrInvalidField,
+				return xerrors.Wrap(ErrInvalidField,
 					"field", name,
 					"reason", "indexed and unique are only valid on scalar fields, not "+
 						field.Type.ID().String(),
@@ -106,7 +107,7 @@ func validateFields(fields map[string]Field) error {
 
 		if len(field.Items) > 0 {
 			if !isObjectArray(field) {
-				return errors.Wrap(ErrInvalidField,
+				return xerrors.Wrap(ErrInvalidField,
 					"field", name,
 					"reason", "items is only valid on ARRAY<JSON> fields",
 				)
@@ -124,7 +125,7 @@ func validateFields(fields map[string]Field) error {
 				continue
 			}
 			if strings.HasPrefix(inner, prefix) {
-				return errors.Wrap(ErrInvalidField,
+				return xerrors.Wrap(ErrInvalidField,
 					"field", outer,
 					"conflict", inner,
 					"reason", "field name is a path-prefix of another field",
@@ -173,7 +174,7 @@ func validFieldName(name string) bool {
 // are allowed.
 func ValidateUpdate(existing, updated *Def) error {
 	if existing.Mode != updated.Mode {
-		return errors.Wrap(ErrImmutableMode,
+		return xerrors.Wrap(ErrImmutableMode,
 			"reason", "mode cannot change",
 			"from", string(existing.Mode),
 			"to", string(updated.Mode),
@@ -186,7 +187,7 @@ func ValidateUpdate(existing, updated *Def) error {
 			continue
 		}
 		if oldField.Type.ID() != newField.Type.ID() {
-			return errors.Wrap(ErrImmutableField,
+			return xerrors.Wrap(ErrImmutableField,
 				"field", name,
 				"reason", "type cannot change",
 				"from", oldField.Type.ID().String(),
@@ -195,7 +196,7 @@ func ValidateUpdate(existing, updated *Def) error {
 		}
 		if oldField.Type.ID() == core.TIDArray &&
 			oldField.Type.ElemTypeID() != newField.Type.ElemTypeID() {
-			return errors.Wrap(ErrImmutableField,
+			return xerrors.Wrap(ErrImmutableField,
 				"field", name,
 				"reason", "elem_type cannot change",
 				"from", oldField.Type.ElemTypeID().String(),
@@ -203,13 +204,13 @@ func ValidateUpdate(existing, updated *Def) error {
 			)
 		}
 		if oldField.Indexed != newField.Indexed {
-			return errors.Wrap(ErrImmutableField,
+			return xerrors.Wrap(ErrImmutableField,
 				"field", name,
 				"reason", "indexed cannot change after creation",
 			)
 		}
 		if oldField.Unique != newField.Unique {
-			return errors.Wrap(ErrImmutableField,
+			return xerrors.Wrap(ErrImmutableField,
 				"field", name,
 				"reason", "unique cannot change after creation",
 			)
@@ -244,7 +245,7 @@ func ValidateTuples(def *Def, tuples []*core.Tuple) error {
 
 		if !ok {
 			if def.Mode == ModeStrict {
-				return errors.Wrap(ErrUnknownField, "field", attr)
+				return xerrors.Wrap(ErrUnknownField, "field", attr)
 			}
 			continue
 		}
@@ -279,7 +280,7 @@ func CheckRequired(def *Def, tuples []*core.Tuple) error {
 			continue
 		}
 		if _, ok := present[name]; !ok {
-			return errors.Wrap(ErrMissingRequired, "field", name)
+			return xerrors.Wrap(ErrMissingRequired, "field", name)
 		}
 	}
 
@@ -307,7 +308,7 @@ func ValidateField(attr string, field Field, v *core.Value) error {
 	got := v.Type()
 
 	if want.ID() != got.ID() {
-		return errors.Wrap(ErrTypeMismatch,
+		return xerrors.Wrap(ErrTypeMismatch,
 			"field", attr,
 			"expected", want.ID().String(),
 			"got", got.ID().String(),
@@ -315,7 +316,7 @@ func ValidateField(attr string, field Field, v *core.Value) error {
 	}
 
 	if want.ID() == core.TIDArray && want.ElemTypeID() != got.ElemTypeID() {
-		return errors.Wrap(ErrTypeMismatch,
+		return xerrors.Wrap(ErrTypeMismatch,
 			"field", attr,
 			"expected", "ARRAY<"+want.ElemTypeID().String()+">",
 			"got", "ARRAY<"+got.ElemTypeID().String()+">",
@@ -340,7 +341,7 @@ func validateObjectArray(attr string, items map[string]Field, v *core.Value) err
 	for _, elem := range elems {
 		raw, err := elem.AsJSON()
 		if err != nil {
-			return errors.Wrap(ErrTypeMismatch,
+			return xerrors.Wrap(ErrTypeMismatch,
 				"field", attr,
 				"reason", "array element is not a JSON object",
 			)
@@ -360,7 +361,7 @@ func validateObjectArray(attr string, items map[string]Field, v *core.Value) err
 func validateElement(attr string, items map[string]Field, raw json.RawMessage) error {
 	var obj map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &obj); err != nil || obj == nil {
-		return errors.Wrap(ErrTypeMismatch,
+		return xerrors.Wrap(ErrTypeMismatch,
 			"field", attr,
 			"reason", "array element is not a JSON object",
 		)
@@ -369,7 +370,7 @@ func validateElement(attr string, items map[string]Field, raw json.RawMessage) e
 	for name, memberRaw := range obj {
 		field, ok := items[name]
 		if !ok {
-			return errors.Wrap(ErrUnknownField,
+			return xerrors.Wrap(ErrUnknownField,
 				"field", attr,
 				"member", name,
 			)
@@ -381,7 +382,7 @@ func validateElement(attr string, items map[string]Field, raw json.RawMessage) e
 
 		mv, err := jsonMemberValue(memberRaw, field.Type)
 		if err != nil {
-			return errors.Wrap(err,
+			return xerrors.Wrap(err,
 				"field", attr,
 				"member", name,
 			)
@@ -396,7 +397,7 @@ func validateElement(attr string, items map[string]Field, raw json.RawMessage) e
 			continue
 		}
 		if _, ok := obj[name]; !ok {
-			return errors.Wrap(ErrMissingRequired,
+			return xerrors.Wrap(ErrMissingRequired,
 				"field", attr,
 				"member", name,
 			)

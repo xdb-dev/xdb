@@ -12,7 +12,7 @@ import (
 // Query methods translate SQLite's "no such table" error into this
 // sentinel so callers check with [errors.Is] instead of matching on
 // the driver's error string.
-var ErrNoTable = errors.New("sqlite: no such table")
+var ErrNoTable = errors.New("[xdb/xdbsqlite] no such table")
 
 // mapErr translates SQLite driver errors into the store's domain
 // sentinels. "no such table" becomes [ErrNoTable]; a "UNIQUE constraint

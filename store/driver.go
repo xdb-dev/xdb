@@ -89,7 +89,7 @@ type TxDriver interface {
 // ErrUnsupportedQuery is returned by [QueryDriver.QueryTuples] for
 // queries the driver cannot push down (e.g. namespace-wide scopes).
 // The facade falls back to synthesizing the list from ScanTuples.
-var ErrUnsupportedQuery = errors.New("store: unsupported query")
+var ErrUnsupportedQuery = errors.New("[xdb/store] unsupported query")
 
 // QueryDriver is an optional capability for drivers with native
 // filter pushdown (e.g. compiling CEL to SQL). QueryTuples returns

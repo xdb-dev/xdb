@@ -262,37 +262,72 @@ func RegisterStreamWithMeta[Req any](
 // MapError converts a Go error to a JSON-RPC [Error].
 // It maps well-known store errors to XDB-specific error codes
 // and falls back to [InternalError] for unknown errors.
+//
+// Any structured tags attached with xerrors.Wrap become the error's Data.
+// The message is written for a human to read. Data has the stable shape,
+// so a caller should branch on that.
 func MapError(err error) *Error {
 	if rpcErr, ok := err.(*Error); ok {
 		return rpcErr
 	}
 
+	rpcErr, reason := mapErrorCode(err)
+	rpcErr.Data = errorData(err, reason)
+
+	return rpcErr
+}
+
+// mapErrorCode picks the JSON-RPC code for err. The second result is the
+// reason tag the sentinel implies, empty when it implies none.
+func mapErrorCode(err error) (*Error, string) {
 	msg := err.Error()
 
 	switch {
 	case errors.Is(err, core.ErrNotFound):
-		return NotFound(msg)
+		return NotFound(msg), ""
 	case errors.Is(err, core.ErrAlreadyExists):
-		return AlreadyExists(msg)
+		return AlreadyExists(msg), ""
 	case errors.Is(err, core.ErrSchemaViolation):
-		return SchemaViolation(msg)
+		return SchemaViolation(msg), ""
 	case errors.Is(err, core.ErrConflict):
-		return Conflict(msg)
+		return Conflict(msg), ""
 	case errors.Is(err, core.ErrUniqueViolation):
-		return UniqueViolation(msg)
+		return UniqueViolation(msg), ""
 	case errors.Is(err, core.ErrNotImplemented):
-		return NotImplemented(msg)
+		return NotImplemented(msg), ""
 	case errors.Is(err, core.ErrInvalidURI):
-		return InvalidParamsData(msg, map[string]any{"reason": "invalid_uri"})
+		return InvalidParams(msg), "invalid_uri"
 	case errors.Is(err, core.ErrInvalidFilter):
-		return InvalidParamsData(msg, map[string]any{"reason": "invalid_filter"})
+		return InvalidParams(msg), "invalid_filter"
 	case errors.Is(err, core.ErrUnknownType):
-		return SchemaViolation(msg)
+		return SchemaViolation(msg), ""
 	case errors.Is(err, schema.ErrInvalidMode):
-		return SchemaViolation(msg)
+		return SchemaViolation(msg), ""
 	default:
-		return InternalError(msg)
+		return InternalError(msg), ""
 	}
+}
+
+// errorData builds the Data object for err from its tags, falling back to
+// reason when the error carries no reason tag of its own. Returns nil when
+// there is nothing to report, so Data stays absent from the response.
+func errorData(err error, reason string) any {
+	data := core.ErrorTags(err)
+
+	if reason != "" {
+		if data == nil {
+			data = make(map[string]string, 1)
+		}
+		if _, ok := data["reason"]; !ok {
+			data["reason"] = reason
+		}
+	}
+
+	if data == nil {
+		return nil
+	}
+
+	return data
 }
 
 func writeJSON(w http.ResponseWriter, status int, v *Response) {

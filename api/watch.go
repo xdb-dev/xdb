@@ -64,7 +64,7 @@ func (s *WatchService) Watch(
 
 	ready, err := json.Marshal(map[string]string{"uri": uri.String()})
 	if err != nil {
-		return fmt.Errorf("api: watch: marshal ready frame: %w", err)
+		return fmt.Errorf("[xdb/api] watch: marshal ready frame: %w", err)
 	}
 	send("ready", ready)
 

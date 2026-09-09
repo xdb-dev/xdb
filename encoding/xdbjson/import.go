@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gojekfarm/xtools/errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 	"github.com/google/jsonschema-go/jsonschema"
 
 	"github.com/xdb-dev/xdb/core"
@@ -45,7 +45,7 @@ func ImportSchema(data []byte, opts ...Option) (*schema.Def, error) {
 		}
 		pop()
 		if asJSON {
-			return nil, errors.Wrap(ErrUnsupported,
+			return nil, xerrors.Wrap(ErrUnsupported,
 				"pointer", rootPtr,
 				"reason", "root cannot import as JSON",
 			)
@@ -54,7 +54,7 @@ func ImportSchema(data []byte, opts ...Option) (*schema.Def, error) {
 	}
 
 	if !isObject(root) {
-		return nil, errors.Wrap(ErrUnsupported,
+		return nil, xerrors.Wrap(ErrUnsupported,
 			"pointer", rootPtr,
 			"reason", "root schema must be an object",
 		)
@@ -150,7 +150,7 @@ func (im *importer) objectFields(n *jsonschema.Schema, ptr string) (map[string]s
 			return nil, err
 		}
 		if bres.nested == nil {
-			return nil, errors.Wrap(ErrUnsupported,
+			return nil, xerrors.Wrap(ErrUnsupported,
 				"pointer", ptr+"/allOf/"+strconv.Itoa(i),
 				"reason", "allOf branch must be an object",
 			)
@@ -199,7 +199,7 @@ func (im *importer) objectFields(n *jsonschema.Schema, ptr string) (map[string]s
 		}
 
 		if _, dup := out[name]; dup {
-			return nil, errors.Wrap(ErrConflict, "field", name)
+			return nil, xerrors.Wrap(ErrConflict, "field", name)
 		}
 		out[name] = *res.field
 		single[name] = struct{}{}
@@ -207,7 +207,7 @@ func (im *importer) objectFields(n *jsonschema.Schema, ptr string) (map[string]s
 
 	if len(offending) > 0 {
 		slices.Sort(offending)
-		return nil, errors.Wrap(ErrInvalidKey,
+		return nil, xerrors.Wrap(ErrInvalidKey,
 			"pointer", ptr,
 			"keys", strings.Join(offending, ", "),
 		)
@@ -224,7 +224,7 @@ func (im *importer) objectFields(n *jsonschema.Schema, ptr string) (map[string]s
 // an opaque JSON field. Object-array members recurse.
 func (im *importer) elementFields(n *jsonschema.Schema, ptr string) (map[string]schema.Field, error) {
 	if len(n.AllOf) > 0 {
-		return nil, errors.Wrap(ErrUnsupported,
+		return nil, xerrors.Wrap(ErrUnsupported,
 			"pointer", ptr+"/allOf",
 			"reason", "allOf is not supported inside array elements",
 		)
@@ -251,7 +251,7 @@ func (im *importer) elementFields(n *jsonschema.Schema, ptr string) (map[string]
 
 	if len(offending) > 0 {
 		slices.Sort(offending)
-		return nil, errors.Wrap(ErrInvalidKey,
+		return nil, xerrors.Wrap(ErrInvalidKey,
 			"pointer", ptr,
 			"keys", strings.Join(offending, ", "),
 		)
@@ -311,7 +311,7 @@ func (im *importer) member(s *jsonschema.Schema, ptr string, inElement bool) (bu
 // arrayField builds the field for an array node from its items schema.
 func (im *importer) arrayField(n *jsonschema.Schema, ptr string) (schema.Field, error) {
 	if n.Items == nil {
-		return schema.Field{}, errors.Wrap(ErrUnsupported,
+		return schema.Field{}, xerrors.Wrap(ErrUnsupported,
 			"pointer", ptr,
 			"reason", "array requires a typed items schema",
 		)
@@ -345,7 +345,7 @@ func (im *importer) arrayField(n *jsonschema.Schema, ptr string) (schema.Field, 
 		}, nil
 
 	case isArray(item):
-		return schema.Field{}, errors.Wrap(ErrUnsupported,
+		return schema.Field{}, xerrors.Wrap(ErrUnsupported,
 			"pointer", itemPtr,
 			"reason", "arrays of arrays are not supported",
 		)
@@ -375,7 +375,7 @@ func (im *importer) deref(s *jsonschema.Schema, ptr string) (*jsonschema.Schema,
 		ref := cur.Ref
 
 		if !strings.HasPrefix(ref, "#") {
-			return nil, "", false, pop, errors.Wrap(ErrCrossDocument,
+			return nil, "", false, pop, xerrors.Wrap(ErrCrossDocument,
 				"pointer", curPtr,
 				"ref", ref,
 			)
@@ -384,7 +384,7 @@ func (im *importer) deref(s *jsonschema.Schema, ptr string) (*jsonschema.Schema,
 			return cur, ref, true, pop, nil
 		}
 		if im.onStack(ref) {
-			return nil, "", false, pop, errors.Wrap(ErrCyclicRef,
+			return nil, "", false, pop, xerrors.Wrap(ErrCyclicRef,
 				"pointer", curPtr,
 				"ref", ref,
 			)
@@ -429,11 +429,11 @@ func (im *importer) resolvePointer(ref string) (json.RawMessage, error) {
 			token = decodePointerToken(token)
 			m, ok := cur.(map[string]any)
 			if !ok {
-				return nil, errors.Wrap(ErrUnresolvedRef, "ref", ref)
+				return nil, xerrors.Wrap(ErrUnresolvedRef, "ref", ref)
 			}
 			next, ok := m[token]
 			if !ok {
-				return nil, errors.Wrap(ErrUnresolvedRef, "ref", ref)
+				return nil, xerrors.Wrap(ErrUnresolvedRef, "ref", ref)
 			}
 			cur = next
 		}
@@ -453,7 +453,7 @@ func decodePointerToken(t string) string {
 func merge(dst, src map[string]schema.Field) error {
 	for k, v := range src {
 		if _, ok := dst[k]; ok {
-			return errors.Wrap(ErrConflict, "field", k)
+			return xerrors.Wrap(ErrConflict, "field", k)
 		}
 		dst[k] = v
 	}
@@ -499,7 +499,7 @@ func unionError(ptr string, n *jsonschema.Schema) error {
 	if len(n.OneOf) > 0 {
 		kind = "oneOf"
 	}
-	return errors.Wrap(ErrUnion, "pointer", ptr, "keyword", kind)
+	return xerrors.Wrap(ErrUnion, "pointer", ptr, "keyword", kind)
 }
 
 // additionalKind classifies the additionalProperties keyword. The library
@@ -549,7 +549,7 @@ func modeFromAdditional(n *jsonschema.Schema, ptr string) (schema.Mode, error) {
 	case additionalFalse:
 		return schema.ModeStrict, nil
 	default:
-		return "", errors.Wrap(ErrUnsupported,
+		return "", xerrors.Wrap(ErrUnsupported,
 			"pointer", ptr+"/additionalProperties",
 			"reason", "a typed additionalProperties schema at the root is not supported",
 		)
@@ -608,7 +608,7 @@ func resolveNamespace(o options) (string, error) {
 	if o.ns != "" {
 		return o.ns, nil
 	}
-	return "", errors.Wrap(ErrMissingNamespace,
+	return "", xerrors.Wrap(ErrMissingNamespace,
 		"fix", "pass WithNamespace to set the target namespace",
 	)
 }
@@ -623,7 +623,7 @@ func resolveSchemaName(o options, root *jsonschema.Schema) (string, error) {
 	if n := nameFromID(root.ID); n != "" {
 		return n, nil
 	}
-	return "", errors.Wrap(ErrMissingSchema,
+	return "", xerrors.Wrap(ErrMissingSchema,
 		"fix", "pass WithSchemaName, or add a title to the schema",
 	)
 }

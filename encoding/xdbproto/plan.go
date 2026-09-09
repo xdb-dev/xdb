@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gojekfarm/xtools/errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/xdb-dev/xdb/core"
@@ -68,7 +68,7 @@ func buildMessagePlan(
 		fd := fields.Get(i)
 
 		if oo := fd.ContainingOneof(); oo != nil && !oo.IsSynthetic() {
-			return nil, errors.Wrap(ErrOneof,
+			return nil, xerrors.Wrap(ErrOneof,
 				"field", string(fd.Name()),
 				"oneof", string(oo.Name()),
 				"fix", "flatten the oneof into separate optional fields",
@@ -217,7 +217,7 @@ func expandMessage(
 ) ([]fieldPlan, error) {
 	name := md.FullName()
 	if slices.Contains(stack, name) {
-		return nil, errors.Wrap(ErrRecursive,
+		return nil, xerrors.Wrap(ErrRecursive,
 			"field", field,
 			"cycle", cycleString(stack, name),
 			"fix", "pass WithAllowJSON(\""+string(name)+"\") to store it as JSON",

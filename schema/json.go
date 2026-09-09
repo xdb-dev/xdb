@@ -3,7 +3,7 @@ package schema
 import (
 	"encoding/json"
 
-	"github.com/gojekfarm/xtools/errors"
+	xerrors "github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
 )
@@ -94,7 +94,7 @@ func (d *Def) UnmarshalJSON(data []byte) error {
 		mode = ModeStrict
 	}
 	if _, ok := validModes[mode]; !ok {
-		return errors.Wrap(ErrInvalidMode,
+		return xerrors.Wrap(ErrInvalidMode,
 			"mode", jd.Mode,
 			"valid", validModeList(),
 		)
