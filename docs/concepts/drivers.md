@@ -47,6 +47,12 @@ type Driver interface {
 
 Direct driver calls, including calls in driver tests, bypass store validation and versioning.
 
+## Naming
+
+Verbs that retrieve a value are `Get*`, writes are `Put*`/`Create*`/`Delete*`, and iteration is `Scan*`. This KV-shaped vocabulary is deliberate, chosen for symmetry across `Driver` and `Store`. Go convention would drop the `Get` prefix; XDB keeps it.
+
+The prefix means the method retrieves a value, so a method returning only a yes/no is named for what it asks. That is why the namespace check is `NamespaceExists` rather than `GetNamespace`.
+
 ## Reading Tuples
 
 - `GetTuples` is a batch point read by attribute-level URIs. Absent attributes are omitted, and the result keeps request order. A batch read does not fail on absence. The facade maps absence to `ErrNotFound` for singular reads.

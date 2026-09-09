@@ -66,8 +66,8 @@ core.ArrayVal(core.TIDString, core.StringVal("a"), core.StringVal("b"))
 The dynamic constructors use reflection:
 
 ```go
-v := core.NewValue("hello")          // panics on an unsupported type
-v, err := core.NewSafeValue("hello") // returns an error instead
+v, err := core.NewValue("hello")    // returns ErrUnsupportedValue
+v := core.MustNewValue("hello")     // panics instead; for compile-time values
 ```
 
 ### Accessing Values

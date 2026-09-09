@@ -115,10 +115,10 @@ CEL supports type checking before evaluation and translation to SQL. Its evaluat
 f, err := filter.Compile(`status == "active" && age >= 18`, schemaDef)
 
 // Evaluate against one record.
-match, err := filter.Match(f, record)
+match, err := f.Match(record)
 
-// Filter a slice of records.
-results, err := filter.Records(f, records)
+// Keep only the records that match.
+results, err := f.Filter(records)
 ```
 
 ## SQL Generation

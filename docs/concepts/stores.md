@@ -141,7 +141,7 @@ Record and patch behavior:
 
 | Operation | Exists | Not Exists | Semantics |
 |-----------|--------|------------|-----------|
-| `GetNamespace` | Returns namespace | `ErrNotFound` | Read by URI (ns only) |
+| `NamespaceExists` | `true` | `false`, no error | Existence check by URI (ns only) |
 | `ListNamespaces` | Returns page of namespaces | Empty page (no error) | Lists all known namespaces |
 
 Namespaces are derived from schemas. There is no writer interface. A namespace exists when at least one schema exists within it. The derivation lives in the facade. Drivers know nothing about namespaces.

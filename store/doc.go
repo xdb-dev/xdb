@@ -9,6 +9,17 @@
 // namespaces from schema scans. Record and tuple writes become [Mutation]s;
 // schema writes use the driver's schema methods.
 //
+// # Naming
+//
+// Verbs that retrieve a value are Get*, writes are Put*/Create*/Delete*,
+// and iteration is Scan*. This KV-shaped vocabulary is deliberate, chosen
+// for symmetry across [Driver] and [Store]. Go convention would drop the
+// Get prefix; XDB keeps it.
+//
+// The prefix means the method retrieves a value, so a method returning
+// only a yes/no is named for what it asks. That is why the namespace
+// check is [NamespaceReader.NamespaceExists] rather than GetNamespace.
+//
 // # Writes
 //
 // Each Mutation carries an [Op] that specifies patch, create, put, or delete
