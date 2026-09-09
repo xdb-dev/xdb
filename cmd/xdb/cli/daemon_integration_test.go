@@ -26,7 +26,7 @@ func TestDaemonStart_PrintsRealPID(t *testing.T) {
 	xdbDir := t.TempDir()
 	bin := filepath.Join(xdbDir, "xdb")
 
-	build := exec.Command("go", "build", "-o", bin, "github.com/xdb-dev/xdb/cmd/xdb")
+	build := exec.CommandContext(t.Context(), "go", "build", "-o", bin, "github.com/xdb-dev/xdb/cmd/xdb")
 	build.Stderr = os.Stderr
 	require.NoError(t, build.Run(), "failed to build xdb binary")
 
@@ -46,13 +46,13 @@ func TestDaemonStart_PrintsRealPID(t *testing.T) {
 
 	// Ensure we stop the daemon even if assertions fail.
 	t.Cleanup(func() {
-		stop := exec.Command(bin, "--config", cfgPath, "daemon", "stop")
-		stop.Run() //nolint:errcheck // best-effort cleanup
+		stop := exec.CommandContext(t.Context(), bin, "--config", cfgPath, "daemon", "stop")
+		stop.Run()
 	})
 
 	var stderr bytes.Buffer
 
-	start := exec.Command(bin, "--config", cfgPath, "daemon", "start")
+	start := exec.CommandContext(t.Context(), bin, "--config", cfgPath, "daemon", "start")
 	start.Stderr = &stderr
 	start.Stdout = &stderr
 	start.Env = append(os.Environ(), "HOME="+runDir)
@@ -77,5 +77,5 @@ func TestDaemonStart_PrintsRealPID(t *testing.T) {
 
 	pid, convErr := strconv.Atoi(matches[1])
 	require.NoError(t, convErr)
-	assert.Greater(t, pid, 0, "daemon PID must be > 0 (regression: Release() zeroed child.Process.Pid)")
+	assert.Positive(t, pid, "daemon PID must be > 0 (regression: Release() zeroed child.Process.Pid)")
 }

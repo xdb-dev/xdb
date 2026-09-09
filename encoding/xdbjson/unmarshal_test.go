@@ -104,8 +104,8 @@ func TestUnmarshal_NestedAttributes(t *testing.T) {
 	location, ok := address["location"].(map[string]any)
 	require.True(t, ok, "location should be a nested object")
 
-	assert.Equal(t, 42.3601, location["lat"])
-	assert.Equal(t, -71.0589, location["lon"])
+	assert.InDelta(t, 42.3601, location["lat"], 0.0001)
+	assert.InDelta(t, -71.0589, location["lon"], 0.0001)
 }
 
 func TestUnmarshal_BasicTypes(t *testing.T) {
@@ -206,7 +206,7 @@ func TestUnmarshal_ObjectArray(t *testing.T) {
 	first, ok := lines[0].(map[string]any)
 	require.True(t, ok, "each element should be a JSON object")
 	assert.Equal(t, "A-1", first["sku"])
-	assert.Equal(t, float64(3), first["qty"])
+	assert.InDelta(t, float64(3), first["qty"], 0.0001)
 }
 
 func TestUnmarshal_EmptyArray(t *testing.T) {
@@ -322,14 +322,14 @@ func TestUnmarshal_RoundTrip_JSONField(t *testing.T) {
 
 func TestUnmarshal_ErrorNilRecord(t *testing.T) {
 	data, err := xdbjson.Unmarshal(nil)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, data)
 	assert.ErrorIs(t, err, xdbjson.ErrNilRecord)
 }
 
 func TestUnmarshal_ErrorNilRecordIndent(t *testing.T) {
 	data, err := xdbjson.Unmarshal(nil, xdbjson.WithIndent("", "  "))
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, data)
 	assert.ErrorIs(t, err, xdbjson.ErrNilRecord)
 }
@@ -362,7 +362,7 @@ func TestUnmarshal_FromRecordFields(t *testing.T) {
 
 		assert.Equal(t, "123", m["_id"])
 		assert.Equal(t, "John Doe", m["name"])
-		assert.Equal(t, float64(30), m["age"])
+		assert.InDelta(t, float64(30), m["age"], 0.0001)
 		assert.NotContains(t, m, "email")
 	})
 

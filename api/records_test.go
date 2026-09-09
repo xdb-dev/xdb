@@ -39,7 +39,7 @@ func TestRecordService_Create(t *testing.T) {
 
 		m := recordData(t, resp.Data)
 		assert.Equal(t, "Hello", m["title"])
-		assert.Equal(t, float64(42), m["count"])
+		assert.InDelta(t, float64(42), m["count"], 0.0001)
 	})
 
 	t.Run("identical payload is idempotent", func(t *testing.T) {
@@ -59,7 +59,7 @@ func TestRecordService_Create(t *testing.T) {
 			Data: json.RawMessage(`{"title":"Different"}`),
 		})
 		require.Error(t, err)
-		assert.ErrorIs(t, err, core.ErrConflict)
+		require.ErrorIs(t, err, core.ErrConflict)
 		assert.Contains(t, err.Error(), "xdb://com.example/posts/post-1")
 		assert.Contains(t, err.Error(), "records.update")
 	})
@@ -132,7 +132,7 @@ func TestRecordService_Get(t *testing.T) {
 		_, err := svc.Get(ctx, &api.GetRecordRequest{
 			URI: "xdb://com.example",
 		})
-		assert.ErrorIs(t, err, core.ErrInvalidURI)
+		require.ErrorIs(t, err, core.ErrInvalidURI)
 		assert.NotErrorIs(t, err, core.ErrNotFound)
 	})
 }
@@ -597,7 +597,7 @@ func TestRecordService_CreateCoercesTypedFields(t *testing.T) {
 	require.NoError(t, err)
 
 	m := recordData(t, resp.Data)
-	assert.Equal(t, float64(42), m["qty"])
+	assert.InDelta(t, float64(42), m["qty"], 0.0001)
 }
 
 func TestRecordService_ListNamespaceScope(t *testing.T) {

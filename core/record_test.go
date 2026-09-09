@@ -104,7 +104,7 @@ func TestRecordSchemaURI(t *testing.T) {
 
 	assert.Equal(t, "com.example", uri.NS())
 	assert.Equal(t, "posts", uri.Schema())
-	assert.Equal(t, "", uri.ID())
+	assert.Empty(t, uri.ID())
 }
 
 func TestRecordGoString(t *testing.T) {

@@ -182,7 +182,7 @@ func TestDropColumn(t *testing.T) {
 	_, err = db.ExecContext(ctx,
 		`INSERT INTO "t:test/dc" (_id, a, b) VALUES (?, ?, ?)`, "id1", "x", 5,
 	)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Insert without b should succeed.
 	_, err = db.ExecContext(ctx,

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCheckStdinConsumers(t *testing.T) {
@@ -29,7 +30,7 @@ func TestCheckStdinConsumers(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := checkStdinConsumers(tc.uri, tc.file, tc.args)
 			if tc.wantErr {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.Contains(t, err.Error(), "at most one")
 			} else {
 				assert.NoError(t, err)

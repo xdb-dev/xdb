@@ -267,7 +267,7 @@ func TestCompile_StrictUnknownField(t *testing.T) {
 
 	_, err := Compile(`foo == "x"`, def)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, core.ErrInvalidFilter)
+	require.ErrorIs(t, err, core.ErrInvalidFilter)
 	assert.Contains(t, err.Error(), `unknown field "foo"`)
 	assert.Contains(t, err.Error(), "available fields: bar, baz, title")
 }

@@ -3,7 +3,6 @@ package rpc_test
 import (
 	"context"
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -49,7 +48,7 @@ func TestSchemaViolationTagsReachData(t *testing.T) {
 	assert.Equal(t, "decode_failed", data["reason"])
 
 	// The message may still carry the tags as text, and their order there is
-	// not stable. Data is the part with a contract.
-	assert.True(t, strings.Contains(rpcErr.Message, "count"),
+	// not stable between runs. Data is what a caller should depend on.
+	assert.Contains(t, rpcErr.Message, "count",
 		"message should still name the field for a human: %q", rpcErr.Message)
 }

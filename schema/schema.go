@@ -76,13 +76,13 @@ func validModeList() string {
 // a Unique field with [core.ErrUniqueViolation]. A backend without one
 // stores the markers and enforces nothing.
 type Field struct {
-	Annotations map[string]string
-	Items       map[string]Field
 	Type        core.Type
 	Description string
 	Required    bool
 	Indexed     bool
 	Unique      bool
+	Items       map[string]Field
+	Annotations map[string]string
 }
 
 // HasIndex reports whether the field carries an index marker. A unique

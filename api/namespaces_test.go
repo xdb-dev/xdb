@@ -55,7 +55,7 @@ func TestNamespaceService_Get(t *testing.T) {
 		_, err := nsSvc.Get(ctx, &api.GetNamespaceRequest{
 			URI: "xdb://testns/things",
 		})
-		assert.ErrorIs(t, err, core.ErrInvalidURI)
+		require.ErrorIs(t, err, core.ErrInvalidURI)
 		assert.NotErrorIs(t, err, core.ErrNotFound)
 	})
 }

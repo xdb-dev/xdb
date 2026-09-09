@@ -139,7 +139,7 @@ func TestSchemaService_Create(t *testing.T) {
 			Data: data,
 		})
 		require.Error(t, err)
-		assert.ErrorIs(t, err, core.ErrConflict)
+		require.ErrorIs(t, err, core.ErrConflict)
 		assert.Contains(t, err.Error(), "xdb://myapp/users")
 		assert.Contains(t, err.Error(), "schemas.update")
 	})
@@ -246,7 +246,7 @@ func TestSchemaService_Get(t *testing.T) {
 		_, err := svc.Get(ctx, &api.GetSchemaRequest{
 			URI: "xdb://myapp",
 		})
-		assert.ErrorIs(t, err, core.ErrInvalidURI)
+		require.ErrorIs(t, err, core.ErrInvalidURI)
 		assert.NotErrorIs(t, err, core.ErrNotFound)
 	})
 }

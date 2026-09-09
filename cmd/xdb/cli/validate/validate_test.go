@@ -65,11 +65,11 @@ func TestURI(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
 			} else if tt.name == "valid URI" {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 			// For empty string, we just check it returns some error
 			if tt.raw == "" {
-				assert.Error(t, err)
+				require.Error(t, err)
 			}
 		})
 	}
@@ -150,11 +150,6 @@ func TestFilePath(t *testing.T) {
 
 func TestPayload(t *testing.T) {
 	validJSON := []byte(`{"key": "value"}`)
-	largeJSON := make([]byte, 0, 200)
-	largeJSON = append(largeJSON, []byte(`{"k":"`)...)
-	largeJSON = append(largeJSON, make([]byte, 190)...)
-	largeJSON = append(largeJSON, []byte(`"}`)...)
-
 	// Build deeply nested JSON (21 levels)
 	deepJSON := buildNestedJSON(21)
 
@@ -210,7 +205,7 @@ func TestPayload(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -271,7 +266,7 @@ func TestMutuallyExclusive(t *testing.T) {
 				require.Error(t, err)
 				assert.Equal(t, tt.wantErr, err.Error())
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 		})
 	}
@@ -288,11 +283,11 @@ func TestFilePath_SymlinkedCwd(t *testing.T) {
 	t.Chdir(link)
 
 	_, err := FilePath("ops.ndjson")
-	assert.NoError(t, err, "a file directly inside a symlinked cwd must be accepted")
+	require.NoError(t, err, "a file directly inside a symlinked cwd must be accepted")
 
 	outside := filepath.Join(t.TempDir(), "outside.ndjson")
 	require.NoError(t, os.WriteFile(outside, []byte("{}\n"), 0o600))
 
 	_, err = FilePath(outside)
-	assert.Error(t, err, "files outside cwd must still be rejected")
+	require.Error(t, err, "files outside cwd must still be rejected")
 }

@@ -73,7 +73,7 @@ func TestBatchService_Execute_AllSucceed(t *testing.T) {
 	records := api.NewRecordService(s)
 	got, err := records.Get(ctx, &api.GetRecordRequest{URI: "xdb://batch.t/items/i1"})
 	require.NoError(t, err)
-	assert.Equal(t, float64(10), recordData(t, got.Data)["qty"])
+	assert.InDelta(t, float64(10), recordData(t, got.Data)["qty"], 0.0001)
 }
 
 func TestBatchService_Execute_MidBatchFailureRollsBack(t *testing.T) {
@@ -172,7 +172,7 @@ func TestBatchService_Execute_NonTxBackend(t *testing.T) {
 			},
 		})
 		require.Error(t, err)
-		assert.ErrorIs(t, err, core.ErrNotImplemented)
+		require.ErrorIs(t, err, core.ErrNotImplemented)
 		assert.Contains(t, err.Error(), "non_atomic")
 	})
 
@@ -196,7 +196,7 @@ func TestBatchService_Execute_NonTxBackend(t *testing.T) {
 
 		records := api.NewRecordService(s)
 		_, err = records.Get(ctx, &api.GetRecordRequest{URI: "xdb://batch.t/items/s1"})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		_, err = records.Get(ctx, &api.GetRecordRequest{URI: "xdb://batch.t/items/s3"})
 		assert.NoError(t, err)
 	})

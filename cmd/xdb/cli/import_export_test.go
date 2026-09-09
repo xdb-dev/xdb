@@ -165,8 +165,8 @@ func TestImport_Accounting(t *testing.T) {
 
 		var doc map[string]any
 		require.NoError(t, json.Unmarshal([]byte(stdout), &doc))
-		assert.Equal(t, float64(2), doc["imported"])
-		assert.Equal(t, float64(0), doc["failed"])
+		assert.InDelta(t, float64(2), doc["imported"], 0.0001)
+		assert.InDelta(t, float64(0), doc["failed"], 0.0001)
 	})
 
 	t.Run("create-only counts conflicts as skipped", func(t *testing.T) {
@@ -177,8 +177,8 @@ func TestImport_Accounting(t *testing.T) {
 
 		var doc map[string]any
 		require.NoError(t, json.Unmarshal([]byte(stdout), &doc))
-		assert.Equal(t, float64(1), doc["imported"])
-		assert.Equal(t, float64(1), doc["skipped"])
+		assert.InDelta(t, float64(1), doc["imported"], 0.0001)
+		assert.InDelta(t, float64(1), doc["skipped"], 0.0001)
 
 		// The divergent import must not have overwritten local data.
 		out, _, code := runCLI(t, "--config", cfg, "records", "get", "--uri", "xdb://imp.t/items/i1", "-o", "json")
@@ -195,8 +195,8 @@ func TestImport_Accounting(t *testing.T) {
 
 		var doc map[string]any
 		require.NoError(t, json.Unmarshal([]byte(stdout), &doc))
-		assert.Equal(t, float64(1), doc["imported"])
-		assert.Equal(t, float64(1), doc["failed"])
-		assert.Equal(t, float64(3), doc["first_error_line"])
+		assert.InDelta(t, float64(1), doc["imported"], 0.0001)
+		assert.InDelta(t, float64(1), doc["failed"], 0.0001)
+		assert.InDelta(t, float64(3), doc["first_error_line"], 0.0001)
 	})
 }

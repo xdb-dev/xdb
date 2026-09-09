@@ -51,7 +51,7 @@ func TestTupleSchemaURI(t *testing.T) {
 
 	assert.Equal(t, "com.example", schemaURI.NS())
 	assert.Equal(t, "posts", schemaURI.Schema())
-	assert.Equal(t, "", schemaURI.ID())
+	assert.Empty(t, schemaURI.ID())
 }
 
 func TestTupleURI(t *testing.T) {

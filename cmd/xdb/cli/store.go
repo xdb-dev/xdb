@@ -8,14 +8,14 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
-
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbfs"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 	"github.com/xdb-dev/xdb/store/xdbredis"
 	"github.com/xdb-dev/xdb/store/xdbsqlite"
+
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 // OpenStore creates a [store.Store] based on the config's store backend.

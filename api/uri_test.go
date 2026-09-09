@@ -143,7 +143,7 @@ func TestParseURI(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			uri, err := parseURI(tt.raw, tt.method, tt.minDepth, tt.maxDepth, tt.allowAttr)
 			if tt.wantErr {
-				assert.ErrorIs(t, err, core.ErrInvalidURI)
+				require.ErrorIs(t, err, core.ErrInvalidURI)
 				if tt.errMsg != "" {
 					assert.Contains(t, err.Error(), tt.errMsg)
 				}

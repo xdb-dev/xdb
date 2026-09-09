@@ -3,7 +3,6 @@ package store_test
 import (
 	"bytes"
 	"context"
-	"errors"
 	"log/slog"
 	"testing"
 
@@ -306,7 +305,7 @@ func TestSingleRecordVerbs_ReturnBareSentinels(t *testing.T) {
 	require.ErrorIs(t, err, core.ErrAlreadyExists)
 
 	var merr *store.MutationError
-	assert.False(t, errors.As(err, &merr),
+	assert.NotErrorAs(t, err, &merr,
 		"single-record verbs must not leak MutationError")
 }
 

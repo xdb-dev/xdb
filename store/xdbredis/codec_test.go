@@ -102,7 +102,7 @@ func TestEncodePrefix(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			encoded, err := encodeValue(tt.value)
 			require.NoError(t, err)
-			assert.True(t, len(encoded) >= 2)
+			assert.GreaterOrEqual(t, len(encoded), 2)
 			assert.Equal(t, tt.prefix, encoded[:2])
 		})
 	}

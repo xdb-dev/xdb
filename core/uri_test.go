@@ -341,8 +341,8 @@ func TestURISchemaURI(t *testing.T) {
 
 	assert.Equal(t, "com.example", schemaURI.NS())
 	assert.Equal(t, "posts", schemaURI.Schema())
-	assert.Equal(t, "", schemaURI.ID())
-	assert.Equal(t, "", schemaURI.Attr())
+	assert.Empty(t, schemaURI.ID())
+	assert.Empty(t, schemaURI.Attr())
 }
 
 func TestURIMarshalJSON(t *testing.T) {
@@ -367,7 +367,7 @@ func TestURIUnmarshalJSONErrors(t *testing.T) {
 	var uri URI
 
 	err := json.Unmarshal([]byte(`123`), &uri)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	err = json.Unmarshal([]byte(`"http://invalid"`), &uri)
 	assert.Error(t, err)

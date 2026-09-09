@@ -38,7 +38,9 @@ func startTestServer(t *testing.T, r *rpc.Router) string {
 	dir := t.TempDir()
 	sock := filepath.Join(dir, "test.sock")
 
-	ln, err := net.Listen("unix", sock)
+	var lc net.ListenConfig
+
+	ln, err := lc.Listen(t.Context(), "unix", sock)
 	require.NoError(t, err)
 
 	srv := &http.Server{Handler: r}

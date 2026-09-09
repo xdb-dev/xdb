@@ -124,7 +124,7 @@ func assertValueEqual(t *testing.T, want, got *core.Value) {
 	if want.Type().ID() == core.TIDArray {
 		wantArr, _ := want.AsArray()
 		gotArr, _ := got.AsArray()
-		assert.Equal(t, len(wantArr), len(gotArr))
+		assert.Len(t, gotArr, len(wantArr))
 		for i := range wantArr {
 			assert.Equal(t, wantArr[i].Unwrap(), gotArr[i].Unwrap())
 		}

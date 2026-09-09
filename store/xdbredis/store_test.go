@@ -18,7 +18,7 @@ func newTestStore(t testing.TB) store.Store {
 func TestStoreImplementsInterfaces(t *testing.T) {
 	s := newTestStore(t)
 
-	var _ store.Store = s
+	_ = s
 
 	_, ok := s.(store.HealthChecker)
 	require.True(t, ok, "store over redis driver must report health")

@@ -2,9 +2,9 @@ package xdbproto
 
 import (
 	"errors"
-	xerrors "github.com/gojekfarm/xtools/errors"
 	"testing"
 
+	xerrors "github.com/gojekfarm/xtools/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -45,7 +45,7 @@ func TestReject_Oneof(t *testing.T) {
 	fd := oneofFile(t)
 	_, err := ImportMessage(messageByName(fd, "Payment"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrOneof)
+	require.ErrorIs(t, err, ErrOneof)
 	assert.Contains(t, fieldOf(err), "card")
 }
 
@@ -73,7 +73,7 @@ func TestReject_CyclicWithoutOptIn(t *testing.T) {
 	fd := cyclicFile(t)
 	_, err := ImportMessage(messageByName(fd, "Node"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrRecursive)
+	require.ErrorIs(t, err, ErrRecursive)
 	assert.Contains(t, fieldOf(err), "children")
 }
 
@@ -104,7 +104,7 @@ func TestReject_RenameOnReimport(t *testing.T) {
 
 	err = CheckRename(def1, def2)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrRename)
+	require.ErrorIs(t, err, ErrRename)
 	assert.Equal(t, "id", errValue(err, "from"))
 	assert.Equal(t, "order_id", errValue(err, "to"))
 }

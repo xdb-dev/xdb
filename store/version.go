@@ -68,7 +68,9 @@ func (v *versioner) applyWrite(ctx context.Context, m Mutation) error {
 		return err
 	}
 
-	m.Tuples = append(tuples, stampTuples(m.Path, next)...)
+	// tuples is the fresh slice splitVersion returned, not a view of
+	// m.Tuples, so appending to it cannot disturb the caller's slice.
+	m.Tuples = append(tuples, stampTuples(m.Path, next)...) //nolint:gocritic // tuples is a fresh slice
 
 	return v.Driver.Apply(ctx, m)
 }

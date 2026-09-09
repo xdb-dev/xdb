@@ -239,7 +239,7 @@ func TestGenerate_UnknownColumn(t *testing.T) {
 
 	_, err = Generate(f, ColumnStrategy, "")
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrUnknownColumn)
+	require.ErrorIs(t, err, ErrUnknownColumn)
 	assert.Contains(t, err.Error(), "bogus")
 }
 

@@ -20,7 +20,7 @@ func TestReject_DottedAndInvalidKeys(t *testing.T) {
 
 	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrInvalidKey)
+	require.ErrorIs(t, err, ErrInvalidKey)
 
 	keys := fieldTag(t, err, "keys")
 	assert.Contains(t, keys, "first.name")
@@ -39,7 +39,7 @@ func TestReject_AnyOf(t *testing.T) {
 
 	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrUnion)
+	require.ErrorIs(t, err, ErrUnion)
 	assert.Equal(t, "#/properties/x", fieldTag(t, err, "pointer"))
 	assert.Equal(t, "anyOf", fieldTag(t, err, "keyword"))
 }
@@ -55,14 +55,14 @@ func TestReject_OneOf(t *testing.T) {
 
 	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrUnion)
+	require.ErrorIs(t, err, ErrUnion)
 	assert.Equal(t, "oneOf", fieldTag(t, err, "keyword"))
 }
 
 func TestReject_CyclicRefWithoutOptIn(t *testing.T) {
 	_, err := ImportSchema(readFixture(t, "cyclic.schema.json"), WithNS("com.acme"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrCyclicRef)
+	require.ErrorIs(t, err, ErrCyclicRef)
 	assert.Equal(t, "#/$defs/node", fieldTag(t, err, "ref"))
 }
 
@@ -77,7 +77,7 @@ func TestReject_CrossDocumentRef(t *testing.T) {
 
 	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrCrossDocument)
+	require.ErrorIs(t, err, ErrCrossDocument)
 	assert.Equal(t, "other.json#/foo", fieldTag(t, err, "ref"))
 	assert.Equal(t, "#/properties/other", fieldTag(t, err, "pointer"))
 }
@@ -94,7 +94,7 @@ func TestReject_AllOfConflict(t *testing.T) {
 
 	_, err := ImportSchema(data, WithNS("com.acme"))
 	require.Error(t, err)
-	assert.ErrorIs(t, err, ErrConflict)
+	require.ErrorIs(t, err, ErrConflict)
 	assert.Equal(t, "a", fieldTag(t, err, "field"))
 }
 

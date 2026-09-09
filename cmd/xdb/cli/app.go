@@ -12,12 +12,12 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	_ "embed"
-
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/validate"
 	"github.com/xdb-dev/xdb/rpc/client"
 	"github.com/xdb-dev/xdb/schema"
+
+	_ "embed"
 )
 
 //go:embed CONTEXT.md

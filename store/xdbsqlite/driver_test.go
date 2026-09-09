@@ -4,14 +4,14 @@ import (
 	"database/sql"
 	"testing"
 
-	_ "github.com/ncruces/go-sqlite3/driver"
-	_ "github.com/ncruces/go-sqlite3/embed"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbsqlite"
 	"github.com/xdb-dev/xdb/storetest"
+
+	_ "github.com/ncruces/go-sqlite3/driver"
+	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 // newTestDriver creates a fresh driver over an isolated on-disk

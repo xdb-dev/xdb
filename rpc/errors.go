@@ -23,9 +23,9 @@ const (
 
 // Error is a JSON-RPC 2.0 error object.
 type Error struct {
-	Data    any    `json:"data,omitempty"`
-	Message string `json:"message"`
 	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // Error implements the error interface.

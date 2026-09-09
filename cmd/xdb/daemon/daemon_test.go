@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/xdb-dev/xdb/api/catalog"
 	"github.com/xdb-dev/xdb/cmd/xdb/daemon"
 	"github.com/xdb-dev/xdb/store"
@@ -62,7 +63,9 @@ func TestDaemon_StartStop(t *testing.T) {
 
 	// Wait for socket to appear.
 	require.Eventually(t, func() bool {
-		conn, err := net.Dial("unix", socketPath)
+		var d net.Dialer
+
+		conn, err := d.DialContext(t.Context(), "unix", socketPath)
 		if err != nil {
 			return false
 		}
@@ -72,19 +75,23 @@ func TestDaemon_StartStop(t *testing.T) {
 
 	// Make an RPC request through the Unix socket.
 	transport := &http.Transport{
-		DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-			return net.Dial("unix", socketPath)
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+
+			return d.DialContext(ctx, "unix", socketPath)
 		},
 	}
 
 	client := &http.Client{Transport: transport}
 
 	body := `{"jsonrpc":"2.0","method":"system.health","id":"1"}`
-	resp, err := client.Post(
-		"http://localhost/rpc",
-		"application/json",
-		bytes.NewBufferString(body),
-	)
+
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost,
+		"http://localhost/rpc", bytes.NewBufferString(body))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
 	require.NoError(t, err)
 
 	var rpcResp struct {
@@ -136,7 +143,9 @@ func TestDaemon_ContextCancellation(t *testing.T) {
 
 	// Wait for socket to appear.
 	require.Eventually(t, func() bool {
-		conn, err := net.Dial("unix", socketPath)
+		var d net.Dialer
+
+		conn, err := d.DialContext(t.Context(), "unix", socketPath)
 		if err != nil {
 			return false
 		}
@@ -187,7 +196,9 @@ func TestDaemon_Status_Running(t *testing.T) {
 
 	// Wait for socket to appear.
 	require.Eventually(t, func() bool {
-		conn, err := net.Dial("unix", socketPath)
+		var d net.Dialer
+
+		conn, err := d.DialContext(t.Context(), "unix", socketPath)
 		if err != nil {
 			return false
 		}

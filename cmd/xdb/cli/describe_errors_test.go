@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/xdb-dev/xdb/core"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/xdb-dev/xdb/core"
 )
 
 // describeErrEnvelope mirrors [output.ErrorEnvelope]'s JSON shape for

@@ -33,7 +33,9 @@ func startTestDaemon(t *testing.T) *client.Client {
 	router, bus := daemon.NewRouter(s, "test")
 	t.Cleanup(bus.Close)
 
-	ln, err := net.Listen("unix", sock)
+	var lc net.ListenConfig
+
+	ln, err := lc.Listen(t.Context(), "unix", sock)
 	require.NoError(t, err)
 
 	srv := &http.Server{Handler: router}

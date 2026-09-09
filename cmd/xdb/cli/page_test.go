@@ -39,8 +39,8 @@ func TestRecordsList_PageEnvelope(t *testing.T) {
 
 	var doc map[string]any
 	require.NoError(t, json.Unmarshal([]byte(stdout), &doc))
-	assert.Equal(t, float64(5), doc["total"])
-	assert.Equal(t, float64(2), doc["next_offset"])
+	assert.InDelta(t, float64(5), doc["total"], 0.0001)
+	assert.InDelta(t, float64(2), doc["next_offset"], 0.0001)
 	assert.Len(t, doc["items"], 2)
 }
 
@@ -172,6 +172,6 @@ func TestNamespaceGet_RendersSchemaTree(t *testing.T) {
 	var doc map[string]any
 	require.NoError(t, json.Unmarshal([]byte(stdout), &doc))
 	assert.Equal(t, "nsget.t", doc["namespace"])
-	assert.Equal(t, float64(1), doc["total_schemas"])
+	assert.InDelta(t, float64(1), doc["total_schemas"], 0.0001)
 	assert.Contains(t, doc["schemas"], "xdb://nsget.t/things")
 }

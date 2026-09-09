@@ -87,8 +87,8 @@ func TestMarshal_NestedObjects(t *testing.T) {
 	assert.Equal(t, "John Doe", vStr(record.Get("name").Value()))
 	assert.Equal(t, "123 Main St", vStr(record.Get("address.street").Value()))
 	assert.Equal(t, "Boston", vStr(record.Get("address.city").Value()))
-	assert.Equal(t, 42.3601, vFloat(record.Get("address.location.lat").Value()))
-	assert.Equal(t, -71.0589, vFloat(record.Get("address.location.lon").Value()))
+	assert.InDelta(t, 42.3601, vFloat(record.Get("address.location.lat").Value()), 0.0001)
+	assert.InDelta(t, -71.0589, vFloat(record.Get("address.location.lon").Value()), 0.0001)
 
 	assert.Nil(t, record.Get("address"))
 	assert.Nil(t, record.Get("address.location"))
@@ -324,7 +324,7 @@ func TestMarshal_ErrorInvalidJSON(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			record, err := xdbjson.Marshal([]byte(tt.json), defaultDecOpts...)
-			assert.Error(t, err)
+			require.Error(t, err)
 			assert.Nil(t, record)
 			assert.ErrorIs(t, err, xdbjson.ErrInvalidJSON)
 		})
@@ -335,7 +335,7 @@ func TestMarshal_ErrorMissingID(t *testing.T) {
 	data := []byte(`{"name":"John Doe"}`)
 
 	record, err := xdbjson.Marshal(data, defaultDecOpts...)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, record)
 	assert.ErrorIs(t, err, xdbjson.ErrMissingID)
 }
@@ -344,7 +344,7 @@ func TestMarshal_ErrorEmptyID(t *testing.T) {
 	data := []byte(`{"_id":"","name":"John Doe"}`)
 
 	record, err := xdbjson.Marshal(data, defaultDecOpts...)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, record)
 	assert.ErrorIs(t, err, xdbjson.ErrEmptyID)
 }
@@ -355,7 +355,7 @@ func TestMarshal_ErrorMissingNamespace(t *testing.T) {
 	var decOpts []xdbjson.Option
 
 	record, err := xdbjson.Marshal(data, decOpts...)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, record)
 	assert.ErrorIs(t, err, xdbjson.ErrMissingNamespace)
 }
@@ -366,7 +366,7 @@ func TestMarshal_ErrorMissingSchema(t *testing.T) {
 	var decOpts []xdbjson.Option
 
 	record, err := xdbjson.Marshal(data, decOpts...)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Nil(t, record)
 	assert.ErrorIs(t, err, xdbjson.ErrMissingSchema)
 }
@@ -375,7 +375,7 @@ func TestMarshal_ErrorNilRecord(t *testing.T) {
 	data := []byte(`{"_id":"123","name":"John"}`)
 
 	err := xdbjson.MarshalInto(data, nil, defaultDecOpts...)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.ErrorIs(t, err, xdbjson.ErrNilRecord)
 }
 
@@ -383,7 +383,7 @@ func TestMarshal_ErrorToExistingRecordInvalidJSON(t *testing.T) {
 	record := core.NewRecord("com.example", "users", "123")
 
 	err := xdbjson.MarshalInto([]byte(`not json`), record, defaultDecOpts...)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.ErrorIs(t, err, xdbjson.ErrInvalidJSON)
 }
 
@@ -510,7 +510,7 @@ func TestMarshal_ObjectArray(t *testing.T) {
 	var obj map[string]any
 	require.NoError(t, json.Unmarshal(raw, &obj))
 	assert.Equal(t, "A-1", obj["sku"])
-	assert.Equal(t, float64(3), obj["qty"])
+	assert.InDelta(t, float64(3), obj["qty"], 0.0001)
 
 	placed, err := time.Parse(time.RFC3339, obj["placed"].(string))
 	require.NoError(t, err)
@@ -636,7 +636,7 @@ func TestMarshal_DefaultNumberInference(t *testing.T) {
 	assert.Equal(t, int64(42), vInt(record.Get("count").Value()))
 
 	assert.Equal(t, core.TIDFloat, record.Get("rating").Value().Type().ID())
-	assert.Equal(t, 4.2, vFloat(record.Get("rating").Value()))
+	assert.InDelta(t, 4.2, vFloat(record.Get("rating").Value()), 0.0001)
 }
 
 // A declared INTEGER field, and an INTEGER array element, must survive a
@@ -821,7 +821,7 @@ func TestMarshal_ArrayInteger_LossyElementNotTruncated(t *testing.T) {
 
 	_, err := xdbjson.Marshal([]byte(`{"_id":"1","nums":[1.5]}`), decOpts...)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, core.ErrSchemaViolation)
+	require.ErrorIs(t, err, core.ErrSchemaViolation)
 	assert.Contains(t, err.Error(), "nums")
 }
 
@@ -847,7 +847,7 @@ func TestMarshal_ArrayFloat(t *testing.T) {
 		assert.Equal(t, core.TIDFloat, elems[i].Type().ID())
 		got, err := elems[i].AsFloat()
 		require.NoError(t, err)
-		assert.Equal(t, want, got)
+		assert.InDelta(t, want, got, 0.0001)
 	}
 }
 
@@ -941,7 +941,7 @@ func TestMarshal_ArrayEmpty_DeclaredType(t *testing.T) {
 
 	elems, err := nums.AsArray()
 	require.NoError(t, err)
-	assert.Len(t, elems, 0)
+	assert.Empty(t, elems)
 }
 
 // A declared field whose value cannot decode as its declared type is a
@@ -966,7 +966,7 @@ func TestMarshal_DeclaredFieldError(t *testing.T) {
 	t.Run("declared garbage errors", func(t *testing.T) {
 		_, err := xdbjson.Marshal([]byte(`{"_id":"1","count":"abc"}`), decOpts...)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, core.ErrSchemaViolation)
+		require.ErrorIs(t, err, core.ErrSchemaViolation)
 		assert.Contains(t, err.Error(), `"count"`)
 		assert.Contains(t, err.Error(), "INTEGER")
 	})

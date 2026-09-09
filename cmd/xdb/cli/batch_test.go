@@ -80,7 +80,7 @@ func TestBatchExecute_EndToEnd(t *testing.T) {
 
 		var m map[string]any
 		require.NoError(t, json.Unmarshal([]byte(stdout), &m))
-		assert.Equal(t, float64(2), m["succeeded"])
+		assert.InDelta(t, float64(2), m["succeeded"], 0.0001)
 	})
 
 	t.Run("mid-batch violation rolls back", func(t *testing.T) {

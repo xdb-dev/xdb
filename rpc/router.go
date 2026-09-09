@@ -20,9 +20,9 @@ type ParamMeta struct {
 
 // MethodMeta describes an RPC method's interface.
 type MethodMeta struct {
+	Description string               `json:"description"`
 	Parameters  map[string]ParamMeta `json:"parameters,omitempty"`
 	Response    map[string]ParamMeta `json:"response,omitempty"`
-	Description string               `json:"description"`
 	Mutating    bool                 `json:"mutating,omitempty"`
 }
 

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -73,7 +72,7 @@ func TestRecordsList_QueryFlagRemoved(t *testing.T) {
 	_, stderr, code := runCLI(t, "--config", cfg, "records", "list",
 		"--uri", "xdb://dry.t/items", "--query", "{}")
 	assert.Equal(t, 3, code)
-	assert.True(t, strings.Contains(stderr, "INVALID_ARGUMENT"), "stderr: %s", stderr)
+	assert.Contains(t, stderr, "INVALID_ARGUMENT", "stderr: %s", stderr)
 }
 
 func TestSchemasDelete_RequiresForce(t *testing.T) {

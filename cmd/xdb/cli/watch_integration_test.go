@@ -68,7 +68,7 @@ func TestWatch_StreamsChangesOverSocket(t *testing.T) {
 	cancel()
 	select {
 	case err := <-done:
-		assert.NoError(t, err, "canceled stream must end cleanly")
+		require.NoError(t, err, "canceled stream must end cleanly")
 	case <-time.After(2 * time.Second):
 		t.Fatal("stream did not end on cancel")
 	}

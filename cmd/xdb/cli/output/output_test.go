@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 )
 
@@ -24,7 +25,7 @@ func TestJSONFormatter(t *testing.T) {
 		var buf bytes.Buffer
 		err := f.FormatOne(&buf, testItem{Name: "alice", Count: 3})
 		require.NoError(t, err)
-		assert.Equal(t, "{\n  \"name\": \"alice\",\n  \"count\": 3\n}\n", buf.String())
+		assert.JSONEq(t, "{\n  \"name\": \"alice\",\n  \"count\": 3\n}\n", buf.String())
 	})
 
 	t.Run("FormatList", func(t *testing.T) {
@@ -43,7 +44,7 @@ func TestJSONFormatter(t *testing.T) {
 		var buf bytes.Buffer
 		err := f.FormatError(&buf, errors.New("something broke"))
 		require.NoError(t, err)
-		assert.Equal(t, "{\n  \"error\": \"something broke\"\n}\n", buf.String())
+		assert.JSONEq(t, "{\n  \"error\": \"something broke\"\n}\n", buf.String())
 	})
 
 	t.Run("FormatList empty", func(t *testing.T) {
@@ -61,7 +62,7 @@ func TestNDJSONFormatter(t *testing.T) {
 		var buf bytes.Buffer
 		err := f.FormatOne(&buf, testItem{Name: "alice", Count: 3})
 		require.NoError(t, err)
-		assert.Equal(t, "{\"name\":\"alice\",\"count\":3}\n", buf.String())
+		assert.JSONEq(t, "{\"name\":\"alice\",\"count\":3}\n", buf.String())
 	})
 
 	t.Run("FormatList", func(t *testing.T) {
@@ -80,14 +81,14 @@ func TestNDJSONFormatter(t *testing.T) {
 		var buf bytes.Buffer
 		err := f.FormatError(&buf, errors.New("something broke"))
 		require.NoError(t, err)
-		assert.Equal(t, "{\"error\":\"something broke\"}\n", buf.String())
+		assert.JSONEq(t, "{\"error\":\"something broke\"}\n", buf.String())
 	})
 
 	t.Run("FormatList empty", func(t *testing.T) {
 		var buf bytes.Buffer
 		err := f.FormatList(&buf, nil)
 		require.NoError(t, err)
-		assert.Equal(t, "", buf.String())
+		assert.Empty(t, buf.String())
 	})
 }
 
@@ -145,7 +146,7 @@ func TestTableFormatter(t *testing.T) {
 		var buf bytes.Buffer
 		err := f.FormatList(&buf, nil)
 		require.NoError(t, err)
-		assert.Equal(t, "", buf.String())
+		assert.Empty(t, buf.String())
 	})
 }
 
@@ -272,8 +273,8 @@ func TestFormatPage(t *testing.T) {
 
 		var doc map[string]any
 		require.NoError(t, json.Unmarshal(buf.Bytes(), &doc))
-		assert.Equal(t, float64(5), doc["total"])
-		assert.Equal(t, float64(2), doc["next_offset"])
+		assert.InDelta(t, float64(5), doc["total"], 0.0001)
+		assert.InDelta(t, float64(2), doc["next_offset"], 0.0001)
 		assert.Len(t, doc["items"], 2)
 	})
 

@@ -1,7 +1,7 @@
 version: "2"
 
 run:
-  tests: false
+  tests: true
   timeout: 5m
   modules-download-mode: readonly
 
@@ -45,6 +45,11 @@ linters:
     # Documentation
     - godot             # Check if comments end in a period
 
+    # Conventions
+    - importas          # Enforce consistent import aliases
+    - revive            # Configurable style checks
+    - gocritic          # Opinionated correctness, performance, and style checks
+
   settings:
     errcheck:
       check-type-assertions: false
@@ -52,6 +57,11 @@ linters:
 
     govet:
       enable-all: true
+      # enable-all turns on fieldalignment, which orders struct fields by
+      # size rather than by meaning. Go dropped it from vet's defaults for
+      # that reason. A wire envelope should read {JSONRPC, ID, Result, Error}.
+      disable:
+        - fieldalignment
       settings:
         shadow:
           strict: false
@@ -71,6 +81,23 @@ linters:
 
     staticcheck:
       checks: ["all"]
+
+    revive:
+      rules:
+        # get-return would flag every GetTuples/GetSchema/GetRecord/GetTuple
+        # on the store API. That Get* vocabulary is a deliberate KV-shaped
+        # convention, written down in store/doc.go and docs/concepts/drivers.md.
+        # A method returning only a yes/no is named for what it asks
+        # (NamespaceExists), which get-return has no way to detect.
+        - name: get-return
+          disabled: true
+
+    importas:
+      alias:
+        # Wrap and ErrorTags only; everything else comes from stdlib errors.
+        # See the Error tags section of the core package doc.
+        - pkg: github.com/gojekfarm/xtools/errors
+          alias: xerrors
 
     gosec:
       excludes:
@@ -126,9 +153,9 @@ formatters:
       sections:
         - standard
         - default
+        - prefix(github.com/xdb-dev/xdb)
         - blank
         - dot
-        - prefix(github.com/xdb-dev/xdb)
       custom-order: true
 
   exclusions:

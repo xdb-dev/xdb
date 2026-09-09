@@ -242,7 +242,7 @@ func TestWatchService_ReadyFirstAndFiltered(t *testing.T) {
 	cancelCtx()
 	select {
 	case err := <-done:
-		assert.NoError(t, err, "context cancel must end the stream cleanly")
+		require.NoError(t, err, "context cancel must end the stream cleanly")
 	case <-time.After(time.Second):
 		t.Fatal("watch did not end on cancel")
 	}
@@ -262,7 +262,7 @@ func TestWatchService_BusCloseEndsStream(t *testing.T) {
 
 	select {
 	case err := <-done:
-		assert.NoError(t, err, "daemon stop (bus close) must end the stream cleanly")
+		require.NoError(t, err, "daemon stop (bus close) must end the stream cleanly")
 	case <-time.After(time.Second):
 		t.Fatal("watch did not end on bus close")
 	}

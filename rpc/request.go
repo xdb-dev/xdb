@@ -12,10 +12,10 @@ type Request struct {
 
 // Response is a JSON-RPC 2.0 response.
 type Response struct {
-	Error   *Error          `json:"error,omitempty"`
-	ID      string          `json:"id,omitempty"`
 	JSONRPC string          `json:"jsonrpc"`
+	ID      string          `json:"id,omitempty"`
 	Result  json.RawMessage `json:"result,omitempty"`
+	Error   *Error          `json:"error,omitempty"`
 }
 
 // NewResponse creates a success response for the given request ID.

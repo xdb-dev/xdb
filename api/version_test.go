@@ -31,7 +31,7 @@ func TestRecordService_WriteResponsesCarryVersion(t *testing.T) {
 		require.NoError(t, err)
 
 		m := recordData(t, resp.Data)
-		assert.Equal(t, float64(1), m[schema.FieldVersion])
+		assert.InDelta(t, float64(1), m[schema.FieldVersion], 0.0001)
 		assert.NotEmpty(t, m[schema.FieldUpdated])
 	})
 
@@ -43,7 +43,7 @@ func TestRecordService_WriteResponsesCarryVersion(t *testing.T) {
 		require.NoError(t, err)
 
 		m := recordData(t, resp.Data)
-		assert.Equal(t, float64(2), m[schema.FieldVersion])
+		assert.InDelta(t, float64(2), m[schema.FieldVersion], 0.0001)
 	})
 
 	t.Run("update responds with the bumped version", func(t *testing.T) {
@@ -54,7 +54,7 @@ func TestRecordService_WriteResponsesCarryVersion(t *testing.T) {
 		require.NoError(t, err)
 
 		m := recordData(t, resp.Data)
-		assert.Equal(t, float64(3), m[schema.FieldVersion])
+		assert.InDelta(t, float64(3), m[schema.FieldVersion], 0.0001)
 	})
 
 	t.Run("get agrees with the last write", func(t *testing.T) {
@@ -62,7 +62,7 @@ func TestRecordService_WriteResponsesCarryVersion(t *testing.T) {
 		require.NoError(t, err)
 
 		m := recordData(t, resp.Data)
-		assert.Equal(t, float64(3), m[schema.FieldVersion])
+		assert.InDelta(t, float64(3), m[schema.FieldVersion], 0.0001)
 	})
 }
 

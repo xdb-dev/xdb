@@ -51,7 +51,7 @@ func TestIntrospectService_DescribeMethod_Unknown(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, core.ErrNotFound)
+	require.ErrorIs(t, err, core.ErrNotFound)
 	assert.Contains(t, err.Error(), "does.not.exist")
 	assert.Contains(t, err.Error(), "introspect.methods")
 }
@@ -75,7 +75,7 @@ func TestIntrospectService_DescribeType_Unknown(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, core.ErrNotFound)
+	require.ErrorIs(t, err, core.ErrNotFound)
 	assert.Contains(t, err.Error(), "NotAType")
 	assert.Contains(t, err.Error(), "introspect.types")
 }

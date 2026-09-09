@@ -19,7 +19,7 @@ func newStore() store.Store {
 func TestStoreImplementsInterfaces(t *testing.T) {
 	s := newStore()
 
-	var _ store.Store = s
+	_ = s
 
 	_, ok := s.(store.HealthChecker)
 	require.True(t, ok, "store over memory driver must report health")
@@ -60,31 +60,21 @@ func TestBatch(t *testing.T) {
 }
 
 func TestTuples(t *testing.T) {
-	storetest.NewTupleStoreSuite(func() store.Store {
-		return newStore()
-	}).Run(t)
+	storetest.NewTupleStoreSuite(newStore).Run(t)
 }
 
 func TestModes(t *testing.T) {
-	storetest.NewModeStoreSuite(func() store.Store {
-		return newStore()
-	}).Run(t)
+	storetest.NewModeStoreSuite(newStore).Run(t)
 }
 
 func TestCascade(t *testing.T) {
-	storetest.NewCascadeStoreSuite(func() store.Store {
-		return newStore()
-	}).Run(t)
+	storetest.NewCascadeStoreSuite(newStore).Run(t)
 }
 
 func TestTypes(t *testing.T) {
-	storetest.NewTypesStoreSuite(func() store.Store {
-		return newStore()
-	}).Run(t)
+	storetest.NewTypesStoreSuite(newStore).Run(t)
 }
 
 func TestVersioning(t *testing.T) {
-	storetest.NewVersionSuite(func() store.Store {
-		return newStore()
-	}).Run(t)
+	storetest.NewVersionSuite(newStore).Run(t)
 }

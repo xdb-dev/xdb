@@ -34,7 +34,8 @@ func newTestStoreWithDB(t *testing.T) (store.Store, *sql.DB) {
 func indexDDL(t *testing.T, db *sql.DB, table string) []string {
 	t.Helper()
 
-	rows, err := db.Query(
+	rows, err := db.QueryContext(
+		t.Context(),
 		`SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name=? AND sql IS NOT NULL`,
 		table,
 	)
@@ -108,7 +109,7 @@ func TestUniqueField_DuplicateWriteConflicts(t *testing.T) {
 	r2.Set("email", "dup@example.com")
 	err := st.CreateRecord(ctx, r2)
 	require.Error(t, err)
-	assert.ErrorIs(t, err, core.ErrUniqueViolation)
+	require.ErrorIs(t, err, core.ErrUniqueViolation)
 	assert.Contains(t, err.Error(), "email")
 
 	// A distinct value still succeeds.

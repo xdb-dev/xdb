@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
+
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 	"github.com/xdb-dev/xdb/rpc"
 )
@@ -104,7 +105,7 @@ func TestWrapRPCError(t *testing.T) {
 }
 
 func TestWrapRPCError_NilPassesThrough(t *testing.T) {
-	assert.Nil(t, wrapRPCError("records", "get", "", nil))
+	assert.NoError(t, wrapRPCError("records", "get", "", nil))
 }
 
 func TestWrapRPCError_NonRPCErrorPassesThrough(t *testing.T) {
@@ -112,7 +113,7 @@ func TestWrapRPCError_NonRPCErrorPassesThrough(t *testing.T) {
 	wrapped := wrapRPCError("records", "get", "", err)
 
 	var env *output.ErrorEnvelope
-	assert.False(t, errors.As(wrapped, &env), "non-RPC, non-connection errors should not be wrapped")
+	assert.NotErrorAs(t, wrapped, &env, "non-RPC, non-connection errors should not be wrapped")
 	assert.Equal(t, err, wrapped)
 }
 
@@ -176,7 +177,7 @@ func TestExitCodeFor_ExitCoder(t *testing.T) {
 
 func TestNormalizeError(t *testing.T) {
 	t.Run("nil passes through", func(t *testing.T) {
-		assert.Nil(t, normalizeError(nil))
+		assert.NoError(t, normalizeError(nil))
 	})
 
 	t.Run("envelope passes through unchanged", func(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/api"
 	"github.com/xdb-dev/xdb/core"
@@ -18,7 +19,7 @@ func TestWatchService_Watch_NoBusNotImplemented(t *testing.T) {
 
 	err := svc.Watch(context.Background(), &api.WatchRequest{URI: "xdb://com.example"}, nil)
 
-	assert.ErrorIs(t, err, core.ErrNotImplemented)
+	require.ErrorIs(t, err, core.ErrNotImplemented)
 	assert.Contains(t, err.Error(), "watch")
 }
 
@@ -29,7 +30,7 @@ func TestWatchService_Watch_InvalidURI(t *testing.T) {
 
 	err := svc.Watch(context.Background(), &api.WatchRequest{URI: "bad"}, nil)
 
-	assert.ErrorIs(t, err, core.ErrInvalidURI)
+	require.ErrorIs(t, err, core.ErrInvalidURI)
 	assert.NotErrorIs(t, err, core.ErrNotImplemented)
 }
 

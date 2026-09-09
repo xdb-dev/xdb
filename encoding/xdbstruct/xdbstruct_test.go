@@ -101,7 +101,7 @@ func TestRoundTrip(t *testing.T) {
 			Def:       def,
 			Value:     fullUser(),
 			Marshal:   func(v any) (*core.Record, error) { return xdbstruct.Marshal(userURI, v) },
-			Unmarshal: func(rec *core.Record, dst any) error { return xdbstruct.Unmarshal(rec, dst) },
+			Unmarshal: xdbstruct.Unmarshal,
 		})
 	})
 
@@ -121,7 +121,7 @@ func TestRoundTrip(t *testing.T) {
 			Def:       def,
 			Value:     u,
 			Marshal:   func(v any) (*core.Record, error) { return xdbstruct.Marshal(userURI, v) },
-			Unmarshal: func(rec *core.Record, dst any) error { return xdbstruct.Unmarshal(rec, dst) },
+			Unmarshal: xdbstruct.Unmarshal,
 		})
 	})
 
@@ -133,7 +133,7 @@ func TestRoundTrip(t *testing.T) {
 			Def:       def,
 			Value:     PtrFields{Name: "x", Nick: &nick},
 			Marshal:   func(v any) (*core.Record, error) { return xdbstruct.Marshal("xdb://com.example/ptr/p1", v) },
-			Unmarshal: func(rec *core.Record, dst any) error { return xdbstruct.Unmarshal(rec, dst) },
+			Unmarshal: xdbstruct.Unmarshal,
 		})
 	})
 
@@ -145,7 +145,7 @@ func TestRoundTrip(t *testing.T) {
 			Def:       def,
 			Value:     PtrFields{Name: "y", Nick: nil},
 			Marshal:   func(v any) (*core.Record, error) { return xdbstruct.Marshal("xdb://com.example/ptr/p2", v) },
-			Unmarshal: func(rec *core.Record, dst any) error { return xdbstruct.Unmarshal(rec, dst) },
+			Unmarshal: xdbstruct.Unmarshal,
 		})
 	})
 }
