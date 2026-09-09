@@ -6,11 +6,14 @@ import (
 	"time"
 )
 
-// Tuple is the fundamental building block of XDB — an addressable fact,
-// xdb://ns/schema/id#attr = value. Every larger structure is built from
-// tuples; a [Record] is the set of tuples sharing a path.
+// Tuple associates a record path and attribute name with a typed value:
+// xdb://ns/schema/id#attr = value. A [Record] groups tuples sharing a path.
 //
-// A Tuple is immutable and contains:
+// Tuple has no setters, but its value can share mutable data with callers.
+// Byte slices, JSON bytes, and array elements are not copied. Callers must
+// coordinate access to shared data.
+//
+// A Tuple contains:
 //   - Path: the URI identifying the record (NS + SCHEMA + ID).
 //   - Attr: the attribute name.
 //   - Value: the typed attribute value.

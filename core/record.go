@@ -5,10 +5,9 @@ import (
 	"sync"
 )
 
-// Record is the set of tuples that share the same path (NS + SCHEMA + ID).
-// It groups tuples and holds no data of its own; a record exists exactly when
-// at least one tuple exists at its path.
-// Records are mutable and thread-safe, similar to database rows.
+// Record groups tuples that share a record path (NS + SCHEMA + ID).
+// Its methods synchronize access to the tuple map. Values can contain shared
+// mutable data; callers must synchronize mutations to that data themselves.
 type Record struct {
 	path   *URI
 	tuples map[string]*Tuple
@@ -78,8 +77,9 @@ func (r *Record) IsEmpty() bool {
 	return len(r.tuples) == 0
 }
 
-// Tuples returns all tuples contained in this Record.
-// The returned slice is a copy and safe to modify.
+// Tuples returns the record's tuples in unspecified order.
+// The returned slice can be modified without changing the record's tuple map.
+// The tuples and their underlying values remain shared.
 func (r *Record) Tuples() []*Tuple {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

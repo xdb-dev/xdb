@@ -11,14 +11,9 @@ import (
 	"github.com/xdb-dev/xdb/tests"
 )
 
-// runDocRoundTrip drives a JSON document through the shared importer harness.
-//
-// The harness compares Go values with require.Equal, but JSON documents have no
-// canonical byte form, so the round-trip value is the document normalized to a
-// map[string]any (numbers as float64, keys unordered). [Marshal] decodes that
-// map into a record (typing declared fields), and [Unmarshal] encodes the
-// stored record back to a map. The assertion is real: it verifies
-// decode -> store -> encode preserves the document.
+// runDocRoundTrip checks JSON document conversion through the shared
+// importer tests. It compares decoded maps, with numbers as float64, so
+// JSON formatting and key order do not affect equality.
 func runDocRoundTrip(t *testing.T, def *schema.Def, id string, doc []byte) {
 	t.Helper()
 

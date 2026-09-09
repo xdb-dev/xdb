@@ -12,33 +12,33 @@ import (
 	"github.com/xdb-dev/xdb/tests"
 )
 
-// --- Corpus fixtures covering every demand-matrix row ---
+// Struct fixtures for type mapping and round-trip tests.
 
-// UserID and Age are named scalar types (row: named types).
+// UserID and Age are named scalar types.
 type UserID string
 
 type Age int
 
-// Address is a nested value struct (row: nested struct value).
+// Address is a nested value struct.
 type Address struct {
 	City string `xdb:"city"`
 	Zip  string `xdb:"zip"`
 }
 
-// Profile is a nested pointer struct (row: nested struct pointer).
+// Profile is a nested pointer struct.
 type Profile struct {
 	Bio string `xdb:"bio"`
 	Age Age    `xdb:"age"`
 }
 
-// Order is an object-array element with a required member (row: object array).
+// Order is an object-array element with a required member.
 type Order struct {
 	SKU    string    `xdb:"sku,required"`
 	Qty    int       `xdb:"qty"`
 	Placed time.Time `xdb:"placed"`
 }
 
-// Meta is an embedded struct (row: embedded struct).
+// Meta is an embedded struct.
 type Meta struct {
 	Version int `xdb:"version"`
 }

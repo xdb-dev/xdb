@@ -1,69 +1,60 @@
 // Package store turns a storage [Driver] into a validated [Store].
 //
-// A Driver is pure storage. It reads and writes tuples, and it stores
-// schema definitions verbatim. It does no validation, no mode
-// enforcement, and no revision CAS, and it never sees a [core.Record].
-// The drivers xdbmemory, xdbfs, xdbredis, and xdbsqlite implement only
-// Driver.
-//
-// [New] is the only way to get a Store. It wraps a Driver in a facade.
-// The facade compiles record, tuple, and schema verbs into driver
-// [Mutation]s, assembles records from tuple reads, and derives
-// namespaces from schema scans. New always installs the versioning and
-// schema-enforcement middleware, so a Store that skips validation
-// cannot exist:
+// A Driver reads and writes tuples and stores schema definitions verbatim.
+// [New] wraps it in a facade with versioning and schema enforcement:
 //
 //	db := store.New(xdbmemory.NewDriver())
 //
+// The facade assembles [core.Record] values from tuple reads and derives
+// namespaces from schema scans. Record and tuple writes become [Mutation]s;
+// schema writes use the driver's schema methods.
+//
 // # Writes
 //
-// Every record and tuple verb becomes a [Mutation] that carries an
-// [Op]: patch, create, put, or delete. The exists-semantics of a write
-// are data that the driver receives, not code that each driver writes
-// again. Drivers apply one mutation at a time and return bare sentinel
-// errors. The facade sequences batches and attributes the first
-// failure to its mutation with [MutationError].
+// Each Mutation carries an [Op] that specifies patch, create, put, or delete
+// semantics. Drivers apply one mutation atomically. The facade sequences
+// batches and reports the first failure with [MutationError]. A driver that
+// implements [TxDriver] also supports rollback of the whole batch.
 //
 // # Middleware stack
 //
-// The facade builds this stack over the raw driver:
+// The facade builds this stack over the raw driver. Logging and caching
+// are optional:
 //
 //	logging(enforce(cache(versioned(raw))))
 //
-// The versioning layer maintains three system attributes on every
-// record:
+// Enforcement checks caller-supplied tuples against the schema before
+// versioning adds the stored system attributes. It also handles dynamic
+// schema evolution, required fields, and schema revision checks.
 //
-//   - _id is projected from the record path on every read. It is never
-//     stored.
-//   - _version is a counter that starts at 1 and increases by one on
-//     every write.
-//   - _updated is the timestamp of the last write.
+// Records expose these system attributes:
 //
-// A write can carry _version as a compare-and-swap precondition. If the
-// value differs from the stored version, the write fails with
-// [core.ErrConflict]. A write without _version, or with 0, is
-// unconditional.
+//   - _id is projected from the record path by the facade on reads.
+//   - _version starts at 1 and increments when a write stamps the record.
+//     Empty patches do not increment it. Deleting a record removes it.
+//   - _updated is the timestamp of the last write that stamped the record.
 //
-// The enforcement layer holds all schema policy: per-tuple type
-// checks, mode rules, dynamic evolution, required-field checks, and
-// revision CAS on schema writes. It sits above versioning, so it
-// validates the tuples that the caller wrote. The stamped system
-// tuples are then stored like any other declared field, and a driver
-// knows nothing about versioning.
+// A non-zero _version on a record write is checked against the stored
+// version. A mismatch returns [core.ErrConflict]. An omitted or zero
+// _version requests an unconditional write. Whole-record delete
+// preconditions are checked by the service layer.
 //
-// Options add observability and speed around enforcement. [WithLogger]
-// logs writes. [WithSchemaCache] caches schema reads.
+// Version checks and writes run in one transaction on [TxDriver] backends.
+// On filesystem and Redis backends they are separate operations, so
+// concurrent writes can both pass the same version check. Schema revision
+// checks have the same limitation.
+//
+// [WithLogger] logs writes. [WithSchemaCache] caches schema reads; transactions
+// bypass the cache so they can read their own schema changes. A successful
+// transaction invalidates the cache.
 //
 // # Driver capabilities
 //
-// The optional capabilities [TxDriver] (native transactions) and
-// [QueryDriver] (filter pushdown) are detected once, on the raw
-// driver, when New runs. [Closer] and [HealthChecker] are type-asserted
-// on the raw driver on each Close and Health call. When the driver
-// supports transactions, the returned Store also implements [TX], and
-// every write runs in a transaction.
+// [New] detects [TxDriver] and [QueryDriver] on the raw driver. A Store backed
+// by a TxDriver also implements [TX], and its writes run in transactions.
+// QueryDriver supports native filter pushdown; other drivers use tuple scans
+// and in-memory filtering.
 //
-// The service layer is the only consumer of Store. RPC handlers never
-// touch a Driver directly. Driver implementations must be safe for
-// concurrent use.
+// [Closer] and [HealthChecker] are checked on the raw driver when Close or
+// Health is called. Driver implementations must be safe for concurrent use.
 package store

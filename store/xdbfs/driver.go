@@ -7,9 +7,7 @@
 //	<root>/<namespace>/<schema>/_schema.json    # schema definition
 //	<root>/<namespace>/<schema>/<id>.json       # one file per record
 //
-// The driver is pure storage: no validation, no mode enforcement, and
-// no revision stamping. That policy lives in the middleware that
-// [store.New] installs. Construct a usable store with:
+// Use [store.New] to add schema enforcement and versioning:
 //
 //	d, err := xdbfs.NewDriver(root, xdbfs.Options{})
 //	st := store.New(d)

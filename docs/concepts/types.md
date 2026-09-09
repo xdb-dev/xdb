@@ -6,7 +6,7 @@ package: core
 
 # Types
 
-XDB has a built-in type system. Every `Value` carries its type. This gives type-safe access in Go and a fixed mapping to SQLite column types.
+Every XDB `Value` carries type metadata. Use it to read typed values in Go and map values to SQLite columns.
 
 ## Supported Types
 
@@ -101,7 +101,7 @@ value.Type()   // Type — type metadata
 value.IsNil()  // bool — true if the value is nil
 ```
 
-> **Important:** Do not use `Unwrap()`. Always use the `As*` methods for type-safe access. `Unwrap()` returns the raw `any` value without a type guarantee.
+Use `As*` methods for type-safe access. `Unwrap()` returns a raw `any` value without a type guarantee.
 
 ## Array Types
 
@@ -117,20 +117,24 @@ In [Schema](schemas.md) definitions, every array field must declare its
 element type with the `elem_type` JSON property. In Go, the element type is
 part of the `Type` of the field, built with `core.NewArrayType`. The element
 type is required in all modes. It is immutable after the field exists. See
-[Schemas → Array fields](schemas.md#array-fields).
+[Schemas -> Array fields](schemas.md#array-fields).
 
 ## SQLite Type Mapping
 
 The SQLite driver is the only driver that maps XDB types to database column types. The mapping lives in `store/xdbsqlite/internal/sql`:
 
 - `SQLiteTypeName` returns the column type from the table above. A `strict` or `dynamic` schema gets a column table with one column per field. A `flexible` schema and schema-free records get a key-value table. The key-value table stores each value in its native SQLite storage class, with `_type` and `_elem` columns that record the XDB type.
+
 - The `Value` type implements `driver.Valuer` and `sql.Scanner`. It converts a `*core.Value` to a SQL parameter on write and back to a `*core.Value` on read. A `boolean` is stored as `0` or `1`. A `time` is stored as Unix milliseconds. A `json` value is stored as text. An `array` is stored as a JSON array in text form.
 
 The other drivers (memory, filesystem, redis) have no column types. See [Drivers](drivers.md).
 
 ## Related Concepts
 
-- [Tuples](tuples.md) — Tuples carry typed values
-- [Schemas](schemas.md) — Field definitions reference type IDs
-- [Encoding](encoding.md) — Type conversion during JSON serialization
-- [Stores](stores.md) — The store facade that the drivers sit behind
+- [Tuples](tuples.md): Tuples carry typed values
+
+- [Schemas](schemas.md): Field definitions reference type IDs
+
+- [Encoding](encoding.md): Type conversion during JSON serialization
+
+- [Stores](stores.md): The store facade that the drivers sit behind

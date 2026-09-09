@@ -359,9 +359,9 @@ func (im *importer) arrayField(n *jsonschema.Schema, ptr string) (schema.Field, 
 	}
 }
 
-// deref follows a $ref chain to the underlying node. It returns a pop closure
-// the caller must invoke (defer) to unwind any $ref pointers pushed onto the
-// cycle-detection stack. asJSON is true when the chain hits a WithJSON pointer.
+// deref follows a $ref chain to its target. The caller must defer the
+// returned pop function to restore the cycle-detection stack. asJSON reports
+// whether the chain reaches a pointer named by [WithOpaqueJSON].
 func (im *importer) deref(s *jsonschema.Schema, ptr string) (*jsonschema.Schema, string, bool, func(), error) {
 	var pushed int
 	pop := func() {

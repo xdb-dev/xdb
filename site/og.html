@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>XDB — social card</title>
+<title>XDB: social card</title>
 <!-- Source for og.png. Rendered to a PNG by the command in README.md;
      it is never linked from the site itself. -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -55,8 +55,8 @@
 
   <div>
     <p class="eyebrow">AN AGENT-FIRST DATA LAYER · GO</p>
-    <h1>Model once.<br>Store anywhere.</h1>
-    <p class="lede">Every fact is a tuple. One API and one CLI, over any backend.</p>
+    <h1>Typed data.<br>Your backend.</h1>
+    <p class="lede">Typed records in memory, files, Redis, or SQLite.</p>
   </div>
 
   <div class="uri">
@@ -71,8 +71,7 @@
 
 <script src="vendor/rough.js"></script>
 <script>
-  // Fixed seeds keep the sketch identical on every render, so regenerating
-  // og.png from an unchanged card produces an unchanged file.
+  // Fixed seeds keep the sketch geometry consistent across renders.
   const svg = document.getElementById("sketch");
   const rc = rough.svg(svg);
   const add = (el) => svg.appendChild(el);
@@ -85,7 +84,7 @@
     ...base, seed: 12, stroke: "#2b4ee6", fill: "#e8ecfb", fillStyle: "solid",
   }));
 
-  // Underline under "Store anywhere.", the width of that line of the heading.
+  // Underline under "Your backend.", the width of that line of the heading.
   // Heavier than the box and than the site's own underline: a social card is
   // read at a few hundred pixels wide in a feed, where a hairline disappears.
   const head = document.querySelector("h1").getBoundingClientRect();

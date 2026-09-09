@@ -15,13 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDaemonStart_PrintsRealPID guards a regression: [spawnDaemon] used to read
-// child.Process.Pid AFTER calling child.Process.Release(), which on Go 1.22+
-// invalidates the handle and returns -1. The fix captures the PID before Release;
-// this test spawns the real xdb binary and asserts the printed PID is positive.
-//
-// The test builds the xdb binary into a t.TempDir so it does not depend on
-// whatever is installed on the host.
+// TestDaemonStart_PrintsRealPID checks that daemon start prints a positive
+// child PID. The PID must be captured before Process.Release invalidates it.
+// The test builds and runs the xdb binary in a temporary directory.
 func TestDaemonStart_PrintsRealPID(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping binary build + daemon spawn in -short mode")

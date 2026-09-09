@@ -187,10 +187,8 @@ func setDeclaredField(record *core.Record, attr string, value any, field schema.
 	return nil
 }
 
-// convertDeclaredValue converts value to type t and wraps the result as a
-// [*core.Value]. It reports false when value cannot be represented as t at
-// all — a genuine decode failure, as opposed to an undeclared attribute XDB
-// simply cannot type.
+// convertDeclaredValue converts value to type t and wraps it as a
+// [core.Value]. It reports false when the value cannot be represented as t.
 func convertDeclaredValue(value any, t core.Type) (*core.Value, bool) {
 	converted := convertToType(value, t)
 
@@ -342,8 +340,7 @@ func convertMember(v any, field schema.Field) any {
 // embeds the result straight into a map that gets re-marshaled.
 //
 // A numeric conversion that would lose precision (e.g. 1.5 into INTEGER) is
-// left as its natural numeric type rather than silently truncated, so a
-// mismatch stays visible instead of quietly wrong.
+// left as its natural numeric type so the caller can reject the mismatch.
 func convertToType(value any, t core.Type) any {
 	switch t.ID() {
 	case core.TIDTime:

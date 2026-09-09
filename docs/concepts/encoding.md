@@ -6,12 +6,9 @@ package: encoding/xdbjson
 
 # Encoding
 
-The `encoding/xdbjson` package is the JSON adapter. It has two paths that share one option set:
+The `encoding/xdbjson` package converts JSON documents to XDB [records](records.md) and imports JSON Schema definitions. Both operations use the same option set.
 
-- The **data path** converts JSON documents to XDB [Records](records.md) and back. It translates between flat [Tuple](tuples.md) attributes (with dot notation) and nested JSON objects.
-- The **schema path** imports a JSON Schema document into a [Schema](schemas.md) definition.
-
-The two compose: import a schema once, then pass the resulting def to the data path with `WithDef` so that declared fields decode as their declared types.
+Pass an imported definition to the data decoder with `WithDef` to decode declared fields using their schema types.
 
 ## Overview
 
@@ -29,11 +26,11 @@ Record (flat tuples)              JSON (nested objects)
                                   └─────────────────────┘
 ```
 
-`Unmarshal` **unfolds** dot-separated attributes into nested objects. `Marshal` **flattens** nested objects back into dot-separated attributes.
+`Unmarshal` unfolds dot-separated attributes into nested objects. `Marshal` flattens nested objects back into dot-separated attributes.
 
-> **Direction convention.** In XDB, `Marshal` produces a **record** and `Unmarshal` consumes one. This is the inverse of `encoding/json`, and it holds for every format adapter: `xdbjson`, `xdbproto`, and `xdbstruct` all marshal *into* the XDB data model and unmarshal *out of* it.
+> Direction convention. In XDB, `Marshal` produces a record and `Unmarshal` consumes one. This is the inverse of `encoding/json`, and it holds for every format adapter: `xdbjson`, `xdbproto`, and `xdbstruct` all marshal *into* the XDB data model and unmarshal *out of* it.
 
-## Encoding records to JSON
+## Encoding Records to JSON
 
 ```go
 // Compact JSON
@@ -60,7 +57,7 @@ data, err := xdbjson.Unmarshal(record,
 )
 ```
 
-By default only the ID is emitted. The namespace and the schema need `WithIncludeNS` and `WithIncludeSchema`.
+Of the identity fields, only the ID is emitted by default. Use `WithIncludeNS` and `WithIncludeSchema` to include the namespace and schema.
 
 ### Output
 
@@ -91,7 +88,7 @@ By default only the ID is emitted. The namespace and the schema need `WithInclud
 | `bytes`    | String (base64-encoded) |
 | `array`    | Array                   |
 
-## Decoding JSON to records
+## Decoding JSON to Records
 
 `Marshal` builds a new record. The defaults apply when the document carries no namespace or schema field:
 
@@ -116,15 +113,20 @@ err := xdbjson.MarshalInto(jsonData, record)
 
 The decoder reads JSON numbers with `UseNumber`, so no precision is lost through `float64`. Without a schema, a number with a fractional part or an exponent becomes a `float`. Every other number becomes an `integer`. A number that does not fit in an `int64` becomes a `float`.
 
-### Schema-aware Decoding
+### Schema-Aware Decoding
 
 When you pass a schema definition with `WithDef()`, each declared field is converted to its declared type:
 
 - `integer`, `unsigned`, and `float` fields are converted from JSON numbers.
+
 - `time` fields are parsed from RFC 3339 strings.
+
 - `bytes` fields are decoded from base64 strings.
+
 - `json` fields keep their JSON value as-is. Their nested keys are not flattened.
+
 - `array` fields convert every element to the declared `elem_type`.
+
 - Object arrays (`ARRAY<JSON>` with `items`) convert each element member to the type that `items` declares.
 
 If a declared field cannot be decoded as its declared type, the decoder returns an error that wraps `core.ErrSchemaViolation`. The error names the field and the expected type. Undeclared attributes get their types from the number rules above. An undeclared attribute that XDB cannot type, for example an empty or mixed JSON array, is dropped in the same way as a null.
@@ -141,8 +143,9 @@ record, err := xdbjson.Marshal(jsonData,
 
 `Marshal` resolves the record identity (ID, NS, Schema) in this order:
 
-1. **JSON fields** — the values in the JSON data (`_id`, `_ns`, `_schema`).
-2. **Option defaults** — the values from `WithNS` and `WithSchema`.
+1. JSON fields: the values in the JSON data (`_id`, `_ns`, `_schema`).
+
+2. Option defaults: the values from `WithNS` and `WithSchema`.
 
 If neither source gives a required value, `Marshal` returns an error.
 
@@ -154,13 +157,13 @@ If neither source gives a required value, `Marshal` returns an error.
 def, err := xdbjson.ImportSchema(doc, xdbjson.WithNS("com.example"))
 ```
 
-The namespace comes from `WithNS` and is required: the importer never derives one from the document. The schema name comes from `WithSchema`, the document `title`, or the `$id` filename, in that order. `WithOpaqueJSON` imports a named `$ref` pointer as an opaque JSON field, which is the escape hatch for a cyclic `$ref`.
+The namespace comes from `WithNS` and is required: the importer never derives one from the document. The schema name comes from `WithSchema`, the document `title`, or the `$id` filename, in that order. `WithOpaqueJSON` imports a named `$ref` pointer as an opaque JSON field, which allows a cyclic `$ref` to be stored as JSON.
 
 See [Bring Your Own Types](bring-your-own-types.md) for the full type mapping, the two nesting representations, and the list of rejected constructs.
 
 ## Errors
 
-The data path returns these:
+Record encoding and decoding return these errors:
 
 | Error                     | Cause                                                   |
 | ------------------------- | ------------------------------------------------------- |
@@ -176,8 +179,12 @@ The data path returns these:
 
 ## Related Concepts
 
-- [Records](records.md) — The data that is encoded
-- [Tuples](tuples.md) — Dot-notation attributes
-- [Types](types.md) — Type conversions during encoding
-- [Bring Your Own Types](bring-your-own-types.md) — The schema import path, and the sibling proto and Go-struct adapters
-- [Stores](stores.md) — The drivers use encoding for persistence
+- [Records](records.md): The data that is encoded
+
+- [Tuples](tuples.md): Dot-notation attributes
+
+- [Types](types.md): Type conversions during encoding
+
+- [Bring Your Own Types](bring-your-own-types.md): The schema import path, and the sibling proto and Go-struct adapters
+
+- [Stores](stores.md): The drivers use encoding for persistence

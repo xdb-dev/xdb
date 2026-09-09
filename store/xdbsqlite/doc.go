@@ -1,9 +1,9 @@
 // Package xdbsqlite provides a SQLite-backed implementation of
 // [store.Driver], with native transactions ([store.TxDriver]) and CEL
-// filter pushdown ([store.QueryDriver]). It is pure storage: no
-// validation, no mode enforcement, and no revision logic. That policy
-// lives in the store facade. Construct a usable store with
-// store.New(xdbsqlite.NewDriver(db)).
+// filter pushdown ([store.QueryDriver]). Use [store.New] to add schema
+// enforcement and versioning:
+//
+//	st := store.New(xdbsqlite.NewDriver(db))
 //
 // # Architecture
 //

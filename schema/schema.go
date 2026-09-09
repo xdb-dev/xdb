@@ -13,7 +13,7 @@ var ErrInvalidMode = errors.New("[xdb/schema] invalid mode")
 
 // Mode controls how a schema validates undeclared attributes.
 //
-// Declared fields ALWAYS type-check, in every mode. Mode governs only
+// Declared fields type-check in every mode. Mode governs only
 // attributes that are not declared in the schema:
 //
 //   - [ModeFlexible]: undeclared attributes are ignored.
@@ -65,7 +65,7 @@ func validModeList() string {
 // [core.NewArrayType].
 //
 // Items declares the element object schema for an array of objects. It is set
-// ONLY when Type is ARRAY<JSON>: each array element must be a JSON object whose
+// only when Type is ARRAY<JSON>: each array element must be a JSON object whose
 // members type-check against Items, using the same rules as top-level fields
 // (including Required within the element and one level of further nesting).
 // Items is arrays-of-objects only — a single nested object flattens to dotted

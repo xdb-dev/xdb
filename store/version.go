@@ -13,24 +13,13 @@ import (
 // tests can pin it.
 var now = time.Now
 
-// versioned wraps next so every record write stamps the record's system
-// metadata: [schema.FieldVersion], a counter starting at 1, and
-// [schema.FieldUpdated], the write's timestamp.
+// versioned adds version checks and system-field stamping to record writes.
+// It runs beneath enforcement so caller-supplied values are validated before
+// system tuples are added. Reads pass through to next.
 //
-// It sits BELOW enforcement and above the raw driver. That placement is
-// deliberate: enforcement validates what the caller actually wrote,
-// against a definition already stamped with the system fields, and the
-// stamped tuples are appended afterwards — so they are stored like any
-// other declared field on every backend, and a driver needs to know
-// nothing about versioning.
-//
-// A write can carry [schema.FieldVersion] as an optimistic-concurrency
-// precondition. It is removed from the tuple set here and compared with
-// the stored version by [schema.NextRevision]: equal bumps, stale
-// returns [core.ErrConflict], absent (zero) writes unconditionally.
-//
-// Reads need no involvement — the system fields are ordinary tuples, so
-// they flow back through scans, point reads, and filter pushdown alike.
+// [New] runs the check and write in one transaction when next is backed by
+// a [TxDriver]. Other backends can accept concurrent writes with the same
+// expected version.
 func versioned(next Driver) Driver {
 	return &versioner{Driver: next}
 }
@@ -49,26 +38,23 @@ func (v *versioner) Apply(ctx context.Context, m Mutation) error {
 	return v.applyWrite(ctx, m)
 }
 
-// applyWrite handles every op except delete (patch, create, and put):
-// take the precondition out of the tuple set, run the CAS against the
-// stored version, and stamp the next version onto the forwarded
-// mutation.
+// applyWrite checks the expected version for patch, create, and put,
+// then adds the next version and timestamp before forwarding the mutation.
 func (v *versioner) applyWrite(ctx context.Context, m Mutation) error {
 	tuples, want := splitVersion(m.Tuples)
 
-	// A patch whose only content was the precondition carries no facts.
+	// An empty patch changes nothing, even if it carries a version precondition.
 	if len(tuples) == 0 && m.Op == OpPatch {
 		return nil
 	}
 
-	// An empty put removes the record; stamping would resurrect it as a
-	// husk of system tuples.
+	// An empty put removes the record without adding system tuples.
 	if len(tuples) == 0 && m.Op == OpPut {
 		return v.Driver.Apply(ctx, m)
 	}
 
-	// A create's target must not exist, so its stored version is 0 by
-	// definition — the driver rejects the race, atomically.
+	// A create expects an absent record with version 0. The driver
+	// checks existence atomically when it applies the mutation.
 	var cur int64
 	if m.Op != OpCreate {
 		var err error
@@ -87,10 +73,9 @@ func (v *versioner) applyWrite(ctx context.Context, m Mutation) error {
 	return v.Driver.Apply(ctx, m)
 }
 
-// applyDelete handles removals. A whole-record delete needs no stamp —
-// the version dies with the record. An attr delete bumps the version,
-// unless it removed the record's last user tuple, in which case the
-// record is gone and its system tuples must go with it.
+// applyDelete removes the requested tuples and stamps the remaining record.
+// If no user tuples remain, it removes the system tuples too.
+// Whole-record deletes pass through without stamping.
 func (v *versioner) applyDelete(ctx context.Context, m Mutation) error {
 	if len(m.Attrs) == 0 {
 		return v.Driver.Apply(ctx, m)
@@ -120,9 +105,8 @@ func (v *versioner) applyDelete(ctx context.Context, m Mutation) error {
 	})
 }
 
-// current reads the record's stored version. An absent record, or one
-// written before versioning, reads as 0 — which [schema.NextRevision]
-// treats as "no base", so the next write starts the sequence.
+// current reads the stored version, returning 0 when the version tuple is
+// absent. The next stamped write starts at version 1 in that case.
 func (v *versioner) current(ctx context.Context, path *core.URI) (int64, error) {
 	uri, err := core.ParseURI(path.String() + "#" + schema.FieldVersion)
 	if err != nil {
@@ -140,8 +124,7 @@ func (v *versioner) current(ctx context.Context, path *core.URI) (int64, error) 
 	return tuples[0].AsInt()
 }
 
-// userTuples counts the record's non-system tuples. A record exists
-// exactly while it holds user facts; system tuples alone are a husk.
+// userTuples counts non-system tuples to determine whether a record remains.
 func (v *versioner) userTuples(ctx context.Context, path *core.URI) (int, error) {
 	count := 0
 	for tuple, err := range v.ScanTuples(ctx, path) {
@@ -178,7 +161,7 @@ func splitVersion(tuples []*core.Tuple) ([]*core.Tuple, int64) {
 	return kept, want
 }
 
-// stampTuples builds the system tuples written with every record write.
+// stampTuples builds the version and timestamp tuples for a write.
 func stampTuples(path *core.URI, version int64) []*core.Tuple {
 	return []*core.Tuple{
 		core.NewTuple(path.RecordPath(), schema.FieldVersion, version),
@@ -186,15 +169,9 @@ func stampTuples(path *core.URI, version int64) []*core.Tuple {
 	}
 }
 
-// normalizeDerived strips the attrs the store derives and rejects the
-// ones a caller must not touch.
-//
-// [schema.FieldUpdated] is stamped on every write and [schema.FieldID]
-// is projected from the path, so a caller echoing back a record it just
-// read is normal and its values are simply dropped. An id that
-// disagrees with the URI is not an echo but a misaddressed write, and a
-// delete aimed at a system attr would corrupt the record's metadata;
-// both are refused.
+// normalizeDerived removes caller-supplied [schema.FieldUpdated] and
+// [schema.FieldID] values because the store derives them. It rejects an ID
+// that differs from the record URI and attempts to delete system attributes.
 func normalizeDerived(m Mutation) (Mutation, error) {
 	for _, attr := range m.Attrs {
 		if schema.IsSystemField(attr) {

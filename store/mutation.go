@@ -6,23 +6,17 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-// Op is the closed set of write intents a [Mutation] can carry, modeled
-// on HTTP: patch, create, put, delete. Exists-semantics are data the
-// driver receives, not code the driver invents — a driver cannot get an
-// op's create-or-replace behavior subtly wrong because the distinction
-// arrives in the mutation.
+// Op specifies how a [Mutation] changes a record and whether the record
+// must be absent. Drivers implement the semantics documented for each op.
 type Op int
 
 const (
-	// OpPatch puts facts; everything else at the path is untouched
-	// (HTTP PATCH). A record springs into existence when its first
-	// tuples are patched — no exists-check.
+	// OpPatch adds or replaces the supplied tuples, preserving other
+	// attributes. It creates the record if absent.
 	OpPatch Op = iota
 
-	// OpCreate replaces; fails with [core.ErrAlreadyExists] if the
-	// path has any tuples (HTTP POST / PUT-If-None-Match). MUST be
-	// atomic (INSERT, O_EXCL, EXISTS-gated write) — this is the one op
-	// where check-then-write loses data.
+	// OpCreate writes a new record or returns [core.ErrAlreadyExists]
+	// if the path has tuples. The existence check and write must be atomic.
 	OpCreate
 
 	// OpPut replaces unconditionally (upsert, HTTP PUT): the
@@ -30,8 +24,8 @@ const (
 	// attrs are dropped.
 	OpPut
 
-	// OpDelete removes facts; idempotent (HTTP DELETE). Attrs names
-	// the tuples to remove; empty Attrs removes the whole record.
+	// OpDelete removes the tuples named by Attrs. Empty Attrs removes
+	// the whole record. Missing records and attributes are ignored.
 	OpDelete
 )
 

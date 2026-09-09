@@ -8,12 +8,9 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-// newDefCache creates a caching layer over the driver for
-// [schema.Def] reads. It sits beneath the enforcement middleware so
-// every validation read hits the cache, and is skipped entirely
-// inside transactions (a tx that writes a Def must read its own
-// write, not a cached one) — the facade invalidates the cache after
-// every transactional write instead.
+// newDefCache caches schema reads beneath enforcement. Transactions bypass
+// this layer to read their own schema changes; the facade invalidates the
+// cache after a successful transaction.
 func newDefCache(next Driver) *cachingDriver {
 	return &cachingDriver{
 		Driver: next,

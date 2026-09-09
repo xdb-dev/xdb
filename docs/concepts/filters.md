@@ -6,11 +6,11 @@ package: filter, filter/sqlgen
 
 # Filters
 
-Filters narrow the results of a record list with [CEL](https://cel.dev/) (Common Expression Language) expressions. The filter design obeys [Google's AIP-160 filtering standard](https://google.aip.dev/160), which defines one filtering language across Google APIs. XDB uses CEL as the evaluation engine for strict type safety and predictable performance.
+Filters select records with [CEL](https://cel.dev/) (Common Expression Language) expressions. XDB type-checks expressions against the schema when one is available.
 
 One filter string works on every backend. The memory, filesystem, and redis drivers evaluate the CEL expression against each record. The SQLite driver pushes the filter down as a SQL `WHERE` clause.
 
-A filter is a **predicate** of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md). `--filter`, `--limit`, and `--offset` are flags of `xdb records list`. `--fields` is a flag of `xdb records list` and `xdb records get`. Run `xdb describe --filter` for the live reference of operators and functions.
+A filter is a predicate of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md). `--filter`, `--limit`, and `--offset` are flags of `xdb records list`. `--fields` is a flag of `xdb records list` and `xdb records get`. Run `xdb describe --filter` for the live reference of operators and functions.
 
 ## Syntax
 
@@ -46,7 +46,7 @@ xdb records list xdb://myapp/posts --filter '!(archived == true)' --fields _id
 | `endsWith`   | `name.endsWith("hn")`  | `substr(name, -length(?)) = ?`   |
 | `size`       | `size(name) > 3`       | `LENGTH(name) > 3`               |
 
-### Case sensitivity
+### Case Sensitivity
 
 String matching compares bytes and is case-sensitive, the same as CEL itself.
 `name.contains("hello")` does not match a stored value of `"Hello World"`.
@@ -55,19 +55,21 @@ and `endsWith` compile to `instr` and `substr`, not to `LIKE`. `LIKE` in
 SQLite ignores ASCII case by default, which gives results different from the
 in-memory CEL evaluation on the other backends.
 
-## Schema-aware and schema-free filters
+## Schema-Aware and Schema-Free Filters
 
 When a schema is available, the filter expression is type-checked against the
 field definitions. The handling of an unknown field then depends on the
 schema mode:
 
-- **`strict`**: an unknown field is a compile error. The filter is rejected
+- `strict`: an unknown field is a compile error. The filter is rejected
   before it runs. The error names the field and lists the available fields of
   the schema in sorted order.
-- **`flexible`** and **`dynamic`**: an unknown field is accepted as a
+
+- `flexible` and `dynamic`: an unknown field is accepted as a
   dynamically typed variable. A record that lacks the attribute does not
   match. There is no error.
-- **Schema-free** (no definition): every variable is dynamically typed, with
+
+- Schema-free (no definition): every variable is dynamically typed, with
   the same result. A query on a namespace URI, or on a schema that no longer
   exists, is also schema-free.
 
@@ -76,7 +78,7 @@ the filter. The SQLite driver calls `filter.Compile` before it generates SQL.
 The store facade calls `filter.Compile` before the in-memory evaluation. Both
 paths use the same definition, so the check is the same on every backend.
 
-### System attributes
+### System Attributes
 
 `_id`, `_version`, and `_updated` can be used in a filter in every mode. You
 do not declare them, and they never trigger the unknown-field rejection of
@@ -95,7 +97,7 @@ already uses. See [Versioning](versioning.md).
 
 ## Relationship to AIP-160
 
-XDB obeys the [AIP-160](https://google.aip.dev/160) filtering standard in concept. Field traversal, comparison operators, and function calls match the AIP-160 patterns. The implementation uses the stricter CEL syntax:
+XDB follows the field traversal, comparison, and function-call patterns described by [AIP-160](https://google.aip.dev/160), but uses CEL syntax:
 
 | Concept     | AIP-160     | XDB (CEL)  |
 | ----------- | ----------- | ---------- |
@@ -104,9 +106,9 @@ XDB obeys the [AIP-160](https://google.aip.dev/160) filtering standard in concep
 | Logical OR  | `OR`        | `\|\|`     |
 | Negation    | `NOT`, `-`  | `!`        |
 
-XDB uses CEL instead of the looser AIP-160 syntax for three reasons: compile-time type checking, safe evaluation (CEL is not Turing-complete), and direct SQL generation.
+CEL supports type checking before evaluation and translation to SQL. Its evaluation model is not Turing-complete.
 
-## Go usage
+## Go Usage
 
 ```go
 // Compile once, evaluate many times.
@@ -119,7 +121,7 @@ match, err := filter.Match(f, record)
 results, err := filter.Records(f, records)
 ```
 
-## SQL generation
+## SQL Generation
 
 The `filter/sqlgen` package converts a compiled filter to parameterized SQL:
 
@@ -138,8 +140,12 @@ and the store falls back to a scan.
 
 ## Related Concepts
 
-- [AIP-160: Filtering](https://google.aip.dev/160) — Google's filtering standard
-- [AIP-132: List](https://google.aip.dev/132) — Standard List method design
-- [AIP-158: Pagination](https://google.aip.dev/158) — Page token and page size patterns
-- [CEL specification](https://cel.dev/) — Common Expression Language
-- [Stores](stores.md) — How filters integrate with the store facade
+- [AIP-160: Filtering](https://google.aip.dev/160): Google's filtering standard
+
+- [AIP-132: List](https://google.aip.dev/132): Standard List method design
+
+- [AIP-158: Pagination](https://google.aip.dev/158): Page token and page size patterns
+
+- [CEL specification](https://cel.dev/): Common Expression Language
+
+- [Stores](stores.md): How filters integrate with the store facade

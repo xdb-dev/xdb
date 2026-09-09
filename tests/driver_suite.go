@@ -13,12 +13,9 @@ import (
 	"github.com/xdb-dev/xdb/store"
 )
 
-// DriverSuite pins the [store.Driver] contract: the four-op mutation
-// table (per-mutation semantics — sequencing and error attribution
-// belong to the facade), tuple read semantics, verbatim Def CRUD, and
-// optional capabilities. It runs against raw drivers — no facade, no
-// enforcement middleware — so it must not exercise any policy
-// (validation, revision stamping, namespace derivation).
+// DriverSuite checks mutation semantics, tuple reads, schema storage, and
+// optional capabilities on raw [store.Driver] implementations. Schema
+// validation and versioning are tested through the store suites.
 type DriverSuite struct {
 	newDriver func() store.Driver
 }

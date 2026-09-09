@@ -18,10 +18,9 @@ import (
 	"github.com/xdb-dev/xdb/store/xdbmemory"
 )
 
-// cloningStore wraps a store and returns deep copies from GetRecord and
-// GetSchema, simulating backends (fs, redis, sqlite) that deserialize fresh
-// objects on every read instead of sharing pointers. Without copies, the
-// in-memory store aliases records and hides read-patch-write races.
+// cloningStore returns new records and copies schema field and annotation
+// maps on reads. Values and nested schema metadata remain shared.
+// This prevents schema-map aliasing from hiding update races in the tests.
 type cloningStore struct {
 	store.Store
 	tx store.TX // nil when the inner store does not support TX

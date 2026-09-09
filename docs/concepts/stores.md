@@ -6,12 +6,13 @@ package: store, store/xdbmemory, store/xdbfs, store/xdbredis, store/xdbsqlite
 
 # Stores
 
-A **Store** is the persistence layer in XDB. It reads and writes [Records](records.md), [Tuples](tuples.md), [Schemas](schemas.md), and [Namespaces](namespaces.md). The semantics are identical on every backend.
+A `Store` reads and writes [records](records.md), [tuples](tuples.md), and [schemas](schemas.md), and lists [namespaces](namespaces.md). It applies shared validation and versioning rules across backends. Transaction and index support depend on the driver.
 
-The store has two layers:
+The store separates policy from persistence:
 
-- The **facade and middleware** (`store` package) own all policy: schema validation, mode enforcement, dynamic evolution, revision CAS, and record versioning. They also own record assembly, filtering, pagination, namespace derivation, and transaction orchestration.
-- **[Drivers](drivers.md)** (`store/xdbmemory`, `store/xdbfs`, `store/xdbredis`, `store/xdbsqlite`) are pure storage. They read tuples, apply mutations, and store definitions verbatim.
+- The facade and middleware (`store` package) own all policy: schema validation, mode enforcement, dynamic evolution, revision CAS, and record versioning. They also own record assembly, filtering, pagination, namespace derivation, and transaction orchestration.
+
+- [Drivers](drivers.md) (`store/xdbmemory`, `store/xdbfs`, `store/xdbredis`, `store/xdbsqlite`) are pure storage. They read tuples, apply mutations, and store definitions verbatim.
 
 ```
         Store facade   record + tuple + schema verbs, all writes compiled
@@ -31,7 +32,7 @@ The store has two layers:
 
 ## Constructing a Store
 
-`store.New` is the **only** way to obtain a `Store`. It always installs two middleware layers: schema enforcement and record versioning. A Store that skips validation or versioning cannot be constructed:
+Construct a `Store` with `store.New`. It installs schema enforcement and record versioning on every driver:
 
 ```go
 // In-memory (reference, testing, embedded)
@@ -49,7 +50,7 @@ d, err := xdbsqlite.NewDriver(db)
 st := store.New(d)
 ```
 
-Options add observability and acceleration around enforcement:
+Options enable write logging and schema caching:
 
 ```go
 st := store.New(d,
@@ -93,13 +94,14 @@ The table shows how each facade verb reaches the driver. Every write verb compil
 | `DeleteRecord(uri)`  | `{Path, OpDelete}`                                  |
 | `PutTuples(ts...)`   | `{Path, OpPatch, ts}` per record path               |
 | `DeleteTuples(uris)` | `{Path, OpDelete, Attrs}` per record path           |
-| `GetRecord(uri)`     | tuple scan of the path → assemble. Empty = NotFound |
-| `GetTuple(uri)`      | point read → absence = NotFound                     |
+| `GetRecord(uri)`     | tuple scan of the path -> assemble. Empty = NotFound |
+| `GetTuple(uri)`      | point read -> absence = NotFound                     |
 
-Two consequences:
+Record and patch behavior:
 
-- **Records are tuple sets.** A record comes into existence when its first tuples are written. It ceases to exist when its last tuple is removed. A record with zero tuples cannot be represented, so a write of an empty record stores nothing.
-- **`PutTuples` is a patch**, not a replace. The other attributes of the record are untouched. `UpsertRecord` is a full replace (put).
+- Records are tuple sets. A record comes into existence when its first tuples are written. It ceases to exist when its last tuple is removed. A record with zero tuples cannot be represented, so a write of an empty record stores nothing.
+
+- `PutTuples` patches the named attributes and preserves the others. `UpsertRecord` replaces the full record.
 
 ## Operation Behavior
 
@@ -110,7 +112,7 @@ Two consequences:
 | `GetRecord` | Returns record | `ErrNotFound` | Read by URI (ns + schema + id) |
 | `ListRecords` | Returns page of records | Empty page (no error) | URI scope: ns-only or ns+schema |
 | `CreateRecord` | `ErrAlreadyExists` | Creates record | Insert only. Rejects duplicates |
-| `UpsertRecord` | Full replace | Creates record | Unconditional write (put). Always succeeds |
+| `UpsertRecord` | Full replace | Creates record | Full replacement; checks `_version` when supplied |
 | `DeleteRecord` | Deletes record | `ErrNotFound` | Remove by URI |
 
 ### Tuple Operations
@@ -149,9 +151,13 @@ Namespaces are derived from schemas. There is no writer interface. A namespace e
 Middleware that `store.New` always installs enforces schema policy. The policy is uniform on every backend:
 
 - Declared fields are type-checked on every write, in every schema [mode](schemas.md). Strict mode rejects undeclared attributes, flexible mode accepts them as-is, and dynamic mode infers them and evolves the schema.
+
 - `Required` fields are checked on full-record writes, and on patches that create a record.
+
 - `DeleteTuples` cannot remove a `Required` attribute from a record. A delete of the whole record is permitted.
+
 - Schema updates validate compatibility (`ValidateUpdate`) and apply the revision CAS.
+
 - Every definition is stamped with the `_version` and `_updated` system fields. A definition cannot declare a field name that starts with `_`. See [Versioning](versioning.md).
 
 Violations are reported as `core.ErrSchemaViolation`, which wraps the specific schema error.
@@ -168,7 +174,7 @@ Every record carries `_id`, `_version`, and `_updated`. A write can echo `_versi
 | `TX`              | `Run(ctx, func(tx Store) error) error`                                                | Transactional batch operations                     |
 | `Validator`       | `ValidateRecord(ctx, record, op) error`, `ValidateDeleteRecord(ctx, uri) error`       | Validate a write or a delete without a write (dry run) |
 
-The Store returned by `store.New` always implements `Validator`. It runs the same enforcement checks that a real write runs, without touching the driver. Dynamic-mode evolution is computed and discarded. The Store implements `TX` when the driver supports native transactions (memory, sqlite). On such stores, **every** write verb runs inside a transaction, so the enforcement checks and the write are atomic. Drivers without transactions (fs, redis) fall back to sequential execution.
+The Store returned by `store.New` always implements `Validator`. It runs the same enforcement checks that a real write runs, without touching the driver. Dynamic-mode evolution is computed and discarded. The Store implements `TX` when the driver supports native transactions (memory, sqlite). On such stores, every write verb runs inside a transaction, so the enforcement checks and the write are atomic. Drivers without transactions (fs, redis) fall back to sequential execution.
 
 ```go
 if tx, ok := st.(store.TX); ok {
@@ -200,13 +206,18 @@ type Page[T any] struct {
 ```
 
 - `URI` determines the scope. An ns-only URI lists across all schemas. An ns+schema URI lists a single schema
+
 - `Filter` is a [CEL expression](filters.md) evaluated against each record
+
 - `Limit` defaults to 20, with a maximum of 1000
+
 - `Offset` is zero-based
+
 - `NextOffset` is 0 when there are no more pages
+
 - `Total` is the total count of matching items, not only the current page
 
-The facade synthesizes lists from tuple scans, filters in-process, and paginates. A driver with native filter pushdown handles schema-scoped queries in the database instead. The sqlite driver compiles CEL to SQL WHERE clauses. A field marked `indexed` or `unique` in its [schema](schemas.md) accelerates that pushdown on sqlite. Both markers are backend capabilities, not store policy: the sqlite column engine materializes an index and rejects a duplicate write on a `unique` field with `ErrUniqueViolation`. Other drivers store the markers but build no index and enforce nothing.
+The facade synthesizes lists from tuple scans, filters in-process, and paginates. A driver with native filter pushdown handles schema-scoped queries in the database instead. The sqlite driver compiles CEL to SQL WHERE clauses. A field marked `indexed` or `unique` in its [schema](schemas.md) accelerates that pushdown on sqlite. The SQLite column engine creates indexes for these markers and rejects duplicate values on a `unique` field with `ErrUniqueViolation`. Other drivers retain the markers without creating indexes or enforcing uniqueness.
 
 ## Errors
 
@@ -304,16 +315,16 @@ Backend-specific errors are not wrapped as store sentinels. They propagate as-is
 
 ## Drivers
 
-See [Drivers](drivers.md) for the contract that drivers implement, and for how each driver maps tuples onto its backend. In brief:
+The [driver contract](drivers.md) supports these storage layouts and capabilities:
 
 | Driver | Storage | TX | Filter pushdown |
 |--------|---------|----|-----------------|
-| `xdbmemory` | Go maps | yes | — |
-| `xdbfs` | JSON file per record | — | — |
-| `xdbredis` | hash per record | — | — |
-| `xdbsqlite` | column or KV tables per schema | yes | CEL → SQL |
+| `xdbmemory` | Go maps | yes |: |
+| `xdbfs` | JSON file per record |: |: |
+| `xdbredis` | hash per record |: |: |
+| `xdbsqlite` | column or KV tables per schema | yes | CEL -> SQL |
 
-Driver packages export a `NewDriver` constructor, not a Store, so a Store that skips enforcement cannot be built.
+Wrap a driver returned by `NewDriver` with `store.New` to apply store policy.
 
 ## Config
 
@@ -321,14 +332,20 @@ The `store.backend` key in `~/.xdb/config.json` selects the backend. See [Config
 
 ## Shared Test Suites
 
-The `tests/` package provides shared suites that pin store behavior. The record, schema, namespace, tuple, types, and version suites run against every backend **through the facade**, and prove identical semantics. The batch suite runs on drivers with native transactions (memory, sqlite). The mode and cascade suites test facade policy, so they run once, on the memory driver. The driver suite (`tests.NewDriverSuite`) pins the raw [driver contract](drivers.md).
+The `tests/` package provides shared suites that pin store behavior. The record, schema, namespace, tuple, types, and version suites run against every backend through the facade, and check the shared semantics. The batch suite runs on drivers with native transactions (memory, sqlite). The mode and cascade suites test facade policy, so they run once, on the memory driver. The driver suite (`tests.NewDriverSuite`) pins the raw [driver contract](drivers.md).
 
 ## Related Concepts
 
-- [Drivers](drivers.md) — The storage contract that drivers implement
-- [Records](records.md) — Assembled views over tuples
-- [Tuples](tuples.md) — The unit of storage and addressing
-- [Schemas](schemas.md) — Structure definitions and modes
-- [Namespaces](namespaces.md) — Organizational grouping
-- [Filters](filters.md) — CEL-based record filtering for list operations
-- [Encoding](encoding.md) — How records are serialized for storage
+- [Drivers](drivers.md): The storage contract that drivers implement
+
+- [Records](records.md): Assembled views over tuples
+
+- [Tuples](tuples.md): The unit of storage and addressing
+
+- [Schemas](schemas.md): Structure definitions and modes
+
+- [Namespaces](namespaces.md): Organizational grouping
+
+- [Filters](filters.md): CEL-based record filtering for list operations
+
+- [Encoding](encoding.md): How records are serialized for storage

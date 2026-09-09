@@ -6,7 +6,7 @@ package: core
 
 # Namespaces
 
-A **Namespace** (NS) groups one or more [Schemas](schemas.md). Namespaces give your data a logical structure, usually by domain, application, or tenant.
+A namespace (NS) groups [schemas](schemas.md), usually by domain, application, or tenant.
 
 From the [CLI](../../cmd/xdb/cli/CONTEXT.md), `xdb namespaces list` lists the namespaces, and `xdb namespaces get xdb://ns` shows one namespace with its schemas. Namespaces are implicit. XDB creates a namespace on the first schema write in it. As a result, namespaces support only the `list` and `get` actions. Run `xdb describe --actions` for the live list.
 
@@ -37,8 +37,10 @@ record ID, a namespace is a single URI component.
 | `io.myapp`    | `org/team`        |
 
 Conventions:
-- **Reverse domain** — `com.example`, `io.myapp`. Good for public or multi-tenant systems.
-- **Simple names** — `myapp`, `analytics`. Good for a single application.
+
+- Reverse domain: `com.example`, `io.myapp`. Good for public or multi-tenant systems.
+
+- Simple names: `myapp`, `analytics`. Good for a single application.
 
 ## Creating Namespaces
 
@@ -62,6 +64,8 @@ A namespace URI has the `xdb://` scheme and only the namespace component, for ex
 
 ## Related Concepts
 
-- [Schemas](schemas.md) — Grouped in namespaces
-- [URIs](uris.md) — How namespaces are addressed
-- [Stores](stores.md) — Where namespace data is persisted
+- [Schemas](schemas.md): Grouped in namespaces
+
+- [URIs](uris.md): How namespaces are addressed
+
+- [Stores](stores.md): Where namespace data is persisted

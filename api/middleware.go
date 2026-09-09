@@ -6,8 +6,8 @@ import "net/http"
 type Middleware func(next http.Handler) http.Handler
 
 // MiddlewareStack is an ordered list of [Middleware].
-// Middleware is applied in reverse order: the last added middleware
-// is the outermost wrapper.
+// The first added middleware is the outermost wrapper and runs first
+// when handling a request.
 type MiddlewareStack []Middleware
 
 // Wrap applies the middleware stack to the given handler.

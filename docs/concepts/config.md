@@ -119,9 +119,13 @@ created, err := cli.EnsureConfigAt("/path/to/config.json")
 `Validate()` returns an error if one of these conditions is false:
 
 - `dir` is non-empty and absolute, or starts with `~`
+
 - `daemon.socket` contains no `/` or `\`
+
 - `log_level` is `debug`, `info`, `warn`, or `error`
+
 - `store.backend` is `sqlite`, `memory`, `fs`, or `redis`
+
 - `store.redis.addr` is set when the backend is `redis`
 
 `SocketPath()` joins `daemon.socket` onto `dir`, so the socket must be a bare filename.
@@ -134,9 +138,10 @@ The root `--config` / `-c` flag selects the config file:
 xdb --config /etc/xdb/config.json daemon start
 ```
 
-The flag always has a value. Its default is `~/.xdb/config.json`. Commands test whether you set the flag, not only its value. If you pass `--config`, the file must exist, and a missing file is an error. If you do not pass it, a missing default file yields in-memory defaults.
+The flag defaults to `~/.xdb/config.json`. If you explicitly pass `--config`, a missing file is an error when loading config. Without the flag, a missing default file yields in-memory defaults. `init` and `daemon start` create a missing config before loading it.
 
 ## Related Concepts
 
-- [Stores](stores.md) — The backend that `store.backend` selects
-- [Daemon](daemon.md) — Uses the config for the socket path, the log file, and the PID file
+- [Stores](stores.md): The backend that `store.backend` selects
+
+- [Daemon](daemon.md): Uses the config for the socket path, the log file, and the PID file

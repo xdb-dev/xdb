@@ -121,7 +121,7 @@
         api.line(x, y + 54 * s, x + 120 * s, y + 54 * s, { stroke: C.accent, roughness: 0.8 });
         api.line(x + 40 * s, y, x + 40 * s, y + 84 * s, { stroke: C.accent, roughness: 0.8 });
         api.line(x + 80 * s, y, x + 80 * s, y + 84 * s, { stroke: C.accent, roughness: 0.8 });
-        api.text(x + 8 * s, y + 17 * s, "id", { size: 10 * s });
+        api.text(x + 8 * s, y + 17 * s, "_id", { size: 10 * s });
         api.text(x + 46 * s, y + 17 * s, "title", { size: 10 * s, fill: C.attr });
         api.text(x + 86 * s, y + 17 * s, "views", { size: 10 * s, fill: C.attr });
         api.text(x + 8 * s, y + 43 * s, "p-1", { size: 10 * s, fill: C.id });
@@ -176,7 +176,7 @@
       t.draw(430, t.y, 1);
       f.text(430, t.y + 100, t.name, { size: 13, fill: C.muted });
     });
-    f.text(130, 292, "same semantics everywhere", { anchor: "middle", size: 13, fill: C.accent });
+    f.text(130, 292, "shared schema and version rules", { anchor: "middle", size: 13, fill: C.accent });
   });
 
   /* ---------- fig 1: anatomy of a tuple ---------- */
@@ -244,7 +244,7 @@
       f.rect(90, y, 300, 34, { stroke: C.ink, roughness: 0.9 });
       f.text(104, y + 22, [[r[0], C.attr], ["  =  ", C.muted], [r[1], C.val]], { mono: true, size: 13 });
     });
-    f.text(240, 300, "a record is just the tuples at one path", { anchor: "middle", size: 13, fill: C.muted });
+    f.text(240, 300, "a record groups tuples at one path", { anchor: "middle", size: 13, fill: C.muted });
   });
 
   /* ---------- fig 3: where it lives ---------- */
@@ -268,7 +268,7 @@
     });
   });
 
-  /* ---------- fig 6: three doors, one store ---------- */
+  /* ---------- fig 6: clients share a store ---------- */
   figure("fig-doors", 600, 180, (f) => {
     const doors = [
       { y: 14, label: "Go", sub: "store.Store" },
@@ -283,13 +283,13 @@
     });
     f.rect(272, 50, 150, 80, { fill: C.fill, fillStyle: "hachure", hachureGap: 8, fillWeight: 0.7 });
     f.text(347, 82, "one store", { anchor: "middle", size: 18 });
-    f.text(347, 102, "same rules, same errors", { anchor: "middle", size: 11, fill: C.muted });
+    f.text(347, 102, "shared validation", { anchor: "middle", size: 11, fill: C.muted });
     f.text(347, 118, "same _version", { anchor: "middle", size: 11, fill: C.muted });
     f.arrow(426, 90, 470, 90);
     f.rect(474, 62, 110, 56, { stroke: C.accent });
     f.text(529, 86, "driver", { anchor: "middle", size: 16, fill: C.accent });
     f.text(529, 104, "any backend", { anchor: "middle", size: 11, fill: C.muted });
-    f.text(300, 24, "the daemon behind the CLI is the JSON-RPC door", { size: 11, fill: C.muted });
+    f.text(300, 24, "the CLI calls the daemon over JSON-RPC", { size: 11, fill: C.muted });
   });
 
   /* ---------- fig 5: the grammar ---------- */
@@ -317,8 +317,8 @@
     const mid = (from, len) => x0 + (from + len / 2) * cw;
     const notes = [
       { x: mid(4, 10), t: "the noun", s: "records · schemas · namespaces", c: C.accent, row: 0 },
-      { x: mid(15, 8), t: "closed set", s: "6 verbs, nothing else", c: C.attr, row: 1 },
-      { x: mid(24, 5), t: "what you mean", s: "depth picks the resource", c: C.schema, row: 0 },
+      { x: mid(15, 8), t: "closed set", s: "actions vary by resource", c: C.attr, row: 1 },
+      { x: mid(24, 5), t: "resource URI", s: "depth picks the resource", c: C.schema, row: 0 },
       { x: mid(30, 14), t: "CEL predicate", s: "", c: C.ns, row: 1 },
       { x: mid(45, 15), t: "projection", s: "", c: C.ns, row: 0 },
       { x: mid(61, 12), t: "payload", s: "'-' reads stdin", c: C.val, row: 1 },
@@ -368,7 +368,7 @@
     f.text(300, 258, "xdb schemas diff --check  (CI fails on drift)", { anchor: "middle", size: 12, fill: C.muted });
   });
 
-  /* ---------- fig 9: two agents, one record, no lost write ---------- */
+  /* ---------- fig 9: version checks on transactional backends ---------- */
   figure("fig-cas", 640, 300, (f) => {
     const A = 90, B = 230, R = 520;
     f.text(A, 24, "agent A", { anchor: "middle", size: 15 });
@@ -390,13 +390,13 @@
     row(222, R, B, "re-read  ·  _version 4", C.muted);
     row(258, B, R, "write {_version: 4, ...}", C.accent);
     f.text(R + 12, 276, "ok -> 5", { size: 12, fill: C.attr });
-    f.text(B, 292, "nothing was silently overwritten", { anchor: "middle", size: 12, fill: C.muted });
+    f.text(B, 292, "retry uses the current version", { anchor: "middle", size: 12, fill: C.muted });
   });
 
   /* ---------- fig 5: a driver is a composition of capabilities ---------- */
   figure("fig-driver", 560, 290, (f) => {
     // required: four roles stacked, bracketed into one Driver
-    f.text(20, 18, "required — four roles, six methods", { size: 12, fill: C.muted });
+    f.text(20, 18, "required driver interfaces", { size: 12, fill: C.muted });
     const roles = [
       ["TupleReader", "GetTuples · ScanTuples"],
       ["TupleWriter", "Apply(mutation)"],
@@ -413,10 +413,10 @@
     f.text(294, 137, "= Driver", { size: 16 });
 
     // optional: detected by store.New, the facade fills the gap
-    f.text(380, 18, "optional — store.New detects", { size: 12, fill: C.muted });
+    f.text(380, 18, "detected by store.New", { size: 12, fill: C.muted });
     const caps = [
-      { y: 30, name: "TxDriver", m: "Tx(fn)", have: "memory · sqlite", miss: "missing? ops run one by one" },
-      { y: 128, name: "QueryDriver", m: "QueryTuples(q)", have: "sqlite  (CEL → SQL)", miss: "missing? facade filters a scan" },
+      { y: 30, name: "TxDriver", m: "Tx(fn)", have: "memory · sqlite", miss: "otherwise: sequential writes" },
+      { y: 128, name: "QueryDriver", m: "QueryTuples(q)", have: "sqlite  (CEL → SQL)", miss: "otherwise: filter a scan" },
     ];
     caps.forEach((c) => {
       f.rect(380, c.y, 160, 60, { stroke: C.ink, strokeLineDash: [6, 5], roughness: 1.3 });
@@ -428,6 +428,6 @@
 
     // the line no Record crosses
     f.line(20, 250, 540, 250, { stroke: C.line, strokeLineDash: [4, 6], roughness: 0.6 });
-    f.text(280, 272, "no Record crosses this line: the facade assembles records from tuples", { anchor: "middle", size: 12, fill: C.muted });
+    f.text(280, 272, "the facade assembles records from tuple reads", { anchor: "middle", size: 12, fill: C.muted });
   });
 })();

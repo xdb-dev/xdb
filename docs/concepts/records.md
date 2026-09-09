@@ -6,11 +6,7 @@ package: core
 
 # Records
 
-A **Record** is the set of [Tuples](tuples.md) that share the same path
-(Namespace + Schema + ID). A record adds no data of its own. It only groups
-tuples. A record exists exactly when at least one tuple exists at its path.
-Records are similar to objects, structs, or rows in a database. A record
-usually represents one entity in your domain.
+A record groups the [tuples](tuples.md) that share a path (namespace, schema, and ID). It usually describes one domain entity. A record exists while its path has user tuples; it has no separate stored container.
 
 ## Structure
 
@@ -26,9 +22,9 @@ usually represents one entity in your domain.
 └───────────────────────────────────────────┘
 ```
 
-Unlike tuples, records are **mutable**. You can add, update, and remove attributes after creation. Records are also **thread-safe**. A read-write mutex protects concurrent access.
+Records are mutable: you can add, update, and remove attributes. A read-write mutex protects concurrent access.
 
-From the [CLI](../../cmd/xdb/cli/CONTEXT.md), you read and write records with `xdb records <action>`. Payloads are JSON. `create` writes a new record and fails with `ALREADY_EXISTS` if the record exists. `update` patches the record. `upsert` replaces the whole record.
+Use `xdb records <action>` to read and write JSON payloads through the [CLI](../../cmd/xdb/cli/CONTEXT.md). `create` returns the existing record for an identical payload and reports `CONFLICT` for different data at the same URI. `update` patches a record; `upsert` replaces it.
 
 ## Creating Records
 
@@ -108,27 +104,23 @@ As a result, read-modify-write is safe by default. See
 Records use `sync.RWMutex` internally:
 
 - `Set()` takes a write lock
+
 - `Get()`, `Tuples()`, and `IsEmpty()` take a read lock
 
 As a result, records are safe to use from multiple goroutines without external synchronization.
 
 ## Records and Storage
 
-A record is a developer-experience type, not a storage unit. On the write
-side, a record is a builder. The [Store](stores.md) compiles `CreateRecord`
-and `UpsertRecord` into tuple mutations. On the read side, a record is an
-assembled view. `GetRecord` scans the tuples at the record path and groups
-them. Storage [drivers](drivers.md) never see a `core.Record`.
+Use records to build writes and read grouped tuples in Go. The [store](stores.md) converts `CreateRecord` and `UpsertRecord` calls into tuple mutations. `GetRecord` scans and groups tuples at the record path. Storage [drivers](drivers.md) operate on those tuples.
 
-Because a record is exactly its tuple set, a record with no tuples does not
-exist. When you store an empty record, the store persists nothing. When you
-delete the last tuple of a record with `DeleteTuples`, the store deletes the
-record. System attributes do not keep a record alive. When the last user tuple
-is deleted, the record and its metadata are deleted with it.
+Writing an empty record stores nothing. Deleting the last user tuple with `DeleteTuples` removes the record and its system metadata.
 
 ## Related Concepts
 
-- [Tuples](tuples.md) — The building blocks of a record
-- [Schemas](schemas.md) — Validation of the record structure
-- [Stores](stores.md) — Persisting and querying records
-- [Encoding](encoding.md) — JSON serialization
+- [Tuples](tuples.md): The building blocks of a record
+
+- [Schemas](schemas.md): Validation of the record structure
+
+- [Stores](stores.md): Persisting and querying records
+
+- [Encoding](encoding.md): JSON serialization

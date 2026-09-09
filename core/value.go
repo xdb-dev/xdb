@@ -59,7 +59,8 @@ func StringVal(v string) *Value {
 	return &Value{typ: TypeString, data: v}
 }
 
-// BytesVal creates a new byte slice [Value].
+// BytesVal creates a byte slice [Value] without copying v.
+// Changes to v or the slice returned by [Value.AsBytes] affect the value.
 func BytesVal(v []byte) *Value {
 	return &Value{typ: TypeBytes, data: v}
 }
@@ -69,15 +70,17 @@ func TimeVal(v time.Time) *Value {
 	return &Value{typ: TypeTime, data: v}
 }
 
-// JSONVal creates a new JSON [Value] from a [json.RawMessage].
+// JSONVal creates a JSON [Value] without copying v.
+// Changes to v or the bytes returned by [Value.AsJSON] affect the value.
 func JSONVal(v json.RawMessage) *Value {
 	return &Value{typ: TypeJSON, data: v}
 }
 
 // ArrayVal creates a new array [Value] with the given element type and elements.
 //
-// ArrayVal trusts its inputs: it does not verify that each element's type
-// matches elemTypeID. [NewValue] and [NewSafeValue] derive and validate the
+// ArrayVal retains elems and its values without copying them.
+// It does not verify that each element's type matches elemTypeID.
+// [NewValue] and [NewSafeValue] derive and validate the
 // element type when building arrays from Go slices.
 func ArrayVal(elemTypeID TID, elems ...*Value) *Value {
 	return &Value{

@@ -13,13 +13,9 @@ import (
 )
 
 // Driver is a SQLite-backed implementation of [store.Driver].
-//
-// Reads run lock-free against the database. Writes are serialized with
-// an in-process mutex — SQLite is single-writer anyway — which makes
-// the check-then-write op (OpCreate) atomic without relying on
-// busy-timeout retries, and each mutating call additionally runs in
-// its own SQL transaction for crash atomicity. All ten driver methods
-// live once on [session]; Driver only owns resources and atomicity.
+// Reads use the database without acquiring the driver's mutex. Writes hold
+// the mutex and run in SQL transactions. [session] implements storage
+// operations for both database and transaction handles.
 type Driver struct {
 	db *sql.DB
 	mu sync.Mutex

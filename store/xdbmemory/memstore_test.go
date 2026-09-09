@@ -11,10 +11,7 @@ import (
 	"github.com/xdb-dev/xdb/tests"
 )
 
-// newStore builds a full store over the in-memory driver, the way
-// every consumer does: through [store.New], which installs the
-// enforcement middleware. The suites therefore exercise the whole
-// facade + middleware + driver stack.
+// newStore creates a store with enforcement and versioning via [store.New].
 func newStore() store.Store {
 	return store.New(xdbmemory.NewDriver())
 }

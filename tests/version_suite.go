@@ -12,16 +12,9 @@ import (
 	"github.com/xdb-dev/xdb/store"
 )
 
-// VersionSuite pins per-record versioning on a [store.Store]. Every
-// record carries system metadata — [schema.FieldVersion],
-// [schema.FieldUpdated], and the projected [schema.FieldID] — and a
-// write may carry the version back as an optimistic-concurrency
-// precondition.
-//
-// The suite runs against every backend because uniformity is the whole
-// point: versioning lives in middleware above the driver, so a column
-// store, a KV store, a file per record, and a hash per record must all
-// behave identically.
+// VersionSuite checks record metadata and version preconditions through
+// [store.Store] on each backend. It covers sequential version checks;
+// concurrent checks and writes require a transactional backend.
 type VersionSuite struct {
 	newStore func() store.Store
 }
@@ -246,9 +239,7 @@ func (s *VersionSuite) testCAS(t *testing.T) {
 		assert.Equal(t, int64(2), s.version(t, st, uri))
 	})
 
-	// The payoff: a caller that reads, edits, and writes back gets
-	// lost-update protection without asking for it, because the version
-	// rides inside the record it just read.
+	// Writing back the version from a prior read must reject a stale copy.
 	t.Run("read-modify-write is protected by default", func(t *testing.T) {
 		st := s.seed(t)
 		uri := core.MustParseURI("xdb://com.example/vposts/cas4")
@@ -339,8 +330,7 @@ func (s *VersionSuite) testLifecycle(t *testing.T) {
 		assert.Equal(t, int64(1), s.version(t, st, uri))
 	})
 
-	// Records are their tuple sets: removing the last user tuple removes
-	// the record. System tuples must not keep a husk alive.
+	// Removing the last user tuple must also remove the system tuples.
 	t.Run("removing the last user tuple removes the record", func(t *testing.T) {
 		st := s.seed(t)
 		uri := core.MustParseURI("xdb://com.example/vposts/l2")

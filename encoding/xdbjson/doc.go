@@ -47,7 +47,8 @@
 //
 // # JSON format
 //
-// With the default options, the JSON uses flat metadata fields:
+// With [WithIncludeNS] and [WithIncludeSchema], encoded JSON includes
+// the namespace and schema alongside the record ID:
 //
 //	{
 //	    "_id": "user-123",
@@ -121,10 +122,10 @@
 //
 // # Two nesting representations
 //
-// A single nested object always flattens to dotted attributes
-// (profile.name), so filters can address it. An array of objects uses
-// Field.Items, a separate namespace whose elements stay opaque. Inside an
-// object-array element, a nested object is NOT flattened. It imports as an
+// Nested objects flatten to dotted attributes (profile.name), unless
+// [WithDef] declares the field as JSON and preserves it as one value.
+// An array of objects uses Field.Items, a separate namespace whose elements
+// stay opaque. Inside an object-array element, a nested object imports as an
 // opaque JSON member, because the data path keeps element internals nested.
 //
 // The required members of a nested object are enforced only when the object

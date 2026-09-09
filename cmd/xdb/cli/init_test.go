@@ -111,12 +111,8 @@ func TestInitAction_SucceedsWhenDaemonSpawnFails(t *testing.T) {
 	assert.NoError(t, statErr)
 }
 
-// TestInitAction_CreatedThenAlreadyExists verifies init's stderr messaging is
-// truthful across repeated runs: "Created ..." the first time a config file
-// is written, "already exists" on every run after. This is the behavior that
-// [LoadConfig] no longer auto-creating the config (W6) makes reliable — init
-// is now the sole creator of its own config, so [EnsureConfigAt]'s created
-// flag reflects reality instead of racing a prior implicit creation.
+// TestInitAction_CreatedThenAlreadyExists checks that init reports a newly
+// created config on the first run and an existing config on later runs.
 func TestInitAction_CreatedThenAlreadyExists(t *testing.T) {
 	// The auto-created config's Dir defaults to "~/.xdb"; redirect HOME so
 	// the best-effort daemon-spawn step never touches the real home.

@@ -24,10 +24,7 @@ func newTestDriver(t *testing.T) *xdbfs.Driver {
 	return d
 }
 
-// newTestStore builds a full store over the filesystem driver, the way
-// every consumer does: through [store.New], which installs the
-// enforcement middleware. The suites therefore exercise the whole
-// facade + middleware + driver stack.
+// newTestStore creates a store with enforcement and versioning via [store.New].
 func newTestStore(t *testing.T) store.Store {
 	t.Helper()
 	return store.New(newTestDriver(t))
@@ -162,4 +159,3 @@ func TestDeleteSchema_CleansEmptyDirs(t *testing.T) {
 	_, err = os.Stat(filepath.Join(root, "cleanup-ns"))
 	assert.True(t, os.IsNotExist(err))
 }
-

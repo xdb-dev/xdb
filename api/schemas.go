@@ -187,16 +187,19 @@ type UpdateSchemaResponse struct {
 	Data *schema.Def `json:"data"`
 }
 
-// Update updates an existing schema definition with patch semantics.
-// Patch fields (including Items) are added or replaced in the existing
-// definition. Field removal is not supported. A non-empty Mode in the
-// patch replaces the existing mode. Description and Annotations in the
-// patch are discarded, and the existing values are kept. A non-zero
-// Revision in the patch is checked as an optimistic-concurrency CAS
-// against the store's current revision ([core.ErrConflict] on
-// mismatch). A zero or omitted Revision updates unconditionally.
-// The read and the write-back run inside a transaction when the store
-// supports [store.TX]. Otherwise they run sequentially (non-atomic).
+// Update patches an existing schema definition. Fields, including Items,
+// are added or replaced; top-level fields cannot be removed. Omitted Indexed
+// and Unique markers retain their stored values. Description and Annotations
+// at the schema level are preserved.
+//
+// A non-empty Mode must match the stored mode. Enforcement rejects a change
+// with [schema.ErrImmutableMode]. A non-zero Revision must match the current
+// revision or the update returns [core.ErrConflict]. When Revision is zero
+// or omitted, the update uses the revision fetched at the start of the call.
+//
+// The read and write run in one transaction when the store implements
+// [store.TX]. Otherwise they run sequentially, and another write can change
+// the revision between them.
 func (s *SchemaService) Update(ctx context.Context, req *UpdateSchemaRequest) (*UpdateSchemaResponse, error) {
 	uri, err := parseURI(req.URI, "schemas.update", 2, 2, false)
 	if err != nil {
@@ -279,10 +282,9 @@ func applySchemaPatch(
 		merged.Mode = patch.Mode
 	}
 
-	// A non-zero patch revision is the caller's expected base revision:
-	// CAS it against the store's current revision. Zero (omitted) keeps
-	// the freshly fetched current revision, which is always accepted
-	// (unconditional update).
+	// Use the caller's expected revision when supplied. Otherwise use the
+	// revision fetched above; a concurrent write can still conflict on a
+	// non-transactional store.
 	if patch.Revision != 0 {
 		merged.Revision = patch.Revision
 	}

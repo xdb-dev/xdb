@@ -41,8 +41,8 @@ const (
 	catJSON // map, Struct, Any, Duration, allow-json message → JSON
 )
 
-// fieldPlan is the resolved plan for one proto field, shared by the schema
-// walk, Marshal, and Unmarshal so the three can never diverge.
+// fieldPlan describes one proto field's mapping. Schema import, Marshal,
+// and Unmarshal use the same plan.
 type fieldPlan struct {
 	fd       protoreflect.FieldDescriptor
 	attr     string

@@ -24,16 +24,14 @@ type WatchRequest struct {
 	URI string `json:"uri"`
 }
 
-// WatchEvent represents a single change notification.
-// Version is the record's version after the change. It is carried
-// explicitly rather than left inside Data for two reasons: delete events
-// have no Data to read it from, and a consumer should not have to parse
-// a payload to order events.
+// WatchEvent is a change notification. Version is supplied separately from
+// Data so it is available for delete events, which have no payload.
+// Whole-record deletes carry the version read before deletion. Schema events
+// carry 0.
 //
-// Delivery is at-most-once and lossy — a subscriber that falls behind
-// misses events silently. Versions make that loss detectable: a jump
-// from 3 to 7 means writes were dropped and the record should be
-// re-read. Schema events carry 0.
+// Delivery is at-most-once with no replay. A subscriber with a full buffer
+// misses events. A gap in a record's versions can indicate missed changes;
+// re-read the record to obtain its current state.
 type WatchEvent struct {
 	TS      time.Time       `json:"ts"`
 	Type    string          `json:"type"`

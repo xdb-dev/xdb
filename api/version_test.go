@@ -66,8 +66,8 @@ func TestRecordService_WriteResponsesCarryVersion(t *testing.T) {
 	})
 }
 
-// A version echoed back in the payload is an optimistic-concurrency
-// precondition, so read-modify-write over the API is safe by default.
+// A version echoed in the payload is checked against the stored version.
+// This test verifies that a stale copy conflicts after another write.
 func TestRecordService_WritePrecondition(t *testing.T) {
 	s := store.New(xdbmemory.NewDriver())
 	svc := api.NewRecordService(s)

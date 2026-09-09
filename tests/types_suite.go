@@ -12,22 +12,12 @@ import (
 	"github.com/xdb-dev/xdb/store"
 )
 
-// TypesStoreSuite pins per-backend value fidelity: every built-in type
-// must survive a write→read round-trip unchanged. It runs against a
-// full [store.Store] because type fidelity is a schema-backed
-// guarantee — backends that infer types from their on-disk form
-// (xdbfs) or store schema-free values loosely (xdbsqlite KV tables)
-// rely on the declared [schema.Def] to reconstruct the exact type.
+// TypesStoreSuite checks that stored values retain their types and data
+// across backends. It uses declared schemas so backends such as xdbfs can
+// recover types from their serialized representation.
 //
-// This is the per-backend home for fidelity: scalars, typed arrays,
-// and object arrays. It complements [ModeStoreSuite], which tests the
-// driver-independent enforcement *decisions* (accept/reject/evolve)
-// once against the memory reference.
-//
-// A top-level JSON scalar is deliberately absent: it has no uniform
-// representation across backends (xdbfs flattens a JSON object into
-// dot-notation sub-tuples), so JSON fidelity is pinned only where it is
-// well-defined — as array elements (the Arrays subtest).
+// The suite covers scalars and arrays, including JSON object arrays.
+// Standalone JSON values are not covered here.
 type TypesStoreSuite struct {
 	newStore func() store.Store
 }

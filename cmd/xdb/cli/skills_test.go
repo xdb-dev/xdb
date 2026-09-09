@@ -93,9 +93,9 @@ func TestGettingStartedContent(t *testing.T) {
 	assert.NotContains(t, stdout, `"bool"}`)
 }
 
-// TestSkillsPayloadsAreValidAgainstServer replays every fenced bash
-// command in every skill doc that carries a --json payload, proving
-// the docs can never drift from what the server accepts.
+// TestSkillsPayloadsAreValidAgainstServer checks documented commands with
+// JSON payloads against the server. Commands requiring stdin, shell features,
+// or unavailable live state are skipped.
 func TestSkillsPayloadsAreValidAgainstServer(t *testing.T) {
 	cfg := startCLITestDaemon(t)
 

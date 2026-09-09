@@ -169,11 +169,8 @@ func (c *countingDriver) GetSchema(ctx context.Context, uri *core.URI) (*schema.
 	return c.Driver.GetSchema(ctx, uri)
 }
 
-// TestSchemaCache_ServesFromCache pins that a warmed cache serves
-// GetSchema without a raw driver read — and that the cachingDriver
-// override intercepts the driver's def point-read at all (a missed
-// rename on the embedding cachingDriver would compile but leave the
-// override dead).
+// TestSchemaCache_ServesFromCache checks that a warmed cache handles
+// GetSchema without reading the underlying driver.
 func TestSchemaCache_ServesFromCache(t *testing.T) {
 	ctx := context.Background()
 	uri := core.MustParseURI("xdb://com.example/posts")
@@ -195,9 +192,8 @@ func TestSchemaCache_ServesFromCache(t *testing.T) {
 	assert.Equal(t, 1, cd.defReads, "warm read must be served from cache")
 }
 
-// TestWithLogger_LogsDefWrites pins that def writes pass through the
-// logging middleware (a missed rename on the embedding loggingDriver
-// would compile but stop logging def writes).
+// TestWithLogger_LogsDefWrites checks that schema writes pass through
+// logging middleware.
 func TestWithLogger_LogsDefWrites(t *testing.T) {
 	ctx := context.Background()
 

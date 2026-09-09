@@ -11,11 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestImportRecords_SchemaViolationMidImport guards the import_export.go
-// error-wrapping fix: a schema-violating line partway through an import must
-// render a single SCHEMA_VIOLATION envelope naming the offending line, not a
-// bare "line N: rpc error ..." string, and must not double-prefix the line
-// number.
+// TestImportRecords_SchemaViolationMidImport checks that an invalid record
+// produces one SCHEMA_VIOLATION envelope with the input line number included
+// once in its message.
 func TestImportRecords_SchemaViolationMidImport(t *testing.T) {
 	configPath := startCLITestDaemon(t)
 

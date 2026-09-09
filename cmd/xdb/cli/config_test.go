@@ -358,11 +358,9 @@ func TestLoadConfig(t *testing.T) {
 	})
 }
 
-// TestLoadConfig_MissingDefaultPath_ReturnsDefaultsWithoutWriting guards the
-// config-creation policy: only `xdb init` and `xdb daemon start` are allowed
-// to write the config file. Every other command loads via [LoadConfig] with
-// an empty path (the default), and a missing file there must yield validated
-// in-memory defaults with no file ever touching disk.
+// TestLoadConfig_MissingDefaultPath_ReturnsDefaultsWithoutWriting checks that
+// loading a missing default config returns validated defaults without creating
+// a file. Config creation belongs to init and daemon start.
 func TestLoadConfig_MissingDefaultPath_ReturnsDefaultsWithoutWriting(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

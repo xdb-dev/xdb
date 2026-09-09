@@ -29,8 +29,8 @@ func newTestStoreWithDB(t *testing.T) (store.Store, *sql.DB) {
 	return store.New(d), db
 }
 
-// indexDDL returns the CREATE INDEX statements for a column table, keyed
-// nothing fancy — just the raw SQL from sqlite_master.
+// indexDDL returns the CREATE INDEX statements for a column table from
+// sqlite_master.
 func indexDDL(t *testing.T, db *sql.DB, table string) []string {
 	t.Helper()
 

@@ -31,8 +31,8 @@ const (
 	kindObjectArray
 )
 
-// spec is the resolved plan for one struct field, shared by Def, Marshal, and
-// Unmarshal so the three walks can never diverge.
+// spec describes one struct field's mapping. Def, Marshal, and Unmarshal
+// use the same plan.
 type spec struct {
 	goType     reflect.Type
 	elemType   reflect.Type

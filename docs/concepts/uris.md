@@ -6,7 +6,7 @@ package: core
 
 # URIs
 
-XDB **URIs** are valid Uniform Resource Identifiers as defined in [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). A URI uniquely identifies every resource in XDB: namespaces, schemas, records, and attributes. Every level of a URI addresses a real thing. A namespace groups schemas. A schema groups records. A path names a set of tuples. `#attr` names one tuple.
+An XDB URI identifies a namespace, schema, record, or attribute. It uses the `xdb` scheme and the syntax defined by [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986). A record path identifies a tuple set; an attribute fragment (`#attr`) selects one tuple.
 
 A `URI` is an immutable value type. Construct one with `NewURI`, `ParseURI`, or `ParsePath`.
 
@@ -26,11 +26,11 @@ scheme     NS    SCHEMA      ID        ATTRIBUTE
 
 | Component     | Required | Description                             |
 | ------------- | -------- | --------------------------------------- |
-| **Scheme**    | Yes      | Always `xdb://`                         |
-| **NS**        | Yes      | [Namespace](namespaces.md) identifier   |
-| **Schema**    | No       | [Schema](schemas.md) name               |
-| **ID**        | No       | [Record](records.md) identifier         |
-| **Attribute** | No       | [Tuple](tuples.md) attribute (fragment) |
+| Scheme    | Yes      | Always `xdb://`                         |
+| NS        | Yes      | [Namespace](namespaces.md) identifier   |
+| Schema    | No       | [Schema](schemas.md) name               |
+| ID        | No       | [Record](records.md) identifier         |
+| Attribute | No       | [Tuple](tuples.md) attribute (fragment) |
 
 ## URI Levels
 
@@ -54,10 +54,12 @@ The more components a URI has, the more specific the reference is. The `Depth()`
 
 ## URIs in the CLI
 
-The URI is the **noun** of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md). Every action has the form `xdb <resource> <action> <URI> [flags]`. The URI depth selects the resource. The action set is not the same for every resource:
+The URI is the noun of the [CLI grammar](../../cmd/xdb/cli/CONTEXT.md). Resource commands use the form `xdb <resource> <action> <URI> [flags]`. The URI depth selects the resource. The action set is not the same for every resource:
 
 - Records support `get`, `list`, `create`, `update`, `upsert`, and `delete`.
+
 - Schemas support `get`, `list`, `create`, `update`, and `delete`.
+
 - Namespaces support only `list` and `get`.
 
 `xdb watch <uri>` is a top-level command, not a resource action. Run `xdb describe --actions` for the live matrix of actions and resources.
@@ -66,7 +68,7 @@ The shorthand commands `xdb get`, `xdb ls`, and `xdb rm` also select the resourc
 
 ## Paths
 
-A **path** is the URI without the `xdb://` scheme:
+A path is the URI without the `xdb://` scheme:
 
 ```
 com.example/posts/123-456-789
@@ -146,7 +148,10 @@ A URI serializes to JSON as a quoted string, and parses back from one:
 
 ## Related Concepts
 
-- [Namespaces](namespaces.md) — The NS component
-- [Schemas](schemas.md) — The Schema component
-- [Records](records.md) — The ID component
-- [Tuples](tuples.md) — The Attribute fragment
+- [Namespaces](namespaces.md): The NS component
+
+- [Schemas](schemas.md): The Schema component
+
+- [Records](records.md): The ID component
+
+- [Tuples](tuples.md): The Attribute fragment

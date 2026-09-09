@@ -13,9 +13,7 @@ import (
 	"github.com/xdb-dev/xdb/tests"
 )
 
-// newTestStore builds a full store over the SQLite driver, the way
-// every consumer does: through [store.New], which installs the
-// enforcement middleware.
+// newTestStore creates a store with enforcement and versioning via [store.New].
 func newTestStore(t *testing.T) store.Store {
 	t.Helper()
 	return store.New(newTestDriver(t))

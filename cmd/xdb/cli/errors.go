@@ -286,16 +286,11 @@ func WriteError(w io.Writer, format string, err error) {
 	_ = formatter.FormatError(w, err)
 }
 
-// FinalizeError renders err as a fallback when [*cli.Command.Run] returns it
-// without having already rendered it via the root command's ExitErrHandler.
-// Every error produced by CLI actions or [installUsageErrorHandler] is an
-// *[output.ErrorEnvelope] by the time Run returns, and envelopes were already
-// rendered during Run(); those pass through here untouched. A handful of
-// urfave-internal errors (for example "No help topic for X", raised when --help
-// targets an unknown subcommand name) bypass Before/Action/ExitErrHandler
-// entirely and reach the caller unrendered — this renders those, once.
+// FinalizeError renders errors that [cli.Command.Run] returns without
+// calling ExitErrHandler, such as an unknown help topic. Error envelopes
+// pass through because the command already rendered them.
 //
-// Call this immediately after Run(), before computing the exit code with
+// Call FinalizeError after Run and before computing the exit code with
 // [ExitCodeFor].
 func FinalizeError(cmd *cli.Command, err error) {
 	if err == nil {

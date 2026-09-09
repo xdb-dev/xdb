@@ -6,7 +6,7 @@ package: store, schema, api
 
 # Versioning
 
-Every record in XDB carries three **system fields**:
+XDB adds system fields to every stored record:
 
 | Field | Type | Meaning |
 |-------|------|---------|
@@ -24,9 +24,9 @@ id, _ := record.Get("_id").AsStr()             // "post-1"
 updated, _ := record.Get("_updated").AsTime()
 ```
 
-## Safe read-modify-write, by default
+## Safe Read-Modify-Write, by Default
 
-The version travels **inside the record**, so a read-edit-write round trip is protected without any request from the caller:
+A record read includes `_version`. Writing that record back uses its version as a precondition:
 
 ```go
 record, _ := st.GetRecord(ctx, uri)   // carries _version: 3
@@ -34,16 +34,16 @@ record.Set("title", "edited")
 err := st.UpsertRecord(ctx, record)   // succeeds only if still at 3
 ```
 
-If another writer landed in between, the store returns `core.ErrConflict` and **nothing is written**. To overwrite unconditionally, build a fresh record, or remove the attribute. A write with no `_version` always wins:
+If the stored version has changed, the store returns `core.ErrConflict` without writing. To omit the version check, build a fresh record or remove `_version`:
 
 ```go
 fresh := core.NewRecord("app", "posts", "post-1").Set("title", "forced")
 st.UpsertRecord(ctx, fresh)           // unconditional
 ```
 
-This is the reason the fields flow all the way up. Lost-update protection is the default, and blind overwrite is the option that you opt into.
+The check and write are atomic on memory and SQLite. See [Concurrency](#concurrency) for filesystem and Redis limitations.
 
-## Which fields you can write
+## System Fields on Write
 
 | Field | On write |
 |-------|----------|
@@ -51,9 +51,9 @@ This is the reason the fields flow all the way up. Lost-update protection is the
 | `_updated` | Ignored. The store stamps it |
 | `_id` | Ignored when it matches the URI. `ErrSchemaViolation` when it disagrees |
 
-The echo of a record that you just read is the normal path, so derived fields are removed, not rejected. An `_id` that disagrees with the URI is not an echo but a misaddressed write, so it is refused. A delete of a system attribute is refused too.
+You can write a record back with the system fields returned by a read. The store removes derived fields before writing, rejects an `_id` that disagrees with the URI, and rejects deletion of a system attribute.
 
-Reserved names are enforced at the schema level. A definition cannot declare a top-level field that starts with `_` (`schema.ErrInvalidField`). The Items of an object-array field are a separate namespace stored inside a JSON value, so `_id` is legal there. External documents routinely carry one.
+Reserved names are enforced at the schema level. A definition cannot declare a top-level field that starts with `_` (`schema.ErrInvalidField`). The Items of an object-array field are a separate namespace stored inside a JSON value, so `_id` is legal there.
 
 ## Filtering
 
@@ -67,9 +67,9 @@ _id.startsWith("user-")
 
 `_version` and `_updated` are declared fields, so they are real columns in a column-table backend. `_id` is never stored. It is the addressing key of the record in every backend: the `_id` column in SQLite, the filename in xdbfs, the key suffix in xdbredis. The facade projects it on read, and resolves it to that key when a filter is pushed down.
 
-## How it works
+## Middleware
 
-Versioning is **driver middleware**. `store.New` installs it unconditionally:
+Versioning is driver middleware. `store.New` installs it unconditionally:
 
 ```
         Store facade          projects _id from the record path
@@ -83,24 +83,25 @@ Versioning is **driver middleware**. `store.New` installs it unconditionally:
         Driver                pure storage — knows nothing about versions
 ```
 
-Two mechanisms, deliberately different:
+The fields are read and stored as follows:
 
-- **`_version` and `_updated` are stored fields.** Enforcement stamps them into every definition. A column-table backend materializes real columns, and a KV backend stores them like any attribute. The versioning middleware then writes them as ordinary tuples, in the *same* mutation as the own data of the record. This is one atomic write on every backend, not two.
-- **`_id` is virtual.** A stored `_id` is only a copy of the path. The facade projects it from the URI of the record on read.
+- `_version` and `_updated` are stored fields. Enforcement stamps them into every definition. A column-table backend materializes real columns, and a KV backend stores them like any attribute. The versioning middleware then writes them as ordinary tuples, in the same atomic mutation as the user data.
+
+- `_id` is virtual.  The facade projects it from the URI of the record on read.
 
 Drivers contain no versioning code. A new driver inherits versioning the way it inherits validation.
 
-### Definitions written before versioning
+### Definitions Written Before Versioning
 
 A definition stored before system fields existed is upgraded on first use. Enforcement stamps it and writes it back, exactly like a dynamic-mode evolution. On SQLite this issues `ALTER TABLE ADD COLUMN`. There is no offline migration step.
 
 ### Concurrency
 
-On backends with native transactions (memory, SQLite), the read, the CAS, and the write share one transaction, so the check cannot go stale. On `xdbfs` and `xdbredis`, the read-modify-write has the same window as the patch-that-creates check in the enforcement middleware. This is a documented property of non-transactional backends, not a new one.
+On memory and SQLite, the version read, comparison, and write share a transaction. On `xdbfs` and `xdbredis`, another writer can change the record between the version read and the write. Version checks on those backends do not guarantee protection from concurrent overwrites.
 
 ## At the API and CLI
 
-The fields are ordinary JSON keys, so they travel without new request or response types:
+The API and CLI return system fields as JSON keys:
 
 ```console
 $ xdb records get xdb://app/posts/post-1 -o json
@@ -108,9 +109,9 @@ $ xdb records get xdb://app/posts/post-1 -o json
  "_updated":"2026-07-23T11:48:52+05:30","title":"Hello"}
 ```
 
-Every write response reports the version that the store just stamped, so a client never re-reads to learn what it wrote. The table view omits `_updated` for readability. Every machine-readable format keeps it.
+Write responses include the resulting version, so clients can use it without another read. The table view omits `_updated` for readability. Every machine-readable format keeps it.
 
-**Delete** is the one verb with no payload to carry a precondition, so it takes one explicitly:
+Delete is the one verb with no payload to carry a precondition, so it takes one explicitly:
 
 ```console
 $ xdb records delete xdb://app/posts/post-1 --force --if-version 3
@@ -118,13 +119,13 @@ $ xdb records delete xdb://app/posts/post-1 --force --if-version 3
 
 A mismatch fails with `CONFLICT` and leaves the record unchanged.
 
-**Watch events** carry the version as a top-level field:
+Watch events carry the version as a top-level field:
 
 ```json
 {"ts":"...","type":"record.update","uri":"xdb://app/posts/post-1","version":4}
 ```
 
-A delete event carries the version that the record held before the delete. The bus is deliberately lossy: a subscriber that falls behind misses events silently. Versions make that loss *detectable*. A jump from 3 to 7 means that writes were dropped, and the client must re-read the record.
+A delete event carries the version that the record held before the delete. The bus drops events when a subscriber falls behind. A jump from version 3 to 7 for the same record reveals missed writes; the client must re-read it.
 
 ## Errors
 
@@ -137,8 +138,12 @@ Over RPC, a conflict is code `-32003`. The CLI reports `CONFLICT`. To recover, t
 
 ## Related Concepts
 
-- [Records](records.md) — What system fields are attached to
-- [Stores](stores.md) — The facade and middleware stack
-- [Drivers](drivers.md) — Why drivers contain no versioning code
-- [Schemas](schemas.md) — Reserved field names and definition stamping
-- [Filters](filters.md) — Querying system fields
+- [Records](records.md): What system fields are attached to
+
+- [Stores](stores.md): The facade and middleware stack
+
+- [Drivers](drivers.md): Why drivers contain no versioning code
+
+- [Schemas](schemas.md): Reserved field names and definition stamping
+
+- [Filters](filters.md): Querying system fields

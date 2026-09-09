@@ -29,30 +29,24 @@ func WithLogger(logger *slog.Logger) Option {
 	}
 }
 
-// WithSchemaCache enables an in-memory read-through cache for schema
-// definitions. Enforcement reads every record write's schema, so this
-// removes a driver round-trip per write for remote backends.
-//
-// The cache is bypassed inside transactions (a tx must read its own
-// Def writes), and every write on a [TxDriver] runs in a transaction —
-// so this option accelerates reads and non-transactional backends
-// (fs, redis), not writes on memory or sqlite.
+// WithSchemaCache caches schema definitions in memory, avoiding repeated
+// driver reads during validation on non-transactional backends.
+// Transactions bypass the cache to read their own schema changes and
+// invalidate it on success. Writes on memory and SQLite backends therefore
+// do not use the cache.
 func WithSchemaCache() Option {
 	return func(o *options) {
 		o.cache = true
 	}
 }
 
-// New creates a [Store] over the given driver. It is the ONLY path to
-// a Store: the versioning and schema-enforcement middleware are always
-// installed, so a Store that skips validation cannot be constructed.
-// Options add observability and acceleration around them.
+// New creates a [Store] with versioning and schema enforcement over d.
+// It panics if d is nil. Options enable write logging and schema caching.
 //
-// The optional capabilities [TxDriver] and [QueryDriver] are detected
-// here, once, on the raw driver, so wrappers never hide them. [Closer]
-// and [HealthChecker] are type-asserted on the raw driver on each
-// call. On a [TxDriver], the returned Store also implements [TX], and
-// every write runs inside a transaction.
+// [TxDriver] and [QueryDriver] are detected on d before middleware is added.
+// If d implements TxDriver, the returned Store also implements [TX] and
+// runs writes in transactions. [Closer] and [HealthChecker] are checked on d
+// when Close or Health is called.
 func New(d Driver, opts ...Option) Store {
 	if d == nil {
 		panic("store: New requires a non-nil Driver")

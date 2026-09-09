@@ -12,11 +12,8 @@ import (
 	"github.com/xdb-dev/xdb/store"
 )
 
-// QuerySuite pins the optional [store.QueryDriver] capability: native
-// filter pushdown. Like the driver Tx tests it runs against the raw
-// driver and skips when the driver does not implement the capability,
-// so every backend can register it uniformly — only pushdown-capable
-// drivers exercise the body.
+// QuerySuite checks filter behavior through the store facade on each backend.
+// It also tests native [store.QueryDriver] pushdown when the driver supports it.
 type QuerySuite struct {
 	newDriver func() store.Driver
 }
@@ -34,11 +31,8 @@ func (s *QuerySuite) Run(t *testing.T) {
 	ctx := context.Background()
 	d := s.newDriver()
 
-	// Filter hardening is pinned at the facade level, unconditionally —
-	// unlike the QueryDriver-only tests below, every backend takes this
-	// path: native SQL pushdown (sqlite) or a scan + in-memory CEL
-	// evaluation (memory/fs/redis, and sqlite itself whenever pushdown
-	// declines a query). Running it uniformly is the sqlite≡memory proof.
+	// Check facade filtering on every backend, including drivers that use
+	// in-memory evaluation and queries that native pushdown declines.
 	t.Run("FilterHardening", func(t *testing.T) {
 		s.runFilterHardening(t, ctx, d)
 	})
@@ -100,11 +94,8 @@ func (s *QuerySuite) Run(t *testing.T) {
 	})
 }
 
-// runFilterHardening exercises [store.Store.ListRecords] filter semantics
-// through the facade, over the given raw driver, wrapped the way every
-// consumer wraps a driver: [store.New]. This is the layer at which sqlite
-// (native pushdown) and memory/fs/redis (scan + in-memory CEL) are proven
-// equivalent.
+// runFilterHardening checks [store.Store.ListRecords] filter semantics
+// through [store.New], covering native pushdown and in-memory evaluation.
 func (s *QuerySuite) runFilterHardening(t *testing.T, ctx context.Context, d store.Driver) {
 	t.Helper()
 	st := store.New(d)

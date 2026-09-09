@@ -12,9 +12,8 @@ import (
 	"github.com/xdb-dev/xdb/store"
 )
 
-// CascadeStoreSuite pins [store.SchemaStore.DeleteSchemaRecords]. It is a
-// policy suite: the cascade lives in the facade middleware, so the suite
-// runs once, against the memory reference driver.
+// CascadeStoreSuite checks [store.SchemaStore.DeleteSchemaRecords] followed
+// by schema deletion. It runs against the memory driver.
 type CascadeStoreSuite struct {
 	newStore func() store.Store
 }

@@ -1,8 +1,7 @@
 // Package xdbredis provides a Redis-backed implementation of
-// [store.Driver]. It is pure storage: no validation, no mode
-// enforcement, and no revision logic. That policy lives in the store
-// facade. Construct a usable store with
-// store.New(xdbredis.NewDriver(client)).
+// [store.Driver]. Use [store.New] to add schema enforcement and versioning:
+//
+//	st := store.New(xdbredis.NewDriver(client))
 //
 // Records are stored as Redis hashes: one hash per record, one field
 // per attribute. Values are encoded as type-prefixed strings, so they
@@ -19,9 +18,8 @@
 // Redis removes a hash automatically when its last field is deleted,
 // and replace-style mutations with no tuples leave no key behind.
 //
-// Each mutation is atomic. Patch and delete are single Redis commands.
-// The conditional writes (create, put) run as Lua scripts, so their
-// existence gate and their write happen in one round trip. The driver
-// has no native transactions and deliberately does not implement
-// [store.TxDriver]. The facade falls back to sequential writes.
+// Each mutation runs as a single Redis command or Lua script. Create
+// checks existence before writing; put deletes the old hash and writes
+// its replacement. The driver does not implement [store.TxDriver], so
+// the facade applies batches and version checks sequentially.
 package xdbredis

@@ -383,9 +383,8 @@ func (g *generator) resolveAttrName(expr ast.Expr) (string, error) {
 	}
 }
 
-// kvValExpr returns the SQL expression for comparing _val.
-// KV tables store values as BLOB (raw bytes), so we must CAST
-// to the appropriate type for comparisons to work.
+// kvValExpr casts _val to REAL for numeric and boolean comparisons,
+// or TEXT for other comparisons, based on the literal's CEL type.
 func (g *generator) kvValExpr(val ref.Val) string {
 	switch val.Type() {
 	case types.IntType, types.UintType, types.DoubleType, types.BoolType:

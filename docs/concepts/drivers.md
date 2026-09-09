@@ -6,13 +6,13 @@ package: store, store/xdbmemory, store/xdbfs, store/xdbredis, store/xdbsqlite
 
 # Drivers
 
-A **Driver** is the contract that a driver package implements over its backend. The driver boundary speaks exactly one unit: [tuples](tuples.md). Reads return tuples. Writes are batches of per-record mutations that carry intent as data. `core.Record` never crosses this boundary. The [store facade](stores.md) assembles records from tuple reads, and compiles records into mutations on writes.
+A `Driver` reads [tuples](tuples.md), applies record mutations, and stores schema definitions on a backend. The [store facade](stores.md) assembles records from tuple reads and converts records into mutations on writes. `core.Record` stays in the facade.
 
-Drivers are **pure storage**. They do no validation, no mode enforcement, no revision stamping, no namespace derivation, and no versioning. All policy lives in the middleware that `store.New` installs. A new driver implements `Driver` and inherits every guarantee. It cannot forget validation, because validation was never its job.
+The middleware installed by `store.New` handles validation, schema modes, revisions, and record versions. The facade derives namespaces. Drivers implement storage operations and receive data that has passed these checks.
 
-This includes [per-record versioning](versioning.md). `_version` and `_updated` reach a driver as ordinary tuples of ordinary declared fields, in the same mutation as the own data of the record. A driver stores them like any other tuple, and needs to know nothing about them.
+The middleware writes [record versions](versioning.md) as `_version` and `_updated` tuples in the same mutation as the user data. Drivers store them as ordinary fields.
 
-`Driver` composes four storage roles. Each role is a small interface that a wrapper can depend on in isolation:
+`Driver` combines interfaces for tuple and schema reads and writes. A wrapper can depend on an individual interface:
 
 ```go
 type TupleReader interface {
@@ -45,16 +45,17 @@ type Driver interface {
 }
 ```
 
-A `Driver` is deliberately not a `Store`. Code that uses a driver directly (for example, driver tests) is visibly unenforced.
+Direct driver calls, including calls in driver tests, bypass store validation and versioning.
 
 ## Reading Tuples
 
-- `GetTuples` is a batch point read by attribute-level URIs. Absent attributes are **omitted**, and the result keeps request order. A batch read does not fail on absence. The facade maps absence to `ErrNotFound` for singular reads.
-- `ScanTuples` yields every tuple under a scope: a namespace, a schema, or a record path. A record read is a scan of one path. The tuples of one record are yielded **contiguously**, so the facade assembles records in a single pass, without a buffer across records.
+- `GetTuples` is a batch point read by attribute-level URIs. Absent attributes are omitted, and the result keeps request order. A batch read does not fail on absence. The facade maps absence to `ErrNotFound` for singular reads.
 
-## Writing: Four Ops, One Table
+- `ScanTuples` yields every tuple under a scope: a namespace, a schema, or a record path. A record read is a scan of one path. The tuples of one record are yielded contiguously, so the facade assembles records in a single pass, without a buffer across records.
 
-Writes arrive one mutation at a time. Exists-semantics are data that the driver receives, not code that it invents:
+## Mutation Behavior
+
+Each mutation specifies how to handle an existing or absent record:
 
 ```go
 type Mutation struct {
@@ -68,7 +69,7 @@ type Mutation struct {
 | Op | Path absent | Path exists | Note |
 |----|-------------|-------------|------|
 | `OpPatch` | creates record | adds or overwrites the named attributes | everything else at the path is untouched (HTTP PATCH) |
-| `OpCreate` | writes full set | `ErrAlreadyExists` | **must be atomic**. This is the one op where check-then-write loses data (HTTP POST) |
+| `OpCreate` | writes full set | `ErrAlreadyExists` | must be atomic. This is the one op where check-then-write loses data (HTTP POST) |
 | `OpPut` | writes full set | replaces full set | attributes not in the set are removed. Upsert (HTTP PUT) |
 | `OpDelete` | no-op | removes the named attributes, or the whole record | idempotent (HTTP DELETE) |
 
@@ -80,7 +81,7 @@ Some drivers rebuild the full tuple set of a record to apply a mutation, for exa
 
 ## Schema Definitions, Verbatim
 
-Drivers store definitions **verbatim**. The revision arrives already stamped, validation already ran, and the CAS already passed. The create/put split (`CreateSchema`/`PutSchema`) keeps exists-semantics data-driven, and mirrors `OpCreate`/`OpPut`. `DropRecords` is the record-space cleanup (DROP TABLE, key sweep, file removal). The definition itself stays. Driver and store share the `Schema` verb names deliberately. The difference is the layer, not the name: `Store.GetSchema` is validated policy over the raw, verbatim storage of `Driver.GetSchema`.
+Drivers store definitions verbatim after middleware validates them, checks the revision, and stamps the new revision. `CreateSchema` fails if the definition exists; `PutSchema` replaces or creates it. `DropRecords` removes the schema's records and keeps its definition. `Store.GetSchema` applies store policy over `Driver.GetSchema`.
 
 ## Optional Capabilities
 
@@ -102,9 +103,9 @@ type QueryDriver interface {
 
 A driver can also implement `store.Closer` to release resources, and `store.HealthChecker` to report connectivity.
 
-## How Each Driver Maps the Contract
+## Backend Storage Layouts
 
-How a mutation lands on storage is the internal concern of the driver. The interfaces promise semantics, not strategy.
+Each driver chooses a storage layout while following the same mutation contract.
 
 | | `xdbmemory` | `xdbfs` | `xdbredis` | `xdbsqlite` |
 |---|---|---|---|---|
@@ -112,13 +113,15 @@ How a mutation lands on storage is the internal concern of the driver. The inter
 | `OpCreate` atomicity | map check under lock | `O_CREATE\|O_EXCL` | Lua EXISTS-gated write | exists check under write mutex + SQL tx |
 | Def storage | map | `_schema.json` | JSON at `…:_schema` key | `_schemas` table (JSON), plus DDL for column tables |
 | `TxDriver` | yes (snapshot + rollback) | no | no | yes (`sql.Tx`) |
-| `QueryDriver` | no | no | no | yes (CEL → SQL via `filter/sqlgen`) |
+| `QueryDriver` | no | no | no | yes (CEL -> SQL via `filter/sqlgen`) |
 
 Notes:
 
-- **sqlite** routes a mutation to one of two engines: a column-table engine (strict/dynamic) or a KV engine (flexible/schema-free). The stored definition selects the engine at a single point (`engineFor`). The op semantics run once, above the engines. This is storage strategy, not policy. KV rows store values in their native SQLite storage class, so filter comparisons stay numeric. `PutSchema` diffs the field sets and issues `ALTER TABLE` for added and removed columns. Type changes never reach the driver: `schema.ValidateUpdate` rejects them in middleware, as it rejects mode changes.
-- **indexed/unique fields** materialize only in the column engine of sqlite. `ensure` and `evolve` issue `CREATE [UNIQUE] INDEX` per flagged field, and remove the index before the column on removal. A unique violation surfaces as `core.ErrUniqueViolation`. Other drivers store the markers verbatim and build no index. Like all schema metadata, the marker is data that the driver can ignore. The store adds no portable enforcement above them: `indexed` and `unique` are backend capabilities, so a backend without an index accepts a duplicate.
-- **redis** ships without `TxDriver` deliberately. The facade uses its sequential fallback there.
+- sqlite routes a mutation to one of two engines: a column-table engine (strict/dynamic) or a KV engine (flexible/schema-free). The stored definition selects the engine at a single point (`engineFor`). The op semantics run once, above the engines.  KV rows store values in their native SQLite storage class, so filter comparisons stay numeric. `PutSchema` diffs the field sets and issues `ALTER TABLE` for added and removed columns. Type changes never reach the driver: `schema.ValidateUpdate` rejects them in middleware, as it rejects mode changes.
+
+- indexed/unique fields materialize only in the column engine of sqlite. `ensure` and `evolve` issue `CREATE [UNIQUE] INDEX` per flagged field, and remove the index before the column on removal. A unique violation surfaces as `core.ErrUniqueViolation`. Other drivers store the markers verbatim and build no index.  The store adds no portable enforcement above them: `indexed` and `unique` are backend capabilities, so a backend without an index accepts a duplicate.
+
+- Redis does not implement `TxDriver`. The facade uses its sequential fallback there.
 
 ## The Conformance Suite
 
@@ -132,10 +135,12 @@ func TestDriverSuite(t *testing.T) {
 }
 ```
 
-A new driver registers the driver suite and the query suite (`tests.NewQuerySuite`, which skips without pushdown) against its raw driver. It registers the store suites (record, schema, namespace, tuple, types, version) against `store.New(NewDriver(...))`. A driver with native transactions also registers the batch suite. The mode and cascade suites test facade policy, so they run once, on the memory driver. A driver that passes both tiers behaves identically to every other driver.
+A new driver registers the driver suite and the query suite (`tests.NewQuerySuite`, which skips without pushdown) against its raw driver. It registers the store suites (record, schema, namespace, tuple, types, version) against `store.New(NewDriver(...))`. A driver with native transactions also registers the batch suite. The mode and cascade suites test facade policy, so they run once, on the memory driver. These suites check the shared contract and the capabilities each driver supports.
 
 ## Related Concepts
 
-- [Stores](stores.md) — The facade and middleware above drivers
-- [Tuples](tuples.md) — The unit the driver boundary speaks
-- [Schemas](schemas.md) — Definitions that drivers store verbatim
+- [Stores](stores.md): The facade and middleware above drivers
+
+- [Tuples](tuples.md): The data drivers read and write
+
+- [Schemas](schemas.md): Definitions that drivers store verbatim

@@ -1,25 +1,22 @@
 ---
 title: Tuples
-description: The smallest unit of data in XDB — an immutable path, attribute, and typed value.
+description: The smallest unit of data in XDB: an immutable path, attribute, and typed value.
 package: core
 ---
 
 # Tuples
 
-A **Tuple** is the smallest unit of data in XDB. It is an addressable fact:
-`xdb://ns/schema/id#attr = value`. Every piece of data in XDB is a tuple, and
-every larger structure is built from tuples. A [Record](records.md) is the set
-of tuples that share one path.
+A tuple is an attribute value at a record path: `xdb://ns/schema/id#attr = value`. It is the smallest unit of record data in XDB. A [record](records.md) groups tuples that share a path.
 
 ## Structure
 
-A tuple has three components:
+A tuple contains:
 
 | Component | Type     | Description                                     |
 | --------- | -------- | ----------------------------------------------- |
-| **Path**  | `*URI`   | The record URI (NS + Schema + ID)               |
-| **Attr**  | `string` | The attribute name. Dots separate nested names  |
-| **Value** | `*Value` | The typed value                                 |
+| Path  | `*URI`   | The record URI (NS + Schema + ID)               |
+| Attr  | `string` | The attribute name. Dots separate nested names  |
+| Value | `*Value` | The typed value                                 |
 
 ```
 ┌────────────────────────────────────────────────┐
@@ -30,7 +27,7 @@ A tuple has three components:
 └──────────┴──────────┴──────────────────────────┘
 ```
 
-A tuple is **immutable** after creation. Its path, attribute, and value cannot change.
+A tuple is immutable after creation. Its path, attribute, and value cannot change.
 
 ## Creating Tuples
 
@@ -86,9 +83,7 @@ An attribute name can contain dots to represent nested data, for example `author
 
 ## Tuples in Stores
 
-Tuples are not only a data-model detail. They are the unit that the storage
-layer operates on. Every attribute is addressable through a
-[Store](stores.md) with its `#attr` URI:
+A [store](stores.md) can read or write an individual attribute through its `#attr` URI:
 
 ```go
 st := store.New(xdbmemory.NewDriver())
@@ -115,8 +110,7 @@ err = st.DeleteTuples(ctx,
 ```
 
 A record starts to exist when its first tuples are written. It stops existing
-when its last tuple is deleted. Records are views over tuple sets, not
-containers that exist on their own. Schema policy applies to tuple writes in
+when its last tuple is deleted.  Schema policy applies to tuple writes in
 the same way as to other writes. Types are checked, `strict` mode rejects
 undeclared attributes, and a `required` attribute cannot be deleted from a
 record.
@@ -128,8 +122,12 @@ deletes only that tuple.
 
 ## Related Concepts
 
-- [Records](records.md) — Groups of tuples with the same path
-- [Types](types.md) — The type system behind tuple values
-- [URIs](uris.md) — How tuples are addressed
-- [Stores](stores.md) — Tuple-level methods on the store facade
-- [Drivers](drivers.md) — Tuples as the storage contract
+- [Records](records.md): Groups of tuples with the same path
+
+- [Types](types.md): The type system behind tuple values
+
+- [URIs](uris.md): How tuples are addressed
+
+- [Stores](stores.md): Tuple-level methods on the store facade
+
+- [Drivers](drivers.md): Tuples as the storage contract

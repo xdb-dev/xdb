@@ -10,15 +10,11 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 )
 
-// enforce wraps a Driver with schema policy: per-tuple validation,
-// mode enforcement, dynamic evolution, required-field checks, and
-// revision stamping with CAS on schema writes. It is the ONE place this
-// policy exists — drivers store verbatim, and [New] installs it
-// unconditionally, so a Store without enforcement is unrepresentable.
+// enforce applies schema validation, mode rules, required-field checks,
+// and revision checks to driver writes. [New] installs it above versioning.
 //
-// The indexed and unique markers are not policy. They are backend
-// capabilities: a driver that materializes an index enforces them, and
-// a driver that does not stores them as declarations. See [schema.Field].
+// Drivers apply Indexed and Unique markers when their storage supports
+// indexes. See [schema.Field].
 func enforce(next Driver) Driver {
 	return &enforcer{next: next}
 }

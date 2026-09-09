@@ -178,11 +178,8 @@ func TestVersioning_CAS(t *testing.T) {
 	})
 }
 
-// Derived fields are server-owned: a client that echoes back what it
-// read must not be punished for it (that is the read-modify-write path),
-// but it must not be able to forge them either. So they are ignored —
-// except an _id that disagrees with the URI, which is a misaddressed
-// write worth catching.
+// Derived fields in a write payload are ignored, allowing callers to write
+// back a record they read. An _id that differs from the URI is rejected.
 func TestVersioning_DerivedFieldsAreServerOwned(t *testing.T) {
 	ctx := context.Background()
 	s, _ := versionedStore(t)
@@ -272,8 +269,7 @@ func TestVersioning_RecordDiesWithItsLastUserTuple(t *testing.T) {
 		core.NewRecord("app", "posts", "last").Set("title", "a"),
 	))
 
-	// Deleting the only user attr must remove the record, not leave a
-	// husk of system tuples behind.
+	// Deleting the only user attribute must remove the system tuples too.
 	require.NoError(t, s.DeleteTuples(ctx,
 		core.MustParseURI("xdb://app/posts/last#title"),
 	))

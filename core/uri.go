@@ -22,7 +22,9 @@ var ErrInvalidURI = errors.New("[xdb/core] invalid URI")
 // ID is the record identifier.
 // ATTRIBUTE is a specific attribute of a record.
 //
-// URIs are immutable; construct via [NewURI], [ParseURI], or [ParsePath].
+// Construct URIs with [NewURI], [ParseURI], or [ParsePath].
+// [URI.UnmarshalJSON] replaces the receiver; callers must synchronize it
+// with reads when sharing a URI.
 type URI struct {
 	ns     string
 	schema string

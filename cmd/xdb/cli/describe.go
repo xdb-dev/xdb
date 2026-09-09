@@ -278,8 +278,8 @@ func listTypesOffline(cmd *cli.Command) error {
 	return formatList(cmd, items)
 }
 
-// addCLISection attaches the CLI command and flags that drive a method,
-// walked from the live command tree so it can never drift.
+// addCLISection attaches the command and flags for a method by reading
+// the live CLI command tree.
 func addCLISection(cmd *cli.Command, method string, result map[string]any) {
 	target := cliCommandFor(cmd.Root(), method)
 	if target == nil {
@@ -678,9 +678,8 @@ func listActionsOffline(cmd *cli.Command) error {
 	return formatList(cmd, items)
 }
 
-// describeSchemaFormat documents the schema-definition JSON format so
-// agents can author schemas without reading concept docs. Types and
-// modes are read from their canonical sources, so the doc cannot drift.
+// describeSchemaFormat describes the schema-definition JSON format.
+// Type names and modes are read from their definitions.
 func describeSchemaFormat(cmd *cli.Command) error {
 	modes := make([]string, 0, 3)
 	for _, m := range schema.ValidModes() {
