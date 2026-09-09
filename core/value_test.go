@@ -11,62 +11,137 @@ import (
 
 // --- Typed constructors + utility methods ---
 
-func TestBoolValConstructor(t *testing.T) {
-	v := BoolVal(true)
-	require.NotNil(t, v)
-	assert.Equal(t, TIDBoolean, v.Type().ID())
-	assert.Equal(t, true, v.Unwrap())
+// readValue reads v through its typed As* accessor. Tests assert on the
+// accessors because those are the contract callers use. Value.Unwrap
+// returns the raw tagged-union payload, which carries no such guarantee.
+func readValue(t *testing.T, v *Value) any {
+	t.Helper()
+
+	var (
+		got any
+		err error
+	)
+
+	switch v.Type().ID() {
+	case TIDBoolean:
+		got, err = v.AsBool()
+	case TIDInteger:
+		got, err = v.AsInt()
+	case TIDUnsigned:
+		got, err = v.AsUint()
+	case TIDFloat:
+		got, err = v.AsFloat()
+	case TIDString:
+		got, err = v.AsStr()
+	case TIDBytes:
+		got, err = v.AsBytes()
+	case TIDTime:
+		got, err = v.AsTime()
+	case TIDJSON:
+		got, err = v.AsJSON()
+	case TIDArray:
+		got, err = v.AsArray()
+	default:
+		t.Fatalf("readValue: no accessor for %s", v.Type().ID())
+	}
+
+	require.NoError(t, err)
+
+	return got
 }
 
-func TestIntValConstructor(t *testing.T) {
-	v := IntVal(42)
-	require.NotNil(t, v)
-	assert.Equal(t, TIDInteger, v.Type().ID())
-	assert.Equal(t, int64(42), v.Unwrap())
+// readArray reads v as an array of values.
+func readArray(t *testing.T, v *Value) []*Value {
+	t.Helper()
+
+	elems, err := v.AsArray()
+	require.NoError(t, err)
+
+	return elems
 }
 
-func TestUintValConstructor(t *testing.T) {
-	v := UintVal(42)
-	require.NotNil(t, v)
-	assert.Equal(t, TIDUnsigned, v.Type().ID())
-	assert.Equal(t, uint64(42), v.Unwrap())
-}
-
-func TestFloatValConstructor(t *testing.T) {
-	v := FloatVal(3.14)
-	require.NotNil(t, v)
-	assert.Equal(t, TIDFloat, v.Type().ID())
-	assert.Equal(t, 3.14, v.Unwrap())
-}
-
-func TestStringValConstructor(t *testing.T) {
-	v := StringVal("hello")
-	require.NotNil(t, v)
-	assert.Equal(t, TIDString, v.Type().ID())
-	assert.Equal(t, "hello", v.Unwrap())
-}
-
-func TestBytesValConstructor(t *testing.T) {
-	v := BytesVal([]byte("hello"))
-	require.NotNil(t, v)
-	assert.Equal(t, TIDBytes, v.Type().ID())
-	assert.Equal(t, []byte("hello"), v.Unwrap())
-}
-
-func TestTimeValConstructor(t *testing.T) {
+// TestTypedConstructors is the table-driven reference for this package.
+// Each case reads through the typed As* accessor that CLAUDE.md commits
+// to, rather than through Unwrap.
+func TestTypedConstructors(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
-	v := TimeVal(now)
-	require.NotNil(t, v)
-	assert.Equal(t, TIDTime, v.Type().ID())
-	assert.Equal(t, now, v.Unwrap())
-}
-
-func TestJSONValConstructor(t *testing.T) {
 	raw := json.RawMessage(`{"key":"value"}`)
-	v := JSONVal(raw)
-	require.NotNil(t, v)
-	assert.Equal(t, TIDJSON, v.Type().ID())
-	assert.Equal(t, raw, v.Unwrap())
+
+	tests := []struct {
+		value  *Value
+		read   func(*Value) (any, error)
+		name   string
+		wantID TID
+		want   any
+	}{
+		{
+			name:   "bool",
+			value:  BoolVal(true),
+			wantID: TIDBoolean,
+			want:   true,
+			read:   func(v *Value) (any, error) { return v.AsBool() },
+		},
+		{
+			name:   "int",
+			value:  IntVal(42),
+			wantID: TIDInteger,
+			want:   int64(42),
+			read:   func(v *Value) (any, error) { return v.AsInt() },
+		},
+		{
+			name:   "uint",
+			value:  UintVal(42),
+			wantID: TIDUnsigned,
+			want:   uint64(42),
+			read:   func(v *Value) (any, error) { return v.AsUint() },
+		},
+		{
+			name:   "float",
+			value:  FloatVal(3.14),
+			wantID: TIDFloat,
+			want:   3.14,
+			read:   func(v *Value) (any, error) { return v.AsFloat() },
+		},
+		{
+			name:   "string",
+			value:  StringVal("hello"),
+			wantID: TIDString,
+			want:   "hello",
+			read:   func(v *Value) (any, error) { return v.AsStr() },
+		},
+		{
+			name:   "bytes",
+			value:  BytesVal([]byte("hello")),
+			wantID: TIDBytes,
+			want:   []byte("hello"),
+			read:   func(v *Value) (any, error) { return v.AsBytes() },
+		},
+		{
+			name:   "time",
+			value:  TimeVal(now),
+			wantID: TIDTime,
+			want:   now,
+			read:   func(v *Value) (any, error) { return v.AsTime() },
+		},
+		{
+			name:   "json",
+			value:  JSONVal(raw),
+			wantID: TIDJSON,
+			want:   raw,
+			read:   func(v *Value) (any, error) { return v.AsJSON() },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.NotNil(t, tt.value)
+			assert.Equal(t, tt.wantID, tt.value.Type().ID())
+
+			got, err := tt.read(tt.value)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestArrayValConstructor(t *testing.T) {
@@ -79,10 +154,10 @@ func TestArrayValConstructor(t *testing.T) {
 	assert.Equal(t, TIDArray, v.Type().ID())
 	assert.Equal(t, TIDString, v.Type().ElemTypeID())
 
-	elems := v.Unwrap().([]*Value)
+	elems := readArray(t, v)
 	require.Len(t, elems, 2)
-	assert.Equal(t, "a", elems[0].Unwrap())
-	assert.Equal(t, "b", elems[1].Unwrap())
+	assert.Equal(t, "a", readValue(t, elems[0]))
+	assert.Equal(t, "b", readValue(t, elems[1]))
 }
 
 func TestArrayValConstructorEmpty(t *testing.T) {
@@ -91,7 +166,7 @@ func TestArrayValConstructorEmpty(t *testing.T) {
 	assert.Equal(t, TIDArray, v.Type().ID())
 	assert.Equal(t, TIDInteger, v.Type().ElemTypeID())
 
-	elems := v.Unwrap().([]*Value)
+	elems := readArray(t, v)
 	assert.Empty(t, elems)
 }
 
@@ -279,7 +354,7 @@ func TestAsArray(t *testing.T) {
 		got, err := v.AsArray()
 		require.NoError(t, err)
 		require.Len(t, got, 1)
-		assert.Equal(t, "a", got[0].Unwrap())
+		assert.Equal(t, "a", readValue(t, got[0]))
 	})
 
 	t.Run("wrong type", func(t *testing.T) {
@@ -308,7 +383,7 @@ func TestNewSafeValueBool(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDBoolean, v.Type().ID())
-	assert.Equal(t, true, v.Unwrap())
+	assert.Equal(t, true, readValue(t, v))
 }
 
 func TestNewSafeValueInts(t *testing.T) {
@@ -330,7 +405,7 @@ func TestNewSafeValueInts(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, v)
 			assert.Equal(t, TIDInteger, v.Type().ID())
-			assert.Equal(t, tt.want, v.Unwrap())
+			assert.Equal(t, tt.want, readValue(t, v))
 		})
 	}
 }
@@ -353,7 +428,7 @@ func TestNewSafeValueUints(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, v)
 			assert.Equal(t, TIDUnsigned, v.Type().ID())
-			assert.Equal(t, tt.want, v.Unwrap())
+			assert.Equal(t, tt.want, readValue(t, v))
 		})
 	}
 }
@@ -381,7 +456,7 @@ func TestNewSafeValueFloats(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, v)
 			assert.Equal(t, TIDFloat, v.Type().ID())
-			assert.InDelta(t, tt.want, v.Unwrap(), 0.001)
+			assert.InDelta(t, tt.want, readValue(t, v), 0.001)
 		})
 	}
 }
@@ -391,7 +466,7 @@ func TestNewSafeValueString(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDString, v.Type().ID())
-	assert.Equal(t, "hello", v.Unwrap())
+	assert.Equal(t, "hello", readValue(t, v))
 }
 
 func TestNewSafeValueBytes(t *testing.T) {
@@ -399,7 +474,7 @@ func TestNewSafeValueBytes(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDBytes, v.Type().ID())
-	assert.Equal(t, []byte("hello"), v.Unwrap())
+	assert.Equal(t, []byte("hello"), readValue(t, v))
 }
 
 func TestNewSafeValueByteArray(t *testing.T) {
@@ -421,7 +496,7 @@ func TestNewSafeValueByteArray(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, v)
 			assert.Equal(t, TIDBytes, v.Type().ID())
-			assert.Equal(t, tt.want, v.Unwrap())
+			assert.Equal(t, tt.want, readValue(t, v))
 		})
 	}
 }
@@ -432,7 +507,7 @@ func TestNewSafeValueTime(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDTime, v.Type().ID())
-	assert.Equal(t, now, v.Unwrap())
+	assert.Equal(t, now, readValue(t, v))
 }
 
 func TestNewSafeValueJSONRawMessage(t *testing.T) {
@@ -441,7 +516,7 @@ func TestNewSafeValueJSONRawMessage(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDJSON, v.Type().ID())
-	assert.Equal(t, raw, v.Unwrap())
+	assert.Equal(t, raw, readValue(t, v))
 }
 
 func TestNewSafeValuePointer(t *testing.T) {
@@ -450,7 +525,7 @@ func TestNewSafeValuePointer(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, v)
 	assert.Equal(t, TIDString, v.Type().ID())
-	assert.Equal(t, "hello", v.Unwrap())
+	assert.Equal(t, "hello", readValue(t, v))
 }
 
 func TestNewSafeValueNilPointer(t *testing.T) {
@@ -467,9 +542,9 @@ func TestNewSafeValueSlice(t *testing.T) {
 	assert.Equal(t, TIDArray, v.Type().ID())
 	assert.Equal(t, TIDString, v.Type().ElemTypeID())
 
-	elems := v.Unwrap().([]*Value)
+	elems := readArray(t, v)
 	require.Len(t, elems, 3)
-	assert.Equal(t, "a", elems[0].Unwrap())
+	assert.Equal(t, "a", readValue(t, elems[0]))
 }
 
 func TestNewSafeValueSliceInt(t *testing.T) {
@@ -576,9 +651,11 @@ func TestNewTypedValue(t *testing.T) {
 		v := NewTypedValue(TypeBool, true)
 		require.NotNil(t, v)
 		assert.Equal(t, TIDBoolean, v.Type().ID())
-		assert.Equal(t, true, v.Unwrap())
+		assert.Equal(t, true, readValue(t, v))
 	})
 
+	// A custom TID has no typed accessor, so Unwrap is the only way to read
+	// it. This is the case that keeps Value.Unwrap exported.
 	t.Run("custom type", func(t *testing.T) {
 		customTID := TID("MONEY")
 		customType := NewType(customTID)

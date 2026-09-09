@@ -9,10 +9,10 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbstruct"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 )
 
-// Struct fixtures for type mapping and round-trip tests.
+// Struct fixtures for type mapping and round-trip storetest.
 
 // UserID and Age are named scalar types.
 type UserID string
@@ -97,7 +97,7 @@ func TestRoundTrip(t *testing.T) {
 		def, err := xdbstruct.Def[User](userURI)
 		require.NoError(t, err)
 
-		tests.RunRoundTrip(t, tests.RoundTrip{
+		storetest.RunRoundTrip(t, storetest.RoundTrip{
 			Def:       def,
 			Value:     fullUser(),
 			Marshal:   func(v any) (*core.Record, error) { return xdbstruct.Marshal(userURI, v) },
@@ -117,7 +117,7 @@ func TestRoundTrip(t *testing.T) {
 			// Profile, Orders, Tags, Avatar, Attrs all absent/nil.
 		}
 
-		tests.RunRoundTrip(t, tests.RoundTrip{
+		storetest.RunRoundTrip(t, storetest.RoundTrip{
 			Def:       def,
 			Value:     u,
 			Marshal:   func(v any) (*core.Record, error) { return xdbstruct.Marshal(userURI, v) },
@@ -129,7 +129,7 @@ func TestRoundTrip(t *testing.T) {
 		def, err := xdbstruct.Def[PtrFields]("xdb://com.example/ptr")
 		require.NoError(t, err)
 
-		tests.RunRoundTrip(t, tests.RoundTrip{
+		storetest.RunRoundTrip(t, storetest.RoundTrip{
 			Def:       def,
 			Value:     PtrFields{Name: "x", Nick: &nick},
 			Marshal:   func(v any) (*core.Record, error) { return xdbstruct.Marshal("xdb://com.example/ptr/p1", v) },
@@ -141,7 +141,7 @@ func TestRoundTrip(t *testing.T) {
 		def, err := xdbstruct.Def[PtrFields]("xdb://com.example/ptr")
 		require.NoError(t, err)
 
-		tests.RunRoundTrip(t, tests.RoundTrip{
+		storetest.RunRoundTrip(t, storetest.RoundTrip{
 			Def:       def,
 			Value:     PtrFields{Name: "y", Nick: nil},
 			Marshal:   func(v any) (*core.Record, error) { return xdbstruct.Marshal("xdb://com.example/ptr/p2", v) },

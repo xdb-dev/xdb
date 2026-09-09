@@ -1,4 +1,4 @@
-package tests
+package storetest
 
 import (
 	"context"
@@ -150,7 +150,7 @@ func (s *SchemaStoreSuite) testCreate(t *testing.T) {
 		// The store stamps system fields on the way in, and CreateSchema
 		// does not write them back through the caller's def, so compare
 		// against what the caller actually declared.
-		AssertDefEqual(t, def, schema.StripSystemFields(got))
+		AssertEqualDef(t, def, schema.StripSystemFields(got))
 	})
 
 	t.Run("rejects duplicate", func(t *testing.T) {

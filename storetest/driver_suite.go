@@ -1,4 +1,4 @@
-package tests
+package storetest
 
 import (
 	"context"
@@ -421,7 +421,7 @@ func (s *DriverSuite) testDefs(t *testing.T) {
 
 		got, err := d.GetSchema(ctx, core.MustParseURI("xdb://com.example/posts"))
 		require.NoError(t, err)
-		AssertDefEqual(t, def, got)
+		AssertEqualDef(t, def, got)
 		assert.Equal(t, int64(7), got.Revision, "drivers must not stamp revisions")
 	})
 

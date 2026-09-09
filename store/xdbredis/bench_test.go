@@ -9,13 +9,13 @@ import (
 
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbredis"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 )
 
 var benchSeq int
 
 func BenchmarkStore(b *testing.B) {
-	tests.NewBenchmarkSuite(func() store.Store {
+	storetest.NewBenchmarkSuite(func() store.Store {
 		benchSeq++
 		prefix := fmt.Sprintf("xdbbench:%d", benchSeq)
 

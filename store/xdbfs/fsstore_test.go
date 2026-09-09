@@ -13,7 +13,7 @@ import (
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbfs"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 )
 
 // newTestDriver builds a raw driver over a fresh temp directory.
@@ -55,37 +55,37 @@ func TestHealth(t *testing.T) {
 }
 
 func TestRecords(t *testing.T) {
-	tests.NewRecordStoreSuite(func() store.RecordStore {
+	storetest.NewRecordStoreSuite(func() store.RecordStore {
 		return newTestStore(t)
 	}).Run(t)
 }
 
 func TestSchemas(t *testing.T) {
-	tests.NewSchemaStoreSuite(func() store.SchemaStore {
+	storetest.NewSchemaStoreSuite(func() store.SchemaStore {
 		return newTestStore(t)
 	}).Run(t)
 }
 
 func TestNamespaces(t *testing.T) {
-	tests.NewNamespaceStoreSuite(func() tests.NamespaceStore {
+	storetest.NewNamespaceStoreSuite(func() storetest.NamespaceStore {
 		return newTestStore(t)
 	}).Run(t)
 }
 
 func TestTuples(t *testing.T) {
-	tests.NewTupleStoreSuite(func() store.Store {
+	storetest.NewTupleStoreSuite(func() store.Store {
 		return newTestStore(t)
 	}).Run(t)
 }
 
 func TestTypes(t *testing.T) {
-	tests.NewTypesStoreSuite(func() store.Store {
+	storetest.NewTypesStoreSuite(func() store.Store {
 		return newTestStore(t)
 	}).Run(t)
 }
 
 func TestVersioning(t *testing.T) {
-	tests.NewVersionSuite(func() store.Store {
+	storetest.NewVersionSuite(func() store.Store {
 		return newTestStore(t)
 	}).Run(t)
 }

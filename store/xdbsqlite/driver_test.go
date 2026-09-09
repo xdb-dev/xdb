@@ -11,7 +11,7 @@ import (
 
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbsqlite"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 )
 
 // newTestDriver creates a fresh driver over an isolated on-disk
@@ -29,14 +29,14 @@ func newTestDriver(t *testing.T) *xdbsqlite.Driver {
 }
 
 func TestDriverSuite(t *testing.T) {
-	suite := tests.NewDriverSuite(func() store.Driver {
+	suite := storetest.NewDriverSuite(func() store.Driver {
 		return newTestDriver(t)
 	})
 	suite.Run(t)
 }
 
 func TestQuerySuite(t *testing.T) {
-	tests.NewQuerySuite(func() store.Driver {
+	storetest.NewQuerySuite(func() store.Driver {
 		return newTestDriver(t)
 	}).Run(t)
 }

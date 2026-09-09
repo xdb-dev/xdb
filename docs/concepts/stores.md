@@ -332,7 +332,7 @@ The `store.backend` key in `~/.xdb/config.json` selects the backend. See [Config
 
 ## Shared Test Suites
 
-The `tests/` package provides shared suites that pin store behavior. The record, schema, namespace, tuple, types, and version suites run against every backend through the facade, and check the shared semantics. The batch suite runs on drivers with native transactions (memory, sqlite). The mode and cascade suites test facade policy, so they run once, on the memory driver. The driver suite (`tests.NewDriverSuite`) pins the raw [driver contract](drivers.md).
+The `storetest` package provides shared suites that pin store behavior. The record, schema, namespace, tuple, types, and version suites run against every backend through the facade, and check the shared semantics. The batch suite runs on drivers with native transactions (memory, sqlite). The mode and cascade suites test facade policy, so they run once, on the memory driver. The driver suite (`storetest.NewDriverSuite`) pins the raw [driver contract](drivers.md).
 
 ## Related Concepts
 

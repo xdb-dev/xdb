@@ -99,7 +99,7 @@ linters:
           - govet
 
       # Shared test suites can be long
-      - path: ^tests/
+      - path: ^storetest/
         linters:
           - funlen
 

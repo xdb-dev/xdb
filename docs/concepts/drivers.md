@@ -131,17 +131,17 @@ Notes:
 
 ## The Conformance Suite
 
-`tests.NewDriverSuite` pins the contract. It covers the four-op table with per-mutation semantics and bare sentinel errors. It also covers absence semantics, scan contiguity, `OpCreate` under a 16-goroutine race, and verbatim definition CRUD:
+`storetest.NewDriverSuite` pins the contract. It covers the four-op table with per-mutation semantics and bare sentinel errors. It also covers absence semantics, scan contiguity, `OpCreate` under a 16-goroutine race, and verbatim definition CRUD:
 
 ```go
 func TestDriverSuite(t *testing.T) {
-    tests.NewDriverSuite(func() store.Driver {
+    storetest.NewDriverSuite(func() store.Driver {
         return mybackend.NewDriver(...)
     }).Run(t)
 }
 ```
 
-A new driver registers the driver suite and the query suite (`tests.NewQuerySuite`, which skips without pushdown) against its raw driver. It registers the store suites (record, schema, namespace, tuple, types, version) against `store.New(NewDriver(...))`. A driver with native transactions also registers the batch suite. The mode and cascade suites test facade policy, so they run once, on the memory driver. These suites check the shared contract and the capabilities each driver supports.
+A new driver registers the driver suite and the query suite (`storetest.NewQuerySuite`, which skips without pushdown) against its raw driver. It registers the store suites (record, schema, namespace, tuple, types, version) against `store.New(NewDriver(...))`. A driver with native transactions also registers the batch suite. The mode and cascade suites test facade policy, so they run once, on the memory driver. These suites check the shared contract and the capabilities each driver supports.
 
 ## Related Concepts
 

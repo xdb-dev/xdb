@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 )
 
 // runProtoRoundTrip imports md, builds a message, and drives it through the
@@ -35,7 +35,7 @@ func runProtoRoundTrip(
 	origBytes, err := marshalOpt.Marshal(orig)
 	require.NoError(t, err)
 
-	tests.RunRoundTrip(t, tests.RoundTrip{
+	storetest.RunRoundTrip(t, storetest.RoundTrip{
 		Def:   def,
 		Value: origBytes,
 		Marshal: func(v any) (*core.Record, error) {

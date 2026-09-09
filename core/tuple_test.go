@@ -20,7 +20,7 @@ func TestNewTuple(t *testing.T) {
 	assert.Equal(t, "posts", tuple.Path().Schema())
 	assert.Equal(t, "123", tuple.Path().ID())
 	assert.Equal(t, "title", tuple.Attr())
-	assert.Equal(t, "Hello", tuple.Value().Unwrap())
+	assert.Equal(t, "Hello", readValue(t, tuple.Value()))
 }
 
 func TestNewTuplePanicsOnInvalidPath(t *testing.T) {

@@ -1,4 +1,4 @@
-package tests
+package storetest
 
 import (
 	"testing"
@@ -65,8 +65,8 @@ func AssertEqualValue(t *testing.T, expected, actual *core.Value) {
 	assert.Equal(t, expected.String(), actual.String(), "value mismatch")
 }
 
-// AssertDefEqual asserts that two schema definitions are equal.
-func AssertDefEqual(t *testing.T, expected, actual *schema.Def) {
+// AssertEqualDef asserts that two schema definitions are equal.
+func AssertEqualDef(t *testing.T, expected, actual *schema.Def) {
 	t.Helper()
 
 	assert.Equal(t, *expected.URI, *actual.URI, "Def: URI mismatch")

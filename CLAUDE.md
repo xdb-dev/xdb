@@ -72,8 +72,9 @@ filter/             # CEL filter parsing and evaluation
   sqlgen/           # Compiled CEL filter to parameterized SQL
 rpc/                # JSON-RPC 2.0 server
   client/           # JSON-RPC 2.0 client used by the CLI
-x/                  # Generic helpers: grouping, mapping, filtering
-tests/              # Shared conformance suites for drivers
+x/                  # Generic helpers: Map and Index
+storetest/          # Shared conformance suites for drivers and stores
+tests/
   e2e/              # Agent-facing end-to-end scenarios and runbook
 docs/
   concepts/         # Concept docs (one per concept)

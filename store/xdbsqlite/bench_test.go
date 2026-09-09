@@ -7,14 +7,14 @@ import (
 
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbsqlite"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
 )
 
 func BenchmarkStore(b *testing.B) {
-	tests.NewBenchmarkSuite(func() store.Store {
+	storetest.NewBenchmarkSuite(func() store.Store {
 		dsn := filepath.Join(b.TempDir(), "bench.db") +
 			"?_journal=wal&_sync=normal"
 

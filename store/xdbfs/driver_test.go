@@ -7,11 +7,11 @@ import (
 
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbfs"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 )
 
 func TestDriverSuite(t *testing.T) {
-	suite := tests.NewDriverSuite(func() store.Driver {
+	suite := storetest.NewDriverSuite(func() store.Driver {
 		d, err := xdbfs.NewDriver(t.TempDir(), xdbfs.Options{})
 		require.NoError(t, err)
 		return d
@@ -20,7 +20,7 @@ func TestDriverSuite(t *testing.T) {
 }
 
 func TestQuerySuite(t *testing.T) {
-	tests.NewQuerySuite(func() store.Driver {
+	storetest.NewQuerySuite(func() store.Driver {
 		d, err := xdbfs.NewDriver(t.TempDir(), xdbfs.Options{})
 		require.NoError(t, err)
 		return d

@@ -8,7 +8,7 @@ import (
 
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 )
 
 // newStore creates a store with enforcement and versioning via [store.New].
@@ -36,55 +36,55 @@ func TestHealth(t *testing.T) {
 }
 
 func TestRecords(t *testing.T) {
-	tests.NewRecordStoreSuite(func() store.RecordStore {
+	storetest.NewRecordStoreSuite(func() store.RecordStore {
 		return newStore()
 	}).Run(t)
 }
 
 func TestSchemas(t *testing.T) {
-	tests.NewSchemaStoreSuite(func() store.SchemaStore {
+	storetest.NewSchemaStoreSuite(func() store.SchemaStore {
 		return newStore()
 	}).Run(t)
 }
 
 func TestNamespaces(t *testing.T) {
-	tests.NewNamespaceStoreSuite(func() tests.NamespaceStore {
+	storetest.NewNamespaceStoreSuite(func() storetest.NamespaceStore {
 		return newStore()
 	}).Run(t)
 }
 
 func TestBatch(t *testing.T) {
-	tests.NewBatchSuite(func() tests.BatchStore {
-		return newStore().(tests.BatchStore)
+	storetest.NewBatchSuite(func() storetest.BatchStore {
+		return newStore().(storetest.BatchStore)
 	}).Run(t)
 }
 
 func TestTuples(t *testing.T) {
-	tests.NewTupleStoreSuite(func() store.Store {
+	storetest.NewTupleStoreSuite(func() store.Store {
 		return newStore()
 	}).Run(t)
 }
 
 func TestModes(t *testing.T) {
-	tests.NewModeStoreSuite(func() store.Store {
+	storetest.NewModeStoreSuite(func() store.Store {
 		return newStore()
 	}).Run(t)
 }
 
 func TestCascade(t *testing.T) {
-	tests.NewCascadeStoreSuite(func() store.Store {
+	storetest.NewCascadeStoreSuite(func() store.Store {
 		return newStore()
 	}).Run(t)
 }
 
 func TestTypes(t *testing.T) {
-	tests.NewTypesStoreSuite(func() store.Store {
+	storetest.NewTypesStoreSuite(func() store.Store {
 		return newStore()
 	}).Run(t)
 }
 
 func TestVersioning(t *testing.T) {
-	tests.NewVersionSuite(func() store.Store {
+	storetest.NewVersionSuite(func() store.Store {
 		return newStore()
 	}).Run(t)
 }

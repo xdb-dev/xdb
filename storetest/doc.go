@@ -1,4 +1,5 @@
-// Package tests provides shared conformance suites for XDB drivers and stores.
+// Package storetest provides the shared conformance suites that pin XDB
+// driver and store behavior across every backend.
 //
 // # Driver suites
 //
@@ -54,4 +55,4 @@
 // [RunRoundTrip] checks schema import and typed data conversion against an
 // in-memory store. Each [RoundTrip] supplies the imported schema and the
 // source format's encoding and decoding functions.
-package tests
+package storetest

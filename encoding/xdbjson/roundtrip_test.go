@@ -8,11 +8,11 @@ import (
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 )
 
 // runDocRoundTrip checks JSON document conversion through the shared
-// importer tests. It compares decoded maps, with numbers as float64, so
+// importer storetest. It compares decoded maps, with numbers as float64, so
 // JSON formatting and key order do not affect equality.
 func runDocRoundTrip(t *testing.T, def *schema.Def, id string, doc []byte) {
 	t.Helper()
@@ -27,7 +27,7 @@ func runDocRoundTrip(t *testing.T, def *schema.Def, id string, doc []byte) {
 	require.NoError(t, json.Unmarshal(doc, &want))
 	want["_id"] = id // the encoder emits _id
 
-	tests.RunRoundTrip(t, tests.RoundTrip{
+	storetest.RunRoundTrip(t, storetest.RoundTrip{
 		Def:   def,
 		Value: want,
 		Marshal: func(v any) (*core.Record, error) {

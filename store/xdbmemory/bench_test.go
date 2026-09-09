@@ -5,11 +5,11 @@ import (
 
 	"github.com/xdb-dev/xdb/store"
 	"github.com/xdb-dev/xdb/store/xdbmemory"
-	"github.com/xdb-dev/xdb/tests"
+	"github.com/xdb-dev/xdb/storetest"
 )
 
 func BenchmarkStore(b *testing.B) {
-	tests.NewBenchmarkSuite(func() store.Store {
+	storetest.NewBenchmarkSuite(func() store.Store {
 		return store.New(xdbmemory.NewDriver())
 	}).Run(b)
 }

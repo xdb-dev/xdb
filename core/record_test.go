@@ -28,11 +28,11 @@ func TestRecordSetAndGet(t *testing.T) {
 
 	title := r.Get("title")
 	require.NotNil(t, title)
-	assert.Equal(t, "Hello World", title.Value().Unwrap())
+	assert.Equal(t, "Hello World", readValue(t, title.Value()))
 
 	count := r.Get("count")
 	require.NotNil(t, count)
-	assert.Equal(t, int64(42), count.Value().Unwrap())
+	assert.Equal(t, int64(42), readValue(t, count.Value()))
 }
 
 func TestRecordGetMissing(t *testing.T) {
@@ -61,7 +61,7 @@ func TestRecordSetOverwrite(t *testing.T) {
 
 	title := r.Get("title")
 	require.NotNil(t, title)
-	assert.Equal(t, "Second", title.Value().Unwrap())
+	assert.Equal(t, "Second", readValue(t, title.Value()))
 }
 
 func TestRecordSetChaining(t *testing.T) {
