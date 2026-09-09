@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 )
@@ -50,9 +51,12 @@ func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*
 		return nil, fmt.Errorf("api: namespaces.get: %w", err)
 	}
 
-	ns, err := s.store.GetNamespace(ctx, uri)
+	exists, err := s.store.NamespaceExists(ctx, uri)
 	if err != nil {
 		return nil, fmt.Errorf("api: namespaces.get: %w", err)
+	}
+	if !exists {
+		return nil, fmt.Errorf("api: namespaces.get %s: %w", uri, core.ErrNotFound)
 	}
 
 	var (
@@ -88,7 +92,7 @@ func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*
 	slices.Sort(schemas)
 
 	return &GetNamespaceResponse{
-		Data:         ns,
+		Data:         uri.NS(),
 		Schemas:      schemas,
 		TotalSchemas: total,
 	}, nil

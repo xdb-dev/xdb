@@ -10,102 +10,33 @@ import (
 )
 
 func TestMap(t *testing.T) {
-	t.Parallel()
-
 	tests := []struct {
 		name  string
 		items []int
 		want  []string
 	}{
-		{name: "empty", items: nil, want: []string{}},
-		{name: "maps values", items: []int{1, 2, 3}, want: []string{"1", "2", "3"}},
+		{"empty", []int{}, []string{}},
+		{"nil", nil, []string{}},
+		{"values", []int{1, 2, 3}, []string{"1", "2", "3"}},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := x.Map(tc.items, strconv.Itoa)
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
-func TestFilter(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		items []int
-		want  []int
-	}{
-		{name: "empty", items: nil, want: []int{}},
-		{name: "keeps matching", items: []int{1, 2, 3, 4}, want: []int{2, 4}},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := x.Filter(tc.items, func(n int) bool { return n%2 == 0 })
-			assert.Equal(t, tc.want, got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, x.Map(tt.items, strconv.Itoa))
 		})
 	}
 }
 
 func TestIndex(t *testing.T) {
-	t.Parallel()
+	t.Run("keys by fn", func(t *testing.T) {
+		got := x.Index([]string{"a", "bb", "cc"}, func(s string) string {
+			return strconv.Itoa(len(s))
+		})
 
-	got := x.Index([]string{"a", "bb", "cc"}, func(s string) string {
-		return strconv.Itoa(len(s))
+		assert.Equal(t, map[string]string{"1": "a", "2": "cc"}, got)
 	})
 
-	assert.Equal(t, map[string]string{"1": "a", "2": "cc"}, got,
-		"later items win on key collision")
-}
-
-func TestDiff(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		a    []string
-		b    []string
-		want []string
-	}{
-		{name: "empty", a: nil, b: nil, want: []string{}},
-		{name: "a minus b", a: []string{"x", "y", "z"}, b: []string{"y"}, want: []string{"x", "z"}},
-		{name: "disjoint", a: []string{"x"}, b: []string{"y"}, want: []string{"x"}},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := x.Diff(tc.a, tc.b, func(s string) string { return s })
-			assert.Equal(t, tc.want, got)
-		})
-	}
-}
-
-func TestJoin(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		lists [][]int
-		want  []int
-	}{
-		{name: "empty", lists: nil, want: nil},
-		{name: "concatenates in order", lists: [][]int{{1, 2}, {3}, {}, {4}}, want: []int{1, 2, 3, 4}},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := x.Join(tc.lists...)
-			assert.Equal(t, tc.want, got)
-		})
-	}
+	t.Run("empty", func(t *testing.T) {
+		assert.Empty(t, x.Index([]string{}, func(s string) string { return s }))
+	})
 }

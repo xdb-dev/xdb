@@ -32,11 +32,16 @@ func TestNamespaceService_Get(t *testing.T) {
 		assert.Equal(t, "testns", resp.Data)
 	})
 
+	// The store reports absence as (false, nil), so namespaces.get is the
+	// layer that has to turn it into ErrNotFound. Assert on the sentinel:
+	// omitting that translation returns 200 with an empty payload, which
+	// compiles and still passes a bare require.Error.
 	t.Run("not found", func(t *testing.T) {
 		_, err := nsSvc.Get(ctx, &api.GetNamespaceRequest{
 			URI: "xdb://unknown",
 		})
 		require.Error(t, err)
+		assert.ErrorIs(t, err, core.ErrNotFound)
 	})
 
 	t.Run("invalid URI", func(t *testing.T) {

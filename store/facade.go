@@ -471,15 +471,18 @@ func (f *facade) DeleteSchemaRecords(ctx context.Context, uri *core.URI) error {
 
 // --- Namespaces ---
 
-// GetNamespace checks if any schema exists in the given namespace.
-func (f *facade) GetNamespace(ctx context.Context, uri *core.URI) (string, error) {
+// NamespaceExists reports whether any schema exists in the given namespace.
+// A namespace is derived from its schemas, so an empty one does not exist.
+func (f *facade) NamespaceExists(ctx context.Context, uri *core.URI) (bool, error) {
 	for _, err := range f.stack.ScanSchemas(ctx, uri) {
 		if err != nil {
-			return "", err
+			return false, err
 		}
-		return uri.NS(), nil
+
+		return true, nil
 	}
-	return "", core.ErrNotFound
+
+	return false, nil
 }
 
 // ListNamespaces lists unique namespaces derived from schemas.

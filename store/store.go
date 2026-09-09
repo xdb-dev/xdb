@@ -18,7 +18,6 @@ type Page[T any] struct {
 type Query struct {
 	URI    *core.URI // scope: ns-only or ns+schema
 	Filter string
-	Fields []string // not read by the facade or any driver
 	Limit  int
 	Offset int
 }
@@ -78,9 +77,9 @@ type SchemaStore interface {
 // NamespaceReader reads namespaces from the store.
 // Namespaces are derived from schemas — there is no writer interface.
 type NamespaceReader interface {
-	// GetNamespace retrieves the namespace name by URI.
-	// Returns [core.ErrNotFound] if the namespace does not exist.
-	GetNamespace(ctx context.Context, uri *core.URI) (string, error)
+	// NamespaceExists reports whether the namespace holds any schema.
+	// An absent namespace is (false, nil), not an error.
+	NamespaceExists(ctx context.Context, uri *core.URI) (bool, error)
 
 	// ListNamespaces lists all known namespace names.
 	ListNamespaces(ctx context.Context, q *Query) (*Page[string], error)

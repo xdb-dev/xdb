@@ -52,22 +52,23 @@ func (s *NamespaceStoreSuite) seedSchema(
 func (s *NamespaceStoreSuite) testGet(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("returns namespace when schemas exist", func(t *testing.T) {
+	t.Run("exists when schemas exist", func(t *testing.T) {
 		st := s.newStore()
 		s.seedSchema(t, st, "xdb://com.example/posts")
 
 		nsURI := core.MustParseURI("xdb://com.example")
-		ns, err := st.GetNamespace(ctx, nsURI)
+		ok, err := st.NamespaceExists(ctx, nsURI)
 		require.NoError(t, err)
-		assert.Equal(t, "com.example", ns)
+		assert.True(t, ok)
 	})
 
-	t.Run("not found", func(t *testing.T) {
+	t.Run("absent namespace is not an error", func(t *testing.T) {
 		st := s.newStore()
 
 		uri := core.MustParseURI("xdb://com.missing")
-		_, err := st.GetNamespace(ctx, uri)
-		require.ErrorIs(t, err, core.ErrNotFound)
+		ok, err := st.NamespaceExists(ctx, uri)
+		require.NoError(t, err)
+		assert.False(t, ok)
 	})
 
 	t.Run("disappears when all schemas deleted", func(t *testing.T) {
@@ -79,8 +80,9 @@ func (s *NamespaceStoreSuite) testGet(t *testing.T) {
 		require.NoError(t, st.DeleteSchema(ctx, schemaURI))
 
 		nsURI := core.MustParseURI("xdb://com.example")
-		_, err := st.GetNamespace(ctx, nsURI)
-		require.ErrorIs(t, err, core.ErrNotFound)
+		ok, err := st.NamespaceExists(ctx, nsURI)
+		require.NoError(t, err)
+		assert.False(t, ok)
 	})
 }
 
