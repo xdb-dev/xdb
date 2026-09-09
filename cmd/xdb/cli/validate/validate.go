@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/xdb-dev/xdb/core"
@@ -152,7 +152,7 @@ func MutuallyExclusive(flags map[string]bool) error {
 	}
 
 	if len(set) > 1 {
-		sort.Strings(set)
+		slices.Sort(set)
 
 		names := make([]string, len(set))
 		for i, name := range set {

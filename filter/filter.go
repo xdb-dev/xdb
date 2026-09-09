@@ -2,7 +2,7 @@ package filter
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/google/cel-go/cel"
@@ -191,7 +191,7 @@ func unknownFieldError(name string, def *schema.Def) error {
 	for n := range def.Fields {
 		names = append(names, n)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	return fmt.Errorf("unknown field %q in filter; available fields: %s",
 		name, strings.Join(names, ", "))

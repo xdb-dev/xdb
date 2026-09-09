@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/xdb-dev/xdb/api/catalog"
 	"github.com/xdb-dev/xdb/core"
@@ -99,7 +99,7 @@ type ListMethodsResponse struct {
 // ListMethods lists all registered API methods.
 func (s *IntrospectService) ListMethods(_ context.Context, _ *ListMethodsRequest) (*ListMethodsResponse, error) {
 	names := s.describer.Methods()
-	sort.Strings(names)
+	slices.Sort(names)
 
 	methods := make([]MethodSummary, len(names))
 	for i, name := range names {
@@ -137,7 +137,7 @@ func (s *IntrospectService) ListTypes(_ context.Context, _ *ListTypesRequest) (*
 		names = append(names, name)
 	}
 
-	sort.Strings(names)
+	slices.Sort(names)
 
 	types := make([]TypeSummary, len(names))
 	for i, name := range names {

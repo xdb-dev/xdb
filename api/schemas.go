@@ -107,9 +107,16 @@ func (s *SchemaService) Create(ctx context.Context, req *CreateSchemaRequest) (*
 		return nil, fmt.Errorf("api: schemas.create: %w", err)
 	}
 
-	s.publish("schema.create", uri, &def)
+	// Read back rather than returning def: the store stamps the system
+	// fields and revision 1, and def carries neither.
+	stored, err := s.store.GetSchema(ctx, uri)
+	if err != nil {
+		return nil, fmt.Errorf("api: schemas.create: %w", err)
+	}
 
-	return &CreateSchemaResponse{Data: &def}, nil
+	s.publish("schema.create", uri, stored)
+
+	return &CreateSchemaResponse{Data: stored}, nil
 }
 
 // GetSchemaRequest is the request for schemas.get.
@@ -293,7 +300,9 @@ func applySchemaPatch(
 		return nil, err
 	}
 
-	return merged, nil
+	// Read back rather than returning merged: the store stamps the system
+	// fields and the next revision, and merged carries neither.
+	return schemas.GetSchema(ctx, uri)
 }
 
 // schemaCreateConflictError reports a create over an existing schema

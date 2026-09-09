@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 )
 
@@ -25,9 +26,7 @@ type defaultErrorHandler struct{}
 // HandleError writes a JSON error response.
 func (h *defaultErrorHandler) HandleError(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
-
-	switch {
-	case isJSONError(err):
+	if isJSONError(err) {
 		status = http.StatusBadRequest
 	}
 
@@ -45,11 +44,17 @@ func (h *defaultErrorHandler) HandleError(w http.ResponseWriter, err error) {
 	}
 }
 
+// isJSONError reports whether err is, or wraps, a decoding error from
+// [encoding/json]. Those are caused by a malformed request body, so they
+// map to 400 rather than 500.
 func isJSONError(err error) bool {
-	switch err.(type) {
-	case *json.SyntaxError, *json.UnmarshalTypeError, *json.InvalidUnmarshalError:
-		return true
-	default:
-		return false
-	}
+	var (
+		syntaxErr    *json.SyntaxError
+		typeErr      *json.UnmarshalTypeError
+		unmarshalErr *json.InvalidUnmarshalError
+	)
+
+	return errors.As(err, &syntaxErr) ||
+		errors.As(err, &typeErr) ||
+		errors.As(err, &unmarshalErr)
 }

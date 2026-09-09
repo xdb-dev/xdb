@@ -281,9 +281,14 @@ func WriteError(w io.Writer, format string, err error) {
 
 	err = normalizeError(err)
 
-	resolved := output.Detect(format, isTerminalWriter(w))
-	formatter := output.New(resolved)
-	_ = formatter.FormatError(w, err)
+	// An unusable --output value is itself one of the errors this renders,
+	// so fall back to the default rather than failing to report anything.
+	resolved, derr := output.Detect(format, isTerminalWriter(w))
+	if derr != nil {
+		resolved, _ = output.Detect("", isTerminalWriter(w))
+	}
+
+	_ = output.New(resolved).FormatError(w, err)
 }
 
 // FinalizeError renders errors that [cli.Command.Run] returns without

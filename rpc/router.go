@@ -67,14 +67,20 @@ func (r *Router) Meta(method string) (MethodMeta, bool) {
 }
 
 // Invoke calls a registered method directly, bypassing the HTTP layer.
-// params can be nil or a valid JSON object. Invoke passes a nil send
-// function, so it is only for non-streaming methods. A streaming
-// handler calls send unconditionally and panics on nil.
+// params can be nil or a valid JSON object.
+//
+// Invoke has no channel to deliver events on, so it rejects streaming
+// methods with [CodeInvalidRequest]. Use [Router.ServeHTTP] for those.
 func (r *Router) Invoke(ctx context.Context, method string, params json.RawMessage) (json.RawMessage, error) {
 	entry, ok := r.methods[method]
 	if !ok {
 		return nil, MethodNotFound(method)
 	}
+
+	if entry.stream {
+		return nil, InvalidRequest("method streams and cannot be invoked directly: " + method)
+	}
+
 	return entry.fn(ctx, params, nil)
 }
 

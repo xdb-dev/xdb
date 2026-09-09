@@ -446,3 +446,11 @@ func TestSQLiteConfig_DSN(t *testing.T) {
 		})
 	}
 }
+
+func TestUnknownOutputFormatIsRejected(t *testing.T) {
+	stdout, stderr, code := runCLI(t, "describe", "--filter", "-o", "xml")
+
+	assert.NotZero(t, code)
+	assert.Empty(t, stdout)
+	assert.Contains(t, stderr, "unknown output format")
+}

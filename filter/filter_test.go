@@ -217,7 +217,7 @@ func TestMatch(t *testing.T) {
 			f, err := Compile(tt.expr, def)
 			require.NoError(t, err)
 
-			got, err := Match(f, record)
+			got, err := f.Match(record)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
@@ -288,7 +288,7 @@ func TestCompile_FlexibleUnknownFieldCompilesAndNoMatch(t *testing.T) {
 	record := core.NewRecord("test", "posts", "1")
 	record.Set("title", "hello")
 
-	got, err := Match(f, record)
+	got, err := f.Match(record)
 	require.NoError(t, err)
 	assert.False(t, got)
 }
@@ -309,7 +309,7 @@ func TestCompile_DynamicUnknownFieldCompilesAndNoMatch(t *testing.T) {
 	record := core.NewRecord("test", "posts", "1")
 	record.Set("title", "hello")
 
-	got, err := Match(f, record)
+	got, err := f.Match(record)
 	require.NoError(t, err)
 	assert.False(t, got)
 }
@@ -371,7 +371,7 @@ func TestMatch_NilSchema(t *testing.T) {
 			f, err := Compile(tt.expr, nil)
 			require.NoError(t, err)
 
-			got, err := Match(f, record)
+			got, err := f.Match(record)
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})

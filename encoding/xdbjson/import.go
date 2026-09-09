@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"path"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -206,7 +206,7 @@ func (im *importer) objectFields(n *jsonschema.Schema, ptr string) (map[string]s
 	}
 
 	if len(offending) > 0 {
-		sort.Strings(offending)
+		slices.Sort(offending)
 		return nil, errors.Wrap(ErrInvalidKey,
 			"pointer", ptr,
 			"keys", strings.Join(offending, ", "),
@@ -250,7 +250,7 @@ func (im *importer) elementFields(n *jsonschema.Schema, ptr string) (map[string]
 	}
 
 	if len(offending) > 0 {
-		sort.Strings(offending)
+		slices.Sort(offending)
 		return nil, errors.Wrap(ErrInvalidKey,
 			"pointer", ptr,
 			"keys", strings.Join(offending, ", "),
@@ -479,7 +479,7 @@ func sortedKeys(m map[string]*jsonschema.Schema) []string {
 	for k := range m {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	return keys
 }
 

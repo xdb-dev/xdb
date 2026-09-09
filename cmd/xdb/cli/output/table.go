@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
-	"sort"
+	"slices"
 	"text/tabwriter"
 )
 
@@ -206,7 +206,7 @@ func sortedMapKeys(rv reflect.Value) []string {
 		keys = append(keys, fmt.Sprintf("%v", k.Interface()))
 	}
 
-	sort.Strings(keys)
+	slices.Sort(keys)
 
 	return keys
 }

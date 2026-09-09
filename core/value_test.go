@@ -402,6 +402,30 @@ func TestNewSafeValueBytes(t *testing.T) {
 	assert.Equal(t, []byte("hello"), v.Unwrap())
 }
 
+func TestNewSafeValueByteArray(t *testing.T) {
+	type buf []byte
+
+	tests := []struct {
+		name  string
+		input any
+		want  []byte
+	}{
+		{"array", [4]byte{1, 2, 3, 4}, []byte{1, 2, 3, 4}},
+		{"empty array", [0]byte{}, []byte{}},
+		{"named slice", buf("hello"), []byte("hello")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			v, err := NewSafeValue(tt.input)
+			require.NoError(t, err)
+			require.NotNil(t, v)
+			assert.Equal(t, TIDBytes, v.Type().ID())
+			assert.Equal(t, tt.want, v.Unwrap())
+		})
+	}
+}
+
 func TestNewSafeValueTime(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
 	v, err := NewSafeValue(now)

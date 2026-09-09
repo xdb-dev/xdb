@@ -8,13 +8,13 @@ import (
 	"github.com/xdb-dev/xdb/core"
 )
 
-// Match evaluates a compiled [Filter] against a [core.Record].
+// Match evaluates the compiled [Filter] against a [core.Record].
 // Returns true if the record satisfies the filter, false otherwise.
 // A missing attribute causes comparisons against it to return false.
-func Match(f *Filter, record *core.Record) (bool, error) {
-	env := buildActivation(record)
+func (f *Filter) Match(record *core.Record) (bool, error) {
+	act := buildActivation(record)
 
-	out, _, evalErr := f.prg.Eval(env)
+	out, _, evalErr := f.prg.Eval(act)
 	if evalErr != nil {
 		// CEL returns an error for missing variables or type mismatches.
 		// Treat as non-matching rather than propagating.
@@ -32,21 +32,21 @@ func Match(f *Filter, record *core.Record) (bool, error) {
 // for CEL evaluation.
 func buildActivation(record *core.Record) map[string]any {
 	tuples := record.Tuples()
-	env := make(map[string]any, len(tuples))
+	act := make(map[string]any, len(tuples))
 
 	for _, tuple := range tuples {
-		env[tuple.Attr()] = nativeValue(tuple.Value())
+		act[tuple.Attr()] = nativeValue(tuple.Value())
 	}
 
-	return env
+	return act
 }
 
-// Records filters a slice of records, returning only those that match the
-// compiled filter. This is the primary integration point for in-memory stores.
-func Records(f *Filter, records []*core.Record) ([]*core.Record, error) {
+// Filter returns only the records that match the compiled filter.
+// This is the primary integration point for in-memory stores.
+func (f *Filter) Filter(records []*core.Record) ([]*core.Record, error) {
 	var result []*core.Record
 	for _, r := range records {
-		ok, err := Match(f, r)
+		ok, err := f.Match(r)
 		if err != nil {
 			return nil, err
 		}

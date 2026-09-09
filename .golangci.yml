@@ -53,13 +53,6 @@ linters:
     govet:
       enable-all: true
       settings:
-        printf:
-          funcs:
-            - (github.com/rs/zerolog/log).Info
-            - (github.com/rs/zerolog/log).Warn
-            - (github.com/rs/zerolog/log).Error
-            - (github.com/rs/zerolog/log).Fatal
-            - (github.com/rs/zerolog/log).Debug
         shadow:
           strict: false
 
@@ -82,7 +75,6 @@ linters:
     gosec:
       excludes:
         - G304  # File inclusion via variable — expected for filesystem store
-        - G404  # Use of weak random number generator (math/rand instead of crypto/rand)
 
     testifylint:
       enable-all: true
@@ -115,11 +107,6 @@ linters:
       - path: ^store/
         linters:
           - prealloc
-
-      # Filesystem store legitimately reads files by variable path
-      - path: ^store/fsstore/
-        linters:
-          - gosec
 
       # Ignore deprecation warnings
       - text: "^SA1019:.* is deprecated:"

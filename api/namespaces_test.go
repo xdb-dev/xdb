@@ -3,7 +3,7 @@ package api_test
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -126,5 +126,5 @@ func TestNamespaceService_GetListsAllSchemas(t *testing.T) {
 
 	assert.Equal(t, n, resp.TotalSchemas)
 	assert.Len(t, resp.Schemas, n, "Schemas must not stop at the default page size")
-	assert.True(t, sort.StringsAreSorted(resp.Schemas))
+	assert.True(t, slices.IsSorted(resp.Schemas))
 }

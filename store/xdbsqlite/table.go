@@ -3,7 +3,7 @@ package xdbsqlite
 import (
 	"context"
 	"iter"
-	"sort"
+	"slices"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/filter/sqlgen"
@@ -185,7 +185,7 @@ func (e *tableEngine) evolve(ctx context.Context, old *schema.Def) error {
 			added = append(added, name)
 		}
 	}
-	sort.Strings(added)
+	slices.Sort(added)
 
 	for _, name := range added {
 		err := e.q.AddColumn(ctx, xsql.AddColumnParams{
@@ -211,7 +211,7 @@ func (e *tableEngine) evolve(ctx context.Context, old *schema.Def) error {
 			removed = append(removed, name)
 		}
 	}
-	sort.Strings(removed)
+	slices.Sort(removed)
 
 	for _, name := range removed {
 		// Drop the index unconditionally. DROP INDEX IF EXISTS is a

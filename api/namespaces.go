@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
@@ -85,7 +85,7 @@ func (s *NamespaceService) Get(ctx context.Context, req *GetNamespaceRequest) (*
 		offset = page.NextOffset
 	}
 
-	sort.Strings(schemas)
+	slices.Sort(schemas)
 
 	return &GetNamespaceResponse{
 		Data:         ns,

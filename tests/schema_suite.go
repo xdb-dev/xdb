@@ -146,7 +146,11 @@ func (s *SchemaStoreSuite) testCreate(t *testing.T) {
 
 		got, err := st.GetSchema(ctx, uri)
 		require.NoError(t, err)
-		AssertDefEqual(t, def, got)
+
+		// The store stamps system fields on the way in, and CreateSchema
+		// does not write them back through the caller's def, so compare
+		// against what the caller actually declared.
+		AssertDefEqual(t, def, schema.StripSystemFields(got))
 	})
 
 	t.Run("rejects duplicate", func(t *testing.T) {

@@ -270,7 +270,7 @@ var (
 // NewValue creates a new [Value] from the given input.
 // Panics if the input type is not supported.
 //
-// Supported types: bool, int*, uint*, float*, string, []byte,
+// Supported types: bool, int*, uint*, float*, string, []byte, byte arrays,
 // [time.Time], [json.RawMessage], and slices of supported types.
 func NewValue(input any) *Value {
 	v, err := NewSafeValue(input)
@@ -282,6 +282,9 @@ func NewValue(input any) *Value {
 
 // NewSafeValue creates a new [Value] from the given input.
 // Returns [ErrUnsupportedValue] if the input type is not supported.
+//
+// A slice or an array whose element type is a byte becomes [TypeBytes];
+// the bytes of an array are copied, so the value does not alias the input.
 func NewSafeValue(input any) (*Value, error) {
 	if input == nil {
 		return nil, nil
@@ -331,14 +334,9 @@ func newReflectValue(iv reflect.Value) (*Value, error) {
 }
 
 func newSliceValue(iv reflect.Value) (*Value, error) {
-	// Check for []byte (but not json.RawMessage, handled above).
-	if iv.Type() == byteSlice {
-		return BytesVal(iv.Bytes()), nil
-	}
-
-	// Element kind is uint8 but type isn't []byte — treat as byte slice.
+	// Any slice or array of bytes is bytes (json.RawMessage is handled above).
 	if iv.Type().Elem().Kind() == reflect.Uint8 {
-		return BytesVal(iv.Bytes()), nil
+		return BytesVal(bytesFrom(iv)), nil
 	}
 
 	// Empty slice: an empty array whose element type comes from the slice's
@@ -384,6 +382,19 @@ func newSliceValue(iv reflect.Value) (*Value, error) {
 	}
 
 	return ArrayVal(elemType.ID(), elems...), nil
+}
+
+// bytesFrom copies the bytes out of a slice or array of uint8.
+// An array is not addressable, so [reflect.Value.Bytes] cannot be used on it.
+func bytesFrom(iv reflect.Value) []byte {
+	if iv.Kind() == reflect.Slice {
+		return iv.Bytes()
+	}
+
+	out := make([]byte, iv.Len())
+	reflect.Copy(reflect.ValueOf(out), iv)
+
+	return out
 }
 
 // elemTIDFromType maps a static Go element type to its [TID].

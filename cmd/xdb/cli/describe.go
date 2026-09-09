@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/urfave/cli/v3"
@@ -132,7 +132,7 @@ func listMethodsOffline(cmd *cli.Command) error {
 	for name := range methods {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	items := make([]any, len(names))
 	for i, name := range names {
@@ -264,7 +264,7 @@ func listTypesOffline(cmd *cli.Command) error {
 	for name := range types {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	items := make([]any, len(names))
 	for i, name := range names {
@@ -426,12 +426,12 @@ func (a *App) listActions(ctx context.Context, cmd *cli.Command) error {
 		names = append(names, name)
 	}
 
-	sort.Strings(names)
+	slices.Sort(names)
 
 	items := make([]any, 0, len(names))
 	for _, name := range names {
 		r := byResource[name]
-		sort.Strings(r.Actions)
+		slices.Sort(r.Actions)
 		items = append(items, map[string]any{
 			"resource": r.Resource,
 			"actions":  r.Actions,
@@ -662,12 +662,12 @@ func listActionsOffline(cmd *cli.Command) error {
 	for name := range byResource {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	items := make([]any, 0, len(names))
 	for _, name := range names {
 		actions := byResource[name]
-		sort.Strings(actions)
+		slices.Sort(actions)
 		items = append(items, map[string]any{
 			"resource": name,
 			"actions":  actions,

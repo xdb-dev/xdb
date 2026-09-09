@@ -1,7 +1,7 @@
 package xdbsqlite
 
 import (
-	"sort"
+	"slices"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -26,7 +26,7 @@ func sortedColumns(def *schema.Def) []string {
 	for name := range def.Fields {
 		names = append(names, name)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 
@@ -39,7 +39,7 @@ func indexedFields(def *schema.Def) []string {
 			names = append(names, name)
 		}
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 

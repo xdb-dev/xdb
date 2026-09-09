@@ -4,7 +4,7 @@ import (
 	"context"
 	"embed"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/urfave/cli/v3"
@@ -132,7 +132,7 @@ func skillsListAction(ctx context.Context, cmd *cli.Command) error {
 		names = append(names, name)
 	}
 
-	sort.Strings(names)
+	slices.Sort(names)
 
 	items := make([]any, len(names))
 	for i, name := range names {

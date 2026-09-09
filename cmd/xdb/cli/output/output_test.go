@@ -188,11 +188,36 @@ func TestYAMLFormatter(t *testing.T) {
 
 func TestDetect(t *testing.T) {
 	tests := []struct {
-		name   string
-		flag   string
-		isTTY  bool
-		expect output.Format
+		name    string
+		flag    string
+		isTTY   bool
+		expect  output.Format
+		wantErr bool
 	}{
+		{
+			name:    "unknown format",
+			flag:    "xml",
+			isTTY:   false,
+			wantErr: true,
+		},
+		{
+			name:    "wrong case",
+			flag:    "JSON",
+			isTTY:   false,
+			wantErr: true,
+		},
+		{
+			name:   "explicit ndjson",
+			flag:   "ndjson",
+			isTTY:  true,
+			expect: output.FormatNDJSON,
+		},
+		{
+			name:   "explicit table",
+			flag:   "table",
+			isTTY:  false,
+			expect: output.FormatTable,
+		},
 		{
 			name:   "explicit json",
 			flag:   "json",
@@ -221,7 +246,15 @@ func TestDetect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.expect, output.Detect(tt.flag, tt.isTTY))
+			got, err := output.Detect(tt.flag, tt.isTTY)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expect, got)
 		})
 	}
 }

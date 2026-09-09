@@ -192,7 +192,7 @@ func (f *facade) ListRecords(
 		if err != nil {
 			return nil, err
 		}
-		records, err = filter.Records(flt, records)
+		records, err = flt.Filter(records)
 		if err != nil {
 			return nil, err
 		}
@@ -331,7 +331,7 @@ func (f *facade) DeleteRecord(ctx context.Context, uri *core.URI) error {
 // GetTuple retrieves a single tuple by attr-level URI.
 // Returns [core.ErrNotFound] if the record or the attr is absent.
 func (f *facade) GetTuple(ctx context.Context, uri *core.URI) (*core.Tuple, error) {
-	if err := requireAttrURI(uri, "store: GetTuple requires an attr-level URI, got %s"); err != nil {
+	if err := requireAttrURI(uri, "GetTuple", ""); err != nil {
 		return nil, err
 	}
 
@@ -378,9 +378,7 @@ func (f *facade) DeleteTuples(ctx context.Context, uris ...*core.URI) error {
 	}
 
 	for _, uri := range uris {
-		if err := requireAttrURI(uri,
-			"store: DeleteTuples requires attr-level URIs, got %s (use DeleteRecord)",
-		); err != nil {
+		if err := requireAttrURI(uri, "DeleteTuples", "DeleteRecord"); err != nil {
 			return err
 		}
 	}
@@ -433,9 +431,12 @@ func (f *facade) CreateSchema(
 	uri *core.URI,
 	def *schema.Def,
 ) error {
-	def.URI = uri
+	// Copy rather than writing uri through the caller's pointer.
+	stored := *def
+	stored.URI = uri
+
 	return f.withWriteTx(ctx, func(d Driver) error {
-		return d.CreateSchema(ctx, def)
+		return d.CreateSchema(ctx, &stored)
 	})
 }
 
@@ -445,9 +446,12 @@ func (f *facade) UpdateSchema(
 	uri *core.URI,
 	def *schema.Def,
 ) error {
-	def.URI = uri
+	// Copy rather than writing uri through the caller's pointer.
+	stored := *def
+	stored.URI = uri
+
 	return f.withWriteTx(ctx, func(d Driver) error {
-		return d.PutSchema(ctx, def)
+		return d.PutSchema(ctx, &stored)
 	})
 }
 
@@ -520,13 +524,20 @@ func (t *txStore) Run(ctx context.Context, fn func(tx Store) error) error {
 
 // --- Helpers ---
 
-// requireAttrURI guards verbs that address tuples: the URI must carry
-// an attr fragment (…#attr). format receives the offending URI.
-func requireAttrURI(uri *core.URI, format string) error {
-	if uri.Attr() == "" {
-		return fmt.Errorf(format, uri)
+// requireAttrURI guards verbs that address tuples: the URI must carry an
+// attr fragment (#attr). op names the calling verb, and hint, when set,
+// points at the verb to use instead.
+func requireAttrURI(uri *core.URI, op, hint string) error {
+	if uri.Attr() != "" {
+		return nil
 	}
-	return nil
+
+	if hint == "" {
+		return fmt.Errorf("store: %s requires an attr-level URI, got %s", op, uri)
+	}
+
+	return fmt.Errorf("store: %s requires an attr-level URI, got %s (use %s)",
+		op, uri, hint)
 }
 
 // applyAll feeds mutations to the driver one at a time, stopping at

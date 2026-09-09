@@ -1,7 +1,11 @@
 // Package output provides formatters for CLI output in multiple formats.
 package output
 
-import "io"
+import (
+	"errors"
+	"fmt"
+	"io"
+)
 
 // Format represents an output format.
 type Format string
@@ -52,21 +56,45 @@ func (p Page) doc() pageDoc {
 	return pageDoc{Items: items, Total: p.Total, NextOffset: p.NextOffset}
 }
 
-// Detect returns the appropriate format based on the output flag
-// and whether stdout is a TTY.
-func Detect(flag string, isTTY bool) Format {
-	if flag != "" {
-		return Format(flag)
+// ErrUnknownFormat is returned by [Detect] for an unrecognized --output value.
+var ErrUnknownFormat = errors.New("[xdb/output] unknown output format")
+
+// Detect returns the format named by the output flag. An empty flag
+// selects table on a TTY and json elsewhere.
+//
+// Returns [ErrUnknownFormat] if the flag names something else, so that
+// `-o xml` reports the bad flag instead of emitting json.
+func Detect(flag string, isTTY bool) (Format, error) {
+	if flag == "" {
+		if isTTY {
+			return FormatTable, nil
+		}
+
+		return FormatJSON, nil
 	}
 
-	if isTTY {
-		return FormatTable
+	f := Format(flag)
+	if !f.valid() {
+		return "", fmt.Errorf("%w: %q (want json, ndjson, table, or yaml)",
+			ErrUnknownFormat, flag)
 	}
 
-	return FormatJSON
+	return f, nil
+}
+
+// valid reports whether f is one of the supported formats.
+func (f Format) valid() bool {
+	switch f {
+	case FormatJSON, FormatNDJSON, FormatTable, FormatYAML:
+		return true
+	default:
+		return false
+	}
 }
 
 // New creates a [Formatter] for the given format.
+// An unrecognized format falls back to json; call [Detect] first to
+// reject one that came from user input.
 func New(f Format) Formatter {
 	switch f {
 	case FormatTable:

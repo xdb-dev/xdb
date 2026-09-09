@@ -320,8 +320,12 @@ func checkStdinConsumers(uri, file string, args []string) error {
 // formatOne writes a single value using the appropriate formatter.
 func formatOne(cmd *cli.Command, v any) error {
 	w := cmd.Root().Writer
-	flag := cmd.String("output")
-	f := output.New(output.Detect(flag, isTerminalWriter(w)))
+	format, err := output.Detect(cmd.String("output"), isTerminalWriter(w))
+	if err != nil {
+		return err
+	}
+
+	f := output.New(format)
 
 	return f.FormatOne(w, v)
 }
@@ -329,8 +333,12 @@ func formatOne(cmd *cli.Command, v any) error {
 // formatList writes a list using the appropriate formatter.
 func formatList(cmd *cli.Command, items []any) error {
 	w := cmd.Root().Writer
-	flag := cmd.String("output")
-	f := output.New(output.Detect(flag, isTerminalWriter(w)))
+	format, err := output.Detect(cmd.String("output"), isTerminalWriter(w))
+	if err != nil {
+		return err
+	}
+
+	f := output.New(format)
 
 	return f.FormatList(w, items)
 }
@@ -340,8 +348,12 @@ func formatList(cmd *cli.Command, items []any) error {
 // formats, bare items for ndjson and table.
 func formatPage(cmd *cli.Command, page output.Page) error {
 	w := cmd.Root().Writer
-	flag := cmd.String("output")
-	f := output.New(output.Detect(flag, isTerminalWriter(w)))
+	format, err := output.Detect(cmd.String("output"), isTerminalWriter(w))
+	if err != nil {
+		return err
+	}
+
+	f := output.New(format)
 
 	return f.FormatPage(w, page)
 }
@@ -363,10 +375,15 @@ func formatRawJSON(cmd *cli.Command, raw json.RawMessage) error {
 		return err
 	}
 
+	format, err := output.Detect(cmd.String("output"), isTerminalWriter(cmd.Root().Writer))
+	if err != nil {
+		return err
+	}
+
 	// The table view is for a human reading one record: _version earns
 	// its line (it is the precondition for the next write), _updated
 	// rarely does. Machine-readable formats keep everything.
-	if output.Detect(cmd.String("output"), isTerminalWriter(cmd.Root().Writer)) == output.FormatTable {
+	if format == output.FormatTable {
 		delete(m, schema.FieldUpdated)
 	}
 

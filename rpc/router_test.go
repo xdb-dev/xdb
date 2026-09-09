@@ -1,6 +1,8 @@
 package rpc
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -134,4 +136,40 @@ func TestMapError(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestInvokeRejectsStreamingMethod(t *testing.T) {
+	r := NewRouter()
+
+	type pong struct {
+		Msg string `json:"msg"`
+	}
+
+	RegisterHandler(r, "unary.ping", func(ctx context.Context, req *struct{}) (*pong, error) {
+		return &pong{Msg: "pong"}, nil
+	})
+	RegisterStream(r, "events.watch", func(ctx context.Context, req *struct{}, send func(string, json.RawMessage)) error {
+		send("event", json.RawMessage(`{}`))
+		return nil
+	})
+
+	t.Run("unary", func(t *testing.T) {
+		res, err := r.Invoke(context.Background(), "unary.ping", nil)
+		require.NoError(t, err)
+		assert.JSONEq(t, `{"msg":"pong"}`, string(res))
+	})
+
+	t.Run("streaming", func(t *testing.T) {
+		_, err := r.Invoke(context.Background(), "events.watch", nil)
+		require.Error(t, err)
+
+		var rpcErr *Error
+		require.ErrorAs(t, err, &rpcErr)
+		assert.Equal(t, CodeInvalidRequest, rpcErr.Code)
+	})
+
+	t.Run("unknown", func(t *testing.T) {
+		_, err := r.Invoke(context.Background(), "nope.nope", nil)
+		require.Error(t, err)
+	})
 }

@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 )
 
@@ -101,9 +100,7 @@ func (e *Endpoint[TReq, TRes]) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 
-	if err := json.NewEncoder(w).Encode(res); err != nil {
-		// The status line is already written, so the error cannot be
-		// reported to the client. It is built and discarded.
-		_ = fmt.Errorf("api: failed to encode response: %w", err)
-	}
+	// The status line is already written, so an encoding failure here cannot
+	// be reported to the client.
+	_ = json.NewEncoder(w).Encode(res) //nolint:errchkjson // response already committed
 }
