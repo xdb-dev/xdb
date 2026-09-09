@@ -40,6 +40,10 @@ The [CLI reference](../../cmd/xdb/cli/CONTEXT.md) documents commands, flags, and
 
 - [Encoding](encoding.md): JSON Schema import and JSON encoding of records
 
+## Errors
+
+- [Errors](errors.md): Sentinels, the `[xdb/pkg]` prefix, and the error tag vocabulary
+
 ## CLI & Daemon
 
 - [Config](config.md): Config file loading, validation, and defaults
