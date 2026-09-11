@@ -34,10 +34,10 @@
   <nav class="top">
     <a class="logo" href="#">xdb <span>think in tuples</span></a>
     <ul>
-      <li><a href="#model">Model</a></li>
-      <li><a href="#backends">Backends</a></li>
-      <li><a href="#ops">Operations</a></li>
+      <li><a href="#demo">Example</a></li>
+      <li><a href="#how">How it works</a></li>
       <li><a href="#agents">Agents</a></li>
+      <li><a href="#start">Get started</a></li>
       <li><a href="docs/">Docs</a></li>
       <li><a href="https://github.com/xdb-dev/xdb">GitHub</a></li>
     </ul>
@@ -85,6 +85,34 @@ err := st.PutTuples(ctx, t)</pre>
   </div>
 </section>
 
+<!-- Example -->
+<section id="demo">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Example</span>
+      <h2>Real sessions, replayed.</h2>
+      <p class="lede">The scenarios and the data come from the agent task evals: a store, a household ledger, and an issue tracker. Each command and its output come from a real run of the CLI.</p>
+    </div>
+    <div class="win term" id="replay">
+      <div class="tab">
+        <span class="chapters" role="tablist" aria-label="Sessions"></span>
+        <span class="ctl"><button type="button" data-toggle hidden>Pause</button><span class="rec">recorded by <code>make site-demo</code></span></span>
+      </div>
+      <div class="stage" data-state="poster">
+        <pre class="screen" aria-hidden="true"></pre>
+        <button type="button" class="overlay" aria-label="Play">
+          <span class="play" aria-hidden="true"></span>
+          <span class="ov-title"></span>
+          <span class="ov-meta"></span>
+        </button>
+      </div>
+      <div class="progress" aria-hidden="true"><span></span></div>
+      <pre class="transcript sr-only"></pre>
+      <noscript><p class="muted small noscript">The replay needs JavaScript. The <a href="docs/howto/get-started/">get-started guide</a> shows the same commands.</p></noscript>
+    </div>
+  </div>
+</section>
+
 <!-- How it works -->
 <section id="how">
   <div class="wrap">
@@ -102,161 +130,10 @@ err := st.PutTuples(ctx, t)</pre>
       <div class="step"><i>2</i><b>Check</b><p>The store validates each value against the schema and sets the record version. Every backend gets the same rules.</p></div>
       <div class="step"><i>3</i><b>Write</b><p>The driver for your backend writes the tuples as a map in memory, a JSON file, a Redis hash, or a SQLite row.</p></div>
     </div>
-  </div>
-</section>
-
-<!-- Data model -->
-<section id="model">
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="eyebrow">The model</span>
-      <h2>Records are sets of tuples.</h2>
-      <p class="lede">A tuple holds a typed value at a record path and attribute. Its URI lets you read or write that attribute directly.</p>
-    </div>
-
-    <div class="two">
-      <div>
-        <h3>Group records with schemas and namespaces.</h3>
-        <p class="muted">Tuples with the same path form a record. The record exists while it has user attributes. A schema groups records and controls field validation. A namespace groups schemas by domain, application, or tenant.</p>
-        <p class="muted" style="margin-top:12px">Each resource has a URI. The available commands depend on the resource: namespaces support list and get, while records also support writes. On an attribute URI, <code>get</code> reads one tuple and <code>delete</code> removes it.</p>
-        <div class="uris">
-          <span>namespace</span><span>xdb://<span class="p-ns">com.example</span></span>
-          <span>schema</span><span>xdb://<span class="p-ns">com.example</span>/<span class="p-schema">posts</span></span>
-          <span>record</span><span>xdb://<span class="p-ns">com.example</span>/<span class="p-schema">posts</span>/<span class="p-id">p-1</span></span>
-          <span>tuple</span><span>xdb://<span class="p-ns">com.example</span>/<span class="p-schema">posts</span>/<span class="p-id">p-1</span>#<span class="p-attr">author.name</span></span>
-        </div>
-        <p class="muted small" style="margin-top:14px">JSON output expands dotted attributes into nested objects. The store adds <code>_version</code> and <code>_updated</code>; the CLI also includes identity fields derived from the URI.</p>
-<pre style="margin-top:8px;font-size:12.5px">{ "_id": "p-1", "_ns": "com.example", "_schema": "posts",
-  "_version": 1, "_updated": "2026-09-04T09:12:00Z",
-  "title": "Hello", "author": { "name": "Ravi" }, "views": 42 }</pre>
-      </div>
-      <figure>
-        <svg id="fig-nest" role="img" aria-label="Nested boxes: a namespace contains a schema, which contains a record, which is a list of tuples."></svg>
-        <figcaption><span>fig. 2</span><b>resource hierarchy</b></figcaption>
-      </figure>
-    </div>
-
-    <div class="row more"><a class="btn ghost" href="docs/howto/define-a-schema/">Define a schema</a></div>
-  </div>
-</section>
-
-<!-- Type import -->
-<section id="import">
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="eyebrow">Bring your own types</span>
-      <h2>Import the model you already have.</h2>
-      <p class="lede">Import a schema from tagged Go structs, protobuf messages, or JSON Schema documents. The adapters convert data between source types and XDB records. For protobuf and JSON Schema files, <code>schemas diff --check</code> compares the source with the stored definition and exits non-zero on drift.</p>
-    </div>
-    <div class="two top">
-      <div class="win">
-        <div class="tab">types.go  ·  import and use a Go type</div>
-<pre><span class="kw">type</span> Post <span class="kw">struct</span> {
-    Title  string    `xdb:"title,required"`
-    Author Author    `xdb:"author"`      <span class="cm">// → author.name</span>
-    Tags   []string  `xdb:"tags"`        <span class="cm">// → ARRAY&lt;string&gt;</span>
-    Views  int64     `xdb:"views"`
-}
-
-<span class="cm">// Import the struct definition.</span>
-def, err := xdbstruct.Def[Post](<span class="st">"xdb://com.example/posts"</span>)
-err = st.CreateSchema(ctx, def.URI, def)
-
-<span class="cm">// Store a Post and read it back.</span>
-rec, err := xdbstruct.Marshal(
-    <span class="st">"xdb://com.example/posts/p-1"</span>, post)
-err = st.CreateRecord(ctx, rec)
-
-<span class="kw">var</span> got Post
-rec, err = st.GetRecord(ctx, uri)
-err = xdbstruct.Unmarshal(rec, &amp;got)</pre>
-      </div>
-      <div class="stack">
-        <figure>
-          <svg id="fig-byot" role="img" aria-label="A proto file, a JSON Schema and a Go struct all import into one schema definition, which the store keeps. A dashed loop shows schemas diff checking for drift."></svg>
-          <figcaption><span>fig. 3</span><b>bring your own types</b></figcaption>
-        </figure>
-        <div class="win">
-          <div class="tab">shell  ·  import shows the delta, diff --check fails CI on drift</div>
-<pre><span class="pr">$</span> xdb schemas import ./api/user.proto --ns com.example
-<span class="pr">$</span> xdb schemas import ./user.schema.json --ns com.example
-<span class="pr">$</span> xdb schemas diff ./api/user.proto --ns com.example --check</pre>
-        </div>
-      </div>
-    </div>
-    <div class="row more"><a class="btn ghost" href="docs/howto/import-types/">Import your types</a></div>
-  </div>
-</section>
-
-<!-- Backends -->
-<section id="backends">
-  <div class="wrap">
-    <div class="sec-head">
-      <span class="eyebrow">Backends</span>
-      <h2>Choose a storage backend.</h2>
-      <p class="lede">Drivers map record paths and typed attributes to backend storage. XDB includes drivers for memory, files, Redis, and SQLite. You can implement the driver contract for another backend.</p>
-    </div>
-    <figure class="frame">
-      <svg id="fig-backends" role="img" aria-label="One tuple fans out into a memory map, a JSON file in a directory tree, a Redis hash, a SQLite table, and a dashed box for your own database."></svg>
-      <figcaption><span>fig. 4</span><b>backend storage layouts</b></figcaption>
-    </figure>
-    <div class="forms">
-      <div class="form"><b>Memory</b>m[<span class="p-ns">"com.example</span>/<span class="p-schema">posts</span>/<span class="p-id">p-1"</span>]
- [<span class="p-attr">"title"</span>] = <span class="p-val">"Hello"</span></div>
-      <div class="form"><b>Filesystem</b><span class="p-ns">com.example</span>/<span class="p-schema">posts</span>/<span class="p-id">p-1</span>.json
-{ <span class="p-attr">"title"</span>: <span class="p-val">"Hello"</span> }</div>
-      <div class="form"><b>Redis</b>HSET xdb:<span class="p-ns">com.example</span>:<span class="p-schema">posts</span>:<span class="p-id">p-1</span>
-  <span class="p-attr">title</span> <span class="p-val">"Hello"</span></div>
-      <div class="form"><b>SQLite</b>INSERT INTO "t:<span class="p-ns">com.example</span>/<span class="p-schema">posts</span>"
-  (_id, <span class="p-attr">title</span>)
-  VALUES (<span class="p-id">'p-1'</span>, <span class="p-val">'Hello'</span>)</div>
-    </div>
-
-    <div class="row more"><a class="btn ghost" href="docs/howto/choose-a-backend/">Choose a backend</a></div>
-  </div>
-</section>
-
-<!-- Operations -->
-<section id="ops">
-  <div class="wrap">
-    <div class="two wide-right">
-      <div>
-        <span class="eyebrow">Operations</span>
-        <h2>Use Go, JSON-RPC, or the CLI.</h2>
-        <p class="lede">Read and write records through Go, JSON-RPC, or shell commands. All use the store for validation and versioning. The API and CLI also handle request parsing, retry behavior, and output formats.</p>
-      </div>
-      <figure>
-        <svg id="fig-doors" role="img" aria-label="Go, JSON-RPC and CLI arrows converge on one store, which talks to a driver."></svg>
-        <figcaption><span>fig. 5</span><b>clients share a store</b></figcaption>
-      </figure>
-    </div>
-    <div class="doors">
-      <div class="win door">
-        <div class="tab"><b>Go</b> · in your service</div>
-<pre>rec := core.NewRecord(
-    <span class="st">"com.example"</span>, <span class="st">"posts"</span>, <span class="st">"p-1"</span>).
-    Set(<span class="st">"title"</span>, <span class="st">"Hello"</span>)
-
-err := st.CreateRecord(ctx, rec)</pre>
-      </div>
-      <div class="win door">
-        <div class="tab"><b>JSON-RPC</b> · over the wire</div>
-<pre>{ "method": "records.create",
- "params": {
-  "uri": "xdb://com.example/posts/p-1",
-  "data": { "title": "Hello" } } }</pre>
-      </div>
-      <div class="win door">
-        <div class="tab"><b>CLI</b> · in a shell or an agent</div>
-<pre><span class="pr">$</span> xdb records create \
-    xdb://com.example/posts/p-1 \
-    --json '{"title":"Hello"}'</pre>
-      </div>
-    </div>
-
     <div class="row more">
-      <a class="btn ghost" href="docs/howto/read-and-write/">Read and write records</a>
-      <a class="btn ghost" href="docs/howto/embed-in-go/">Embed XDB in Go</a>
+      <a class="btn ghost" href="docs/howto/import-types/">Import your types</a>
+      <a class="btn ghost" href="docs/howto/define-a-schema/">Define a schema</a>
+      <a class="btn ghost" href="docs/howto/choose-a-backend/">Choose a backend</a>
     </div>
   </div>
 </section>
@@ -271,7 +148,7 @@ err := st.CreateRecord(ctx, rec)</pre>
     </div>
     <figure class="frame">
       <svg id="fig-grammar" role="img" aria-label="The CLI grammar, xdb resource action URI with filter, fields, payload and output flags, each annotated."></svg>
-      <figcaption><span>fig. 6</span><b>the grammar</b></figcaption>
+      <figcaption><span>fig. 2</span><b>the grammar</b></figcaption>
     </figure>
     <div class="row more"><a class="btn ghost" href="docs/howto/use-with-agents/">Use XDB from an agent</a></div>
   </div>
@@ -299,6 +176,24 @@ xdb records create xdb://com.example/posts/p-1 \
   </div>
 </section>
 
+<!-- Guides -->
+<section id="guides">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">Guides</span>
+      <h2>Pick the guide for your task.</h2>
+    </div>
+    <div class="cards">
+      <a class="card" href="docs/howto/define-a-schema/"><h3>Define a schema</h3><p>Declare fields and types, select a validation mode, and add indexes and constraints.</p></a>
+      <a class="card" href="docs/howto/import-types/"><h3>Import your types</h3><p>Create a schema from a Go struct, a protobuf message, or a JSON Schema file.</p></a>
+      <a class="card" href="docs/howto/read-and-write/"><h3>Read and write records</h3><p>Filters, version checks, dry runs, bulk data, and change streams.</p></a>
+      <a class="card" href="docs/howto/choose-a-backend/"><h3>Choose a backend</h3><p>How each driver stores a tuple, and how to select one in the config.</p></a>
+      <a class="card" href="docs/howto/use-with-agents/"><h3>Use XDB from an agent</h3><p>Discover the CLI at runtime, parse its errors, and pipe JSON between commands.</p></a>
+      <a class="card" href="docs/howto/embed-in-go/"><h3>Embed XDB in Go</h3><p>Build a store in your own service and serve it over JSON-RPC.</p></a>
+    </div>
+  </div>
+</section>
+
 <footer>
   <div class="wrap">
     <span><b>xdb</b> · think in tuples</span>
@@ -312,5 +207,6 @@ xdb records create xdb://com.example/posts/p-1 \
 
 <script src="vendor/rough.js"></script>
 <script src="site.js"></script>
+<script src="replay.js"></script>
 </body>
 </html>

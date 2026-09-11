@@ -1,0 +1,141 @@
+{
+  "episodes": [
+    {
+      "id": "store",
+      "label": "Store",
+      "title": "Run a small store",
+      "task": "ecommerce-store",
+      "steps": [
+        {
+          "note": "Prices are integers in paise, so money never loses precision.",
+          "cmd": "xdb schemas create xdb://shop/products --json '{\"fields\":{\"title\":{\"type\":\"string\",\"required\":true},\"price_paise\":{\"type\":\"integer\",\"required\":true},\"stock\":{\"type\":\"integer\"},\"category\":{\"type\":\"string\",\"indexed\":true}}}' --quiet",
+          "out": "",
+          "exit": 0
+        },
+        {
+          "cmd": "head -2 products.ndjson",
+          "out": "{\"_id\":\"SAREE-KANCHI-01\",\"title\":\"Kanchipuram Silk Saree\",\"price_paise\":1299900,\"stock\":3,\"category\":\"sarees\"}\n{\"_id\":\"CHAI-MASALA-500\",\"title\":\"Masala Chai 500g\",\"price_paise\":49900,\"stock\":40,\"category\":\"pantry\"}\n",
+          "exit": 0
+        },
+        {
+          "cmd": "xdb import --uri xdb://shop/products -f products.ndjson",
+          "out": "imported           6\nskipped            0\nfailed             0\nfirst_error_line   0\n",
+          "exit": 0
+        },
+        {
+          "cmd": "xdb records list xdb://shop/products --filter 'category == \"pantry\"' --fields _id,title,price_paise,stock",
+          "out": "_id               price_paise   stock   title\nCHAI-GREEN-250    34900         25      Green Tea 250g\nCHAI-MASALA-500   49900         40      Masala Chai 500g\n",
+          "exit": 0
+        },
+        {
+          "note": "Two people edit KURTA-COTTON-M at once. Both read version 1.",
+          "cmd": "xdb records get xdb://shop/products/KURTA-COTTON-M --fields title,stock,_version",
+          "out": "_id        KURTA-COTTON-M\n_version   1\nstock      10\ntitle      Cotton Kurta M\n",
+          "exit": 0
+        },
+        {
+          "cmd": "xdb records update xdb://shop/products/KURTA-COTTON-M --json '{\"_version\":1,\"stock\":9}'",
+          "out": "_id           KURTA-COTTON-M\n_ns           shop\n_schema       products\n_version      2\ncategory      apparel\nprice_paise   149900\nstock         9\ntitle         Cotton Kurta M\n",
+          "exit": 0
+        },
+        {
+          "note": "The second write still carries version 1, so it fails and does not overwrite the first.",
+          "cmd": "xdb records update xdb://shop/products/KURTA-COTTON-M --json '{\"_version\":1,\"stock\":8}' -o json",
+          "out": "{\n  \"code\": \"CONFLICT\",\n  \"message\": \"[xdb/core] revision conflict [expected=1, got=2, fix=re-read the record and retry with the current _version]\",\n  \"resource\": \"records\",\n  \"action\": \"update\",\n  \"uri\": \"xdb://shop/products/KURTA-COTTON-M\",\n  \"hint\": \"re-read the record and retry with the current _version\",\n  \"details\": {\n    \"expected\": \"1\",\n    \"got\": \"2\"\n  }\n}\n",
+          "exit": 1
+        }
+      ]
+    },
+    {
+      "id": "ledger",
+      "label": "Ledger",
+      "title": "Track a household ledger",
+      "task": "household-ledger",
+      "steps": [
+        {
+          "note": "Two bank statements for August, one transaction on each line.",
+          "cmd": "xdb schemas create xdb://household/transactions --json '{\"fields\":{\"account\":{\"type\":\"string\",\"required\":true},\"date\":{\"type\":\"time\",\"required\":true},\"description\":{\"type\":\"string\"},\"amount_paise\":{\"type\":\"integer\",\"required\":true},\"direction\":{\"type\":\"string\"},\"category\":{\"type\":\"string\",\"indexed\":true}}}' --quiet",
+          "out": "",
+          "exit": 0
+        },
+        {
+          "cmd": "head -2 august.ndjson",
+          "out": "{\"_id\":\"hdfc-20260801-1\",\"account\":\"hdfc-savings\",\"date\":\"2026-08-01T00:00:00Z\",\"description\":\"SALARY ACME TECH PVT LTD\",\"amount_paise\":12500000,\"direction\":\"credit\",\"category\":\"salary\"}\n{\"_id\":\"hdfc-20260803-1\",\"account\":\"hdfc-savings\",\"date\":\"2026-08-03T00:00:00Z\",\"description\":\"UPI-BIGBASKET\",\"amount_paise\":243050,\"direction\":\"debit\",\"category\":\"groceries\"}\n",
+          "exit": 0
+        },
+        {
+          "cmd": "xdb import --uri xdb://household/transactions -f august.ndjson",
+          "out": "imported           15\nskipped            0\nfailed             0\nfirst_error_line   0\n",
+          "exit": 0
+        },
+        {
+          "note": "Groceries in August, in paise.",
+          "cmd": "xdb records list xdb://household/transactions --filter 'category == \"groceries\"' -o ndjson | jq -s 'map(.amount_paise) | add'",
+          "out": "441075\n",
+          "exit": 0
+        },
+        {
+          "note": "Every transaction over ₹5,000, in either direction.",
+          "cmd": "xdb records list xdb://household/transactions --filter 'amount_paise > 500000' --fields _id,description,amount_paise",
+          "out": "_id                amount_paise   description\nhdfc-20260801-1    12500000       SALARY ACME TECH PVT LTD\nhdfc-20260805-1    3200000        RENT TRANSFER TO R SHARMA\nhdfc-20260815-1    1000000        ATM WITHDRAWAL\nhdfc-20260828-1    1845000        CREDIT CARD PAYMENT ICICI\nicici-20260814-1   874000         INDIGO AIRLINES\n",
+          "exit": 0
+        },
+        {
+          "note": "The BigBasket charge on 3 August was ₹2,340.50. Patch one field.",
+          "cmd": "xdb records update xdb://household/transactions/hdfc-20260803-1 --json '{\"amount_paise\":234050}'",
+          "out": "_id            hdfc-20260803-1\n_ns            household\n_schema        transactions\n_version       2\naccount        hdfc-savings\namount_paise   234050\ncategory       groceries\ndate           2026-08-03T00:00:00Z\ndescription    UPI-BIGBASKET\ndirection      debit\n",
+          "exit": 0
+        },
+        {
+          "note": "A rupee string where the schema wants paise fails before anything is written.",
+          "cmd": "xdb records update xdb://household/transactions/hdfc-20260803-1 --json '{\"amount_paise\":\"2340.50\"}' --dry-run -o json",
+          "out": "{\n  \"code\": \"SCHEMA_VIOLATION\",\n  \"message\": \"[xdb/core] schema violation: field \\\"amount_paise\\\": cannot decode as INTEGER [reason=decode_failed, field=amount_paise, expected=INTEGER, got=STRING]\",\n  \"resource\": \"records\",\n  \"action\": \"update\",\n  \"uri\": \"xdb://household/transactions/hdfc-20260803-1\",\n  \"hint\": \"run xdb describe --uri <schema-uri> to inspect the schema\",\n  \"details\": {\n    \"expected\": \"INTEGER\",\n    \"field\": \"amount_paise\",\n    \"got\": \"STRING\",\n    \"reason\": \"decode_failed\"\n  }\n}\n",
+          "exit": 1
+        }
+      ]
+    },
+    {
+      "id": "issues",
+      "label": "Issue tracker",
+      "title": "Triage an issue tracker",
+      "task": "issue-tracker",
+      "steps": [
+        {
+          "note": "Twelve issues from a Linear-style export.",
+          "cmd": "xdb schemas create xdb://tracker/issues --json '{\"fields\":{\"title\":{\"type\":\"string\",\"required\":true},\"state\":{\"type\":\"string\",\"indexed\":true},\"priority\":{\"type\":\"string\"},\"labels\":{\"type\":\"array\",\"elem_type\":\"string\"},\"assignee\":{\"type\":\"string\"},\"created_at\":{\"type\":\"time\"}}}' --quiet",
+          "out": "",
+          "exit": 0
+        },
+        {
+          "cmd": "xdb import --uri xdb://tracker/issues -f issues.ndjson",
+          "out": "imported           12\nskipped            0\nfailed             0\nfirst_error_line   0\n",
+          "exit": 0
+        },
+        {
+          "note": "Open issues that nobody owns.",
+          "cmd": "xdb records list xdb://tracker/issues --filter 'state == \"open\" && !has(assignee)' --fields _id,priority,title",
+          "out": "_id   priority   title\n12    P3         Keyboard shortcuts\n2     P3         Add dark mode\n8     P3         Onboarding tour\n9     P1         Rate limit 429 on bulk import\n",
+          "exit": 0
+        },
+        {
+          "note": "Give all of them to rohan in one batch.",
+          "cmd": "xdb records list xdb://tracker/issues --filter 'state == \"open\" && !has(assignee)' -o ndjson | jq -c '{op: \"records.update\", uri: (\"xdb://tracker/issues/\" + ._id), data: {assignee: \"rohan\"}}' | xdb batch -",
+          "out": "{\n  \"results\": [\n    {\n      \"uri\": \"xdb://tracker/issues/12\",\n      \"status\": \"ok\",\n      \"index\": 0\n    },\n    {\n      \"uri\": \"xdb://tracker/issues/2\",\n      \"status\": \"ok\",\n      \"index\": 1\n    },\n    {\n      \"uri\": \"xdb://tracker/issues/8\",\n      \"status\": \"ok\",\n      \"index\": 2\n    },\n    {\n      \"uri\": \"xdb://tracker/issues/9\",\n      \"status\": \"ok\",\n      \"index\": 3\n    }\n  ],\n  \"total\": 4,\n  \"succeeded\": 4,\n  \"failed\": 0\n}\n",
+          "exit": 0
+        },
+        {
+          "note": "Raise #9 to P0.",
+          "cmd": "xdb records update xdb://tracker/issues/9 --json '{\"priority\":\"P0\"}'",
+          "out": "_id          9\n_ns          tracker\n_schema      issues\n_version     3\nassignee     rohan\ncreated_at   2026-08-09T09:00:00Z\nlabels       [bug]\npriority     P0\nstate        open\ntitle        Rate limit 429 on bulk import\n",
+          "exit": 0
+        },
+        {
+          "note": "Open issues for priya.",
+          "cmd": "xdb records list xdb://tracker/issues --filter 'assignee == \"priya\" && state == \"open\"' --fields _id,priority,title",
+          "out": "_id   priority   title\n1     P1         Login fails on Safari\n7     P0         Payment webhook retries\n",
+          "exit": 0
+        }
+      ]
+    }
+  ]
+}

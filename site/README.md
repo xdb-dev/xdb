@@ -14,18 +14,16 @@ make docs-links     # dead and site-absolute links in docs/
 
 The landing page is static HTML, CSS, and JavaScript in `public/`. Astro copies `public/` into the build without changes.
 
-- `public/index.html` contains the pitch. Each section has a lede, a figure, and a link to its guide in `docs/howto/`:
+- `public/index.html` contains the pitch. Each section supports one part of the tagline and links to the guides in `docs/howto/`:
 
-  | Section | Contents | Guide |
-  | ------- | -------- | ----- |
+  | Section | Contents | Guides |
+  | ------- | -------- | ------ |
   | Hero | Product description, install command, one tuple in Go and the CLI, and the tuple anatomy (fig. 0) | |
-  | `#how` | Formats convert to tuples, and tuples go to any backend (fig. 1) | |
-  | `#model` | Records, resource URIs, and the resource hierarchy (fig. 2) | `define-a-schema` |
-  | `#import` | A tagged Go struct and the import commands (fig. 3) | `import-types` |
-  | `#backends` | Storage layouts (fig. 4) | `choose-a-backend` |
-  | `#ops` | Go, JSON-RPC, and the CLI on one store (fig. 5) | `read-and-write`, `embed-in-go` |
-  | `#agents` | The CLI grammar (fig. 6) | `use-with-agents` |
+  | `#demo` | A recorded session of the CLI, replayed in a terminal. See below. | |
+  | `#how` | Formats convert to tuples, and tuples go to any backend (fig. 1) | `import-types`, `define-a-schema`, `choose-a-backend` |
+  | `#agents` | The CLI grammar (fig. 2) | `use-with-agents` |
   | `#start` | Installation and first record | `get-started` |
+  | `#guides` | A card for each how-to guide | all |
 
   Put feature documentation in the guides, not on the landing page.
 - `public/tokens.css`: the colours and fonts. The docs load the same file.
@@ -54,6 +52,12 @@ Inter and JetBrains Mono load from Google Fonts and fall back to system fonts wh
 - `src/styles/starlight.css` maps the tokens onto the Starlight variables.
 
 Write each link in `docs/` as a relative path to a file, for example `../concepts/tuples.md`. This link works on GitHub and on the site. `make docs-links` finds the links that do not work.
+
+## Terminal Replay
+
+The `#demo` section replays real sessions of the CLI. Each session comes from one of the agent task evals in `internal/evals/tasks` and uses the fixture data of that task. Each session is a chapter. A chapter shows a still frame under a play button. A click on the button starts the replay, and a click on the screen pauses it. `public/replay.js` types each command from `public/demo.json` and prints the recorded output. With `prefers-reduced-motion`, the play button shows the full session at once.
+
+`make site-demo` builds the CLI and runs `scripts/record-demo.mjs`. For each session, the script converts the fixtures to NDJSON, runs the commands against a new daemon in a temporary HOME, and writes `demo.json`. Run it again after a change to the output of the CLI or to a fixture. If a command exits with an unexpected code, the script stops and writes nothing.
 
 ## The Hero Underline
 
