@@ -3,24 +3,24 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>XDB: Typed data across backends</title>
-<meta name="description" content="XDB stores typed records in memory, files, Redis, or SQLite. Use a Go API or an agent-oriented CLI with schema validation and record versions.">
+<title>XDB: Think in tuples</title>
+<meta name="description" content="XDB stores data as tuples: a path, an attribute, and a typed value. Read and write them from Go or the CLI. Keep them in memory, files, Redis, or SQLite.">
 <link rel="canonical" href="https://xdb.dev/">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="XDB">
 <meta property="og:url" content="https://xdb.dev/">
-<meta property="og:title" content="XDB: Typed data across backends">
-<meta property="og:description" content="XDB stores typed records in memory, files, Redis, or SQLite. Use a Go API or an agent-oriented CLI with schema validation and record versions.">
+<meta property="og:title" content="XDB: Think in tuples">
+<meta property="og:description" content="XDB stores data as tuples: a path, an attribute, and a typed value. Read and write them from Go or the CLI. Keep them in memory, files, Redis, or SQLite.">
 <meta property="og:image" content="https://xdb.dev/og.png">
 <meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Typed data across backends. The tuple xdb://com.example/posts/p-1#author.name = &quot;Ada&quot;, with each part of the URI in its own colour.">
+<meta property="og:image:alt" content="Think in tuples. Storage is a detail. The tuple xdb://com.example/posts/p-1#author.name = &quot;Ada&quot;, with each part of the URI in its own colour.">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="XDB: Typed data across backends">
-<meta name="twitter:description" content="XDB stores typed records in memory, files, Redis, or SQLite. Use a Go API or an agent-oriented CLI with schema validation and record versions.">
+<meta name="twitter:title" content="XDB: Think in tuples">
+<meta name="twitter:description" content="XDB stores data as tuples: a path, an attribute, and a typed value. Read and write them from Go or the CLI. Keep them in memory, files, Redis, or SQLite.">
 <meta name="twitter:image" content="https://xdb.dev/og.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -31,7 +31,7 @@
 
 <div class="wrap">
   <nav class="top">
-    <a class="logo" href="#">xdb <span>typed data across backends</span></a>
+    <a class="logo" href="#">xdb <span>think in tuples</span></a>
     <ul>
       <li><a href="#model">Model</a></li>
       <li><a href="#backends">Backends</a></li>
@@ -47,19 +47,60 @@
 <section class="hero">
   <div class="wrap hero-grid">
     <div>
-      <span class="eyebrow">An agent-first data layer · Go</span>
-      <h1>Typed data.<br><span class="sketch">Your backend.</span></h1>
-      <p class="lede">Store typed records in memory, files, Redis, or SQLite. XDB applies schema validation and record versioning through a Go API and an agent-oriented CLI.</p>
+      <span class="eyebrow">Easy for humans · Exact for agents</span>
+      <h1>Think in tuples.<br><span class="sketch">Storage is a detail.</span></h1>
+      <p class="lede">XDB stores data as tuples: a path, an attribute, and a typed value. Read and write them from Go or the CLI. Keep them in memory, files, Redis, or SQLite.</p>
       <div class="row">
         <a class="btn" href="#start">Get started</a>
         <a class="btn ghost" href="https://github.com/xdb-dev/xdb">View GitHub</a>
       </div>
       <div class="cmd"><span class="pr">$</span> go install github.com/xdb-dev/xdb/cmd/xdb@latest</div>
     </div>
-    <figure>
-      <svg id="fig-hero" role="img" aria-label="A tuple is written to the store, which validates it and hands it to a driver for memory, filesystem, Redis or SQLite."></svg>
-      <figcaption><span>fig. 0</span><b>a tuple write</b></figcaption>
+    <div class="stack">
+      <div class="win">
+        <div class="tab">go  ·  one tuple</div>
+<pre><span class="cm">// A path, an attribute, and a typed value.</span>
+t := core.NewTuple(
+    <span class="st">"com.example/posts/p-1"</span>, <span class="st">"title"</span>, <span class="st">"Hello"</span>)
+
+t.URI()    <span class="cm">// xdb://</span><span class="p-ns">com.example</span><span class="cm">/</span><span class="p-schema">posts</span><span class="cm">/</span><span class="p-id">p-1</span><span class="cm">#</span><span class="p-attr">title</span>
+t.AsStr()  <span class="cm">// "Hello", nil</span>
+
+<span class="cm">// The same call on memory, files, Redis, or SQLite.</span>
+err := st.PutTuples(ctx, t)</pre>
+      </div>
+      <div class="win">
+        <div class="tab">shell  ·  the same tuple from the CLI</div>
+<pre><span class="pr">$</span> xdb get xdb://com.example/posts/p-1#title
+{ "_id": "p-1", …, "title": "Hello" }</pre>
+      </div>
+    </div>
+  </div>
+  <div class="wrap hero-fig">
+    <figure class="frame">
+      <svg id="fig-tuple" role="img" aria-label="Anatomy of the URI xdb://com.example/posts/p-1#title = Hello, with namespace, schema, id, attr and value called out."></svg>
+      <figcaption><span>fig. 0</span><b>anatomy of a tuple</b></figcaption>
     </figure>
+  </div>
+</section>
+
+<!-- How it works -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="eyebrow">How it works</span>
+      <h2>Everything passes through tuples.</h2>
+      <p class="lede">Data comes in as JSON, protobuf messages, or Go structs. XDB converts it to tuples, checks them against your schema, and hands them to the driver for your backend. Reads take the same path in reverse.</p>
+    </div>
+    <figure class="frame">
+      <svg id="fig-write" role="img" aria-label="A JSON document, a protobuf message and a Go struct converge into the same tuples in the middle, which then fan out to drivers for memory, filesystem, Redis and SQLite."></svg>
+      <figcaption><span>fig. 1</span><b>formats in, backends out</b></figcaption>
+    </figure>
+    <div class="steps">
+      <div class="step"><i>1</i><b>Convert</b><p>The <code>xdbjson</code>, <code>xdbproto</code>, and <code>xdbstruct</code> encoders convert each format to tuples and back.</p></div>
+      <div class="step"><i>2</i><b>Check</b><p>The store validates each value against the schema and sets the record version. Every backend gets the same rules.</p></div>
+      <div class="step"><i>3</i><b>Write</b><p>The driver for your backend writes the tuples as a map in memory, a JSON file, a Redis hash, or a SQLite row.</p></div>
+    </div>
   </div>
 </section>
 
@@ -71,12 +112,8 @@
       <h2>Records are sets of tuples.</h2>
       <p class="lede">A tuple holds a typed value at a record path and attribute. Its URI lets you read or write that attribute directly.</p>
     </div>
-    <figure class="frame">
-      <svg id="fig-tuple" role="img" aria-label="Anatomy of the URI xdb://com.example/posts/p-1#title = Hello, with namespace, schema, id, attr and value called out."></svg>
-      <figcaption><span>fig. 1</span><b>anatomy of a tuple</b></figcaption>
-    </figure>
 
-    <div class="two" style="margin-top:56px">
+    <div class="two">
       <div>
         <h3>Group records with schemas and namespaces.</h3>
         <p class="muted">Tuples with the same path form a record. The record exists while it has user attributes. A schema groups records and controls field validation. A namespace groups schemas by domain, application, or tenant.</p>
@@ -549,7 +586,7 @@ xdb records create xdb://com.example/posts/p-1 \
 
 <footer>
   <div class="wrap">
-    <span><b>xdb</b> · an agent-first data layer</span>
+    <span><b>xdb</b> · think in tuples</span>
     <span>
       <a href="https://github.com/xdb-dev/xdb">GitHub</a> ·
       <a href="https://github.com/xdb-dev/xdb/tree/main/docs/concepts">Concepts</a> ·

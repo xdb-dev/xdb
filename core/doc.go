@@ -1,5 +1,5 @@
-// Package core provides the fundamental data structures for XDB, an
-// agent-first data layer.
+// Package core provides the fundamental data structures for XDB, a
+// tuple-based data layer.
 //
 // # Data model
 //

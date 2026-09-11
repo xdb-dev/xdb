@@ -81,7 +81,7 @@
         api.rect(x, y, w, h, o);
         if (label) api.text(x + w / 2, y + h / 2 + 5, label, { anchor: "middle", size: o.size || 15, fill: o.color || C.ink, mono: o.mono });
       },
-      // Storage sketches, reused in the hero and the backends figure.
+      // Storage sketches, reused in the write figure and the backends figure.
       memory(x, y, s) {
         s = s || 1;
         api.rect(x, y, 120 * s, 84 * s, { stroke: C.accent });
@@ -140,46 +140,67 @@
     draw(api);
   }
 
-  /* ---------- fig 0: the whole idea ---------- */
-  figure("fig-hero", 600, 480, (f) => {
-    // the tuple
-    f.text(20, 40, "one tuple", { size: 16, fill: C.muted });
-    f.rect(20, 52, 220, 56);
-    f.line(118, 52, 118, 108, { roughness: 0.8 });
-    f.line(168, 52, 168, 108, { roughness: 0.8 });
-    f.text(69, 76, "path", { anchor: "middle", size: 13, fill: C.muted });
-    f.text(69, 96, "ns/schema/id", { anchor: "middle", size: 10, mono: true, fill: C.ns });
-    f.text(143, 76, "attr", { anchor: "middle", size: 13, fill: C.muted });
-    f.text(143, 96, "title", { anchor: "middle", size: 10, mono: true, fill: C.attr });
-    f.text(204, 76, "value", { anchor: "middle", size: 13, fill: C.muted });
-    f.text(204, 96, '"Hello"', { anchor: "middle", size: 10, mono: true, fill: C.val });
+  /* ---------- fig 1: formats in, tuples in the middle, backends out ---------- */
+  figure("fig-write", 960, 450, (f) => {
+    // Inputs on the left. Each format converts to tuples through its encoder.
+    // SVG collapses leading spaces, so indented lines set `indent` instead.
+    const inputs = [
+      { y: 40, name: "json", lines: [
+        { parts: [["{ ", C.muted], ['"title"', C.attr], [": ", C.muted], ['"Hello"', C.val], [",", C.muted]] },
+        { indent: 1, parts: [['"views"', C.attr], [": ", C.muted], ["42", C.val], [" }", C.muted]] },
+      ] },
+      { y: 178, name: "protobuf", lines: [
+        { parts: [["message ", C.accent], ["Post {", C.ink]] },
+        { indent: 1, parts: [["string ", C.muted], ["title", C.attr], [" = 1;", C.muted]] },
+        { parts: [["}", C.ink]] },
+      ] },
+      { y: 316, name: "go struct", lines: [
+        { parts: [["type ", C.accent], ["Post ", C.ink], ["struct", C.accent], [" {", C.ink]] },
+        { indent: 1, parts: [["Title ", C.attr], ["string", C.muted]] },
+        { parts: [["}", C.ink]] },
+      ] },
+    ];
+    inputs.forEach((t, i) => {
+      f.rect(40, t.y, 170, 84);
+      const first = t.y + 46 - (t.lines.length - 1) * 9;
+      t.lines.forEach((line, j) => {
+        f.text(52 + (line.indent || 0) * 14, first + j * 18, line.parts, { mono: true, size: 12 });
+      });
+      f.text(40, t.y + 104, t.name, { size: 14, fill: C.muted });
+      f.arrow(214, t.y + 42, 384, 212 + i * 8);
+    });
+    f.text(300, 250, "encode", { anchor: "middle", size: 15, fill: C.accent });
 
-    // arrow down into the store
-    f.arrow(130, 112, 130, 160);
-    f.text(146, 142, "write", { size: 13, fill: C.accent });
+    // The middle of the X: every format becomes the same tuples.
+    f.rect(390, 120, 180, 200, { fill: C.fill, fillStyle: "hachure", hachureGap: 8, fillWeight: 0.7 });
+    f.text(480, 152, "tuples", { anchor: "middle", size: 21 });
+    const rows = [
+      [["p-1", C.id], ["#", C.muted], ["title", C.attr], [" = ", C.muted], ['"Hello"', C.val]],
+      [["p-1", C.id], ["#", C.muted], ["views", C.attr], [" = ", C.muted], ["42", C.val]],
+      [["p-2", C.id], ["#", C.muted], ["title", C.attr], [" = ", C.muted], ['"Hi"', C.val]],
+    ];
+    rows.forEach((row, i) => {
+      f.rect(405, 168 + i * 36, 150, 26, { fill: "#fff", fillStyle: "solid", roughness: 0.8 });
+      f.text(413, 186 + i * 36, row, { mono: true, size: 11.5 });
+    });
+    f.text(480, 300, "validate · version", { anchor: "middle", size: 14, fill: C.muted });
 
-    // the store
-    f.rect(20, 164, 220, 96, { fill: C.fill, fillStyle: "hachure", hachureGap: 8, fillWeight: 0.7, stroke: C.ink });
-    f.text(130, 194, "store", { anchor: "middle", size: 20 });
-    f.text(130, 216, "validate · version · enforce", { anchor: "middle", size: 12, fill: C.muted });
-    f.text(130, 238, "then hand tuples to a driver", { anchor: "middle", size: 12, fill: C.muted });
-
-    // fan out to the right
+    // Out to any backend through its driver.
     const targets = [
-      { y: 12, name: "memory", draw: f.memory },
-      { y: 130, name: "filesystem", draw: f.folder },
-      { y: 248, name: "redis", draw: f.hash },
-      { y: 366, name: "sqlite", draw: f.table },
+      { y: 6, name: "memory", draw: f.memory },
+      { y: 116, name: "filesystem", draw: f.folder },
+      { y: 226, name: "redis", draw: f.hash },
+      { y: 336, name: "sqlite", draw: f.table },
     ];
     targets.forEach((t) => {
-      f.curve(`M244 212 Q 330 212 400 ${t.y + 42}`, 400, t.y + 42, Math.atan2(t.y + 42 - 212, 160));
-      t.draw(430, t.y, 1);
-      f.text(430, t.y + 100, t.name, { size: 13, fill: C.muted });
+      f.arrow(576, 220, 774, t.y + 42);
+      t.draw(780, t.y, 1);
+      f.text(780, t.y + 100, t.name, { size: 14, fill: C.muted });
     });
-    f.text(130, 292, "shared schema and version rules", { anchor: "middle", size: 13, fill: C.accent });
+    f.text(660, 224, "driver", { anchor: "middle", size: 15, fill: C.accent });
   });
 
-  /* ---------- fig 1: anatomy of a tuple ---------- */
+  /* ---------- fig 0: anatomy of a tuple, in the hero ---------- */
   figure("fig-tuple", 900, 270, (f) => {
     const cw = 18; // char width at 30px JetBrains Mono (0.6em)
     const x0 = 60;

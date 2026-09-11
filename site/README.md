@@ -12,7 +12,8 @@ python3 -m http.server -d site 8000
 
   | Section | Contents |
   | ------- | -------- |
-  | Hero | Product description and install command |
+  | Hero | Product description, install command, one tuple in Go and the CLI, and the tuple anatomy (fig. 0) |
+  | `#how` | Formats convert to tuples, and tuples go to any backend (fig. 1) |
   | `#model` | Tuples, resource URIs, value types, and schema rules |
   | `#import` | Go structs, protobuf, JSON Schema, and drift checks |
   | `#backends` | Storage layouts, type mappings, config, and driver interfaces |
@@ -38,7 +39,7 @@ Inter and JetBrains Mono load from Google Fonts and fall back to system fonts wh
 
 ## The Hero Underline
 
-`.sketch` in `site.css` underlines "Your backend." with a rough.js line.
+`.sketch` in `site.css` underlines "Storage is a detail." with a rough.js line.
 It uses the base settings from `site.js`: roughness 1.1, strokeWidth 1.4,
 bowing 1.2, and seed 25. The resulting paths are stored in a data URI.
 rough.js draws two strokes per line to give it a hand-drawn appearance.

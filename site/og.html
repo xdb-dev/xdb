@@ -54,9 +54,9 @@
   <svg id="sketch" viewBox="0 0 1200 630" aria-hidden="true"></svg>
 
   <div>
-    <p class="eyebrow">AN AGENT-FIRST DATA LAYER · GO</p>
-    <h1>Typed data.<br>Your backend.</h1>
-    <p class="lede">Typed records in memory, files, Redis, or SQLite.</p>
+    <p class="eyebrow">EASY FOR HUMANS · EXACT FOR AGENTS</p>
+    <h1>Think in tuples.<br><span class="underlined">Storage is a detail.</span></h1>
+    <p class="lede">Tuples in memory, files, Redis, or SQLite.</p>
   </div>
 
   <div class="uri">
@@ -77,20 +77,26 @@
   const add = (el) => svg.appendChild(el);
   const base = { roughness: 1.1, bowing: 1.2, strokeWidth: 1.6 };
 
-  // The box is measured from the tuple element rather than hardcoded, so it
-  // still fits when the URI or the type scale changes.
-  const uri = document.querySelector(".uri").getBoundingClientRect();
-  add(rc.rectangle(uri.x, uri.y, uri.width, uri.height, {
-    ...base, seed: 12, stroke: "#2b4ee6", fill: "#e8ecfb", fillStyle: "solid",
-  }));
+  // Measure only after the web fonts load. Before that, the fallback fonts
+  // give narrower boxes and the sketch comes out too short.
+  document.fonts.ready.then(() => {
+    // The box is measured from the tuple element rather than hardcoded, so it
+    // still fits when the URI or the type scale changes.
+    const uri = document.querySelector(".uri").getBoundingClientRect();
+    add(rc.rectangle(uri.x, uri.y, uri.width, uri.height, {
+      ...base, seed: 12, stroke: "#2b4ee6", fill: "#e8ecfb", fillStyle: "solid",
+    }));
 
-  // Underline under "Your backend.", the width of that line of the heading.
-  // Heavier than the box and than the site's own underline: a social card is
-  // read at a few hundred pixels wide in a feed, where a hairline disappears.
-  const head = document.querySelector("h1").getBoundingClientRect();
-  add(rc.line(78, head.bottom - 6, 768, head.bottom - 6, {
-    ...base, seed: 21, stroke: "#2b4ee6", strokeWidth: 6,
-  }));
+    // Underline under "Storage is a detail.", measured from that line of the
+    // heading so it still fits when the copy changes.
+    // Heavier than the box and than the site's own underline: a social card is
+    // read at a few hundred pixels wide in a feed, where a hairline disappears.
+    const head = document.querySelector("h1").getBoundingClientRect();
+    const line = document.querySelector("h1 .underlined").getBoundingClientRect();
+    add(rc.line(line.left + 2, head.bottom - 6, line.right, head.bottom - 6, {
+      ...base, seed: 21, stroke: "#2b4ee6", strokeWidth: 6,
+    }));
+  });
 
 </script>
 </body>

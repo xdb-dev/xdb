@@ -1,6 +1,8 @@
 # XDB
 
-XDB is an agent-first data layer. Model once, store anywhere. It has simple URIs, structured tuples, and a pipe-friendly CLI that agents and humans get right on the first try.
+Think in tuples. Storage is a detail.
+
+XDB stores data as tuples: a path, an attribute, and a typed value. Read and write them from Go or a pipe-friendly CLI, and keep them in memory, files, Redis, or SQLite. The CLI is easy for humans and exact for agents.
 
 ## Why XDB?
 

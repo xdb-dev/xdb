@@ -145,7 +145,7 @@ func NewAppWithIO(stdout, stderr io.Writer) *cli.Command {
 
 	root := a.newBaseCommand(stdout, stderr)
 	root.Name = "xdb"
-	root.Usage = "An agent-first data layer. Model once, store anywhere."
+	root.Usage = "Think in tuples. Storage is a detail."
 	root.CustomRootCommandHelpTemplate = rootHelpTemplate
 	root.Before = func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 		// cmd here is always the root command itself: urfave v3 runs each

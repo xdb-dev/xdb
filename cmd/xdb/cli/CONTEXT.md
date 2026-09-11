@@ -1,6 +1,6 @@
 # XDB CLI Context
 
-XDB is an agent-first data layer. Model once, store anywhere. Every resource has a URI: `xdb://NS/SCHEMA/ID#ATTR`.
+XDB stores data as tuples: a path, an attribute, and a typed value. The storage backend (memory, files, Redis, or SQLite) is a config choice. Every resource has a URI: `xdb://NS/SCHEMA/ID#ATTR`.
 
 `xdb context` prints this guide.
 
