@@ -55,7 +55,7 @@ func (a *App) aliasCommands() []*cli.Command {
 		{
 			Name:               "rm",
 			Usage:              "Shorthand for <resource> delete (records or schemas by URI depth)",
-			Description:        "Dispatches to records/schemas delete based on URI depth.\n   Equivalent to `xdb <resource> delete <uri> --force`.",
+			Description:        "Dispatches to records/schemas delete based on URI depth.\n   Equivalent to `xdb <resource> delete <uri>`. --force is required, as it is for delete.",
 			Category:           "aliases",
 			CustomHelpTemplate: commandHelpTemplate,
 			ArgsUsage:          "<uri>",

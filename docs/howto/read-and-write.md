@@ -81,10 +81,12 @@ xdb records delete xdb://com.example/posts/p-1 --force --if-version 7
 ```json
 {
   "code": "CONFLICT",
-  "message": "records.delete xdb://com.example/posts/p-1: record is at version 1, not 7: [xdb/core] revision conflict",
+  "message": "records.delete xdb://com.example/posts/p-1: record is at version 1, not 7: [xdb/core] revision conflict [expected=7, got=1, fix=re-read the record and retry with the current _version]",
   "resource": "records",
   "action": "delete",
-  "uri": "xdb://com.example/posts/p-1"
+  "uri": "xdb://com.example/posts/p-1",
+  "hint": "re-read the record and retry with the current _version",
+  "details": { "expected": "7", "got": "1" }
 }
 ```
 

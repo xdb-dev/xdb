@@ -117,7 +117,7 @@ Delete is the one verb with no payload to carry a precondition, so it takes one 
 $ xdb records delete xdb://app/posts/post-1 --force --if-version 3
 ```
 
-A mismatch fails with `CONFLICT` and leaves the record unchanged.
+A mismatch fails with `CONFLICT` and leaves the record unchanged. The error carries the `expected`, `got`, and `fix` tags, the same as a stale write, so the CLI hint says to re-read the record.
 
 Watch events carry the version as a top-level field:
 

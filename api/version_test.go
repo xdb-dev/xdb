@@ -136,6 +136,20 @@ func TestRecordService_DeletePrecondition(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
+	// The conflict carries the same tags as a stale write, so the caller
+	// is told to re-read rather than to update or upsert.
+	t.Run("stale version conflict says to re-read", func(t *testing.T) {
+		svc := newSvc(t)
+
+		_, err := svc.Delete(ctx, &api.DeleteRecordRequest{URI: uri, Version: 99})
+		require.ErrorIs(t, err, core.ErrConflict)
+
+		tags := core.ErrorTags(err)
+		assert.Equal(t, "99", tags["expected"])
+		assert.Equal(t, "1", tags["got"])
+		assert.Contains(t, tags["fix"], "re-read")
+	})
+
 	t.Run("omitted version deletes unconditionally", func(t *testing.T) {
 		svc := newSvc(t)
 

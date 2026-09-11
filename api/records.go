@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"time"
+
+	xerrors "github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/encoding/xdbjson"
@@ -352,9 +355,18 @@ func (s *RecordService) deleteChecked(
 
 		version = recordVersion(record)
 		if want != 0 && want != version {
-			return fmt.Errorf(
+			err := fmt.Errorf(
 				"records.delete %s: record is at version %d, not %d: %w",
 				uri, version, want, core.ErrConflict,
+			)
+
+			// The same tags as a stale write in store/version.go, so the
+			// caller gets the re-read advice and not the update-or-upsert
+			// advice for a create conflict.
+			return xerrors.Wrap(err,
+				"expected", strconv.FormatInt(want, 10),
+				"got", strconv.FormatInt(version, 10),
+				"fix", "re-read the record and retry with the current _version",
 			)
 		}
 
