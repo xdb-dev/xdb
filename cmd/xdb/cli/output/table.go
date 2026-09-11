@@ -6,11 +6,17 @@ import (
 	"reflect"
 	"slices"
 	"text/tabwriter"
+
+	"github.com/xdb-dev/xdb/schema"
 )
 
 type tableFormatter struct{}
 
 func (f *tableFormatter) FormatOne(w io.Writer, v any) error {
+	if def, ok := v.(*schema.Def); ok {
+		return writeDef(w, def)
+	}
+
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
 
 	rv := reflect.ValueOf(v)
@@ -44,6 +50,10 @@ func (f *tableFormatter) FormatOne(w io.Writer, v any) error {
 func (f *tableFormatter) FormatList(w io.Writer, items []any) error {
 	if len(items) == 0 {
 		return nil
+	}
+
+	if _, ok := items[0].(*schema.Def); ok {
+		return writeDefList(w, items)
 	}
 
 	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
