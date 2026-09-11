@@ -38,9 +38,10 @@ func jsonDoc(t *testing.T, stdout string) map[string]any {
 func ndjsonIDs(t *testing.T, stdout string) []string {
 	t.Helper()
 
-	var ids []string
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	ids := make([]string, 0, len(lines))
 
-	for _, line := range strings.Split(strings.TrimSpace(stdout), "\n") {
+	for _, line := range lines {
 		if line == "" {
 			continue
 		}

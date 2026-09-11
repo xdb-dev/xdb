@@ -25,6 +25,33 @@ Under a `strict` schema, a filter on an undeclared field fails with
 INVALID_ARGUMENT. The error names the field and lists the declared
 fields.
 
+## Time ranges
+
+Compare a `time` field against `timestamp("...")`. The argument is an
+RFC 3339 time. A comparison against a plain string fails, because a
+time and a string are different types.
+
+```bash
+xdb records list --uri xdb://myapp/txns \
+  --filter 'date >= timestamp("2026-08-01T00:00:00Z") && date < timestamp("2026-09-01T00:00:00Z")'
+```
+
+`_updated` is a time field on every record, so the same form selects
+the records written in a period.
+
+## Absent fields
+
+`has(attr)` asks whether the record holds the attribute. Negate it to
+find the records that do not, such as the unassigned issues.
+
+```bash
+xdb records list --uri xdb://myapp/issues --filter '!has(assignee)'
+xdb records list --uri xdb://myapp/issues --filter 'has(assignee) && done == false'
+```
+
+`_attrs` holds the attribute names of the record, so `"assignee" in
+_attrs` is the same test.
+
 ## Projections
 
 `--fields` limits the returned attributes. `_id` is always included.

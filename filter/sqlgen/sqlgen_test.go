@@ -2,6 +2,7 @@ package sqlgen
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,8 +19,14 @@ var testDef = &schema.Def{
 		"age":    {Type: core.TypeInt},
 		"score":  {Type: core.TypeFloat},
 		"active": {Type: core.TypeBool},
+		"date":   {Type: core.TypeTime},
 	},
 }
+
+// augTS is 2026-08-01T00:00:00Z in milliseconds since the Unix epoch. The
+// SQLite driver stores a TIME value in that form, so a timestamp filter
+// must bind the same form.
+var augTS = time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
 
 func TestGenerate_Column(t *testing.T) {
 	tests := []struct {
@@ -63,6 +70,28 @@ func TestGenerate_Column(t *testing.T) {
 			expr:       `score <= 100.0`,
 			wantSQL:    `("score" <= ?)`,
 			wantParams: []any{float64(100.0)},
+		},
+		{
+			name:    "attribute is present",
+			expr:    `has(status)`,
+			wantSQL: `("status" IS NOT NULL)`,
+		},
+		{
+			name:    "attribute is absent",
+			expr:    `!has(status)`,
+			wantSQL: `(NOT ("status" IS NOT NULL))`,
+		},
+		{
+			name:       "timestamp comparison",
+			expr:       `date >= timestamp("2026-08-01T00:00:00Z")`,
+			wantSQL:    `("date" >= ?)`,
+			wantParams: []any{augTS},
+		},
+		{
+			name:       "timestamp range",
+			expr:       `date >= timestamp("2026-08-01T00:00:00Z") && date < timestamp("2026-09-01T00:00:00Z")`,
+			wantSQL:    `(("date" >= ?) AND ("date" < ?))`,
+			wantParams: []any{augTS, time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC).UnixMilli()},
 		},
 		{
 			name:       "compound AND",
@@ -165,6 +194,18 @@ func TestGenerate_KV(t *testing.T) {
 			wantParams: []any{"active", true, "age", int64(30)},
 		},
 		{
+			name:       "attribute is present",
+			expr:       `has(status)`,
+			wantSQL:    `(_id IN (SELECT _id FROM posts WHERE _attr = ?))`,
+			wantParams: []any{"status"},
+		},
+		{
+			name:       "timestamp comparison",
+			expr:       `date >= timestamp("2026-08-01T00:00:00Z")`,
+			wantSQL:    `(_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS REAL) >= ?))`,
+			wantParams: []any{"date", augTS},
+		},
+		{
 			name:       "compound AND",
 			expr:       `status == "active" && age > 30`,
 			wantSQL:    `((_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS TEXT) = ?)) AND (_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS REAL) > ?)))`,
@@ -258,4 +299,13 @@ func TestGenerate_KVStrategy_AllowsUndeclaredIdent(t *testing.T) {
 func TestQuoteIdent(t *testing.T) {
 	assert.Equal(t, `"name"`, quoteIdent("name"))
 	assert.Equal(t, `"weird""name"`, quoteIdent(`weird"name`))
+}
+
+func TestGenerate_TimestampNeedsAConstantArgument(t *testing.T) {
+	f, err := filter.Compile(`date >= timestamp(name)`, testDef)
+	require.NoError(t, err)
+
+	_, err = Generate(f, ColumnStrategy, "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "timestamp")
 }

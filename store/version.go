@@ -3,7 +3,10 @@ package store
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
+
+	xerrors "github.com/gojekfarm/xtools/errors"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
@@ -65,7 +68,7 @@ func (v *versioner) applyWrite(ctx context.Context, m Mutation) error {
 
 	next, err := schema.NextRevision(cur, want)
 	if err != nil {
-		return err
+		return versionConflict(err, cur, want)
 	}
 
 	// tuples is the fresh slice splitVersion returned, not a view of
@@ -73,6 +76,22 @@ func (v *versioner) applyWrite(ctx context.Context, m Mutation) error {
 	m.Tuples = append(tuples, stampTuples(m.Path, next)...) //nolint:gocritic // tuples is a fresh slice
 
 	return v.Driver.Apply(ctx, m)
+}
+
+// versionConflict tags a failed version precondition with the two versions
+// that disagree and with the way out. A stored version of 0 means the
+// record is absent, where the advice to re-read and retry does not apply.
+func versionConflict(err error, cur, want int64) error {
+	fix := "re-read the record and retry with the current _version"
+	if cur == 0 {
+		fix = "the record does not exist. Create it, or write it without a _version"
+	}
+
+	return xerrors.Wrap(err,
+		"expected", strconv.FormatInt(want, 10),
+		"got", strconv.FormatInt(cur, 10),
+		"fix", fix,
+	)
 }
 
 // applyDelete removes the requested tuples and stamps the remaining record.

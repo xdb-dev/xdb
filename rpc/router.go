@@ -303,9 +303,25 @@ func mapErrorCode(err error) (*Error, string) {
 		return SchemaViolation(msg), ""
 	case errors.Is(err, schema.ErrInvalidMode):
 		return SchemaViolation(msg), ""
+	case isJSONDecodeError(err):
+		return InvalidParams(msg), "invalid_payload"
 	default:
 		return InternalError(msg), ""
 	}
+}
+
+// isJSONDecodeError reports whether err came from the standard JSON
+// decoder. A request payload that does not decode is caller input, not a
+// server fault, so it must not reach the caller as an internal error.
+func isJSONDecodeError(err error) bool {
+	var syntaxErr *json.SyntaxError
+	if errors.As(err, &syntaxErr) {
+		return true
+	}
+
+	var typeErr *json.UnmarshalTypeError
+
+	return errors.As(err, &typeErr)
 }
 
 // errorData builds the Data object for err from its tags, falling back to

@@ -15,6 +15,7 @@ import (
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/output"
 	"github.com/xdb-dev/xdb/cmd/xdb/cli/validate"
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 )
 
 func (a *App) importCmd() *cli.Command {
@@ -103,15 +104,15 @@ func (a *App) importLines(
 			continue
 		}
 
-		recordURI, uriErr := extractRecordURI(baseURI, line, lineNum)
-		if uriErr != nil {
+		recordURI, payload, lineErr := prepareLine(baseURI, line, lineNum)
+		if lineErr != nil {
 			summary.Failed++
 			summary.FirstErrorLine = lineNum
 
-			return summary, invalidArgError("records", "import", uriErr)
+			return summary, invalidArgError("records", "import", lineErr)
 		}
 
-		if err := a.writeRecord(ctx, createOnly, recordURI, line); err != nil {
+		if err := a.writeRecord(ctx, createOnly, recordURI, payload); err != nil {
 			wrapped := wrapRPCError("records", op, recordURI, err)
 
 			// Under --create-only an existing divergent record is an
@@ -336,11 +337,18 @@ func (a *App) exportSchemaRecords(
 	return nil
 }
 
-// extractRecordURI parses a JSON line, extracts the id, and builds a record URI.
-func extractRecordURI(baseURI string, line []byte, lineNum int) (string, error) {
-	var obj map[string]any
-	if err := json.Unmarshal(line, &obj); err != nil {
-		return "", fmt.Errorf("line %d: invalid JSON: %w", lineNum, err)
+// prepareLine reads one NDJSON record. It builds the target record URI from
+// the id, and returns the payload to write.
+//
+// An export carries [schema.FieldVersion], the version the record held in
+// its source schema. A write reads that field as an optimistic-concurrency
+// precondition, so an import into an empty schema conflicts on every line.
+// An import moves data and does not compare and swap, so the stamp is
+// dropped here.
+func prepareLine(baseURI string, line []byte, lineNum int) (string, []byte, error) {
+	obj, err := unmarshalPreserving(line)
+	if err != nil {
+		return "", nil, fmt.Errorf("line %d: invalid JSON: %w", lineNum, err)
 	}
 
 	id, ok := obj["_id"]
@@ -349,10 +357,21 @@ func extractRecordURI(baseURI string, line []byte, lineNum int) (string, error) 
 	}
 
 	if !ok {
-		return "", fmt.Errorf("line %d: missing _id or id field", lineNum)
+		return "", nil, fmt.Errorf("line %d: missing _id or id field", lineNum)
 	}
 
-	idStr := fmt.Sprintf("%v", id)
+	uri := fmt.Sprintf("%s/%v", baseURI, id)
 
-	return fmt.Sprintf("%s/%s", baseURI, idStr), nil
+	if _, stamped := obj[schema.FieldVersion]; !stamped {
+		return uri, line, nil
+	}
+
+	delete(obj, schema.FieldVersion)
+
+	payload, err := json.Marshal(obj)
+	if err != nil {
+		return "", nil, fmt.Errorf("line %d: %w", lineNum, err)
+	}
+
+	return uri, payload, nil
 }

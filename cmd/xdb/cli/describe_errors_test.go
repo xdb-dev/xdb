@@ -130,6 +130,19 @@ func TestDescribe_CLIFlagsSection(t *testing.T) {
 	assert.Contains(t, stdout, "filter")
 }
 
+func TestDescribe_FilterGrammarCoversTimeAndPresence(t *testing.T) {
+	cfg, _ := tempCLIConfig(t)
+
+	stdout, _, code := runCLI(t, "--config", cfg, "describe", "--filter")
+	require.Equal(t, 0, code)
+
+	// The eval runs showed agents guessing at both of these.
+	assert.Contains(t, stdout, "timestamp(")
+	assert.Contains(t, stdout, "has(")
+	assert.Contains(t, stdout, "_attrs")
+	assert.Contains(t, stdout, "matches(")
+}
+
 func TestDescribe_SchemaFormat(t *testing.T) {
 	cfg, _ := tempCLIConfig(t)
 

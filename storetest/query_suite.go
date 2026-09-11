@@ -3,6 +3,7 @@ package storetest
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -172,6 +173,105 @@ func (s *QuerySuite) runFilterHardening(t *testing.T, ctx context.Context, d sto
 		})
 		require.NoError(t, err)
 		assert.Equal(t, 1, page.Total)
+	})
+
+	t.Run("presence filter selects records without a field", func(t *testing.T) {
+		uri := core.MustParseURI("xdb://com.example/triage_issues")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"title":    {Type: core.TypeString},
+				"assignee": {Type: core.TypeString},
+			},
+		}))
+
+		assigned := core.NewRecord("com.example", "triage_issues", "t1")
+		assigned.Set("title", "crash on start")
+		assigned.Set("assignee", "priya")
+		require.NoError(t, st.CreateRecord(ctx, assigned))
+
+		unassigned := core.NewRecord("com.example", "triage_issues", "t2")
+		unassigned.Set("title", "slow query")
+		require.NoError(t, st.CreateRecord(ctx, unassigned))
+
+		page, err := st.ListRecords(ctx, &store.Query{
+			URI:    uri,
+			Filter: `!has(assignee)`,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 1, page.Total)
+		require.Len(t, page.Items, 1)
+		assert.Equal(t, "t2", page.Items[0].URI().ID())
+
+		page, err = st.ListRecords(ctx, &store.Query{
+			URI:    uri,
+			Filter: `has(assignee)`,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 1, page.Total)
+		require.Len(t, page.Items, 1)
+		assert.Equal(t, "t1", page.Items[0].URI().ID())
+	})
+
+	t.Run("regex filter works on every backend", func(t *testing.T) {
+		uri := core.MustParseURI("xdb://com.example/regex_posts")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"title": {Type: core.TypeString},
+			},
+		}))
+
+		for id, title := range map[string]string{"r1": "Hello", "r2": "Goodbye"} {
+			r := core.NewRecord("com.example", "regex_posts", id)
+			r.Set("title", title)
+			require.NoError(t, st.CreateRecord(ctx, r))
+		}
+
+		// A SQL backend has no translation for matches(). It must fall
+		// back to a scan, not refuse the query.
+		page, err := st.ListRecords(ctx, &store.Query{
+			URI:    uri,
+			Filter: `title.matches("^Hel")`,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 1, page.Total)
+		require.Len(t, page.Items, 1)
+		assert.Equal(t, "r1", page.Items[0].URI().ID())
+	})
+
+	t.Run("time range filter selects one month", func(t *testing.T) {
+		uri := core.MustParseURI("xdb://com.example/ledger_entries")
+		require.NoError(t, st.CreateSchema(ctx, uri, &schema.Def{
+			URI:  uri,
+			Mode: schema.ModeStrict,
+			Fields: map[string]schema.Field{
+				"at": {Type: core.TypeTime},
+			},
+		}))
+
+		days := map[string]time.Time{
+			"e1": time.Date(2026, 7, 31, 23, 0, 0, 0, time.UTC),
+			"e2": time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC),
+			"e3": time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
+		}
+		for id, at := range days {
+			r := core.NewRecord("com.example", "ledger_entries", id)
+			r.Set("at", at)
+			require.NoError(t, st.CreateRecord(ctx, r))
+		}
+
+		page, err := st.ListRecords(ctx, &store.Query{
+			URI: uri,
+			Filter: `at >= timestamp("2026-08-01T00:00:00Z") && ` +
+				`at < timestamp("2026-09-01T00:00:00Z")`,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, 1, page.Total)
+		require.Len(t, page.Items, 1)
+		assert.Equal(t, "e2", page.Items[0].URI().ID())
 	})
 
 	t.Run("dynamic schema field never written falls back without error", func(t *testing.T) {

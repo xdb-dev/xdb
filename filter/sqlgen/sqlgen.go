@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/types"
@@ -18,6 +19,13 @@ import (
 // schema fields. Callers map it to a query-pushdown refusal so the record
 // store can fall back to an in-memory scan.
 var ErrUnknownColumn = errors.New("[xdb/sqlgen] unknown column")
+
+// ErrUnsupportedExpr is returned by [Generate] when a filter is valid CEL
+// but has no SQL translation, for example matches(). Callers map it to a
+// query-pushdown refusal so the record store falls back to a scan and
+// evaluates the filter in memory. The filter is not at fault, so it must
+// not reach the caller as an error.
+var ErrUnsupportedExpr = errors.New("[xdb/sqlgen] unsupported expression")
 
 // Strategy identifies the SQL table layout.
 type Strategy int
@@ -83,7 +91,7 @@ func (g *generator) walk(expr ast.Expr) (string, error) {
 	case ast.ListKind:
 		return g.walkList(expr)
 	default:
-		return "", fmt.Errorf("[xdb/sqlgen] unsupported expression kind: %v", expr.Kind())
+		return "", fmt.Errorf("%w: kind %v", ErrUnsupportedExpr, expr.Kind())
 	}
 }
 
@@ -150,13 +158,15 @@ func (g *generator) walkCall(expr ast.Expr) (string, error) {
 	// Global functions.
 	case "size":
 		return g.walkSize(args)
+	case "timestamp":
+		return g.walkTimestamp(args)
 
 	// List membership.
 	case "@in":
 		return g.walkIn(args)
 
 	default:
-		return "", fmt.Errorf("[xdb/sqlgen] unsupported function: %s", fn)
+		return "", fmt.Errorf("%w: function %s", ErrUnsupportedExpr, fn)
 	}
 }
 
@@ -237,7 +247,7 @@ func (g *generator) walkStringFn(call ast.CallExpr, fn string) (string, error) {
 		g.params = append(g.params, argVal.Value())
 		return fmt.Sprintf("(substr(%s, -length(?)) = ?)", target), nil
 	default:
-		return "", fmt.Errorf("[xdb/sqlgen] unsupported string function: %s", fn)
+		return "", fmt.Errorf("%w: string function %s", ErrUnsupportedExpr, fn)
 	}
 }
 
@@ -255,10 +265,54 @@ func (g *generator) walkSize(args []ast.Expr) (string, error) {
 	return fmt.Sprintf("LENGTH(%s)", inner), nil
 }
 
-// walkIn handles x in [a, b, c] -> x IN (?, ?, ?).
+// walkTimestamp folds timestamp("...") to the stored form of a TIME value
+// and binds it as one parameter. SQLite holds a TIME value as milliseconds
+// since the Unix epoch, so the bound form is an integer, not a string.
+func (g *generator) walkTimestamp(args []ast.Expr) (string, error) {
+	ms, err := foldTimestamp(args)
+	if err != nil {
+		return "", err
+	}
+
+	g.params = append(g.params, ms)
+
+	return "?", nil
+}
+
+// foldTimestamp evaluates a timestamp() call at generation time. The
+// argument must be a constant RFC 3339 string: a column value has no
+// constant form, so it cannot become a bound parameter.
+func foldTimestamp(args []ast.Expr) (int64, error) {
+	if len(args) != 1 {
+		return 0, fmt.Errorf("[xdb/sqlgen] timestamp expects 1 argument")
+	}
+
+	if args[0].Kind() != ast.LiteralKind {
+		return 0, fmt.Errorf("%w: timestamp of a non-constant argument", ErrUnsupportedExpr)
+	}
+
+	text, ok := args[0].AsLiteral().Value().(string)
+	if !ok {
+		return 0, fmt.Errorf("%w: timestamp of a non-string argument", ErrUnsupportedExpr)
+	}
+
+	parsed, err := time.Parse(time.RFC3339, text)
+	if err != nil {
+		return 0, fmt.Errorf("[xdb/sqlgen] timestamp: %w", err)
+	}
+
+	return parsed.UnixMilli(), nil
+}
+
+// walkIn handles x in [a, b, c] -> x IN (?, ?, ?), and the presence test
+// that filter expands has(attr) into.
 func (g *generator) walkIn(args []ast.Expr) (string, error) {
 	if len(args) != 2 {
 		return "", fmt.Errorf("[xdb/sqlgen] in expects 2 arguments")
+	}
+
+	if name, ok := presenceAttr(args); ok {
+		return g.walkPresence(name)
 	}
 
 	field, err := g.walk(args[0])
@@ -290,10 +344,55 @@ func (g *generator) walkIn(args []ast.Expr) (string, error) {
 	return fmt.Sprintf("(%s IN (%s))", field, strings.Join(placeholders, ", ")), nil
 }
 
+// presenceAttr returns the attribute name of a presence test, which is a
+// membership test of a constant name against the reserved attribute list.
+func presenceAttr(args []ast.Expr) (string, bool) {
+	if args[1].Kind() != ast.IdentKind || args[1].AsIdent() != filter.AttrsVar {
+		return "", false
+	}
+
+	if args[0].Kind() != ast.LiteralKind {
+		return "", false
+	}
+
+	name, ok := args[0].AsLiteral().Value().(string)
+
+	return name, ok
+}
+
+// walkPresence generates the SQL that selects the records which hold an
+// attribute. Under [ColumnStrategy] an absent attribute is a NULL column.
+// Under [KVStrategy] it is a missing row.
+func (g *generator) walkPresence(name string) (string, error) {
+	if g.strategy == KVStrategy {
+		g.params = append(g.params, name)
+
+		return fmt.Sprintf("(_id IN (SELECT _id FROM %s WHERE _attr = ?))", g.table), nil
+	}
+
+	column, err := g.walkIdent(name)
+	if err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("(%s IS NOT NULL)", column), nil
+}
+
 // walkLiteral converts a CEL literal to a SQL placeholder.
 func (g *generator) walkLiteral(val ref.Val) (string, error) {
-	g.params = append(g.params, val.Value())
+	g.params = append(g.params, bindValue(val))
 	return "?", nil
+}
+
+// bindValue converts a CEL value to the form the SQLite driver stores. A
+// time is held as milliseconds since the Unix epoch. Every other type
+// binds as its native Go value.
+func bindValue(val ref.Val) any {
+	if ts, ok := val.Value().(time.Time); ok {
+		return ts.UnixMilli()
+	}
+
+	return val.Value()
 }
 
 // walkSelect handles field selection (e.g., author.name).
@@ -311,7 +410,7 @@ func (g *generator) walkSelect(expr ast.Expr) (string, error) {
 // argument of @in directly, so a list that reaches walkList is not an @in
 // argument and has no SQL form.
 func (g *generator) walkList(expr ast.Expr) (string, error) {
-	return "", fmt.Errorf("[xdb/sqlgen] unexpected standalone list expression")
+	return "", fmt.Errorf("%w: standalone list", ErrUnsupportedExpr)
 }
 
 // --- KV strategy helpers ---
@@ -327,15 +426,37 @@ func (g *generator) walkKVComparison(
 		return "", err
 	}
 
-	val := right.AsLiteral()
-	g.params = append(g.params, attrName)
+	valCast, param, err := g.kvOperand(right)
+	if err != nil {
+		return "", err
+	}
 
-	// Determine if we need CAST for numeric comparison.
-	valCast := g.kvValExpr(val)
-	g.params = append(g.params, val.Value())
+	g.params = append(g.params, attrName, param)
 
 	return fmt.Sprintf("(_id IN (SELECT _id FROM %s WHERE _attr = ? AND %s %s ?))",
 		g.table, valCast, sqlOp), nil
+}
+
+// kvOperand resolves the right side of a KV comparison to its SQL cast and
+// its bound parameter. A timestamp() call folds to the stored millisecond
+// form and compares as a number.
+func (g *generator) kvOperand(expr ast.Expr) (string, any, error) {
+	if expr.Kind() == ast.CallKind && expr.AsCall().FunctionName() == "timestamp" {
+		ms, err := foldTimestamp(expr.AsCall().Args())
+		if err != nil {
+			return "", nil, err
+		}
+
+		return "CAST(_val AS REAL)", ms, nil
+	}
+
+	if expr.Kind() != ast.LiteralKind {
+		return "", nil, fmt.Errorf("%w: comparison against a non-constant value", ErrUnsupportedExpr)
+	}
+
+	val := expr.AsLiteral()
+
+	return g.kvValExpr(val), bindValue(val), nil
 }
 
 // walkKVStringFn generates a KV subquery for a string function. Like the
@@ -359,7 +480,7 @@ func (g *generator) walkKVStringFn(attrName, fn string) (string, error) {
 		pattern = "substr(CAST(_val AS TEXT), -length(?)) = ?"
 		g.params = append(g.params, argVal)
 	default:
-		return "", fmt.Errorf("[xdb/sqlgen] unsupported KV string function: %s", fn)
+		return "", fmt.Errorf("%w: KV string function %s", ErrUnsupportedExpr, fn)
 	}
 
 	return fmt.Sprintf("(_id IN (SELECT _id FROM %s WHERE _attr = ? AND %s))",
@@ -379,7 +500,7 @@ func (g *generator) resolveAttrName(expr ast.Expr) (string, error) {
 		}
 		return parent + "." + sel.FieldName(), nil
 	default:
-		return "", fmt.Errorf("[xdb/sqlgen] cannot resolve attribute from expression kind %v", expr.Kind())
+		return "", fmt.Errorf("%w: attribute from kind %v", ErrUnsupportedExpr, expr.Kind())
 	}
 }
 
@@ -387,7 +508,7 @@ func (g *generator) resolveAttrName(expr ast.Expr) (string, error) {
 // or TEXT for other comparisons, based on the literal's CEL type.
 func (g *generator) kvValExpr(val ref.Val) string {
 	switch val.Type() {
-	case types.IntType, types.UintType, types.DoubleType, types.BoolType:
+	case types.IntType, types.UintType, types.DoubleType, types.BoolType, types.TimestampType:
 		return "CAST(_val AS REAL)"
 	default:
 		return "CAST(_val AS TEXT)"

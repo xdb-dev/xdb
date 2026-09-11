@@ -448,14 +448,37 @@ func listFilterGrammar(cmd *cli.Command) error {
 		"kind":      "FilterGrammar",
 		"dialect":   "CEL (AIP-160)",
 		"operators": []string{"==", "!=", "<", "<=", ">", ">=", "&&", "||", "!", "in"},
-		"functions": []string{".contains(s)", ".startsWith(s)", ".endsWith(s)", "size(x)"},
+		"functions": []string{
+			".contains(s)",
+			".startsWith(s)",
+			".endsWith(s)",
+			".matches(regex)",
+			"size(x)",
+			`timestamp("RFC3339")`,
+			"has(attr)",
+		},
+		"reserved_attrs": []map[string]string{
+			{"name": "_id", "type": "string", "description": "Record id"},
+			{"name": "_version", "type": "integer", "description": "Record version"},
+			{"name": "_updated", "type": "time", "description": "Last write time"},
+			{"name": "_attrs", "type": "array<string>", "description": "Names of the attributes the record holds"},
+		},
 		"examples": []string{
 			`status == "published"`,
 			`age >= 18 && status == "active"`,
 			`title.contains("hello") || title.startsWith("Hi")`,
+			`title.matches("^RFC-[0-9]+$")`,
 			`status in ["active", "pending"]`,
 			`size(tags) > 0`,
 			`!(archived == true)`,
+			`date >= timestamp("2026-08-01T00:00:00Z") && date < timestamp("2026-09-01T00:00:00Z")`,
+			`!has(assignee)`,
+			`"assignee" in _attrs`,
+		},
+		"notes": []string{
+			"Compare a time field against timestamp(\"...\"), not against a string.",
+			"has(attr) asks whether the record holds the attribute. Negate it to find the records that do not.",
+			"String functions are case-sensitive.",
 		},
 	}
 

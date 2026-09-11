@@ -35,13 +35,6 @@ func TestBatch_ReadsOperationsFromStdin(t *testing.T) {
 }
 
 func TestExportImport_Roundtrip(t *testing.T) {
-	// Known product bug. Export emits _version. Import treats it as a
-	// compare-and-swap against a record that does not exist in the target
-	// schema. The roundtrip fails with CONFLICT on line 1. Remove the Skip
-	// when import ignores _version for absent records, or when export stops
-	// emitting it.
-	t.Skip("export | import into another schema fails with CONFLICT on _version")
-
 	cfg := startCLITestDaemon(t)
 
 	for _, name := range []string{"contacts", "contacts_v2"} {

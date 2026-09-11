@@ -2,6 +2,7 @@ package xdbsqlite
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/filter"
@@ -13,13 +14,17 @@ import (
 // compileWhere compiles a CEL filter to a SQL WHERE clause. An empty
 // filter yields no clause.
 //
-// A filter referencing a field absent from the schema's current column
-// set (dynamic mode, a field not yet written) surfaces as
-// [sqlgen.ErrUnknownColumn]; that is mapped to [store.ErrUnsupportedQuery]
-// so the facade falls back to a scan + in-memory CEL evaluation instead of
-// letting a raw "no such column" error reach the caller. Strict-mode
-// rejection of unknown filter fields already happened in [filter.Compile]
-// and never reaches sqlgen.
+// Two sqlgen faults are not the caller's. A field absent from the schema's
+// current column set (dynamic mode, a field not yet written) gives
+// [sqlgen.ErrUnknownColumn]. A valid CEL construct with no SQL form, such
+// as matches(), gives [sqlgen.ErrUnsupportedExpr]. Both map to
+// [store.ErrUnsupportedQuery], so the facade falls back to a scan and
+// evaluates the filter in memory.
+//
+// Any other sqlgen fault is bad input, so it is wrapped as
+// [core.ErrInvalidFilter] and reaches the caller as an argument error, not
+// an internal one. Strict-mode rejection of unknown filter fields already
+// happened in [filter.Compile] and never reaches sqlgen.
 func compileWhere(
 	filterExpr string,
 	def *schema.Def,
@@ -37,10 +42,11 @@ func compileWhere(
 
 	wc, err := sqlgen.Generate(f, strategy, table)
 	if err != nil {
-		if errors.Is(err, sqlgen.ErrUnknownColumn) {
+		if errors.Is(err, sqlgen.ErrUnknownColumn) || errors.Is(err, sqlgen.ErrUnsupportedExpr) {
 			return "", nil, store.ErrUnsupportedQuery
 		}
-		return "", nil, err
+
+		return "", nil, fmt.Errorf("%w: %w", core.ErrInvalidFilter, err)
 	}
 
 	return wc.SQL, wc.Params, nil

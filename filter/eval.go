@@ -29,14 +29,19 @@ func (f *Filter) Match(record *core.Record) (bool, error) {
 }
 
 // buildActivation converts a record's tuples into a map[string]any suitable
-// for CEL evaluation.
+// for CEL evaluation. It also binds [AttrsVar] to the attribute names the
+// record carries, which is what a presence test reads.
 func buildActivation(record *core.Record) map[string]any {
 	tuples := record.Tuples()
-	act := make(map[string]any, len(tuples))
+	act := make(map[string]any, len(tuples)+1)
+	attrs := make([]string, 0, len(tuples))
 
 	for _, tuple := range tuples {
 		act[tuple.Attr()] = nativeValue(tuple.Value())
+		attrs = append(attrs, tuple.Attr())
 	}
+
+	act[AttrsVar] = attrs
 
 	return act
 }

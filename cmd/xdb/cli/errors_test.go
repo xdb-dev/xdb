@@ -263,6 +263,18 @@ func TestHintFor_SchemaViolationOnSchemasCreate(t *testing.T) {
 	assert.Contains(t, recordHint, "describe --uri")
 }
 
+func TestHintFor_InvalidArgumentNamesTheAction(t *testing.T) {
+	hint := hintFor(CodeInvalidArgument, "records", "list", "")
+	assert.Contains(t, hint, "xdb describe records.list")
+	assert.NotContains(t, hint, "<resource>", "the hint must name the real action, not a placeholder")
+
+	// The root command and the usage-error path have no resource or
+	// action to name, so the hint points at the command list instead.
+	bare := hintFor(CodeInvalidArgument, "", "", "")
+	assert.Contains(t, bare, "xdb --help")
+	assert.NotContains(t, bare, "<resource>")
+}
+
 func TestInvalidArgError_SetsHint(t *testing.T) {
 	err := invalidArgError("records", "create", assert.AnError)
 

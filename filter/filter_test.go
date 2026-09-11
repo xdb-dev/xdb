@@ -245,6 +245,111 @@ func TestCompile_InvalidFilterSentinel(t *testing.T) {
 	}
 }
 
+func TestCompile_RejectsAMalformedTimestamp(t *testing.T) {
+	t.Parallel()
+
+	_, err := Compile(`at >= timestamp("01-08-2026")`, nil)
+	require.ErrorIs(t, err, core.ErrInvalidFilter)
+	assert.Contains(t, err.Error(), "RFC 3339")
+}
+
+func TestCompile_AcceptsAnRFC3339Timestamp(t *testing.T) {
+	t.Parallel()
+
+	_, err := Compile(`at >= timestamp("2026-08-01T00:00:00Z")`, nil)
+	require.NoError(t, err)
+}
+
+func TestCompile_TagsAnInvalidFilterWithAFix(t *testing.T) {
+	t.Parallel()
+
+	_, err := Compile(`title ==`, nil)
+	require.Error(t, err)
+	assert.Equal(t, "run xdb describe --filter to see the filter grammar",
+		core.ErrorTags(err)["fix"])
+}
+
+func TestCompile_PresenceOfAnAttribute(t *testing.T) {
+	t.Parallel()
+
+	def := &schema.Def{
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"title":    {Type: core.TypeString},
+			"assignee": {Type: core.TypeString},
+		},
+	}
+
+	assigned := core.NewRecord("app", "issues", "i1")
+	assigned.Set("title", "a")
+	assigned.Set("assignee", "priya")
+
+	unassigned := core.NewRecord("app", "issues", "i2")
+	unassigned.Set("title", "b")
+
+	tests := []struct {
+		name         string
+		expr         string
+		wantAssigned bool
+		wantOther    bool
+	}{
+		{"present", `has(assignee)`, true, false},
+		{"absent", `!has(assignee)`, false, true},
+		{"absent in a compound", `title == "b" && !has(assignee)`, false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := Compile(tt.expr, def)
+			require.NoError(t, err)
+
+			got, err := f.Match(assigned)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantAssigned, got)
+
+			got, err = f.Match(unassigned)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantOther, got)
+		})
+	}
+}
+
+func TestCompile_PresenceOfAnUnknownFieldUnderStrict(t *testing.T) {
+	t.Parallel()
+
+	def := &schema.Def{
+		Mode: schema.ModeStrict,
+		Fields: map[string]schema.Field{
+			"title": {Type: core.TypeString},
+		},
+	}
+
+	_, err := Compile(`has(bogus)`, def)
+	require.ErrorIs(t, err, core.ErrInvalidFilter)
+	assert.Contains(t, err.Error(), "bogus")
+}
+
+func TestCompile_PresenceNeedsAnAttributeName(t *testing.T) {
+	t.Parallel()
+
+	_, err := Compile(`has("title")`, nil)
+	require.ErrorIs(t, err, core.ErrInvalidFilter)
+}
+
+func TestCompile_AttrsListIsFilterable(t *testing.T) {
+	t.Parallel()
+
+	f, err := Compile(`"assignee" in _attrs`, nil)
+	require.NoError(t, err)
+
+	r := core.NewRecord("app", "issues", "i1")
+	r.Set("assignee", "priya")
+
+	got, err := f.Match(r)
+	require.NoError(t, err)
+	assert.True(t, got)
+}
+
 func TestCompile_ValidFilterStillCompiles(t *testing.T) {
 	t.Parallel()
 

@@ -210,7 +210,13 @@ func hintFor(code, resource, action, uri string) string {
 	case CodeNotImplemented:
 		return "this operation is not available in this daemon build"
 	case CodeInvalidArgument:
-		return "run xdb describe <resource>.<action> to see expected parameters"
+		// A placeholder hint costs the caller a second guess. Name the
+		// action that failed, so the pointer is a command to run.
+		if resource != "" && action != "" {
+			return "run xdb describe " + resource + "." + action + " to see the expected parameters"
+		}
+
+		return "run xdb --help to list commands"
 	default:
 		return ""
 	}

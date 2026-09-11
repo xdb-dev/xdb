@@ -157,6 +157,42 @@ func TestVersioning_CAS(t *testing.T) {
 		assert.Equal(t, int64(2), versionOf(t, s, uri))
 	})
 
+	t.Run("a conflict on an absent record says the record is absent", func(t *testing.T) {
+		s, _ := versionedStore(t)
+
+		absent := core.NewRecord("app", "posts", "cas5").
+			Set("title", "c").
+			Set(schema.FieldVersion, int64(1))
+		err := s.UpsertRecord(ctx, absent)
+		require.ErrorIs(t, err, core.ErrConflict)
+
+		tags := core.ErrorTags(err)
+		assert.Contains(t, tags["fix"], "does not exist")
+		assert.Equal(t, "1", tags["expected"])
+		assert.Equal(t, "0", tags["got"])
+	})
+
+	t.Run("a conflict on a stale copy says to re-read", func(t *testing.T) {
+		s, _ := versionedStore(t)
+
+		require.NoError(t, s.CreateRecord(ctx,
+			core.NewRecord("app", "posts", "cas6").Set("title", "a"),
+		))
+		require.NoError(t, s.UpsertRecord(ctx,
+			core.NewRecord("app", "posts", "cas6").Set("title", "b"),
+		))
+
+		stale := core.NewRecord("app", "posts", "cas6").
+			Set("title", "c").
+			Set(schema.FieldVersion, int64(1))
+		err := s.UpsertRecord(ctx, stale)
+		require.ErrorIs(t, err, core.ErrConflict)
+
+		tags := core.ErrorTags(err)
+		assert.Contains(t, tags["fix"], "re-read")
+		assert.Equal(t, "2", tags["got"])
+	})
+
 	t.Run("read-modify-write round-trips safely", func(t *testing.T) {
 		s, _ := versionedStore(t)
 		uri := core.MustParseURI("xdb://app/posts/cas4")

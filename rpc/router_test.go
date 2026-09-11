@@ -147,6 +147,18 @@ func TestMapError(t *testing.T) {
 			wantData: map[string]string{"field": "age"},
 		},
 		{
+			name:           "malformed JSON maps to CodeInvalidParams",
+			err:            fmt.Errorf("[xdb/api] schemas.create: %w", jsonSyntaxError()),
+			wantCode:       CodeInvalidParams,
+			wantDataReason: "invalid_payload",
+		},
+		{
+			name:           "a JSON type mismatch maps to CodeInvalidParams",
+			err:            fmt.Errorf("[xdb/api] schemas.create: %w", jsonTypeError()),
+			wantCode:       CodeInvalidParams,
+			wantDataReason: "invalid_payload",
+		},
+		{
 			name: "a tagged reason wins over the sentinel default",
 			err: xerrors.Wrap(core.ErrInvalidURI,
 				"reason", "attr_not_allowed",
@@ -214,4 +226,20 @@ func TestInvokeRejectsStreamingMethod(t *testing.T) {
 		_, err := r.Invoke(context.Background(), "nope.nope", nil)
 		require.Error(t, err)
 	})
+}
+
+// jsonSyntaxError returns the error the standard decoder gives for
+// malformed JSON.
+func jsonSyntaxError() error {
+	var v map[string]any
+	return json.Unmarshal([]byte(`{"fields":`), &v)
+}
+
+// jsonTypeError returns the error the standard decoder gives when a value
+// has the wrong JSON type for its target field.
+func jsonTypeError() error {
+	var v struct {
+		Fields map[string]string `json:"fields"`
+	}
+	return json.Unmarshal([]byte(`{"fields":{"items":1}}`), &v)
 }

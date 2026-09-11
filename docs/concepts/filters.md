@@ -45,6 +45,47 @@ xdb records list xdb://myapp/posts --filter '!(archived == true)' --fields _id
 | `startsWith` | `name.startsWith("J")` | `substr(name, 1, length(?)) = ?` |
 | `endsWith`   | `name.endsWith("hn")`  | `substr(name, -length(?)) = ?`   |
 | `size`       | `size(name) > 3`       | `LENGTH(name) > 3`               |
+| `matches`    | `name.matches("^J")`   | no SQL form: scan and evaluate   |
+| `timestamp`  | `at >= timestamp("2026-08-01T00:00:00Z")` | `at >= ?` bound as milliseconds |
+| `has`        | `!has(assignee)`       | `NOT ("assignee" IS NOT NULL)`   |
+
+`matches` has no SQL translation. The SQLite driver declines the pushdown and
+the store falls back to a scan with in-memory evaluation. The result is the
+same on every backend.
+
+### Time comparisons
+
+A `time` field compares against `timestamp("...")`, never against a string.
+CEL rejects a comparison between a time and a string, so the string form
+fails to type-check:
+
+```
+at >= timestamp("2026-08-01T00:00:00Z") && at < timestamp("2026-09-01T00:00:00Z")
+```
+
+The argument is an RFC 3339 time. A constant argument that does not parse is
+rejected by `filter.Compile`, because such a filter can never match a record.
+`filter/sqlgen` folds the call at generation time and binds the result as
+milliseconds since the Unix epoch, which is how the SQLite driver stores a
+time.
+
+### Absent attributes
+
+`has(attr)` asks whether the record holds the attribute. The negation selects
+the records that do not, such as the unassigned issues of a tracker:
+
+```
+!has(assignee)
+has(assignee) && done == false
+```
+
+XDB replaces the standard CEL `has()` macro. An XDB attribute name is flat,
+and a dotted name such as `author.name` is one attribute, not a field of a
+nested message. Both `has(assignee)` and `has(author.name)` expand to a
+membership test on `_attrs`, so `"assignee" in _attrs` is the same filter.
+
+Under `strict` mode, `has()` on a field that the schema does not declare is
+rejected the same way a comparison on that field is.
 
 ### Case Sensitivity
 
@@ -80,15 +121,19 @@ paths use the same definition, so the check is the same on every backend.
 
 ### System Attributes
 
-`_id`, `_version`, and `_updated` can be used in a filter in every mode. You
-do not declare them, and they never trigger the unknown-field rejection of
-`strict` mode:
+`_id`, `_version`, `_updated`, and `_attrs` can be used in a filter in every
+mode. You do not declare them, and they never trigger the unknown-field
+rejection of `strict` mode:
 
 ```
 _version > 5
 _updated > timestamp("2026-01-01T00:00:00Z")
 _id.startsWith("user-")
+"assignee" in _attrs
 ```
+
+`_attrs` is an `array<string>` of the attribute names the record holds. It is
+derived at evaluation time, not stored.
 
 `_version` and `_updated` are stamped into every definition, so they are real
 columns in a column table. `_id` is projected from the record path. It is not
@@ -137,6 +182,12 @@ a field that is not declared on the schema of the compiled filter returns
 happens in `dynamic` mode when a filter references a field that no record has
 written yet. The SQLite driver maps this error to a query-pushdown refusal,
 and the store falls back to a scan.
+
+A construct with no SQL form, such as `matches`, returns
+`sqlgen.ErrUnsupportedExpr`. The SQLite driver maps it to the same refusal,
+so the filter still runs. Any other fault from `sqlgen` is bad input, and
+reaches the caller as `core.ErrInvalidFilter` with the `INVALID_ARGUMENT`
+code.
 
 ## Related Concepts
 

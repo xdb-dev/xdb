@@ -4,13 +4,26 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
+	xerrors "github.com/gojekfarm/xtools/errors"
 	"github.com/google/cel-go/cel"
 	"github.com/google/cel-go/common/ast"
+	"github.com/google/cel-go/common/operators"
+	"github.com/google/cel-go/common/types"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 )
+
+// filterFix is the one-line pointer attached to every invalid-filter
+// error. It reaches the CLI as the hint of the error envelope.
+const filterFix = "run xdb describe --filter to see the filter grammar"
+
+// AttrsVar is the reserved filter variable that holds the attribute names
+// a record carries. Write "name" in _attrs, or has(name), to select the
+// records that hold an attribute.
+const AttrsVar = "_attrs"
 
 // reservedAttrTypes maps reserved attribute names to their CEL type. These
 // attributes are always filterable, in every schema mode, without being
@@ -25,6 +38,57 @@ var reservedAttrTypes = map[string]*cel.Type{
 	schema.FieldID:      cel.StringType,
 	schema.FieldVersion: cel.IntType,
 	schema.FieldUpdated: cel.TimestampType,
+	AttrsVar:            cel.ListType(cel.StringType),
+}
+
+// presenceMacro replaces the standard has() macro. An XDB attribute name is
+// flat, and a dotted name such as author.name is one attribute, not a field
+// of a nested message. The standard macro rejects a bare identifier and
+// reads a dotted name as a field selection, so neither form asks the
+// question a caller means. Both expand to a membership test on [AttrsVar].
+var presenceMacro = cel.GlobalMacro("has", 1, expandPresence)
+
+// expandPresence rewrites has(attr) to "attr" in _attrs.
+func expandPresence(
+	mef cel.MacroExprFactory,
+	_ ast.Expr,
+	args []ast.Expr,
+) (ast.Expr, *cel.Error) {
+	name, ok := attrPath(args[0])
+	if !ok {
+		return nil, mef.NewError(args[0].ID(),
+			"has() expects an attribute name, for example has(assignee)")
+	}
+
+	return mef.NewCall(operators.In,
+		mef.NewLiteral(types.String(name)),
+		mef.NewIdent(AttrsVar),
+	), nil
+}
+
+// attrPath renders an identifier or a chain of field selections as one
+// dotted attribute name. Any other expression has no attribute name.
+func attrPath(expr ast.Expr) (string, bool) {
+	switch expr.Kind() {
+	case ast.IdentKind:
+		return expr.AsIdent(), true
+
+	case ast.SelectKind:
+		sel := expr.AsSelect()
+		if sel.IsTestOnly() {
+			return "", false
+		}
+
+		parent, ok := attrPath(sel.Operand())
+		if !ok {
+			return "", false
+		}
+
+		return parent + "." + sel.FieldName(), true
+
+	default:
+		return "", false
+	}
 }
 
 // Filter is a compiled CEL filter expression.
@@ -41,12 +105,12 @@ type Filter struct {
 // When def is nil (schema-free), variables are dynamically typed.
 func Compile(expr string, def *schema.Def) (*Filter, error) {
 	if expr == "" {
-		return nil, fmt.Errorf("%w: empty expression", core.ErrInvalidFilter)
+		return nil, invalidFilter(fmt.Errorf("empty expression"))
 	}
 
 	env, err := buildEnv(def)
 	if err != nil {
-		return nil, fmt.Errorf("%w: build env: %w", core.ErrInvalidFilter, err)
+		return nil, invalidFilter(fmt.Errorf("build env: %w", err))
 	}
 
 	// Two-pass compile: first parse to extract identifiers, then extend env
@@ -55,17 +119,21 @@ func Compile(expr string, def *schema.Def) (*Filter, error) {
 	// so filtering on missing attributes evaluates to false at runtime).
 	env, err = extendEnvFromExpr(env, def, expr)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", core.ErrInvalidFilter, err)
+		return nil, invalidFilter(err)
 	}
 
 	celAst, iss := env.Compile(expr)
 	if iss.Err() != nil {
-		return nil, fmt.Errorf("%w: compile: %w", core.ErrInvalidFilter, iss.Err())
+		return nil, invalidFilter(fmt.Errorf("compile: %w", iss.Err()))
+	}
+
+	if validErr := validateExpr(celAst.NativeRep().Expr(), def); validErr != nil {
+		return nil, invalidFilter(validErr)
 	}
 
 	prg, err := env.Program(celAst)
 	if err != nil {
-		return nil, fmt.Errorf("%w: program: %w", core.ErrInvalidFilter, err)
+		return nil, invalidFilter(fmt.Errorf("program: %w", err))
 	}
 
 	return &Filter{
@@ -75,6 +143,133 @@ func Compile(expr string, def *schema.Def) (*Filter, error) {
 		src:    expr,
 		def:    def,
 	}, nil
+}
+
+// invalidFilter wraps err as [core.ErrInvalidFilter] and attaches the fix
+// tag. Every rejection from [Compile] goes through it, so a caller always
+// gets the same sentinel and the same pointer to the grammar.
+func invalidFilter(err error) error {
+	return xerrors.Wrap(
+		fmt.Errorf("%w: %w", core.ErrInvalidFilter, err),
+		"fix", filterFix,
+		"reason", "invalid_filter",
+	)
+}
+
+// validateExpr walks a compiled AST for faults that CEL accepts but XDB
+// rejects: a constant timestamp() that is not an RFC 3339 time, and a
+// presence test on a field that a strict schema does not declare. CEL
+// defers both to evaluation, where a filter error reads as "no records
+// match". A filter that can never match any record is a caller mistake, so
+// it is reported at compile time instead.
+func validateExpr(expr ast.Expr, def *schema.Def) error {
+	if expr == nil {
+		return nil
+	}
+
+	switch expr.Kind() {
+	case ast.CallKind:
+		call := expr.AsCall()
+		args := call.Args()
+
+		if call.FunctionName() == "timestamp" && len(args) == 1 {
+			if err := checkTimestampArg(args[0]); err != nil {
+				return err
+			}
+		}
+
+		if name, ok := presenceAttr(call); ok {
+			if err := checkPresenceAttr(name, def); err != nil {
+				return err
+			}
+		}
+
+		if call.IsMemberFunction() {
+			if err := validateExpr(call.Target(), def); err != nil {
+				return err
+			}
+		}
+
+		for _, arg := range args {
+			if err := validateExpr(arg, def); err != nil {
+				return err
+			}
+		}
+
+	case ast.SelectKind:
+		return validateExpr(expr.AsSelect().Operand(), def)
+
+	case ast.ListKind:
+		for _, elem := range expr.AsList().Elements() {
+			if err := validateExpr(elem, def); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// presenceAttr returns the attribute name of an expanded has() call, which
+// is a membership test of a constant name against [AttrsVar].
+func presenceAttr(call ast.CallExpr) (string, bool) {
+	args := call.Args()
+	if call.FunctionName() != operators.In || len(args) != 2 {
+		return "", false
+	}
+
+	if args[1].Kind() != ast.IdentKind || args[1].AsIdent() != AttrsVar {
+		return "", false
+	}
+
+	if args[0].Kind() != ast.LiteralKind {
+		return "", false
+	}
+
+	name, ok := args[0].AsLiteral().Value().(string)
+
+	return name, ok
+}
+
+// checkPresenceAttr rejects a presence test on a field that a strict schema
+// does not declare. The macro turns the name into a string literal, so the
+// unknown-identifier check in extendEnvFromExpr never sees it.
+func checkPresenceAttr(name string, def *schema.Def) error {
+	if def == nil || def.Mode != schema.ModeStrict {
+		return nil
+	}
+
+	if _, ok := def.Fields[name]; ok {
+		return nil
+	}
+
+	if _, ok := reservedAttrTypes[name]; ok {
+		return nil
+	}
+
+	return unknownFieldError(name, def)
+}
+
+// checkTimestampArg parses a constant timestamp() argument. A non-constant
+// argument passes: only the record supplies its value.
+func checkTimestampArg(arg ast.Expr) error {
+	if arg.Kind() != ast.LiteralKind {
+		return nil
+	}
+
+	text, ok := arg.AsLiteral().Value().(string)
+	if !ok {
+		return nil
+	}
+
+	if _, err := time.Parse(time.RFC3339, text); err != nil {
+		return fmt.Errorf(
+			"timestamp(%q) is not an RFC 3339 time, for example timestamp(\"2026-08-01T00:00:00Z\")",
+			text,
+		)
+	}
+
+	return nil
 }
 
 // Source returns the original expression string.
@@ -95,7 +290,8 @@ func buildEnv(def *schema.Def) (*cel.Env, error) {
 	if def != nil {
 		fieldCount = len(def.Fields)
 	}
-	opts := make([]cel.EnvOption, 0, len(reservedAttrTypes)+fieldCount)
+	opts := make([]cel.EnvOption, 0, len(reservedAttrTypes)+fieldCount+1)
+	opts = append(opts, cel.Macros(presenceMacro))
 
 	for name, ct := range reservedAttrTypes {
 		if def != nil {
