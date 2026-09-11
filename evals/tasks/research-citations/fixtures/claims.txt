@@ -1,0 +1,6 @@
+# One claim per line: <claim id>: <claim text> -- supported by <source ids>
+C1: Retrieval before generation reduces hallucination. -- supported by S1, S5
+C2: Grounding answers in retrieved passages improves factual accuracy. -- supported by S1, S3
+C3: Hybrid keyword plus vector search outperforms either alone in enterprise settings. -- supported by S4, S7, S8
+C4: Grounded generation cuts hallucination by roughly 40%. -- supported by S3
+C5: Self-attention is sufficient for sequence transduction. -- supported by S6, S3

@@ -1,0 +1,118 @@
+[
+  {
+    "id": "S1",
+    "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP",
+    "authors": [
+      "Lewis, P.",
+      "Perez, E."
+    ],
+    "year": 2021,
+    "type": "paper",
+    "url": "https://arxiv.org/abs/2005.11401",
+    "tags": [
+      "rag",
+      "nlp"
+    ]
+  },
+  {
+    "id": "S2",
+    "title": "Why Your Chatbot Makes Things Up",
+    "authors": [
+      "Rao, K."
+    ],
+    "year": 2019,
+    "type": "blog",
+    "url": "https://example.in/blog/hallucination",
+    "tags": [
+      "hallucination"
+    ]
+  },
+  {
+    "id": "S3",
+    "title": "Grounded Answers Reduce Hallucination by 40%",
+    "authors": [
+      "Mehta, A.",
+      "Sharma, P."
+    ],
+    "year": 2022,
+    "type": "paper",
+    "url": "https://example.org/papers/grounded-40",
+    "tags": [
+      "rag",
+      "hallucination",
+      "evaluation"
+    ]
+  },
+  {
+    "id": "S4",
+    "title": "State of Enterprise Search 2023",
+    "authors": [
+      "Gartner Research"
+    ],
+    "year": 2023,
+    "type": "report",
+    "url": "https://example.com/reports/search-2023",
+    "tags": [
+      "search",
+      "enterprise"
+    ]
+  },
+  {
+    "id": "S5",
+    "title": "Dense Passage Retrieval for Open-Domain QA",
+    "authors": [
+      "Karpukhin, V.",
+      "Oguz, B."
+    ],
+    "year": 2020,
+    "type": "paper",
+    "url": "https://arxiv.org/abs/2004.04906",
+    "tags": [
+      "retrieval",
+      "qa"
+    ]
+  },
+  {
+    "id": "S6",
+    "title": "Attention Is All You Need",
+    "authors": [
+      "Vaswani, A.",
+      "Shazeer, N."
+    ],
+    "year": 2018,
+    "type": "paper",
+    "url": "https://arxiv.org/abs/1706.03762",
+    "tags": [
+      "transformers"
+    ]
+  },
+  {
+    "id": "S7",
+    "title": "Hybrid Search in Production: Lessons from Flipkart",
+    "authors": [
+      "Iyer, S."
+    ],
+    "year": 2024,
+    "type": "blog",
+    "url": "https://example.in/blog/hybrid-search",
+    "tags": [
+      "search",
+      "hybrid"
+    ]
+  },
+  {
+    "id": "S8",
+    "title": "Evaluating Faithfulness in Summarization",
+    "authors": [
+      "Nair, D.",
+      "Kulkarni, R."
+    ],
+    "year": 2022,
+    "type": "paper",
+    "url": "https://example.org/papers/faithfulness",
+    "tags": [
+      "evaluation",
+      "hallucination"
+    ]
+  }
+]

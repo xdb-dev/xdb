@@ -1,0 +1,91 @@
+name: issue-tracker
+description: Load a Linear-style issue tracker, triage it, answer the queries an engineer runs every day, and relabel in bulk.
+tags: [tracker, relations, filters, pagination, batch]
+namespace: tracker
+max_turns: 60
+budget:
+  failed_commands: 10
+  cost_usd: 3.00
+
+# Expected values. Recompute them when you change a fixture.
+#   issues.json        12 issues, 16 comments in total
+#   triage             unassigned open issues (2, 8, 9, 12) -> rohan; #2 closed; #9 -> P0
+#   open P0/P1 after   1, 6, 7, 9 = 4
+#   priya's open       7 (P0), 1 (P1)
+#   zero comments      4, 5, 8, 12 = 4
+#   relabel            perf -> performance on #6; q3 on open P0 (7, 9) = 3 issues changed
+
+phases:
+  - name: load
+    prompt: |
+      Set up an issue tracker for my team in the namespace `$NS`. Load
+      `issues.json` from this directory. Model `issues` and `comments` so
+      that each comment belongs to one issue. Use the issue number as the
+      issue id.
+    checks:
+      - name: issues schema exists
+        run: xdb schemas get xdb://$NS/issues -o json
+        expect: { exit: 0 }
+      - name: comments schema exists
+        run: xdb schemas get xdb://$NS/comments -o json
+        expect: { exit: 0 }
+      - name: twelve issues
+        run: xdb records list xdb://$NS/issues -o ndjson --limit 100
+        expect: { exit: 0, ndjson_count: 12 }
+      - name: sixteen comments
+        run: xdb records list xdb://$NS/comments -o ndjson --limit 100
+        expect: { exit: 0, ndjson_count: 16 }
+      - name: issue number is the id
+        run: xdb records get xdb://$NS/issues/7 -o json
+        expect: { exit: 0 }
+
+  - name: triage
+    prompt: |
+      Triage time. Assign every open issue that has no assignee to rohan.
+      Close #2, it will not be done. Raise #9 to P0.
+
+      Then tell me how many open issues are P0 or P1. End with
+      `ANSWER: <count>`.
+    checks:
+      - name: open p0 p1 count
+        answer: "4"
+      - name: still twelve issues
+        run: xdb records list xdb://$NS/issues -o ndjson --limit 100
+        expect: { exit: 0, ndjson_count: 12 }
+
+  - name: my-issues
+    prompt: |
+      I am priya. Show me my open issues, highest priority first. End with
+      `ANSWER: <issue numbers in that order, comma-separated, no spaces>`.
+    checks:
+      - name: priya open by priority
+        answer: "7,1"
+
+  - name: no-comments
+    prompt: |
+      Which issues have no comments at all? Page through the data if you
+      need to. End with `ANSWER: <count>`.
+    checks:
+      - name: zero comment count
+        answer: "4"
+
+  - name: relabel
+    prompt: |
+      Rename the label `perf` to `performance` on every issue that has it,
+      and add the label `q3` to every open P0 issue. Apply all the changes
+      as one batch. Then tell me how many issues changed. End with
+      `ANSWER: <count>`.
+    checks:
+      - name: issues changed
+        answer: "3"
+      - name: still twelve issues
+        run: xdb records list xdb://$NS/issues -o ndjson --limit 100
+        expect: { exit: 0, ndjson_count: 12 }
+
+rubric: |
+  Score each 1 to 5.
+  - Comments reference their issue by id; comment ids are unique across issues.
+  - Labels are stored as an array of strings.
+  - Timestamps are stored as time values.
+  - The triage used filters to find the unassigned issues rather than reading every record.
+  - The relabel in phase 5 went through `xdb batch`.

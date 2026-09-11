@@ -1,0 +1,236 @@
+[
+  {
+    "number": 1,
+    "title": "Login fails on Safari",
+    "state": "open",
+    "priority": "P1",
+    "labels": [
+      "bug"
+    ],
+    "assignee": "priya",
+    "created_at": "2026-08-01T09:00:00Z",
+    "comments": [
+      {
+        "author": "arjun",
+        "created_at": "2026-08-01T10:00:00Z",
+        "body": "Comment 1 on #1."
+      },
+      {
+        "author": "kavita",
+        "created_at": "2026-08-01T11:00:00Z",
+        "body": "Comment 2 on #1."
+      }
+    ]
+  },
+  {
+    "number": 2,
+    "title": "Add dark mode",
+    "state": "open",
+    "priority": "P3",
+    "labels": [
+      "feature"
+    ],
+    "assignee": null,
+    "created_at": "2026-08-02T09:00:00Z",
+    "comments": [
+      {
+        "author": "kavita",
+        "created_at": "2026-08-02T10:00:00Z",
+        "body": "Comment 1 on #2."
+      }
+    ]
+  },
+  {
+    "number": 3,
+    "title": "Crash on empty cart",
+    "state": "closed",
+    "priority": "P0",
+    "labels": [
+      "bug"
+    ],
+    "assignee": "arjun",
+    "created_at": "2026-08-03T09:00:00Z",
+    "comments": [
+      {
+        "author": "rohan",
+        "created_at": "2026-08-03T10:00:00Z",
+        "body": "Comment 1 on #3."
+      },
+      {
+        "author": "priya",
+        "created_at": "2026-08-03T11:00:00Z",
+        "body": "Comment 2 on #3."
+      },
+      {
+        "author": "arjun",
+        "created_at": "2026-08-03T12:00:00Z",
+        "body": "Comment 3 on #3."
+      }
+    ]
+  },
+  {
+    "number": 4,
+    "title": "Export to CSV",
+    "state": "open",
+    "priority": "P2",
+    "labels": [
+      "feature"
+    ],
+    "assignee": "kavita",
+    "created_at": "2026-08-04T09:00:00Z",
+    "comments": []
+  },
+  {
+    "number": 5,
+    "title": "Typo on pricing page",
+    "state": "closed",
+    "priority": "P3",
+    "labels": [
+      "bug",
+      "docs"
+    ],
+    "assignee": null,
+    "created_at": "2026-08-05T09:00:00Z",
+    "comments": []
+  },
+  {
+    "number": 6,
+    "title": "Slow search over 10k rows",
+    "state": "open",
+    "priority": "P1",
+    "labels": [
+      "perf"
+    ],
+    "assignee": "arjun",
+    "created_at": "2026-08-06T09:00:00Z",
+    "comments": [
+      {
+        "author": "kavita",
+        "created_at": "2026-08-06T10:00:00Z",
+        "body": "Comment 1 on #6."
+      },
+      {
+        "author": "rohan",
+        "created_at": "2026-08-06T11:00:00Z",
+        "body": "Comment 2 on #6."
+      }
+    ]
+  },
+  {
+    "number": 7,
+    "title": "Payment webhook retries",
+    "state": "open",
+    "priority": "P0",
+    "labels": [
+      "bug",
+      "payments"
+    ],
+    "assignee": "priya",
+    "created_at": "2026-08-07T09:00:00Z",
+    "comments": [
+      {
+        "author": "rohan",
+        "created_at": "2026-08-07T10:00:00Z",
+        "body": "Comment 1 on #7."
+      },
+      {
+        "author": "priya",
+        "created_at": "2026-08-07T11:00:00Z",
+        "body": "Comment 2 on #7."
+      },
+      {
+        "author": "arjun",
+        "created_at": "2026-08-07T12:00:00Z",
+        "body": "Comment 3 on #7."
+      },
+      {
+        "author": "kavita",
+        "created_at": "2026-08-07T13:00:00Z",
+        "body": "Comment 4 on #7."
+      }
+    ]
+  },
+  {
+    "number": 8,
+    "title": "Onboarding tour",
+    "state": "open",
+    "priority": "P3",
+    "labels": [
+      "feature"
+    ],
+    "assignee": null,
+    "created_at": "2026-08-08T09:00:00Z",
+    "comments": []
+  },
+  {
+    "number": 9,
+    "title": "Rate limit 429 on bulk import",
+    "state": "open",
+    "priority": "P1",
+    "labels": [
+      "bug"
+    ],
+    "assignee": null,
+    "created_at": "2026-08-09T09:00:00Z",
+    "comments": [
+      {
+        "author": "arjun",
+        "created_at": "2026-08-09T10:00:00Z",
+        "body": "Comment 1 on #9."
+      }
+    ]
+  },
+  {
+    "number": 10,
+    "title": "Docs: filter syntax",
+    "state": "closed",
+    "priority": "P2",
+    "labels": [
+      "docs"
+    ],
+    "assignee": "kavita",
+    "created_at": "2026-08-10T09:00:00Z",
+    "comments": [
+      {
+        "author": "kavita",
+        "created_at": "2026-08-10T10:00:00Z",
+        "body": "Comment 1 on #10."
+      }
+    ]
+  },
+  {
+    "number": 11,
+    "title": "Timezone bug in reports",
+    "state": "open",
+    "priority": "P2",
+    "labels": [
+      "bug"
+    ],
+    "assignee": "rohan",
+    "created_at": "2026-08-11T09:00:00Z",
+    "comments": [
+      {
+        "author": "rohan",
+        "created_at": "2026-08-11T10:00:00Z",
+        "body": "Comment 1 on #11."
+      },
+      {
+        "author": "priya",
+        "created_at": "2026-08-11T11:00:00Z",
+        "body": "Comment 2 on #11."
+      }
+    ]
+  },
+  {
+    "number": 12,
+    "title": "Keyboard shortcuts",
+    "state": "open",
+    "priority": "P3",
+    "labels": [
+      "feature"
+    ],
+    "assignee": null,
+    "created_at": "2026-08-12T09:00:00Z",
+    "comments": []
+  }
+]

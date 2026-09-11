@@ -4,3 +4,4 @@ coverage.json
 coverage.html
 bin/
 dist/
+evals/results/

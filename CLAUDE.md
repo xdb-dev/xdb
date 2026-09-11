@@ -28,7 +28,7 @@ Use `make` for every build, test, and lint step. The Makefile pins the tool vers
 | `make services-down` | Stop the service containers                              |
 | `make services-logs` | Tail the service container logs                          |
 
-The e2e orchestrator (`.claude/commands/xdb-e2e.md`) is the one exception to the `make` rule: it builds `bin/xdb` with `cd cmd/xdb && go build -o ../../bin/xdb .`, because `make build` only type-checks and writes no binary. The e2e sub-agents (`tests/e2e/RUNBOOK.md`) do not build.
+`make evals` is the only target that writes a binary. It builds `bin/xdb` and then runs the agent task evals under `evals/`. See `evals/README.md`.
 
 ## Go Style
 
@@ -74,8 +74,8 @@ rpc/                # JSON-RPC 2.0 server
   client/           # JSON-RPC 2.0 client used by the CLI
 x/                  # Generic helpers: Map and Index
 storetest/          # Shared conformance suites for drivers and stores
-tests/
-  e2e/              # Agent-facing end-to-end scenarios and runbook
+evals/              # Agent task evaluations: harness, tasks, and the xdb-eval command
+  tasks/            # One directory per task: task.yaml and fixtures/
 docs/
   concepts/         # Concept docs (one per concept)
   plans/            # Plans: YYYY-MM-DD-plan-name.md
