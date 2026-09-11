@@ -251,6 +251,37 @@ site-search button[data-open-modal]:hover {
   font-weight: 600;
 }
 
+/* ---------- figures ---------- */
+/* public/site.js draws the figures with rough.js into each svg that has a
+   known id. These rules are the same as the figure rules in site.css. */
+.sl-markdown-content figure.frame {
+  margin-inline: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.sl-markdown-content figure svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.sl-markdown-content figure svg text {
+  user-select: none;
+}
+.sl-markdown-content figure svg .hand {
+  font-family: var(--hand);
+}
+.sl-markdown-content figure svg .mono {
+  font-family: var(--mono);
+}
+.sl-markdown-content figcaption {
+  margin-top: 8px;
+  font-family: var(--hand);
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-align: right;
+}
+
 /* ---------- code ---------- */
 .expressive-code .frame {
   box-shadow: none;

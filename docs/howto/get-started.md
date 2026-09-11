@@ -105,5 +105,6 @@ If you get `CONFLICT`, read the record again. Then send the update with the curr
 
 - Run `xdb context` to print the CLI guide for agents.
 - Run `xdb describe --actions` to list the actions on each resource.
-- Read [Tuples](../concepts/tuples.md) and [Records](../concepts/records.md) for the data model.
-- Read [Stores](../concepts/stores.md) to embed a store in a Go service.
+- Read [Define a schema](define-a-schema.md) for modes, indexes, and constraints.
+- Read [Read and write records](read-and-write.md) for filters, bulk data, and change streams.
+- Read [Embed XDB in Go](embed-in-go.md) to use a store in a Go service.

@@ -76,6 +76,7 @@ To use the CLI instead, read [Get started](howto/get-started.md).
 ## Find a page
 
 - [Get started](howto/get-started.md): install the CLI and write your first record.
+- How-to guides: [Define a schema](howto/define-a-schema.md), [Import your types](howto/import-types.md), [Read and write records](howto/read-and-write.md), [Choose a backend](howto/choose-a-backend.md), [Use XDB from an agent](howto/use-with-agents.md), and [Embed XDB in Go](howto/embed-in-go.md).
 - [Concepts](concepts/README.md): tuples, records, schemas, stores, and the rest of the design.
 - [CLI reference](../cmd/xdb/cli/CONTEXT.md): the commands, flags, and payloads. `xdb context` prints the same guide.
 - [Go API](https://pkg.go.dev/github.com/xdb-dev/xdb): the exact signatures and fields.

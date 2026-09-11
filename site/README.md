@@ -14,21 +14,20 @@ make docs-links     # dead and site-absolute links in docs/
 
 The landing page is static HTML, CSS, and JavaScript in `public/`. Astro copies `public/` into the build without changes.
 
-- `public/index.html` contains the page copy and examples:
+- `public/index.html` contains the pitch. Each section has a lede, a figure, and a link to its guide in `docs/howto/`:
 
-  | Section | Contents |
-  | ------- | -------- |
-  | Hero | Product description, install command, one tuple in Go and the CLI, and the tuple anatomy (fig. 0) |
-  | `#how` | Formats convert to tuples, and tuples go to any backend (fig. 1) |
-  | `#model` | Tuples, resource URIs, value types, and schema rules |
-  | `#import` | Go structs, protobuf, JSON Schema, and drift checks |
-  | `#backends` | Storage layouts, type mappings, config, and driver interfaces |
-  | `#ops` | Reads, writes, version checks, dry runs, bulk data, and watch |
-  | `#agents` | CLI reference, errors, pipes, aliases, skills, and discovery |
-  | `#go` | Embedded stores and JSON-RPC handlers |
-  | `#start` | Installation and first record |
+  | Section | Contents | Guide |
+  | ------- | -------- | ----- |
+  | Hero | Product description, install command, one tuple in Go and the CLI, and the tuple anatomy (fig. 0) | |
+  | `#how` | Formats convert to tuples, and tuples go to any backend (fig. 1) | |
+  | `#model` | Records, resource URIs, and the resource hierarchy (fig. 2) | `define-a-schema` |
+  | `#import` | A tagged Go struct and the import commands (fig. 3) | `import-types` |
+  | `#backends` | Storage layouts (fig. 4) | `choose-a-backend` |
+  | `#ops` | Go, JSON-RPC, and the CLI on one store (fig. 5) | `read-and-write`, `embed-in-go` |
+  | `#agents` | The CLI grammar (fig. 6) | `use-with-agents` |
+  | `#start` | Installation and first record | `get-started` |
 
-  Add feature documentation to the relevant section and avoid repeating it elsewhere.
+  Put feature documentation in the guides, not on the landing page.
 - `public/tokens.css`: the colours and fonts. The docs load the same file.
 - `public/site.css`: styles. Cream background, one blue accent, dashed section rules.
   The `.sketch` rule holds the hero underline: a rough.js stroke baked into a

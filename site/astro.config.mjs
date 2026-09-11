@@ -13,10 +13,10 @@ const REPO = "https://github.com/xdb-dev/xdb";
 // The build copies public/index.html to dist/index.html, so "/" is the
 // landing page on the live site. The dev server does not serve an
 // index.html from public/ at "/". This integration sends "/" to it.
+/** @type {import("astro").AstroIntegration} */
 const landingInDev = {
   name: "landing-in-dev",
   hooks: {
-    /** @param {{ server: import("vite").ViteDevServer }} options */
     "astro:server:setup": ({ server }) => {
       server.middlewares.use((req, _res, next) => {
         const [path, query] = (req.url ?? "").split("?");
@@ -56,6 +56,16 @@ export default defineConfig({
         {
           tag: "link",
           attrs: { rel: "stylesheet", href: `${BASE}tokens.css` },
+        },
+        // The figures in the docs come from the same script as the figures
+        // on the landing page. The script draws only the figures on the page.
+        {
+          tag: "script",
+          attrs: { src: `${BASE}vendor/rough.js`, defer: true },
+        },
+        {
+          tag: "script",
+          attrs: { src: `${BASE}site.js`, defer: true },
         },
         {
           tag: "link",

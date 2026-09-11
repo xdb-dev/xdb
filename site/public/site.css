@@ -153,6 +153,9 @@ pre .pr { color: var(--accent); font-weight: 600; }
 .note { margin-top: 24px; }
 .note code { font-size: 13px; }
 
+/* the link from a section to its guide in the docs */
+.more { margin-top: 28px; }
+
 /* get started */
 .steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 28px; }
 @media (max-width: 860px) { .steps { grid-template-columns: 1fr; } }.step { position: relative; padding-left: 52px; }

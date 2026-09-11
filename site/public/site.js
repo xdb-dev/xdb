@@ -1,6 +1,7 @@
-/* Hand-drawn figures for the XDB landing page, rendered with rough.js.
-   Every figure is deterministic (fixed seed) so the page looks the same
-   on every load. Colours match the CSS variables in site.css. */
+/* Hand-drawn figures for the XDB landing page and docs, rendered with
+   rough.js. Every figure is deterministic (fixed seed) so the page looks
+   the same on every load. A page draws only the figures whose svg id it
+   contains. Colours match the CSS variables in tokens.css. */
 (function () {
   const C = {
     accent: "#2b4ee6",

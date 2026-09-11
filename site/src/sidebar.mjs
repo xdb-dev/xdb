@@ -67,15 +67,29 @@ function conceptGroups() {
   return groups;
 }
 
+const HOWTO_ORDER = [
+  "define-a-schema",
+  "import-types",
+  "read-and-write",
+  "choose-a-backend",
+  "use-with-agents",
+  "embed-in-go",
+];
+
 export const sidebar = [
   {
     label: "Start here",
     items: [
       { slug: "docs", label: "Overview" },
-      ...ordered(slugsIn("howto"), ["get-started"]).map((name) => ({
-        slug: `docs/howto/${name}`,
-      })),
+      { slug: "docs/howto/get-started" },
     ],
+  },
+  {
+    label: "How to",
+    items: ordered(
+      slugsIn("howto").filter((name) => name !== "get-started"),
+      HOWTO_ORDER,
+    ).map((name) => ({ slug: `docs/howto/${name}` })),
   },
   {
     label: "Concepts",
