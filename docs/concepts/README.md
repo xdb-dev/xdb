@@ -1,3 +1,8 @@
+---
+title: Concepts
+description: One page for each part of the data model, storage, formats, and the CLI.
+---
+
 # Concepts
 
 XDB stores data as [tuples](tuples.md) grouped into [records](records.md). Use these guides to understand the data model and work with it through the CLI or Go API.

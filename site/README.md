@@ -1,14 +1,20 @@
-# XDB Landing Page
+# XDB Site
 
-The site is static HTML, CSS, and JavaScript. Open `index.html` in a browser, or run this command from the repository root:
+The site is the landing page at `/` and the docs at `/docs/`. Astro and Starlight build both into `site/dist`.
 
 ```bash
-python3 -m http.server -d site 8000
+make site-install   # pnpm install
+make site-dev       # dev server at http://localhost:4321
+make site-build     # static build to site/dist
+make site-check     # astro check
+make docs-links     # dead and site-absolute links in docs/
 ```
 
-## Layout
+## Landing Page
 
-- `index.html` contains the page copy and examples:
+The landing page is static HTML, CSS, and JavaScript in `public/`. Astro copies `public/` into the build without changes.
+
+- `public/index.html` contains the page copy and examples:
 
   | Section | Contents |
   | ------- | -------- |
@@ -23,28 +29,41 @@ python3 -m http.server -d site 8000
   | `#start` | Installation and first record |
 
   Add feature documentation to the relevant section and avoid repeating it elsewhere.
-- `site.css`: styles. Cream background, one blue accent, dashed section rules.
+- `public/tokens.css`: the colours and fonts. The docs load the same file.
+- `public/site.css`: styles. Cream background, one blue accent, dashed section rules.
   The `.sketch` rule holds the hero underline: a rough.js stroke baked into a
   data URI, so the headline needs no JS. See below.
 
-- `site.js`: the hand-drawn figures. Each `figure(...)` call renders one SVG with [rough.js](https://roughjs.com) using fixed seeds, so the sketches are identical on every load.
+- `public/site.js`: the hand-drawn figures. Each `figure(...)` call renders one SVG with [rough.js](https://roughjs.com) using fixed seeds, so the sketches are identical on every load.
 
-- `vendor/rough.js`: rough.js 4.6.6 (MIT).
+- `public/vendor/rough.js`: rough.js 4.6.6 (MIT).
 
-- `og.html` / `og.png`: the social card. See below.
+- `public/og.html` / `public/og.png`: the social card. See below.
 
-- `fonts/Excalifont-Regular.woff2`: Excalidraw's hand-drawn font, Latin subset (SIL Open Font License 1.1). Used only inside figures and captions.
+- `public/fonts/Excalifont-Regular.woff2`: Excalidraw's hand-drawn font, Latin subset (SIL Open Font License 1.1). Used only inside figures and captions.
 
 Inter and JetBrains Mono load from Google Fonts and fall back to system fonts when offline.
 
+## Docs
+
+`src/content.config.ts` loads the pages from the `docs/` directory of the repository, so GitHub and the site show the same files. The site does not show `docs/plans/` or `docs/research/`.
+
+- `src/sidebar.mjs` builds the sidebar from `docs/howto/` and `docs/concepts/`. A new file gets an entry at the end of its group. To put a concept page in a named group, add its name to `CONCEPT_GROUPS`.
+- `src/components/PageTitle.astro` shows the frontmatter under the title. `description` is the lede, `package` becomes links to pkg.go.dev, and `read_when` becomes a "Read this when" list.
+- `src/remark/strip-title-heading.mjs` removes the first H1 of each page, because Starlight shows the title. The H1 stays in the file for GitHub.
+- `src/remark/rewrite-doc-links.mjs` rewrites relative links. A link to a doc becomes a site route. A link to another file in the repository becomes a link to GitHub.
+- `src/styles/starlight.css` maps the tokens onto the Starlight variables.
+
+Write each link in `docs/` as a relative path to a file, for example `../concepts/tuples.md`. This link works on GitHub and on the site. `make docs-links` finds the links that do not work.
+
 ## The Hero Underline
 
-`.sketch` in `site.css` underlines "Storage is a detail." with a rough.js line.
+`.sketch` in `public/site.css` underlines "Storage is a detail." with a rough.js line.
 It uses the base settings from `site.js`: roughness 1.1, strokeWidth 1.4,
 bowing 1.2, and seed 25. The resulting paths are stored in a data URI.
 rough.js draws two strokes per line to give it a hand-drawn appearance.
 
-To draw a different one, load `vendor/rough.js` in a page and dump the paths:
+To draw a different one, load `public/vendor/rough.js` in a page and dump the paths:
 
 ```js
 const rc = rough.svg(document.querySelector("svg")); // viewBox 0 0 300 14
@@ -60,9 +79,9 @@ width of the headline at every breakpoint.
 
 ## Social Card
 
-`og.png` (1200×630) is what Slack, iMessage and the rest render when someone
-links the site. It is generated from `og.html`, which reuses `site.css` and the
-same rough.js sketching as the figures, to match the page design.
+`public/og.png` (1200×630) is what Slack, iMessage and the rest render when someone
+links the site. It is generated from `public/og.html`, which reuses `tokens.css`,
+`site.css`, and the same rough.js sketching as the figures, to match the page design.
 `og.html` is never linked from the site.
 
 Regenerate it after editing `og.html`:
@@ -72,15 +91,15 @@ Regenerate it after editing `og.html`:
   --headless --disable-gpu --hide-scrollbars \
   --force-device-scale-factor=2 --window-size=1200,630 \
   --virtual-time-budget=6000 \
-  --screenshot=/tmp/og@2x.png "file://$PWD/site/og.html"
-magick /tmp/og@2x.png -resize 1200x630 -strip site/og.png
+  --screenshot=/tmp/og@2x.png "file://$PWD/site/public/og.html"
+magick /tmp/og@2x.png -resize 1200x630 -strip site/public/og.png
 ```
 
 It renders at 2× and downsamples so the text stays crisp. Fixed seeds keep the sketch geometry consistent. Font and browser changes can still affect the rendered PNG.
 
 ## Deploying
 
-`.github/workflows/pages.yml` publishes this directory to GitHub Pages at
-<https://xdb.dev>. It runs on every push to `main` that touches
-`site/`, and can be run by hand from the Actions tab. There is no build step:
-the workflow uploads `site/` as-is, so keep every asset path relative.
+`.github/workflows/pages.yml` builds the site and publishes `site/dist` to
+GitHub Pages at <https://xdb.dev>. It runs on every push to `main` that
+changes `site/` or `docs/`, and can be run by hand from the Actions tab.
+Keep every asset path in `public/` relative.

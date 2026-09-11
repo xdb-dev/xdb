@@ -62,6 +62,28 @@ services-down: ##@services Stop and remove service containers
 services-logs: ##@services Tail service container logs
 	container logs -f $(REDIS_CONTAINER)
 
+# SITE
+
+.PHONY: site-install site-dev site-build site-preview site-check docs-links
+
+site-install: ##@site Install the site dependencies with pnpm
+	cd site && pnpm install
+
+site-dev: ##@site Start the site dev server
+	cd site && pnpm dev
+
+site-build: ##@site Build the site to site/dist
+	cd site && pnpm build
+
+site-preview: ##@site Serve the built site
+	cd site && pnpm preview
+
+site-check: ##@site Type-check the site
+	cd site && pnpm check
+
+docs-links: ##@site Find dead and site-absolute links in docs/
+	node site/scripts/check-links.mjs docs
+
 # COVERAGE
 
 .PHONY: coverage report

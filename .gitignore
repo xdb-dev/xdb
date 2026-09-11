@@ -4,5 +4,8 @@ coverage.json
 coverage.html
 bin/
 dist/
+node_modules/
+.astro/
 internal/evals/results/
 internal/evals/evals
+.envrc

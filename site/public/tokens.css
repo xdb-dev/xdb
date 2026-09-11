@@ -1,0 +1,29 @@
+/* The shared values of the landing page and the docs. The landing page
+   loads this file before site.css. Starlight loads it before
+   src/styles/starlight.css. */
+
+@font-face {
+  font-family: "Excalifont";
+  src: url("fonts/Excalifont-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --bg: #fbfaf7;
+  --bg2: #f4f3ee;
+  --ink: #15171c;
+  --muted: #5f6470;
+  --line: #e2e1da;
+  --accent: #2b4ee6;
+  --card: #ffffff;
+  --sans: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --hand: "Excalifont", "Segoe Print", "Comic Sans MS", cursive;
+  --c-ns: #7c3aed;
+  --c-schema: #0369a1;
+  --c-id: #b45309;
+  --c-attr: #047857;
+  --c-val: #be123c;
+}

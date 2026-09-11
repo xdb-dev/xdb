@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "site/**"
+      - "docs/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -21,12 +22,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Build and deploy
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -34,13 +32,45 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@v6
 
-      # The landing page is static and has no build step, so the source
-      # directory is the artifact.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: site/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+        working-directory: site
+
+      # The docs pages come from /docs, so a change there also rebuilds the site.
+      - name: Check doc links
+        run: node site/scripts/check-links.mjs docs
+
+      - name: Type-check
+        run: pnpm check
+        working-directory: site
+
+      - name: Build
+        run: pnpm build
+        working-directory: site
+
       - name: Upload site
         uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: site/dist
 
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - name: Deploy
         id: deploy
         uses: actions/deploy-pages@v5

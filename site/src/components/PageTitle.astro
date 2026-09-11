@@ -1,0 +1,149 @@
+---
+// Replaces the Starlight page title. Above the title is the eyebrow: the
+// name of the sidebar group that holds the page. A reader who arrives from
+// a search sees where the page is. Below the title are the description,
+// the Go packages from the `package` field, and the `read_when` list.
+
+// Starlight does not export its PAGE_TITLE_ID constant. Links to #_top use it.
+const PAGE_TITLE_ID = "_top";
+
+const { entry, sidebar } = Astro.locals.starlightRoute;
+
+// Starlight does not export its SidebarEntry type.
+type SidebarEntry = (typeof sidebar)[number];
+const {
+  title,
+  description,
+  package: pkg,
+  read_when: readWhen,
+} = entry.data as {
+  title: string;
+  description?: string;
+  package?: string;
+  read_when?: string[];
+};
+
+/** Returns the label of the innermost group that holds the current page. */
+function sectionOf(entries: SidebarEntry[], label?: string): string | undefined {
+  for (const item of entries) {
+    if (item.type === "link") {
+      if (item.isCurrent) return label;
+      continue;
+    }
+    const found = sectionOf(item.entries, item.label);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+const MODULE = "github.com/xdb-dev/xdb";
+
+const section = sectionOf(sidebar);
+const packages = (pkg ?? "")
+  .split(",")
+  .map((p) => p.trim())
+  .filter((p) => p !== "");
+---
+
+{section && <p class="eyebrow">{section}</p>}
+
+<h1 id={PAGE_TITLE_ID}>{title}</h1>
+
+{description && <p class="page-lede">{description}</p>}
+
+{
+  packages.length > 0 && (
+    <p class="packages">
+      {packages.map((p) => (
+        <a href={`https://pkg.go.dev/${MODULE}/${p}`}>{p}</a>
+      ))}
+    </p>
+  )
+}
+
+{
+  readWhen && readWhen.length > 0 && (
+    <div class="readwhen">
+      <span class="label">Read this when</span>
+      <ul>
+        {readWhen.map((item) => (
+          <li>{item}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+<style>
+  @layer starlight.core {
+    h1 {
+      margin-top: 0.4rem;
+      font-family: var(--sans);
+      font-size: var(--sl-text-h1);
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      font-weight: 600;
+      color: var(--ink);
+    }
+  }
+
+  .eyebrow {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .page-lede {
+    margin-top: 0.8rem;
+    font-size: 1.08rem;
+    line-height: 1.5;
+    color: var(--muted);
+    max-width: 52ch;
+  }
+
+  .packages {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1rem;
+  }
+  .packages a {
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    padding: 0.18rem 0.55rem;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .packages a:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .readwhen {
+    margin-top: 1.4rem;
+    padding: 0.9rem 1.15rem;
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+    background: var(--card);
+  }
+  .readwhen .label {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-family: var(--hand);
+    font-size: 0.95rem;
+    color: var(--accent);
+  }
+  .readwhen ul {
+    margin: 0 0 0 1rem;
+    padding: 0;
+  }
+  .readwhen li {
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+</style>

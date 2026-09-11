@@ -1,0 +1,9 @@
+---
+// The landing page has only a light design. This replaces the Starlight
+// theme provider and sets the light theme on every page.
+---
+
+<script is:inline>
+  document.documentElement.dataset.theme = "light";
+  window.StarlightThemeProvider = { updatePickers() {} };
+</script>

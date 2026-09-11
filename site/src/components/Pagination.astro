@@ -1,0 +1,79 @@
+---
+// Replaces the Starlight pagination. The page title comes first and the
+// direction second, because the reader decides from the title.
+import { Icon } from "@astrojs/starlight/components";
+
+const { dir, pagination } = Astro.locals.starlightRoute;
+const { prev, next } = pagination;
+const isRtl = dir === "rtl";
+---
+
+<nav class="pagination-links print:hidden" aria-label="Pagination" dir={dir}>
+  {
+    prev && (
+      <a href={prev.href} rel="prev">
+        <span class="link-title">{prev.label}</span>
+        <span class="direction">
+          <Icon name={isRtl ? "right-caret" : "left-caret"} size="0.9rem" />
+          Previous
+        </span>
+      </a>
+    )
+  }
+  {
+    next && (
+      <a href={next.href} rel="next">
+        <span class="link-title">{next.label}</span>
+        <span class="direction">
+          <Icon name={isRtl ? "left-caret" : "right-caret"} size="0.9rem" />
+          Next
+        </span>
+      </a>
+    )
+  }
+</nav>
+
+<style>
+  .pagination-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+    gap: 0.8rem;
+  }
+
+  a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.85rem 1.05rem;
+    border: 1px solid var(--line);
+    background: var(--card);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+  }
+  a:hover {
+    border-color: var(--accent);
+  }
+
+  .link-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ink);
+  }
+  .direction {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  /* The next link aligns to the trailing edge, with the arrow after it. */
+  [rel="next"] {
+    text-align: end;
+    align-items: flex-end;
+  }
+  [rel="next"] .direction {
+    flex-direction: row-reverse;
+  }
+</style>

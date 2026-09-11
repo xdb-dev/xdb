@@ -1,0 +1,257 @@
+/* Maps the tokens in public/tokens.css onto the Starlight variables, then
+   applies the landing page design to the docs: a cream ground, white
+   panels with square corners, one blue accent, and dashed rules. */
+
+:root,
+:root[data-theme="light"] {
+  --sl-font: var(--sans);
+  --sl-font-mono: var(--mono);
+
+  --sl-color-white: var(--ink);
+  --sl-color-gray-1: var(--ink);
+  --sl-color-gray-2: #2f333b;
+  --sl-color-gray-3: var(--muted);
+  --sl-color-gray-4: #8a8f99;
+  --sl-color-gray-5: #cfcec6;
+  --sl-color-gray-6: var(--line);
+  --sl-color-gray-7: var(--bg2);
+  --sl-color-black: var(--bg);
+
+  --sl-color-accent-low: #e8ecfb;
+  --sl-color-accent: var(--accent);
+  --sl-color-accent-high: #1f3bb3;
+
+  --sl-color-text: #2f333b;
+  --sl-color-text-accent: var(--accent);
+  --sl-color-text-invert: #ffffff;
+  --sl-color-bg: var(--bg);
+  --sl-color-bg-nav: var(--bg);
+  --sl-color-bg-sidebar: var(--bg);
+  --sl-color-bg-inline-code: transparent;
+  --sl-color-hairline: var(--line);
+  --sl-color-hairline-light: var(--line);
+  --sl-color-hairline-shade: var(--line);
+
+  --sl-content-width: 46rem;
+  --sl-text-body: 0.95rem;
+  --sl-text-h1: clamp(1.9rem, 3.4vw, 2.5rem);
+  --sl-text-h2: 1.45rem;
+  --sl-text-h3: 1.1rem;
+}
+
+body {
+  background: var(--bg);
+}
+
+/* ---------- header ---------- */
+header.header {
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.site-title {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+/* The same tagline as the logo on the landing page. */
+.site-title::after {
+  content: "think in tuples";
+  margin-left: 0.6rem;
+  font-family: var(--hand);
+  font-weight: 400;
+  font-size: 0.9rem;
+  letter-spacing: 0;
+  color: var(--accent);
+}
+@media (max-width: 40rem) {
+  .site-title::after {
+    display: none;
+  }
+}
+
+site-search button[data-open-modal] {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+site-search button[data-open-modal]:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+/* ---------- panes ---------- */
+.sidebar-pane {
+  border-inline-end: 1px dashed var(--line);
+}
+.main-pane .content-panel:first-child {
+  padding-top: 2.4rem;
+}
+.content-panel + .content-panel {
+  border-top: 0;
+  padding-top: 0.25rem;
+}
+.right-sidebar {
+  border-inline-start: 0;
+}
+
+/* ---------- prose ---------- */
+.sl-markdown-content {
+  line-height: 1.7;
+}
+.sl-markdown-content :is(h2, h3, h4):not(:where(.not-content *)) {
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--ink);
+}
+.sl-markdown-content h2:not(:where(.not-content *)):not(:first-child) {
+  margin-top: 2.6rem;
+  padding-top: 1.6rem;
+  border-top: 1px dashed var(--line);
+}
+.sl-markdown-content h3:not(:where(.not-content *)):not(:first-child) {
+  margin-top: 1.8rem;
+}
+.sl-markdown-content a:not(:where(.not-content *)) {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.sl-markdown-content code:not(:where(.not-content *)) {
+  font-size: 0.86em;
+  color: var(--ink);
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0.05em 0.3em;
+}
+.sl-markdown-content a > code:not(:where(.not-content *)) {
+  color: inherit;
+}
+
+/* ---------- tables ---------- */
+/* The same table as the landing page: a white panel, hairline rows, and
+   an uppercase mono head. */
+.sl-markdown-content table:not(:where(.not-content *)) {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+/* On a narrow window, the table scrolls sideways. */
+@media (max-width: 50rem) {
+  .sl-markdown-content table:not(:where(.not-content *)) {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
+.sl-markdown-content th:not(:where(.not-content *)) {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: var(--bg2);
+  border-bottom: 1px solid var(--line);
+}
+.sl-markdown-content :is(th, td):not(:where(.not-content *)) {
+  padding: 0.45rem 0.7rem;
+  border-inline: 0;
+}
+.sl-markdown-content td:not(:where(.not-content *)) {
+  border-bottom: 1px solid var(--line);
+}
+
+/* ---------- asides and cards ---------- */
+.starlight-aside {
+  border: 1px solid var(--line);
+  border-inline-start: 2px solid var(--accent);
+  background: var(--card);
+}
+.sl-link-card,
+.card {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--card);
+  box-shadow: none;
+}
+.sl-link-card:hover {
+  border-color: var(--accent);
+  background: var(--card);
+}
+
+/* ---------- sidebar ---------- */
+.sidebar-content a {
+  font-size: 0.86rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 0;
+  color: var(--muted);
+}
+.sidebar-content a:hover {
+  color: var(--ink);
+}
+.sidebar-content a[aria-current="page"],
+.sidebar-content a[aria-current="page"]:hover {
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+.sidebar-content ul ul li {
+  border-inline-start: 0;
+}
+.sidebar-content summary .large,
+.sidebar-content .large {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* A nested group, such as Data model under Concepts, is a small heading
+   in ink. */
+.sidebar-content ul ul summary .group-label span {
+  font-family: var(--sans);
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+
+/* ---------- table of contents ---------- */
+.right-sidebar h2 {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.right-sidebar nav a {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.right-sidebar nav a:hover {
+  color: var(--ink);
+}
+.right-sidebar nav a[aria-current="true"] {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- code ---------- */
+.expressive-code .frame {
+  box-shadow: none;
+}

@@ -1,0 +1,73 @@
+---
+// Replaces the Starlight footer. It puts two links above the previous and
+// next pages: one to edit the page and one to open an issue about it.
+// The issue link comes from the GitHub entry in `social`.
+
+import { Icon } from "@astrojs/starlight/components";
+import config from "virtual:starlight/user-config";
+
+import Pagination from "./Pagination.astro";
+
+const { editUrl, entry } = Astro.locals.starlightRoute;
+
+const repo = config.social?.find((s) => s.icon === "github")?.href;
+const issueUrl = repo
+  ? `${repo}/issues/new?title=${encodeURIComponent(`docs: ${entry.data.title}`)}`
+  : undefined;
+---
+
+<footer>
+  {
+    (editUrl || issueUrl) && (
+      <div class="page-actions print:hidden">
+        {editUrl && (
+          <a class="chip" href={editUrl.href}>
+            <Icon name="pencil" size="0.95rem" />
+            Edit page
+          </a>
+        )}
+        {issueUrl && (
+          <a class="chip" href={issueUrl}>
+            <Icon name="question-circle" size="0.95rem" />
+            Raise issue
+          </a>
+        )}
+      </div>
+    )
+  }
+  <Pagination />
+</footer>
+
+<style>
+  footer {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 3.5rem;
+  }
+
+  .page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding-top: 1.5rem;
+    border-top: 1px dashed var(--line);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--line);
+    background: var(--card);
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+  }
+  .chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>

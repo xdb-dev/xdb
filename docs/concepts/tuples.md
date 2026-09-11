@@ -1,6 +1,6 @@
 ---
 title: Tuples
-description: The smallest unit of data in XDB: an immutable path, attribute, and typed value.
+description: "The smallest unit of data in XDB: an immutable path, attribute, and typed value."
 package: core
 ---
 
