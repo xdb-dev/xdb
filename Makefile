@@ -36,9 +36,9 @@ test: ##@testing Run all tests
 	go test -race -timeout=5m -covermode=atomic -coverprofile=coverage.out ./...
 	@for mod in $(SUBMODULES); do echo "==> testing $$mod" && (cd $$mod && go test -race -timeout=5m ./...) || exit 1; done
 
-evals: ##@testing Run the agent task evals (TASK=name[,name] REPEAT=n MODEL=m RUBRIC=1)
+evals: ##@testing Run the agent task evals (TASK=name[,name] MODEL=slug RUBRIC=1)
 	cd cmd/xdb && go build -o ../../bin/xdb .
-	go run ./evals/cmd/xdb-eval -task "$(TASK)" -repeat "$(or $(REPEAT),1)" -model "$(MODEL)" $(if $(RUBRIC),-rubric)
+	cd internal/evals && go run . -tasks tasks $(if $(RESULTS),-results $(RESULTS)) -task "$(TASK)" -model "$(MODEL)" -binary $(PROJECT_DIR)/bin/xdb $(if $(RUBRIC),-rubric)
 
 bench: ##@testing Run all benchmarks
 	go test -bench=. -benchmem -run=^$$ -timeout=10m ./...

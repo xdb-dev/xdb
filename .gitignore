@@ -4,4 +4,5 @@ coverage.json
 coverage.html
 bin/
 dist/
-evals/results/
+internal/evals/results/
+internal/evals/evals

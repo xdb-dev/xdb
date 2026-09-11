@@ -1,0 +1,91 @@
+name: research-citations
+description: Track sources, claims, and citations for a deep-research write-up, then handle a retraction and export a bibliography.
+tags: [research, relations, arrays, export]
+namespace: research
+max_turns: 60
+budget:
+  failed_commands: 10
+  cost_usd: 3.00
+
+# Expected values. Recompute them when you change a fixture.
+#   sources.json                8 sources. Phase 3 retracts S3.
+#   claims.txt                  5 claims, 10 citations
+#   C2 is supported by          S1, S3
+#   unsupported after S3        C4 (its only support was S3)
+#   bibliography (not retracted, year >= 2020, by year)  S5 2020, S1 2021, S8 2022, S4 2023, S7 2024 = 5
+
+phases:
+  - name: model
+    prompt: |
+      I am writing a research report and need to track where every claim
+      comes from. Use the namespace `$NS`.
+
+      Set up three schemas: `sources` (papers, blog posts, reports),
+      `claims` (statements I make in the report), and `citations` (which
+      source supports which claim). Then load `sources.json` from this
+      directory. Keep the ids from the file.
+    checks:
+      - name: sources schema exists
+        run: xdb schemas get xdb://$NS/sources -o json
+      - name: claims schema exists
+        run: xdb schemas get xdb://$NS/claims -o json
+      - name: citations schema exists
+        run: xdb schemas get xdb://$NS/citations -o json
+      - name: eight sources
+        run: test "$(xdb records list xdb://$NS/sources -o ndjson --limit 100 | wc -l)" -eq 8
+      - name: source ids kept
+        run: test "$(xdb records get xdb://$NS/sources/S7 -o json | jq -r .year)" = "2024"
+
+  - name: claims
+    prompt: |
+      Now load `claims.txt`. Each line is one claim and the sources that
+      support it. Record every claim with its id from the file, and one
+      citation per claim-to-source link.
+
+      Then tell me which sources support claim C2. End with
+      `ANSWER: <source ids, sorted, comma-separated, no spaces>`.
+    checks:
+      - name: C2 supports
+        answer: "S1,S3"
+      - name: five claims
+        run: test "$(xdb records list xdb://$NS/claims -o ndjson --limit 100 | wc -l)" -eq 5
+      - name: ten citations
+        run: test "$(xdb records list xdb://$NS/citations -o ndjson --limit 100 | wc -l)" -eq 10
+
+  - name: retract
+    prompt: |
+      Source S3 has been retracted. Mark it as retracted; do not delete it,
+      I need the history. Then tell me which claims are now left with no
+      support from a non-retracted source. End with
+      `ANSWER: <claim ids, sorted, comma-separated, no spaces, or none>`.
+    checks:
+      - name: unsupported claims
+        answer: "C4"
+      - name: still eight sources
+        run: test "$(xdb records list xdb://$NS/sources -o ndjson --limit 100 | wc -l)" -eq 8
+      - name: S3 still readable
+        run: test "$(xdb records get xdb://$NS/sources/S3 -o json | jq -r ._id)" = "S3"
+
+  - name: bibliography
+    prompt: |
+      Write a bibliography to `bibliography.ndjson` in this directory: one
+      JSON line per source that is not retracted and was published in 2020
+      or later, ordered by year, oldest first. Then tell me how many
+      entries it has. End with `ANSWER: <count>`.
+    checks:
+      - name: entry count
+        answer: "5"
+      - name: file has five lines
+        run: test "$(cat bibliography.ndjson | wc -l)" -eq 5
+      - name: oldest first
+        run: head -1 bibliography.ndjson | grep -q 2020
+      - name: newest last
+        run: tail -1 bibliography.ndjson | grep -q 2024
+
+rubric: |
+  Score each 1 to 5.
+  - Citations reference claims and sources by id, not by copying titles.
+  - Authors and tags are stored as arrays, not joined strings.
+  - Year is a number and URLs are strings.
+  - The retraction is a field on the source, and the "unsupported claims" answer came from querying the store, not from re-reading the fixture.
+  - The bibliography was produced with export or a filtered list, not by hand-typing entries.

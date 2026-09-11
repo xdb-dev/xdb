@@ -1,6 +1,6 @@
 # XDB - Claude
 
-XDB is an agent-first data layer. Model once, store anywhere. See ./README.md for details.
+XDB stores data as tuples (path, attribute, typed value) in memory, files, Redis, or SQLite. Think in tuples. Storage is a detail. See ./README.md for details.
 
 ## TDD (strict)
 
@@ -28,7 +28,7 @@ Use `make` for every build, test, and lint step. The Makefile pins the tool vers
 | `make services-down` | Stop the service containers                              |
 | `make services-logs` | Tail the service container logs                          |
 
-`make evals` is the only target that writes a binary. It builds `bin/xdb` and then runs the agent task evals under `evals/`. See `evals/README.md`.
+`make evals` is the only target that writes a binary. It builds `bin/xdb` and then runs the agent task evals under `internal/evals/`. See `internal/evals/README.md`.
 
 ## Go Style
 
@@ -74,7 +74,7 @@ rpc/                # JSON-RPC 2.0 server
   client/           # JSON-RPC 2.0 client used by the CLI
 x/                  # Generic helpers: Map and Index
 storetest/          # Shared conformance suites for drivers and stores
-evals/              # Agent task evaluations: harness, tasks, and the xdb-eval command
+internal/evals/     # Agent task evaluations [module]: the harness and the xdb-eval command
   tasks/            # One directory per task: task.yaml and fixtures/
 docs/
   concepts/         # Concept docs (one per concept)

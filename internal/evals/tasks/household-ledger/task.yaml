@@ -1,0 +1,118 @@
+name: household-ledger
+description: Model a household ledger from two Indian bank statements, then use it to answer, correct, and extend.
+tags: [ledger, money, multi-schema, csv]
+namespace: household
+max_turns: 60
+budget:
+  failed_commands: 10
+  cost_usd: 3.00
+
+# Expected values. Recompute them when you change a fixture.
+#   HDFC opening balance      ₹52,000.00
+#   HDFC closing, raw load    ₹1,06,669.25  -> 10666925 paise
+#   HDFC closing, corrected   ₹1,07,614.25  -> 10761425 paise (one Swiggy 855 removed, BigBasket 2430.50 -> 2340.50)
+#   Groceries (BigBasket)     2430.50 + 1980.25 = 4410.75 -> 441075 paise (raw); 4320.75 -> 432075 (corrected)
+#   Transactions              10 HDFC + 5 ICICI = 15 raw, 14 corrected, 15 after the USD one
+#   INR over ₹5,000           salary, rent, ATM, card payment, IndiGo = 5 (string-typed money gives a wrong count)
+
+phases:
+  - name: model
+    prompt: |
+      I want to track my household finances. Use the namespace `$NS`.
+
+      I have two accounts: an HDFC savings account and an ICICI credit card.
+      The HDFC account opened August 2026 at ₹52,000.00. The card had no
+      outstanding balance.
+
+      Set up two schemas, `accounts` and `transactions`, so that I can record
+      every transaction against an account and query them later. Money must
+      never lose precision. Create both accounts. Pick sensible ids and tell
+      me what you chose.
+    checks:
+      - name: accounts schema exists
+        run: xdb schemas get xdb://$NS/accounts -o json
+      - name: transactions schema exists
+        run: xdb schemas get xdb://$NS/transactions -o json
+      - name: two accounts
+        run: test "$(xdb records list xdb://$NS/accounts -o ndjson --limit 100 | wc -l)" -eq 2
+
+  - name: load
+    prompt: |
+      Load both statements in this directory into `transactions`. Every row is
+      one transaction against the matching account. Tag each transaction with
+      a `category` attribute, using exactly these values:
+
+      - groceries: BigBasket
+      - food-delivery: Swiggy
+      - rent: rent transfer
+      - utilities: electricity
+      - salary: salary
+      - cash: ATM withdrawal
+      - card-payment: the credit card payment from HDFC
+      - shopping: Amazon
+      - transport: Uber
+      - travel: IndiGo
+
+      Then tell me how much I spent on groceries in August 2026, in paise.
+      End with `ANSWER: <paise>`.
+    checks:
+      - name: groceries total
+        answer: "441075"
+      - name: fifteen transactions
+        run: test "$(xdb records list xdb://$NS/transactions -o ndjson --limit 100 | wc -l)" -eq 15
+      - name: two groceries rows
+        run: test "$(xdb records list xdb://$NS/transactions --filter 'category == "groceries"' -o ndjson --limit 100 | wc -l)" -eq 2
+      - name: five card rows
+        run: test "$(xdb records list xdb://$NS/transactions --filter 'category == "shopping" || category == "transport" || category == "travel"' -o ndjson --limit 100 | wc -l)" -eq 5
+
+  - name: correct
+    prompt: |
+      Two corrections. The Swiggy transaction on 12 August appears twice in
+      the export but happened once; remove the duplicate. The BigBasket
+      transaction on 3 August was ₹2,340.50, not ₹2,430.50; fix it without
+      touching anything else on that record.
+
+      Then tell me the HDFC closing balance for August 2026, in paise.
+      End with `ANSWER: <paise>`.
+    checks:
+      - name: hdfc closing balance
+        answer: "10761425"
+      - name: fourteen transactions
+        run: test "$(xdb records list xdb://$NS/transactions -o ndjson --limit 100 | wc -l)" -eq 14
+      - name: one swiggy on the 12th remains
+        run: test "$(xdb records list xdb://$NS/transactions --filter 'category == "food-delivery"' -o ndjson --limit 100 | wc -l)" -eq 2
+
+  - name: extend
+    prompt: |
+      I am adding a USD account. Give every transaction a `currency`
+      attribute; everything so far is INR. Add a new account `payoneer` in
+      USD and record one transaction on it: 2 September 2026, "PAYONEER
+      PAYOUT", a credit of 1,250.00 USD, category `salary`.
+
+      Then tell me how many transactions are in INR. End with
+      `ANSWER: <count>`.
+    checks:
+      - name: inr count
+        answer: "14"
+      - name: three accounts
+        run: test "$(xdb records list xdb://$NS/accounts -o ndjson --limit 100 | wc -l)" -eq 3
+      - name: one usd transaction
+        run: test "$(xdb records list xdb://$NS/transactions --filter 'currency == "USD"' -o ndjson --limit 100 | wc -l)" -eq 1
+      - name: fourteen inr transactions
+        run: test "$(xdb records list xdb://$NS/transactions --filter 'currency == "INR"' -o ndjson --limit 100 | wc -l)" -eq 14
+
+  - name: query
+    prompt: |
+      Which INR transactions were over ₹5,000, either direction? List them,
+      then tell me how many there are. End with `ANSWER: <count>`.
+    checks:
+      - name: count over five thousand
+        answer: "5"
+
+rubric: |
+  Score each 1 to 5.
+  - Money is stored as an integer minor unit (paise, cents), not a float.
+  - Transactions reference their account by id, and the account exists.
+  - Dates are stored as time values, not strings.
+  - Required fields are declared where the domain demands them.
+  - The correction in phase 3 used a patch (update), not a full replace.
