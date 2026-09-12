@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/urfave/cli/v3"
@@ -98,11 +97,7 @@ func (a *App) schemaCreate(ctx context.Context, cmd *cli.Command) error {
 		if resp.DryRun == nil {
 			return dryRunIgnoredError("schemas", "create", uri)
 		}
-		defData, marshalErr := json.Marshal(resp.Data)
-		if marshalErr != nil {
-			defData = nil
-		}
-		return formatDryRun(cmd, resp.DryRun, defData)
+		return formatDryRun(cmd, resp.DryRun, resp.Data)
 	}
 
 	return formatOne(cmd, resp.Data)

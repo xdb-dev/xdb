@@ -95,3 +95,39 @@ func TestSchemasDelete_RequiresForce(t *testing.T) {
 		"--uri", "xdb://dry.t/guarded", "--force")
 	assert.Equal(t, 0, code)
 }
+
+func TestDryRun_TableShowsVerdictThenRecord(t *testing.T) {
+	cfg := startCLITestDaemon(t)
+
+	_, _, code := runCLI(t, "--config", cfg, "schemas", "create",
+		"--uri", "xdb://dry.t/items",
+		"--json", `{"fields":{"name":{"type":"string"}}}`)
+	require.Equal(t, 0, code)
+
+	t.Run("record", func(t *testing.T) {
+		stdout, stderr, code := runCLI(t, "--config", cfg, "records", "create",
+			"--uri", "xdb://dry.t/items/i1",
+			"--json", `{"name":"x"}`,
+			"--dry-run", "-o", "table")
+		require.Equal(t, 0, code, "stderr: %s", stderr)
+
+		assert.Regexp(t, `(?m)^would\s+create$`, stdout)
+		assert.Regexp(t, `(?m)^name\s+x$`, stdout)
+		assert.Contains(t, stdout, "\n\n", "a blank line divides the verdict from the record")
+		assert.NotContains(t, stdout, "record")
+		assert.NotContains(t, stdout, "[123")
+	})
+
+	t.Run("schema", func(t *testing.T) {
+		stdout, stderr, code := runCLI(t, "--config", cfg, "schemas", "create",
+			"--uri", "xdb://dry.t/drafts",
+			"--json", `{"fields":{"a":{"type":"string"}}}`,
+			"--dry-run", "-o", "table")
+		require.Equal(t, 0, code, "stderr: %s", stderr)
+
+		assert.Regexp(t, `(?m)^would\s+create$`, stdout)
+		assert.Regexp(t, `(?m)^uri\s+xdb://dry.t/drafts$`, stdout)
+		assert.Regexp(t, `(?m)^fields\s+a\s+string$`, stdout)
+		assert.NotContains(t, stdout, "[123")
+	})
+}
