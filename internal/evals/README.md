@@ -5,11 +5,6 @@ task in a sandbox, in phases. The harness grades the result and measures
 friction. A failed eval is a product finding. Do not change the task to make
 it pass.
 
-The design is in
-[docs/plans/2026-09-11-evals-framework.md](../../docs/plans/2026-09-11-evals-framework.md).
-The move onto pi.Agent is in
-[docs/plans/2026-09-11-evals-on-pi-agent.md](../../docs/plans/2026-09-11-evals-on-pi-agent.md).
-
 ## Run
 
 ```

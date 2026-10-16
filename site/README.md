@@ -43,7 +43,7 @@ Inter and JetBrains Mono load from Google Fonts and fall back to system fonts wh
 
 ## Docs
 
-`src/content.config.ts` loads the pages from the `docs/` directory of the repository, so GitHub and the site show the same files. The site does not show `docs/plans/` or `docs/research/`.
+`src/content.config.ts` loads the pages from the `docs/` directory of the repository, so GitHub and the site show the same files. The site does not show `docs/research/`.
 
 - `src/sidebar.mjs` builds the sidebar from `docs/howto/` and `docs/concepts/`. A new file gets an entry at the end of its group. To put a concept page in a named group, add its name to `CONCEPT_GROUPS`.
 - `src/components/PageTitle.astro` shows the frontmatter under the title. `description` is the lede, `package` becomes links to pkg.go.dev, and `read_when` becomes a "Read this when" list.

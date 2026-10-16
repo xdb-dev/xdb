@@ -78,7 +78,6 @@ internal/evals/     # Agent task evaluations [module]: the harness and the xdb-e
   tasks/            # One directory per task: task.yaml and fixtures/
 docs/
   concepts/         # Concept docs (one per concept)
-  plans/            # Plans: YYYY-MM-DD-plan-name.md
   research/         # Research: YYYY-MM-DD-research-name.md
 ```
 
@@ -86,5 +85,5 @@ docs/
 
 ## Plans and Research
 
-- Plan drafts live in `~/.claude/plans/`. After the user approves a plan, move it to `./docs/plans/` before implementation.
-- Research goes in `./docs/research/`. Name plans and research `YYYY-MM-DD-name.md`.
+- Plans go in the project folder, in `~/work/xdb/changes/`. The `project-changes` skill gives the layout.
+- Research goes in `./docs/research/`. Name research `YYYY-MM-DD-name.md`.

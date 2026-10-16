@@ -4,7 +4,7 @@
 //
 // This script finds the links that the plugin cannot correct: links that
 // start with "/", and relative links to files that do not exist.
-// It does not read docs/plans or docs/research. The site does not show them.
+// It does not read docs/research. The site does not show them.
 //
 //   node site/scripts/check-links.mjs [docsDir]
 
