@@ -56,6 +56,12 @@ header.header {
   letter-spacing: -0.02em;
   color: var(--ink);
 }
+.site-title img {
+  width: 100px;
+  height: 30px;
+  flex-shrink: 0;
+}
+
 /* The same tagline as the logo on the landing page. */
 .site-title::after {
   content: "think in tuples";

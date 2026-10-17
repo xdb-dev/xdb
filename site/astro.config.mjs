@@ -47,12 +47,26 @@ export default defineConfig({
     landingInDev,
     starlight({
       title: "xdb",
+      favicon: "/favicon.svg",
+      logo: {
+        src: "./public/logo.svg",
+        alt: "XDB",
+        replacesTitle: true,
+      },
       description:
         "XDB stores data as tuples: a path, an attribute, and a typed value. Read and write them from Go or the CLI. Keep them in memory, files, Redis, or SQLite.",
       // tokens.css is in public/ because the landing page uses it too.
       // Starlight bundles only the files in customCss.
       customCss: ["./src/styles/starlight.css"],
       head: [
+        {
+          tag: "meta",
+          attrs: { property: "og:image", content: "https://xdb.dev/og.png" },
+        },
+        {
+          tag: "meta",
+          attrs: { name: "twitter:image", content: "https://xdb.dev/og.png" },
+        },
         {
           tag: "link",
           attrs: { rel: "stylesheet", href: `${BASE}tokens.css` },

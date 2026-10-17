@@ -42,11 +42,11 @@
   .uri .dim { color: var(--muted); }
   .foot {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     font-size: 23px;
   }
-  .foot b { font-weight: 600; letter-spacing: -.01em; }
+  .foot img { display: block; width: 180px; height: 54px; }
   .foot span { font-family: var(--mono); font-size: 20px; color: var(--muted); }
 </style>
 </head>
@@ -65,7 +65,7 @@
   </div>
 
   <div class="foot">
-    <b>xdb.dev</b>
+    <img src="logo.svg" alt="xdb" width="180" height="54">
     <span>go install github.com/xdb-dev/xdb/cmd/xdb@latest</span>
   </div>
 </div>

@@ -40,6 +40,7 @@ p { margin: 0; }
 /* nav */
 nav.top { display: flex; align-items: center; justify-content: space-between; height: 60px; border-bottom: 1px solid var(--line); }
 nav.top .logo { font-weight: 700; font-size: 20px; letter-spacing: -.02em; text-decoration: none; display: flex; align-items: center; gap: 10px; }
+nav.top .logo img { display: block; width: 100px; height: 30px; flex-shrink: 0; }
 nav.top .logo span { font-family: var(--hand); font-weight: 400; color: var(--accent); font-size: 15px; }
 nav.top ul { display: flex; gap: 22px; list-style: none; margin: 0; padding: 0; font-size: 14px; }
 nav.top a { text-decoration: none; color: var(--muted); }
