@@ -128,7 +128,7 @@ func convertValue(v *core.Value) any {
 		return base64.StdEncoding.EncodeToString(b)
 	case core.TIDTime:
 		ts, _ := v.AsTime()
-		return ts.Format(time.RFC3339)
+		return ts.Format(time.RFC3339Nano)
 	case core.TIDJSON:
 		return convertJSON(v)
 	case core.TIDArray:

@@ -40,9 +40,9 @@ func (s *TypesStoreSuite) testScalars(t *testing.T) {
 	ctx := context.Background()
 	st := s.newStore()
 
-	// A fixed whole-second UTC time: [core.Value.String] renders TIME
-	// as RFC3339 (second precision), so this compares stably across
-	// backends that store millis (sqlite) or RFC3339Nano (redis).
+	// A fixed whole-second UTC time. [core.Value.String] renders TIME
+	// as RFC3339Nano. A whole second renders the same string from a
+	// backend that stores millis (sqlite) and one that stores nanos (redis).
 	ts := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
 
 	cases := []struct {

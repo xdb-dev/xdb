@@ -165,14 +165,29 @@ func (f *facade) GetRecord(ctx context.Context, uri *core.URI) (*core.Record, er
 
 // ListRecords lists records matching the query. Drivers with native
 // filter pushdown ([QueryDriver]) handle the query themselves; for
-// the rest, the list is synthesized from a scan.
+// the rest, the list is synthesized from a scan. The order is checked
+// here, once, so a driver can trust every field it is asked to sort by.
 func (f *facade) ListRecords(
 	ctx context.Context,
 	q *Query,
 ) (*Page[*core.Record], error) {
+	def, err := f.filterDef(ctx, q.URI)
+	if err != nil {
+		return nil, err
+	}
+
+	keys, err := orderKeys(q, def)
+	if err != nil {
+		return nil, err
+	}
+
 	if f.qd != nil {
 		page, err := f.queryRecords(ctx, q)
-		if !errors.Is(err, ErrUnsupportedQuery) {
+
+		switch {
+		case errors.Is(err, ErrUnsupportedOrder):
+			return f.sortQueried(ctx, q, keys)
+		case !errors.Is(err, ErrUnsupportedQuery):
 			return page, err
 		}
 		// Fall through to the synthesized path.
@@ -184,10 +199,6 @@ func (f *facade) ListRecords(
 	}
 
 	if q.Filter != "" {
-		def, err := f.filterDef(ctx, q.URI)
-		if err != nil {
-			return nil, err
-		}
 		flt, err := filter.Compile(q.Filter, def)
 		if err != nil {
 			return nil, err
@@ -198,9 +209,60 @@ func (f *facade) ListRecords(
 		}
 	}
 
-	slices.SortFunc(records, func(a, b *core.Record) int {
-		return strings.Compare(a.URI().Path(), b.URI().Path())
-	})
+	sortRecords(records, keys)
+
+	return Paginate(records, q), nil
+}
+
+// orderKeys parses the order of q and checks each field against def, the
+// schema of a schema-scoped query.
+func orderKeys(q *Query, def *schema.Def) ([]OrderKey, error) {
+	keys, err := ParseOrderBy(q.OrderBy)
+	if err != nil || len(keys) == 0 {
+		return keys, err
+	}
+
+	if err := checkOrderFields(keys, def); err != nil {
+		return nil, err
+	}
+
+	return keys, nil
+}
+
+// sortQueried lists the records of q for a driver that can filter but
+// cannot sort. The driver filters each page of the matches, with no
+// order. The facade then sorts all the matches and cuts the page of q.
+func (f *facade) sortQueried(
+	ctx context.Context,
+	q *Query,
+	keys []OrderKey,
+) (*Page[*core.Record], error) {
+	var records []*core.Record
+
+	offset := 0
+
+	for {
+		page, err := f.queryRecords(ctx, &Query{
+			URI:    q.URI,
+			Filter: q.Filter,
+			Limit:  MaxLimit,
+			Offset: offset,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		records = append(records, page.Items...)
+
+		if page.NextOffset == 0 {
+			break
+		}
+
+		offset = page.NextOffset
+	}
+
+	sortRecords(records, keys)
+
 	return Paginate(records, q), nil
 }
 

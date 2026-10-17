@@ -4,6 +4,7 @@ import (
 	"context"
 	"iter"
 	"slices"
+	"strings"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/filter/sqlgen"
@@ -116,6 +117,11 @@ func (e *tableEngine) queryRecords(
 		return nil, err
 	}
 
+	orderBy, err := columnOrderBy(e.def, q.OrderBy)
+	if err != nil {
+		return nil, err
+	}
+
 	total, err := e.q.CountRecords(ctx, xsql.CountRecordsParams{
 		Table:     table,
 		Where:     whereSQL,
@@ -135,6 +141,7 @@ func (e *tableEngine) queryRecords(
 		Columns:   columnValues(e.def),
 		Where:     whereSQL,
 		WhereArgs: whereArgs,
+		OrderBy:   orderBy,
 		Limit:     limit,
 		Offset:    offset,
 	})
@@ -252,4 +259,37 @@ func (e *tableEngine) createIndex(ctx context.Context, field string) error {
 
 func (e *tableEngine) drop(ctx context.Context, schemaURI *core.URI) error {
 	return e.q.DropTable(ctx, xsql.DropTableParams{Table: columnTableName(schemaURI)})
+}
+
+// columnOrderBy renders a list order as an ORDER BY list over the columns
+// of a column table, with _id last to break a tie. SQLite sorts a NULL
+// first ascending and last descending, which is where the facade sorts a
+// missing value. A field with no column, such as _version on a def that
+// predates it, returns [store.ErrUnsupportedQuery], so the facade sorts in
+// memory.
+func columnOrderBy(def *schema.Def, fields []string) (string, error) {
+	keys, err := store.ParseOrderBy(fields)
+	if err != nil {
+		return "", err
+	}
+
+	terms := make([]string, 0, len(keys)+1)
+
+	for _, key := range keys {
+		_, isColumn := def.Fields[key.Field]
+		if !isColumn && key.Field != schema.FieldID {
+			return "", store.ErrUnsupportedQuery
+		}
+
+		direction := "ASC"
+		if key.Desc {
+			direction = "DESC"
+		}
+
+		terms = append(terms, sqlgen.QuoteIdent(key.Field)+" "+direction)
+	}
+
+	terms = append(terms, "_id")
+
+	return strings.Join(terms, ", "), nil
 }

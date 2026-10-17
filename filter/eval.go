@@ -2,6 +2,7 @@ package filter
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/cel-go/common/types"
 
@@ -11,8 +12,18 @@ import (
 // Match evaluates the compiled [Filter] against a [core.Record].
 // Returns true if the record satisfies the filter, false otherwise.
 // A missing attribute causes comparisons against it to return false.
+// [NowVar] is the time of the call.
 func (f *Filter) Match(record *core.Record) (bool, error) {
+	return f.matchAt(record, time.Now())
+}
+
+// matchAt evaluates the filter with [NowVar] bound to now, unless a schema
+// field of that name holds the value.
+func (f *Filter) matchAt(record *core.Record, now time.Time) (bool, error) {
 	act := buildActivation(record)
+	if f.clock {
+		act[NowVar] = now
+	}
 
 	out, _, evalErr := f.prg.Eval(act)
 	if evalErr != nil {
@@ -47,11 +58,14 @@ func buildActivation(record *core.Record) map[string]any {
 }
 
 // Filter returns only the records that match the compiled filter.
-// This is the primary integration point for in-memory stores.
+// This is the primary integration point for in-memory stores. [NowVar]
+// holds one time for the whole list, so every record sees the same clock.
 func (f *Filter) Filter(records []*core.Record) ([]*core.Record, error) {
+	now := time.Now()
+
 	var result []*core.Record
 	for _, r := range records {
-		ok, err := f.Match(r)
+		ok, err := f.matchAt(r, now)
 		if err != nil {
 			return nil, err
 		}

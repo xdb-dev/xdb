@@ -59,6 +59,11 @@ func recordMethods() map[string]rpc.MethodMeta {
 			Parameters: map[string]rpc.ParamMeta{
 				"uri":    {Description: "Schema or namespace URI (xdb://ns/schema, or xdb://ns to list across all schemas)", Type: "string", Required: true},
 				"filter": {Description: "CEL filter expression", Type: "string"},
+				"order_by": {
+					Description: "Fields to sort by, most significant first; a leading - sorts descending, " +
+						"for example [\"start\", \"-_updated\"]. A missing value sorts first ascending",
+					Type: "array",
+				},
 				"fields": {Description: "Field projection list", Type: "array"},
 				"limit":  {Description: "Max items per page", Type: "integer"},
 				"offset": {Description: "Page offset", Type: "integer"},

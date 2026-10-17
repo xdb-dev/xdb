@@ -92,8 +92,11 @@ func (q *Queries) GetRecord(ctx context.Context, arg GetRecordParams) ([]Value, 
 
 // ListRecordsParams are the arguments for [Queries.ListRecords].
 type ListRecordsParams struct {
-	Table     string
-	Where     string
+	Table string
+	Where string
+	// OrderBy is the ORDER BY list, such as "rank" DESC, _id. Empty
+	// orders by _id.
+	OrderBy   string
 	Columns   []Value
 	WhereArgs []any
 	Offset    int
@@ -117,11 +120,17 @@ func (q *Queries) ListRecords(ctx context.Context, arg ListRecordsParams) ([][]V
 	}
 	queryArgs = append(queryArgs, arg.Limit, arg.Offset)
 
+	orderBy := arg.OrderBy
+	if orderBy == "" {
+		orderBy = "_id"
+	}
+
 	query := fmt.Sprintf(
-		"SELECT %s FROM %s%s ORDER BY _id LIMIT ? OFFSET ?",
+		"SELECT %s FROM %s%s ORDER BY %s LIMIT ? OFFSET ?",
 		strings.Join(colNames, ", "),
 		arg.Table,
 		whereClause,
+		orderBy,
 	)
 
 	rows, err := q.db.QueryContext(ctx, query, queryArgs...)

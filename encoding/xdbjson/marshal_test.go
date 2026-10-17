@@ -998,3 +998,15 @@ func TestMarshal_ObjectArray_RejectsNonArray(t *testing.T) {
 		})
 	}
 }
+
+func TestUnmarshal_TimeKeepsItsFraction(t *testing.T) {
+	original := core.NewRecord("com.example", "test", "123").
+		Set("at", time.Date(2025, 1, 26, 10, 0, 0, 123_000_000, time.UTC)).
+		Set("whole", time.Date(2025, 1, 26, 10, 0, 0, 0, time.UTC))
+
+	data, err := xdbjson.Unmarshal(original)
+	require.NoError(t, err)
+
+	assert.Contains(t, string(data), `"at":"2025-01-26T10:00:00.123Z"`)
+	assert.Contains(t, string(data), `"whole":"2025-01-26T10:00:00Z"`, "a whole second keeps its short form")
+}

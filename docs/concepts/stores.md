@@ -192,10 +192,10 @@ List operations obey the [AIP-132](https://google.aip.dev/132) (List) and [AIP-1
 ```go
 type Query struct {
     URI    *core.URI // scope: ns-only or ns+schema
-    Filter string    // CEL filter expression
-    Fields []string  // not read by the facade or any driver
-    Limit  int
-    Offset int
+    Filter  string    // CEL filter expression
+    OrderBy []string  // sort fields, "-" prefix for descending
+    Limit   int
+    Offset  int
 }
 
 type Page[T any] struct {
@@ -208,6 +208,8 @@ type Page[T any] struct {
 - `URI` determines the scope. An ns-only URI lists across all schemas. An ns+schema URI lists a single schema
 
 - `Filter` is a [CEL expression](filters.md) evaluated against each record
+
+- `OrderBy` sorts the records before the page is cut, so pages are stable. A missing value sorts first ascending and last descending, and the record path breaks a tie. Times compare in milliseconds, because SQLite stores milliseconds. A strict schema rejects a field that it does not declare with `core.ErrInvalidOrder`. A flexible or dynamic schema accepts every field, as its filters do. The SQLite driver pushes the order down for a column table. For a KV table, it returns `store.ErrUnsupportedOrder`. The facade then asks again with no order, so SQLite still runs the filter. Then the facade sorts the matches in memory
 
 - `Limit` defaults to 20, with a maximum of 1000
 

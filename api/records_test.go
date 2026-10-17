@@ -170,6 +170,18 @@ func TestRecordService_List(t *testing.T) {
 		assert.Equal(t, 2, resp.NextOffset)
 	})
 
+	t.Run("order by", func(t *testing.T) {
+		resp, err := svc.List(ctx, &api.ListRecordsRequest{
+			URI:     "xdb://com.example/posts",
+			OrderBy: []string{"-title"},
+			Limit:   2,
+		})
+		require.NoError(t, err)
+		require.Len(t, resp.Items, 2)
+		assert.Equal(t, "Gamma", recordData(t, resp.Items[0])["title"])
+		assert.Equal(t, "Beta", recordData(t, resp.Items[1])["title"])
+	})
+
 	t.Run("record depth rejected", func(t *testing.T) {
 		_, err := svc.List(ctx, &api.ListRecordsRequest{
 			URI: "xdb://com.example/posts/post-1",

@@ -49,6 +49,10 @@ var (
 	// to parse, type-check, or compile.
 	ErrInvalidFilter = errors.New("[xdb/core] invalid filter")
 
+	// ErrInvalidOrder is returned when a list order names an empty field or
+	// a field that the schema does not declare.
+	ErrInvalidOrder = errors.New("[xdb/core] invalid order")
+
 	// ErrNotImplemented is returned when a requested operation is not
 	// implemented, e.g. by a driver or an interim stub.
 	ErrNotImplemented = errors.New("[xdb/core] not implemented")

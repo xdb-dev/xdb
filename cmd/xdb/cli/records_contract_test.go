@@ -215,6 +215,38 @@ func TestRecords_ListFilterFieldsOffset(t *testing.T) {
 	assert.ElementsMatch(t, []string{"w1", "w2", "w3"}, ids, "pages are disjoint and complete")
 }
 
+func TestRecords_ListOrderBy(t *testing.T) {
+	cfg := startCLITestDaemon(t)
+	seedWidgets(t, cfg)
+
+	_, _, code := runCLI(t, "--config", cfg, "records", "create",
+		"--uri", "xdb://rc.t/widgets/w2", "--json", `{"name":"gear","qty":3,"active":false}`)
+	require.Equal(t, ExitOK, code)
+
+	_, _, code = runCLI(t, "--config", cfg, "records", "create",
+		"--uri", "xdb://rc.t/widgets/w3", "--json", `{"name":"cog","qty":30,"active":true}`)
+	require.Equal(t, ExitOK, code)
+
+	tests := []struct {
+		name    string
+		orderBy string
+		want    []string
+	}{
+		{name: "ascending", orderBy: "qty", want: []string{"w2", "w1", "w3"}},
+		{name: "descending", orderBy: "-qty", want: []string{"w3", "w1", "w2"}},
+		{name: "two keys", orderBy: "active,name", want: []string{"w2", "w3", "w1"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout, stderr, code := runCLI(t, "--config", cfg, "records", "list",
+				"--uri", "xdb://rc.t/widgets", "--order-by", tt.orderBy, "-o", "ndjson")
+			require.Equal(t, ExitOK, code, stderr)
+			assert.Equal(t, tt.want, ndjsonIDs(t, stdout))
+		})
+	}
+}
+
 func TestRecords_ListFilterErrors(t *testing.T) {
 	cfg := startCLITestDaemon(t)
 	seedWidgets(t, cfg)

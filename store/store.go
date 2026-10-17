@@ -14,12 +14,16 @@ type Page[T any] struct {
 	NextOffset int // 0 means no more pages
 }
 
-// Query holds scope, filtering, and pagination parameters for list operations.
+// Query holds scope, filtering, order, and pagination parameters for list
+// operations.
 type Query struct {
 	URI    *core.URI // scope: ns-only or ns+schema
 	Filter string
-	Limit  int
-	Offset int
+	// OrderBy lists the fields to sort records by, most significant first.
+	// A leading "-" sorts a field descending. See [ParseOrderBy].
+	OrderBy []string
+	Limit   int
+	Offset  int
 }
 
 // RecordStore combines read and write access for records.

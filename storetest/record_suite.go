@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/xdb-dev/xdb/core"
+	"github.com/xdb-dev/xdb/schema"
 	"github.com/xdb-dev/xdb/store"
 )
 
@@ -237,6 +238,57 @@ func (s *RecordStoreSuite) testList(t *testing.T) {
 			_, err := st.ListRecords(ctx, q)
 			require.Error(t, err)
 		})
+	})
+
+	t.Run("order by", func(t *testing.T) {
+		st := s.newStore()
+		SeedRanked(t, st, "com.example", "posts")
+
+		uri := core.MustParseURI("xdb://com.example/posts")
+
+		for _, tt := range RankedOrderCases() {
+			t.Run(tt.Name, func(t *testing.T) {
+				page, err := st.ListRecords(ctx, &store.Query{
+					URI:     uri,
+					OrderBy: tt.OrderBy,
+					Limit:   tt.Limit,
+					Offset:  tt.Offset,
+				})
+				require.NoError(t, err)
+				assert.Equal(t, tt.Want, RecordIDs(page.Items))
+				assert.Equal(t, 5, page.Total)
+			})
+		}
+	})
+
+	t.Run("order by time", func(t *testing.T) {
+		st := s.newStore()
+		uri := core.MustParseURI("xdb://com.example/events")
+
+		// If no schema gives the field a type, a store that keeps
+		// records as JSON reads the time as a string.
+		if ss, ok := st.(store.SchemaStore); ok {
+			require.NoError(t, ss.CreateSchema(ctx, uri, &schema.Def{
+				URI:  uri,
+				Mode: schema.ModeFlexible,
+				Fields: map[string]schema.Field{
+					"start": {Type: core.TypeTime},
+				},
+			}))
+		}
+
+		SeedTimed(t, st, "com.example", "events")
+
+		for _, tt := range TimedOrderCases() {
+			t.Run(tt.Name, func(t *testing.T) {
+				page, err := st.ListRecords(ctx, &store.Query{
+					URI:     uri,
+					OrderBy: tt.OrderBy,
+				})
+				require.NoError(t, err)
+				assert.Equal(t, tt.Want, RecordIDs(page.Items))
+			})
+		}
 	})
 
 	t.Run("pagination", func(t *testing.T) {

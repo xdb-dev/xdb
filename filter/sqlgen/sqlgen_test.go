@@ -297,8 +297,8 @@ func TestGenerate_KVStrategy_AllowsUndeclaredIdent(t *testing.T) {
 }
 
 func TestQuoteIdent(t *testing.T) {
-	assert.Equal(t, `"name"`, quoteIdent("name"))
-	assert.Equal(t, `"weird""name"`, quoteIdent(`weird"name`))
+	assert.Equal(t, `"name"`, QuoteIdent("name"))
+	assert.Equal(t, `"weird""name"`, QuoteIdent(`weird"name`))
 }
 
 func TestGenerate_TimestampNeedsAConstantArgument(t *testing.T) {
@@ -308,4 +308,61 @@ func TestGenerate_TimestampNeedsAConstantArgument(t *testing.T) {
 	_, err = Generate(f, ColumnStrategy, "")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "timestamp")
+}
+
+func TestGenerate_ATimeStringBindsAsATimestamp(t *testing.T) {
+	tests := []struct {
+		name     string
+		strategy Strategy
+		wantSQL  string
+		wantArgs []any
+	}{
+		{
+			name:     "column",
+			strategy: ColumnStrategy,
+			wantSQL:  `("date" >= ?)`,
+			wantArgs: []any{augTS},
+		},
+		{
+			name:     "kv",
+			strategy: KVStrategy,
+			wantSQL:  `(_id IN (SELECT _id FROM posts WHERE _attr = ? AND CAST(_val AS REAL) >= ?))`,
+			wantArgs: []any{"date", augTS},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f, err := filter.Compile(`date >= "2026-08-01T00:00:00Z"`, testDef)
+			require.NoError(t, err)
+
+			wc, err := Generate(f, tt.strategy, "posts")
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantSQL, wc.SQL)
+			assert.Equal(t, tt.wantArgs, wc.Params)
+		})
+	}
+}
+
+func TestGenerate_UnsupportedExtensions(t *testing.T) {
+	exprs := []string{
+		`date <= now`,
+		`now > date`,
+		`now >= timestamp("2026-08-01T00:00:00Z")`,
+		`date <= now + duration("15m")`,
+		`name.lowerAscii() == "john"`,
+		`name.upperAscii().contains("JO")`,
+	}
+
+	for _, expr := range exprs {
+		for _, strategy := range []Strategy{ColumnStrategy, KVStrategy} {
+			t.Run(expr, func(t *testing.T) {
+				f, err := filter.Compile(expr, testDef)
+				require.NoError(t, err)
+
+				_, err = Generate(f, strategy, "posts")
+				require.ErrorIs(t, err, ErrUnsupportedExpr)
+			})
+		}
+	}
 }

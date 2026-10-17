@@ -6,6 +6,8 @@ require github.com/gojekfarm/xtools/errors v0.10.0
 
 require github.com/google/jsonschema-go v0.4.3
 
+require golang.org/x/text v0.22.0 // indirect
+
 require (
 	cel.dev/expr v0.25.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect

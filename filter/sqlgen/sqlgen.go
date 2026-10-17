@@ -55,6 +55,7 @@ func Generate(f *filter.Filter, strategy Strategy, table string) (*WhereClause, 
 		table:    table,
 		typeMap:  nativeAst.TypeMap(),
 		def:      f.Def(),
+		clock:    f.Clock(),
 	}
 
 	sql, err := g.walk(nativeAst.Expr())
@@ -75,6 +76,7 @@ type generator struct {
 	table    string
 	params   []any
 	strategy Strategy
+	clock    bool // [filter.NowVar] is the time of the evaluation
 }
 
 // walk recursively converts a CEL AST node to SQL.
@@ -102,6 +104,10 @@ func (g *generator) walk(expr ast.Expr) (string, error) {
 // (nil def trusts the ident, matching filter.Compile's own nil-def
 // permissiveness), and is double-quoted for emission.
 func (g *generator) walkIdent(name string) (string, error) {
+	if g.isClock(name) {
+		return "", fmt.Errorf("%w: %s is the time of the evaluation", ErrUnsupportedExpr, name)
+	}
+
 	if g.strategy == KVStrategy {
 		return name, nil
 	}
@@ -111,7 +117,7 @@ func (g *generator) walkIdent(name string) (string, error) {
 	// on, so it needs an exemption from the membership check and no
 	// translation beyond it.
 	if name == schema.FieldID {
-		return quoteIdent(name), nil
+		return QuoteIdent(name), nil
 	}
 
 	if g.def != nil {
@@ -120,11 +126,19 @@ func (g *generator) walkIdent(name string) (string, error) {
 		}
 	}
 
-	return quoteIdent(name), nil
+	return QuoteIdent(name), nil
 }
 
-// quoteIdent double-quotes a SQL identifier, doubling any embedded quotes.
-func quoteIdent(name string) string {
+// isClock reports whether name is [filter.NowVar] as the time of the
+// evaluation rather than a declared field. The compiled filter decides.
+// The clock has no SQL form here, so a filter that reads it falls back to
+// evaluation in memory.
+func (g *generator) isClock(name string) bool {
+	return g.clock && name == filter.NowVar
+}
+
+// QuoteIdent double-quotes a SQL identifier, doubling any embedded quotes.
+func QuoteIdent(name string) string {
 	return `"` + strings.ReplaceAll(name, `"`, `""`) + `"`
 }
 
@@ -491,7 +505,12 @@ func (g *generator) walkKVStringFn(attrName, fn string) (string, error) {
 func (g *generator) resolveAttrName(expr ast.Expr) (string, error) {
 	switch expr.Kind() {
 	case ast.IdentKind:
-		return expr.AsIdent(), nil
+		name := expr.AsIdent()
+		if g.isClock(name) {
+			return "", fmt.Errorf("%w: %s is the time of the evaluation", ErrUnsupportedExpr, name)
+		}
+
+		return name, nil
 	case ast.SelectKind:
 		sel := expr.AsSelect()
 		parent, err := g.resolveAttrName(sel.Operand())

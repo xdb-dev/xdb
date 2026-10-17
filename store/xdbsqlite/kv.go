@@ -100,6 +100,13 @@ func (e *kvEngine) queryRecords(
 	ctx context.Context,
 	q *store.Query,
 ) (*store.Page[[]*core.Tuple], error) {
+	// A KV table holds one row per attribute, so an order needs a join
+	// per field. The facade asks again with no order and sorts the
+	// filtered records in memory.
+	if len(q.OrderBy) > 0 {
+		return nil, store.ErrUnsupportedOrder
+	}
+
 	uri := q.URI
 	table := kvTableName(uri)
 

@@ -91,12 +91,19 @@ type TxDriver interface {
 // The facade falls back to synthesizing the list from ScanTuples.
 var ErrUnsupportedQuery = errors.New("[xdb/store] unsupported query")
 
+// ErrUnsupportedOrder is returned by [QueryDriver.QueryTuples] when the
+// driver can filter a query but cannot sort it. The facade asks again
+// with no order, so the driver still filters, and then sorts and pages
+// the matches in memory.
+var ErrUnsupportedOrder = errors.New("[xdb/store] unsupported order")
+
 // QueryDriver is an optional capability for drivers with native
 // filter pushdown (e.g. compiling CEL to SQL). QueryTuples returns
 // one page item per matching record: that record's full tuple set.
 // Drivers without it get ListRecords synthesized from ScanTuples;
 // drivers with it can decline individual queries by returning
-// [ErrUnsupportedQuery].
+// [ErrUnsupportedQuery], or decline only the order by returning
+// [ErrUnsupportedOrder].
 type QueryDriver interface {
 	QueryTuples(ctx context.Context, q *Query) (*Page[[]*core.Tuple], error)
 }

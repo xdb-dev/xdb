@@ -134,11 +134,12 @@ func (a *App) recordList(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	req := &api.ListRecordsRequest{
-		URI:    uri,
-		Filter: cmd.String("filter"),
-		Fields: parseFields(cmd.String("fields")),
-		Limit:  int(cmd.Int("limit")),
-		Offset: int(cmd.Int("offset")),
+		URI:     uri,
+		Filter:  cmd.String("filter"),
+		OrderBy: parseFields(cmd.String("order-by")),
+		Fields:  parseFields(cmd.String("fields")),
+		Limit:   int(cmd.Int("limit")),
+		Offset:  int(cmd.Int("offset")),
 	}
 
 	page := output.Page{Items: []any{}}
@@ -315,6 +316,7 @@ func recordListFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{Name: "uri", Usage: "Schema URI, or namespace URI to list across schemas"},
 		&cli.StringFlag{Name: "filter", Usage: "CEL filter expression"},
+		&cli.StringFlag{Name: "order-by", Usage: "Comma-separated sort fields, a leading \"-\" sorts descending"},
 		&cli.StringFlag{Name: "fields", Usage: "Comma-separated field mask"},
 		&cli.IntFlag{Name: "limit", Usage: "Max items per page"},
 		&cli.IntFlag{Name: "offset", Usage: "Page offset"},

@@ -231,13 +231,18 @@ func (s *RecordService) Get(ctx context.Context, req *GetRecordRequest) (*GetRec
 	return &GetRecordResponse{Data: data}, nil
 }
 
-// ListRecordsRequest is the request for records.list.
+// ListRecordsRequest is the request for records.list. OrderBy lists the
+// fields to sort by, most significant first, such as ["start", "-_updated"].
+// A leading "-" sorts a field descending. The order applies before Limit and
+// Offset, so pages are stable. A missing value sorts first ascending and
+// last descending, and the record ID breaks a tie.
 type ListRecordsRequest struct {
-	URI    string   `json:"uri"`
-	Filter string   `json:"filter,omitempty"`
-	Fields []string `json:"fields,omitempty"`
-	Limit  int      `json:"limit,omitempty"`
-	Offset int      `json:"offset,omitempty"`
+	URI     string   `json:"uri"`
+	Filter  string   `json:"filter,omitempty"`
+	OrderBy []string `json:"order_by,omitempty"`
+	Fields  []string `json:"fields,omitempty"`
+	Limit   int      `json:"limit,omitempty"`
+	Offset  int      `json:"offset,omitempty"`
 }
 
 // ListRecordsResponse is the response for records.list.
@@ -255,10 +260,11 @@ func (s *RecordService) List(ctx context.Context, req *ListRecordsRequest) (*Lis
 	}
 
 	query := &store.Query{
-		URI:    uri,
-		Filter: req.Filter,
-		Limit:  req.Limit,
-		Offset: req.Offset,
+		URI:     uri,
+		Filter:  req.Filter,
+		OrderBy: req.OrderBy,
+		Limit:   req.Limit,
+		Offset:  req.Offset,
 	}
 
 	page, err := s.store.ListRecords(ctx, query)

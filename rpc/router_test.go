@@ -105,6 +105,12 @@ func TestMapError(t *testing.T) {
 			wantDataReason: "invalid_filter",
 		},
 		{
+			name:           "ErrInvalidOrder maps to CodeInvalidParams with reason",
+			err:            fmt.Errorf("list: %w", core.ErrInvalidOrder),
+			wantCode:       CodeInvalidParams,
+			wantDataReason: "invalid_order",
+		},
+		{
 			name:     "ErrUnknownType maps to CodeSchemaViolation",
 			err:      core.ErrUnknownType,
 			wantCode: CodeSchemaViolation,

@@ -453,9 +453,20 @@ func listFilterGrammar(cmd *cli.Command) error {
 			".startsWith(s)",
 			".endsWith(s)",
 			".matches(regex)",
+			".lowerAscii()",
+			".upperAscii()",
+			".trim()",
+			".indexOf(s)",
+			".replace(old, new)",
+			".split(sep)",
+			".substring(start, end)",
 			"size(x)",
 			`timestamp("RFC3339")`,
+			`duration("15m")`,
 			"has(attr)",
+		},
+		"variables": []map[string]string{
+			{"name": "now", "type": "time", "description": "Time of the evaluation. A schema field named now wins"},
 		},
 		"reserved_attrs": []map[string]string{
 			{"name": "_id", "type": "string", "description": "Record id"},
@@ -474,11 +485,15 @@ func listFilterGrammar(cmd *cli.Command) error {
 			`date >= timestamp("2026-08-01T00:00:00Z") && date < timestamp("2026-09-01T00:00:00Z")`,
 			`!has(assignee)`,
 			`"assignee" in _attrs`,
+			`title.lowerAscii().contains("standup")`,
+			`start >= now && start <= now + duration("15m")`,
+			`start >= "2026-09-29T00:00:00Z"`,
 		},
 		"notes": []string{
-			"Compare a time field against timestamp(\"...\"), not against a string.",
+			"An RFC 3339 string compares as a time against a field that the schema declares as time, and against _updated and now. " +
+				"Against any other field, use timestamp(\"...\").",
 			"has(attr) asks whether the record holds the attribute. Negate it to find the records that do not.",
-			"String functions are case-sensitive.",
+			"contains, startsWith, and endsWith are case-sensitive. Use lowerAscii() for a case-insensitive match.",
 		},
 	}
 

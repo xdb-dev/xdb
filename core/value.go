@@ -122,7 +122,7 @@ func (v *Value) String() string {
 	case TIDBytes:
 		return string(v.data.([]byte))
 	case TIDTime:
-		return v.data.(time.Time).Format(time.RFC3339)
+		return v.data.(time.Time).Format(time.RFC3339Nano)
 	case TIDJSON:
 		return string(v.data.(json.RawMessage))
 	case TIDArray:

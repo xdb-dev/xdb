@@ -1,18 +1,18 @@
 ---
 name: query-and-filter
-description: "Filter, project, and paginate record listings"
+description: "Filter, sort, project, and paginate record listings"
 category: recipe
 ---
 
 # Query and Filter
 
-`records list` is the main read path. It supports CEL filters, field
-projections, and pagination.
+`records list` is the main read path. It supports CEL filters, sort
+orders, field projections, and pagination.
 
 ## Filters
 
 Filters are CEL expressions. `xdb describe --filter` shows the full
-grammar. String functions are case-sensitive.
+grammar. String functions are case-sensitive. Use `lowerAscii()` for a match that ignores case.
 
 ```bash
 xdb records list --uri xdb://myapp/todos --filter 'done == false'
@@ -51,6 +51,21 @@ xdb records list --uri xdb://myapp/issues --filter 'has(assignee) && done == fal
 
 `_attrs` holds the attribute names of the record, so `"assignee" in
 _attrs` is the same test.
+
+## Sorting
+
+`--order-by` takes a comma-separated list of fields, most significant
+first. A leading `-` sorts a field descending. A missing value sorts
+first ascending and last descending. The record ID breaks a tie, so
+pages of one order do not overlap.
+
+```bash
+xdb records list --uri xdb://myapp/todos --order-by -priority,title
+xdb records list --uri xdb://myapp/todos --order-by -_updated --limit 10
+```
+
+Under a `strict` schema, an order on an undeclared field fails with
+INVALID_ARGUMENT. The error lists the fields that you can sort by.
 
 ## Projections
 

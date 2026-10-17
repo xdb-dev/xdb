@@ -48,26 +48,48 @@ xdb records list xdb://myapp/posts --filter '!(archived == true)' --fields _id
 | `matches`    | `name.matches("^J")`   | no SQL form: scan and evaluate   |
 | `timestamp`  | `at >= timestamp("2026-08-01T00:00:00Z")` | `at >= ?` bound as milliseconds |
 | `has`        | `!has(assignee)`       | `NOT ("assignee" IS NOT NULL)`   |
+| `lowerAscii`, `upperAscii` | `name.lowerAscii() == "john"` | no SQL form: scan and evaluate |
+| `duration`   | `at <= now + duration("15m")` | no SQL form: scan and evaluate |
 
-`matches` has no SQL translation. The SQLite driver declines the pushdown and
-the store falls back to a scan with in-memory evaluation. The result is the
-same on every backend.
+The case functions come from the CEL strings extension, which also adds
+`trim`, `indexOf`, `replace`, `split`, and `substring`.
+
+`matches`, the strings extension, and `now` have no SQL translation. The
+SQLite driver declines the pushdown and the store falls back to a scan with
+in-memory evaluation. The result is the same on every backend.
 
 ### Time comparisons
 
-A `time` field compares against `timestamp("...")`, never against a string.
-CEL rejects a comparison between a time and a string, so the string form
-fails to type-check:
+A `time` field compares against `timestamp("...")`:
 
 ```
 at >= timestamp("2026-08-01T00:00:00Z") && at < timestamp("2026-09-01T00:00:00Z")
 ```
+
+A string literal also compares as a time when the other side is a field that
+the schema declares as `time`, or `_updated`, or `now`. `filter.Compile`
+rewrites `at >= "2026-08-01T00:00:00Z"` into the `timestamp()` form before
+the type check. A dynamically typed field can hold a string, so a comparison
+against it stays a string comparison.
 
 The argument is an RFC 3339 time. A constant argument that does not parse is
 rejected by `filter.Compile`, because such a filter can never match a record.
 `filter/sqlgen` folds the call at generation time and binds the result as
 milliseconds since the Unix epoch, which is how the SQLite driver stores a
 time.
+
+### The Clock
+
+`now` is the time of the evaluation, as a `time` value. `Filter.Filter`
+binds one time for the whole list. `now` is not reserved: in a list of one
+schema that declares a field named `now`, the field wins, the same way a
+declared field wins over a reserved attribute. A list across a namespace
+has no schema, so `now` is always the clock there. To filter on a field
+named `now`, list its schema.
+
+```
+at >= now && at <= now + duration("15m")
+```
 
 ### Absent attributes
 
@@ -91,6 +113,7 @@ rejected the same way a comparison on that field is.
 
 String matching compares bytes and is case-sensitive, the same as CEL itself.
 `name.contains("hello")` does not match a stored value of `"Hello World"`.
+For a match that ignores case, write `name.lowerAscii().contains("hello")`.
 This rule is the same on every backend. On SQLite, `contains`, `startsWith`,
 and `endsWith` compile to `instr` and `substr`, not to `LIKE`. `LIKE` in
 SQLite ignores ASCII case by default, which gives results different from the

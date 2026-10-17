@@ -11,14 +11,23 @@ import (
 	"github.com/google/cel-go/common/ast"
 	"github.com/google/cel-go/common/operators"
 	"github.com/google/cel-go/common/types"
+	"github.com/google/cel-go/ext"
 
 	"github.com/xdb-dev/xdb/core"
 	"github.com/xdb-dev/xdb/schema"
 )
 
-// filterFix is the one-line pointer attached to every invalid-filter
-// error. It reaches the CLI as the hint of the error envelope.
-const filterFix = "run xdb describe --filter to see the filter grammar"
+// GrammarHint is the one-line pointer attached to every invalid-filter
+// error as its fix tag. It reaches the CLI as the hint of the error
+// envelope. An embedder with no xdb CLI can find it in the error text and
+// replace it with its own pointer.
+const GrammarHint = "run xdb describe --filter to see the filter grammar"
+
+// NowVar is the filter variable that holds the time of the evaluation, for
+// a filter such as start <= now + duration("15m"). A schema field of the
+// same name wins, as a field wins over a reserved attribute: a filter on a
+// declared field must keep its meaning.
+const NowVar = "now"
 
 // AttrsVar is the reserved filter variable that holds the attribute names
 // a record carries. Write "name" in _attrs, or has(name), to select the
@@ -98,6 +107,7 @@ type Filter struct {
 	env    *cel.Env
 	def    *schema.Def
 	src    string
+	clock  bool // NowVar is the time of the evaluation, not a field
 }
 
 // Compile parses and type-checks a CEL filter expression.
@@ -108,21 +118,32 @@ func Compile(expr string, def *schema.Def) (*Filter, error) {
 		return nil, invalidFilter(fmt.Errorf("empty expression"))
 	}
 
-	env, err := buildEnv(def)
+	clock := isClock(def)
+
+	env, err := buildEnv(def, clock)
 	if err != nil {
 		return nil, invalidFilter(fmt.Errorf("build env: %w", err))
+	}
+
+	parsed, iss := env.Parse(expr)
+	if iss.Err() != nil {
+		return nil, invalidFilter(fmt.Errorf("parse: %w", iss.Err()))
 	}
 
 	// Two-pass compile: first parse to extract identifiers, then extend env
 	// with any undeclared variables as DynType. This handles both schema-free
 	// mode (all vars dynamic) and schema mode (unknown fields become dynamic
 	// so filtering on missing attributes evaluates to false at runtime).
-	env, err = extendEnvFromExpr(env, def, expr)
+	env, err = extendEnvFromExpr(env, def, clock, parsed)
 	if err != nil {
 		return nil, invalidFilter(err)
 	}
 
-	celAst, iss := env.Compile(expr)
+	if err := coerceTimeStrings(parsed, def, clock); err != nil {
+		return nil, invalidFilter(err)
+	}
+
+	celAst, iss := env.Check(parsed)
 	if iss.Err() != nil {
 		return nil, invalidFilter(fmt.Errorf("compile: %w", iss.Err()))
 	}
@@ -142,7 +163,123 @@ func Compile(expr string, def *schema.Def) (*Filter, error) {
 		env:    env,
 		src:    expr,
 		def:    def,
+		clock:  clock,
 	}, nil
+}
+
+// Clock reports whether [NowVar] is the time of the evaluation, not a
+// declared field. A SQL generator must not render the clock as a column.
+func (f *Filter) Clock() bool {
+	return f.clock
+}
+
+// isClock reports whether [NowVar] is the time of the evaluation. It is,
+// unless def declares a field of that name.
+func isClock(def *schema.Def) bool {
+	if def == nil {
+		return true
+	}
+
+	_, declared := def.Fields[NowVar]
+
+	return !declared
+}
+
+// comparisons are the CEL operators that compare two values.
+var comparisons = map[string]bool{
+	operators.Equals:        true,
+	operators.NotEquals:     true,
+	operators.Less:          true,
+	operators.LessEquals:    true,
+	operators.Greater:       true,
+	operators.GreaterEquals: true,
+}
+
+// coerceTimeStrings rewrites a string literal that is compared with a time
+// field into a timestamp() call, so start >= "2026-09-29T00:00:00Z" reads
+// as it does with timestamp(). It rewrites only against a field whose time
+// type is known before evaluation: a declared time field, _updated, or the
+// clock. A dynamically typed field can hold a string, so its comparison
+// stays a string comparison. A literal that is not RFC 3339 is an error.
+func coerceTimeStrings(parsed *cel.Ast, def *schema.Def, clock bool) error {
+	native := parsed.NativeRep()
+	nextID := ast.MaxID(native)
+	factory := ast.NewExprFactory()
+
+	var coerceErr error
+
+	visit := func(expr ast.Expr) {
+		if coerceErr != nil || expr.Kind() != ast.CallKind {
+			return
+		}
+
+		call := expr.AsCall()
+		args := call.Args()
+		if !comparisons[call.FunctionName()] || len(args) != 2 {
+			return
+		}
+
+		for i, arg := range args {
+			other := args[1-i]
+
+			text, isString := stringLiteral(arg)
+			if !isString || !isTimeOperand(other, def, clock) {
+				continue
+			}
+
+			if _, err := time.Parse(time.RFC3339, text); err != nil {
+				coerceErr = fmt.Errorf(
+					"%q is not an RFC 3339 time, for example \"2026-08-01T00:00:00Z\"",
+					text,
+				)
+
+				return
+			}
+
+			literal := factory.NewLiteral(nextID, types.String(text))
+			timestamp := factory.NewCall(nextID+1, "timestamp", literal)
+			nextID += 2
+
+			arg.SetKindCase(timestamp)
+		}
+	}
+
+	ast.PostOrderVisit(native.Expr(), ast.NewExprVisitor(visit))
+
+	return coerceErr
+}
+
+// stringLiteral returns the value of a string literal.
+func stringLiteral(expr ast.Expr) (string, bool) {
+	if expr.Kind() != ast.LiteralKind {
+		return "", false
+	}
+
+	text, ok := expr.AsLiteral().Value().(string)
+
+	return text, ok
+}
+
+// isTimeOperand reports whether expr names a value whose type is a time
+// before evaluation.
+func isTimeOperand(expr ast.Expr, def *schema.Def, clock bool) bool {
+	if expr.Kind() != ast.IdentKind {
+		return false
+	}
+
+	name := expr.AsIdent()
+
+	if def != nil {
+		if field, ok := def.Fields[name]; ok {
+			return field.Type.ID() == core.TIDTime
+		}
+	}
+
+	if name == NowVar {
+		return clock
+	}
+
+	return reservedAttrTypes[name] == cel.TimestampType
 }
 
 // invalidFilter wraps err as [core.ErrInvalidFilter] and attaches the fix
@@ -151,7 +288,7 @@ func Compile(expr string, def *schema.Def) (*Filter, error) {
 func invalidFilter(err error) error {
 	return xerrors.Wrap(
 		fmt.Errorf("%w: %w", core.ErrInvalidFilter, err),
-		"fix", filterFix,
+		"fix", GrammarHint,
 		"reason", "invalid_filter",
 	)
 }
@@ -284,14 +421,23 @@ func (f *Filter) Def() *schema.Def { return f.def }
 
 // buildEnv creates a CEL environment from a schema definition. Reserved
 // attributes (see reservedAttrTypes) are declared regardless of def, so
-// they type-check in every mode without being schema fields.
-func buildEnv(def *schema.Def) (*cel.Env, error) {
+// they type-check in every mode without being schema fields. The strings
+// extension adds the case functions, such as lowerAscii(). When clock is
+// set, [NowVar] is declared as a timestamp.
+func buildEnv(def *schema.Def, clock bool) (*cel.Env, error) {
 	fieldCount := 0
 	if def != nil {
 		fieldCount = len(def.Fields)
 	}
-	opts := make([]cel.EnvOption, 0, len(reservedAttrTypes)+fieldCount+1)
-	opts = append(opts, cel.Macros(presenceMacro))
+	opts := make([]cel.EnvOption, 0, len(reservedAttrTypes)+fieldCount+3)
+	opts = append(opts,
+		cel.Macros(presenceMacro),
+		ext.Strings(),
+	)
+
+	if clock {
+		opts = append(opts, cel.Variable(NowVar, cel.TimestampType))
+	}
 
 	for name, ct := range reservedAttrTypes {
 		if def != nil {
@@ -331,7 +477,7 @@ func celType(tid core.TID) *cel.Type {
 	}
 }
 
-// extendEnvFromExpr parses expr to find identifiers, then extends the env
+// extendEnvFromExpr walks a parsed expression to find identifiers, then extends the env
 // with any undeclared variables as [cel.DynType]. When def is nil, all
 // identifiers are added as dynamic. When def is provided, only identifiers
 // not already declared in the schema (or reserved) are added.
@@ -339,13 +485,13 @@ func celType(tid core.TID) *cel.Type {
 // Under [schema.ModeStrict], an undeclared, non-reserved identifier is
 // rejected instead of being added as dynamic — strict schemas do not
 // tolerate filtering on fields they do not define.
-func extendEnvFromExpr(env *cel.Env, def *schema.Def, expr string) (*cel.Env, error) {
-	celAst, iss := env.Parse(expr)
-	if iss.Err() != nil {
-		return nil, fmt.Errorf("parse: %w", iss.Err())
-	}
-
-	idents := collectIdents(celAst.NativeRep().Expr())
+func extendEnvFromExpr(
+	env *cel.Env,
+	def *schema.Def,
+	clock bool,
+	parsed *cel.Ast,
+) (*cel.Env, error) {
+	idents := collectIdents(parsed.NativeRep().Expr())
 	if len(idents) == 0 {
 		return env, nil
 	}
@@ -359,6 +505,9 @@ func extendEnvFromExpr(env *cel.Env, def *schema.Def, expr string) (*cel.Env, er
 	}
 	for name := range reservedAttrTypes {
 		declared[name] = true
+	}
+	if clock {
+		declared[NowVar] = true
 	}
 
 	extras := make([]cel.EnvOption, 0, len(idents))

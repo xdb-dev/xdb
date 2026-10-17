@@ -299,6 +299,8 @@ func mapErrorCode(err error) (*Error, string) {
 		return InvalidParams(msg), "invalid_uri"
 	case errors.Is(err, core.ErrInvalidFilter):
 		return InvalidParams(msg), "invalid_filter"
+	case errors.Is(err, core.ErrInvalidOrder):
+		return InvalidParams(msg), "invalid_order"
 	case errors.Is(err, core.ErrUnknownType):
 		return SchemaViolation(msg), ""
 	case errors.Is(err, schema.ErrInvalidMode):
