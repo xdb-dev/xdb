@@ -7,14 +7,22 @@ read_when:
   - You want CI to fail when a schema file and the stored schema differ
 ---
 
-# Import your types
+import Flow from "../../../components/figures/Flow.astro";
 
 XDB creates a schema from a tagged Go struct, a protobuf message, or a JSON Schema document. The same packages convert data between these types and records.
 
-<figure class="frame">
-  <svg id="fig-byot" role="img" aria-label="A proto file, a JSON Schema and a Go struct all import into one schema definition, which the store keeps. A dashed loop shows schemas diff checking for drift."></svg>
-  <figcaption>bring your own types</figcaption>
-</figure>
+<Flow
+  alt="A proto file, a JSON Schema and a Go struct all import into one schema definition, which the store keeps. A dashed loop shows schemas diff checking for drift."
+  caption="bring your own types"
+  from={[
+    { title: "protobuf", code: [[["user.proto", "muted"]]] },
+    { title: "JSON Schema", code: [[["user.schema.json", "muted"]]] },
+    { title: "Go, xdb tags", code: [[["type User struct", "muted"]]] },
+  ]}
+  center={{ title: "schema.Def", sub: ["one definition"] }}
+  to={[{ title: "store", sub: "any backend", hue: "accent" }]}
+  note="xdb schemas diff --check fails CI on drift"
+/>
 
 ## From a Go struct
 
@@ -95,4 +103,4 @@ xdb schemas diff ./api/user.proto --ns com.example --check
 
 Add this command to CI. Then a build fails when the file and the stored schema differ.
 
-[Bring your own types](../concepts/bring-your-own-types.md) lists the type mappings and the constructs that XDB cannot import.
+[Bring your own types](../../../../../docs/concepts/bring-your-own-types.md) lists the type mappings and the constructs that XDB cannot import.

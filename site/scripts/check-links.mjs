@@ -1,12 +1,12 @@
-// A link in /docs must work on GitHub and on the site. A relative path to
-// a file in the repository works in both places, because
-// site/src/remark/rewrite-doc-links.mjs rewrites it for the site.
+// A link in a page or a concept page is a relative path to a file. On
+// GitHub it resolves as it is. On the site,
+// site/src/remark/rewrite-doc-links.mjs rewrites it at build time.
 //
 // This script finds the links that the plugin cannot correct: links that
 // start with "/", and relative links to files that do not exist.
 // It does not read docs/research. The site does not show them.
 //
-//   node site/scripts/check-links.mjs [docsDir]
+//   node site/scripts/check-links.mjs [dir]
 
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -61,4 +61,4 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
-console.log("docs links ok");
+console.log(`${relative(process.cwd(), docsDir)}: links ok`);

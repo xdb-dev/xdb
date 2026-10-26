@@ -3,6 +3,7 @@ import { defineConfig } from "astro/config";
 import starlight from "@astrojs/starlight";
 import { unified } from "@astrojs/markdown-remark";
 
+import { renderMermaid } from "./src/remark/render-mermaid.mjs";
 import { stripTitleHeading } from "./src/remark/strip-title-heading.mjs";
 import { rewriteDocLinks } from "./src/remark/rewrite-doc-links.mjs";
 import { sidebar } from "./src/sidebar.mjs";
@@ -10,41 +11,46 @@ import { sidebar } from "./src/sidebar.mjs";
 const BASE = "/";
 const REPO = "https://github.com/xdb-dev/xdb";
 
-// The build copies public/index.html to dist/index.html, so "/" is the
-// landing page on the live site. The dev server does not serve an
-// index.html from public/ at "/". This integration sends "/" to it.
-/** @type {import("astro").AstroIntegration} */
-const landingInDev = {
-  name: "landing-in-dev",
-  hooks: {
-    "astro:server:setup": ({ server }) => {
-      server.middlewares.use((req, _res, next) => {
-        const [path, query] = (req.url ?? "").split("?");
-        if (path === BASE) {
-          req.url = `${BASE}index.html${query ? `?${query}` : ""}`;
-        }
-        next();
-      });
-    },
-  },
-};
-
 export default defineConfig({
   site: "https://xdb.dev",
   base: BASE,
   trailingSlash: "always",
+  // The guides were in docs/howto before the site moved them to its own
+  // pages. The redirects keep the old links working.
+  redirects: {
+    "/docs/howto/get-started": "/docs/start/",
+    "/docs/howto/define-a-schema": "/docs/guides/define-a-schema/",
+    "/docs/howto/import-types": "/docs/guides/import-types/",
+    "/docs/howto/read-and-write": "/docs/guides/read-and-write/",
+    "/docs/howto/choose-a-backend": "/docs/guides/choose-a-backend/",
+    "/docs/howto/use-with-agents": "/docs/guides/use-with-agents/",
+    "/docs/howto/embed-in-go": "/docs/guides/embed-in-go/",
+  },
   markdown: {
     // MDX gets the same plugins from this processor.
     // stripTitleHeading looks only at the first node after the frontmatter.
     processor: unified({
       remarkPlugins: [
         stripTitleHeading,
+        [
+          renderMermaid,
+          {
+            // The fonts of tokens.css. The diagram labels are measured in them.
+            fonts: {
+              regular: "@fontsource/inter/files/inter-latin-400-normal.woff",
+              bold: "@fontsource/inter/files/inter-latin-700-normal.woff",
+              mono: "@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff",
+              monoBold: "@fontsource/jetbrains-mono/files/jetbrains-mono-latin-700-normal.woff",
+            },
+            // The content column inside figure.frame.
+            maxWidth: 580,
+          },
+        ],
         [rewriteDocLinks, { base: BASE, repo: REPO }],
       ],
     }),
   },
   integrations: [
-    landingInDev,
     starlight({
       title: "xdb",
       favicon: "/favicon.svg",
@@ -70,16 +76,6 @@ export default defineConfig({
         {
           tag: "link",
           attrs: { rel: "stylesheet", href: `${BASE}tokens.css` },
-        },
-        // The figures in the docs come from the same script as the figures
-        // on the landing page. The script draws only the figures on the page.
-        {
-          tag: "script",
-          attrs: { src: `${BASE}vendor/rough.js`, defer: true },
-        },
-        {
-          tag: "script",
-          attrs: { src: `${BASE}site.js`, defer: true },
         },
         {
           tag: "link",
@@ -111,8 +107,10 @@ export default defineConfig({
           href: REPO,
         },
       ],
+      // An entry path is relative to site/. A concept page starts with
+      // "../docs/", which resolves to the docs directory of the repository.
       editLink: {
-        baseUrl: `${REPO}/edit/main/`,
+        baseUrl: `${REPO}/edit/main/site/`,
       },
       // The Expressive Code options are in ec.config.mjs.
       sidebar,

@@ -1,0 +1,28 @@
+---
+// One line of mono text, as runs of color. The forms use it for a URI, a
+// command, or a line of code.
+import { color, run, type Line } from "./hues";
+
+interface Props {
+  line: Line;
+}
+
+const { line } = Astro.props;
+---
+
+<code class="xf-code">{line.map((r) => {
+  const [text, hue] = run(r);
+  return <span style={`color:${color(hue)}`}>{text}</span>;
+})}</code>
+
+<style>
+  .xf-code {
+    font-family: var(--mono);
+    font-size: inherit;
+    white-space: pre;
+    background: none;
+    padding: 0;
+    border: 0;
+    color: var(--ink);
+  }
+</style>

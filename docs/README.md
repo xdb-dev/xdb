@@ -1,82 +1,17 @@
 ---
-title: Overview
-description: The tuple model, the package map, and a first record in Go.
-read_when:
-  - You open the XDB docs for the first time
-  - You decide which package to start with
+title: Docs
+description: The layout of `docs/` and where the rules for each page are.
 ---
 
-# Overview
+# Docs
 
-XDB stores data as tuples. A tuple is a path, an attribute, and a typed value:
+`docs/` holds the concept pages and the research notes of XDB. The pages for the users of XDB are on the site, in `site/src/content/docs/`.
 
-```
-xdb://com.example/posts/p-1#title = "Hello"
-```
+## Layout
 
-A record is the set of tuples at one path. You read and write records from Go, over JSON-RPC, or with the `xdb` CLI. The same calls work on each backend: memory, files, Redis, or SQLite.
+| Directory   | Contents                                                                 | On the site |
+| ----------- | ------------------------------------------------------------------------ | ----------- |
+| `concepts/` | One page per concept. [concepts/README.md](concepts/README.md) is the index. | Yes, under Concepts |
+| `research/` | Notes for a change, with the date in the file name                      | No          |
 
-## Packages
-
-| Package | Contents |
-| --- | --- |
-| `core` | Tuples, records, URIs, and typed values |
-| `schema` | Schema definitions and validation modes |
-| `store` | The store facade. It validates each write against its schema and sets the record version. |
-| `store/xdbmemory`, `store/xdbfs`, `store/xdbredis`, `store/xdbsqlite` | The drivers. Each driver writes tuples to one backend. |
-| `encoding/xdbjson`, `encoding/xdbproto`, `encoding/xdbstruct` | Conversion between tuples and JSON, protobuf messages, or Go structs |
-| `filter` | CEL filters for record lists |
-| `api`, `rpc` | The JSON-RPC server. It has one method for each action, for example `records.create`. |
-| `cmd/xdb` | The CLI and the daemon. The CLI sends each command to the daemon over JSON-RPC. |
-
-## Your first record
-
-This program keeps a record in memory and reads one attribute back.
-
-```go
-package main
-
-import (
-	"context"
-	"fmt"
-	"log"
-
-	"github.com/xdb-dev/xdb/core"
-	"github.com/xdb-dev/xdb/store"
-	"github.com/xdb-dev/xdb/store/xdbmemory"
-)
-
-func main() {
-	ctx := context.Background()
-	st := store.New(xdbmemory.NewDriver())
-
-	post := core.NewRecord("com.example", "posts", "p-1").
-		Set("title", "Hello").
-		Set("views", 42)
-
-	if err := st.CreateRecord(ctx, post); err != nil {
-		log.Fatal(err)
-	}
-
-	got, err := st.GetRecord(ctx, core.MustParseURI("xdb://com.example/posts/p-1"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	title, err := got.Get("title").AsStr()
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(title)
-}
-```
-
-To use the CLI instead, read [Get started](howto/get-started.md).
-
-## Find a page
-
-- [Get started](howto/get-started.md): install the CLI and write your first record.
-- How-to guides: [Define a schema](howto/define-a-schema.md), [Import your types](howto/import-types.md), [Read and write records](howto/read-and-write.md), [Choose a backend](howto/choose-a-backend.md), [Use XDB from an agent](howto/use-with-agents.md), and [Embed XDB in Go](howto/embed-in-go.md).
-- [Concepts](concepts/README.md): tuples, records, schemas, stores, and the rest of the design.
-- [CLI reference](../cmd/xdb/cli/CONTEXT.md): the commands, flags, and payloads. `xdb context` prints the same guide.
-- [Go API](https://pkg.go.dev/github.com/xdb-dev/xdb): the exact signatures and fields.
+The rules for a concept page are in the Documentation section of [CLAUDE.md](../CLAUDE.md). The layout of the site is in [site/README.md](../site/README.md).

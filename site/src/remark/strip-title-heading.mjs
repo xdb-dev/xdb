@@ -1,10 +1,19 @@
+import { relative, sep } from "node:path";
+import { fileURLToPath } from "node:url";
+
 /**
- * Each doc in /docs starts with an H1 that repeats its frontmatter title.
- * GitHub needs that H1. Starlight shows the title itself, so this plugin
- * removes the first H1 and no other.
+ * Each concept page in /docs/concepts starts with an H1 that repeats its
+ * frontmatter title. GitHub needs that H1. Starlight shows the title, so
+ * this plugin removes the first H1 of a concept page and no other heading.
  */
+
+const CONCEPTS_DIR = fileURLToPath(new URL("../../../docs/concepts/", import.meta.url));
+
 export function stripTitleHeading() {
-  return (tree) => {
+  return (tree, file) => {
+    const rel = file.path ? relative(CONCEPTS_DIR, file.path) : "..";
+    if (rel.startsWith("..") || rel.startsWith(sep)) return;
+
     const first = tree.children.findIndex(
       (node) => node.type !== "yaml" && node.type !== "toml",
     );

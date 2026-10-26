@@ -12,21 +12,22 @@ The XDB daemon runs a JSON-RPC server over a Unix socket. The server exposes all
 
 The CLI starts the daemon by re-executing its own binary as a separate process:
 
-```
-xdb daemon start
-├── Parent process (CLI)
-│   ├── Loads config
-│   ├── Checks for existing daemon (PID file)
-│   ├── Re-execs itself with XDB_DAEMON_CHILD=1
-│   ├── Waits for socket to accept connections
-│   └── Exits with success message
-│
-└── Child process (daemon)
-    ├── Detached from parent (setsid)
-    ├── Stdout/stderr redirected to log file
-    ├── Writes PID file
-    ├── Starts JSON-RPC server on Unix socket
-    └── Runs until SIGTERM/SIGINT
+```mermaid
+sequenceDiagram
+  accTitle: The start of the daemon
+  accDescr: The CLI loads the config, checks the PID file, and re-execs itself as the daemon. The daemon detaches, writes its PID file, and serves JSON-RPC on the socket. The CLI exits when the socket accepts a connection.
+  participant CLI as CLI (parent)
+  participant D as Daemon (child)
+  participant S as Unix socket
+  CLI->>CLI: load the config
+  CLI->>CLI: check the PID file
+  CLI->>D: re-exec with XDB_DAEMON_CHILD=1
+  D->>D: setsid, send stdout and stderr to the log file
+  D->>D: write the PID file
+  D->>S: serve JSON-RPC
+  CLI->>S: wait until the socket accepts
+  CLI-->>CLI: exit with a success message
+  Note over D: runs until SIGTERM or SIGINT
 ```
 
 The child process outlives the parent CLI command. It runs in its own session (`setsid`), so the closure of the terminal does not affect it.

@@ -7,14 +7,27 @@ read_when:
   - You write a driver for another database
 ---
 
-# Choose a backend
+import Flow from "../../../components/figures/Flow.astro";
+import Contract from "../../../components/figures/Contract.astro";
 
 A driver writes tuples to one backend. XDB has drivers for memory, the filesystem, Redis, and SQLite. The store applies schema validation and versioning above the driver, so each backend gets the same rules.
 
-<figure class="frame">
-  <svg id="fig-backends" role="img" aria-label="One tuple fans out into a memory map, a JSON file in a directory tree, a Redis hash, a SQLite table, and a dashed box for your own database."></svg>
-  <figcaption>backend storage layouts</figcaption>
-</figure>
+<Flow
+  alt="One tuple fans out into a memory map, a JSON file in a directory tree, a Redis hash, a SQLite table, and a dashed box for your own database."
+  caption="backend storage layouts"
+  center={{
+    title: "one tuple",
+    code: [[["com.example/posts/p-1", "ns"]], [["#", "muted"], ["title", "attr"], [" = ", "muted"], ['"Hello"', "val"]]],
+  }}
+  out="driver"
+  to={[
+    { title: "memory", code: [[["m[path][attr]", "muted"]]], hue: "accent" },
+    { title: "filesystem", code: [[["posts/p-1.json", "muted"]]], sub: "one JSON file per record", hue: "accent" },
+    { title: "redis", code: [[["HSET … title", "muted"]]], sub: "one hash per record", hue: "accent" },
+    { title: "sqlite", sub: "a table per schema", hue: "accent" },
+    { title: "your database", sub: "implement Driver, pass the conformance suite", dashed: true },
+  ]}
+/>
 
 ## Storage layouts
 
@@ -60,7 +73,7 @@ Then restart the daemon:
 xdb daemon restart
 ```
 
-CAUTION: A change of backend does not copy the data from the old backend. To keep the data, export it before the change. See [Read and write records](read-and-write.md#move-many-records).
+CAUTION: A change of backend does not copy the data from the old backend. To keep the data, export it before the change. See [Read and write records](read-and-write.mdx#move-many-records).
 
 | Backend | Options |
 | --- | --- |
@@ -69,7 +82,7 @@ CAUTION: A change of backend does not copy the data from the old backend. To kee
 | `fs` | `store.fs.dir` (default `<datadir>`) |
 | `memory` | No options. The data stays in the memory of the daemon. |
 
-[Config](../concepts/config.md) describes each option.
+[Config](../../../../../docs/concepts/config.md) describes each option.
 
 ## Use a driver in Go
 
@@ -95,14 +108,32 @@ st := store.New(d)
 
 A driver implements `TupleReader`, `TupleWriter`, `SchemaReader`, and `SchemaWriter`. The store builds records from the tuples, converts each write to mutations, and applies validation and versioning.
 
-<figure class="frame">
-  <svg id="fig-driver" role="img" aria-label="Four required roles, TupleReader, TupleWriter, SchemaReader and SchemaWriter, stack up to make a Driver. Two optional capabilities, TxDriver and QueryDriver, sit beside it, detected by store.New, with the facade filling in when they are absent."></svg>
-  <figcaption>driver interfaces</figcaption>
-</figure>
+<Contract
+  alt="Four required roles, TupleReader, TupleWriter, SchemaReader and SchemaWriter, stack up to make a Driver. Two optional capabilities, TxDriver and QueryDriver, sit beside it, detected by store.New, with the facade filling in when they are absent."
+  caption="driver interfaces"
+  required={{
+    head: "required driver interfaces",
+    sum: "Driver",
+    items: [
+      { name: "TupleReader", methods: "GetTuples · ScanTuples" },
+      { name: "TupleWriter", methods: "Apply(mutation)" },
+      { name: "SchemaReader", methods: "GetSchema · ScanSchemas" },
+      { name: "SchemaWriter", methods: "Create · Put · Delete · DropRecords" },
+    ],
+  }}
+  optional={{
+    head: "detected by store.New",
+    items: [
+      { name: "TxDriver", methods: "Tx(fn)", have: "memory · sqlite", otherwise: "otherwise: sequential writes" },
+      { name: "QueryDriver", methods: "QueryTuples(q)", have: "sqlite (CEL to SQL)", otherwise: "otherwise: filter a scan" },
+    ],
+  }}
+  foot="the facade assembles records from tuple reads"
+/>
 
 Optional interfaces add capabilities. `store.New` finds them on the driver:
 
 - `TxDriver` makes a batch atomic. Without it, the store applies the operations of a batch one at a time, and a CLI batch needs `--non-atomic`.
 - `QueryDriver` evaluates filters in the database through `QueryTuples`. Without it, the store scans the tuples and filters them.
 
-To test a new driver, register `storetest.NewDriverSuite`, `storetest.NewQuerySuite`, and the store suites. [Drivers](../concepts/drivers.md) gives the contract.
+To test a new driver, register `storetest.NewDriverSuite`, `storetest.NewQuerySuite`, and the store suites. [Drivers](../../../../../docs/concepts/drivers.md) gives the contract.

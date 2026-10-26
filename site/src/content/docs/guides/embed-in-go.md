@@ -7,8 +7,6 @@ read_when:
   - You want remote clients to call your store over JSON-RPC
 ---
 
-# Embed XDB in Go
-
 The `xdb` daemon is a Go program that builds a store and serves it over JSON-RPC. Your service can do the same.
 
 ## Build a store
@@ -23,7 +21,7 @@ if err != nil {
 st := store.New(d, store.WithSchemaCache())
 ```
 
-[Choose a backend](choose-a-backend.md) shows the other drivers.
+[Choose a backend](choose-a-backend.mdx) shows the other drivers.
 
 ## Read and write
 
@@ -74,7 +72,7 @@ if ok {
 }
 ```
 
-[Drivers](../concepts/drivers.md) lists the backends that support transactions.
+[Drivers](../../../../../docs/concepts/drivers.md) lists the backends that support transactions.
 
 ## Serve JSON-RPC
 
@@ -109,4 +107,4 @@ A client sends a JSON-RPC 2.0 request:
 }
 ```
 
-The daemon also serves the `introspect.methods`, `introspect.method`, `introspect.types`, and `introspect.type` methods. They return the catalog of methods and types. A JSON-RPC error code tells a conflict from a missing resource, so a client does not parse the error message. [Errors](../concepts/errors.md) lists the codes.
+The daemon also serves the `introspect.methods`, `introspect.method`, `introspect.types`, and `introspect.type` methods. They return the catalog of methods and types. A JSON-RPC error code tells a conflict from a missing resource, so a client does not parse the error message. [Errors](../../../../../docs/concepts/errors.md) lists the codes.

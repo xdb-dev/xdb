@@ -1,0 +1,155 @@
+---
+// A contract: the interfaces that an implementation must have, stacked
+// into the one type that they make, and the optional interfaces beside
+// them, with what happens when one is missing. Use it for the contract of
+// a plug-in point, such as a driver.
+import Figure from "./Figure.astro";
+
+interface Props {
+  alt: string;
+  caption?: string;
+  label?: string;
+  required: { head: string; sum: string; items: { name: string; methods: string }[] };
+  optional: {
+    head: string;
+    items: { name: string; methods: string; have: string; otherwise: string }[];
+  };
+  foot?: string;
+}
+
+const { alt, caption, label, required, optional, foot } = Astro.props;
+---
+
+<Figure alt={alt} caption={caption} label={label}>
+  <div class="ct">
+    <div>
+      <p class="ct-head">{required.head}</p>
+      <div class="ct-req">
+        <div class="ct-stack">
+          {
+            required.items.map((item) => (
+              <div class="ct-box">
+                <b>{item.name}</b>
+                <code>{item.methods}</code>
+              </div>
+            ))
+          }
+        </div>
+        <div class="ct-bracket" />
+        <div class="ct-sum">= {required.sum}</div>
+      </div>
+    </div>
+    <div>
+      <p class="ct-head">{optional.head}</p>
+      <div class="ct-opt">
+        {
+          optional.items.map((item) => (
+            <div>
+              <div class="ct-box dashed">
+                <b>{item.name}</b>
+                <code>{item.methods}</code>
+                <span class="ct-have">{item.have}</span>
+              </div>
+              <p class="ct-else">{item.otherwise}</p>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+  {foot && <p class="ct-foot">{foot}</p>}
+</Figure>
+
+<style>
+  .ct {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 28px;
+  }
+  .ct-head {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .ct-req {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .ct-stack {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+  .ct-bracket {
+    flex: none;
+    width: 10px;
+    border: 1.5px solid var(--ink);
+    border-left: 0;
+  }
+  .ct-sum {
+    display: flex;
+    align-items: center;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .ct-box {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border: 1.5px solid var(--accent);
+    background: var(--card, #fff);
+  }
+  .ct-box b {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+  .ct-box code {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    background: none;
+    padding: 0;
+    border: 0;
+  }
+  .ct-box.dashed {
+    border: 1.5px dashed var(--ink);
+    background: transparent;
+  }
+  .ct-box.dashed b {
+    color: var(--ink);
+  }
+  .ct-have {
+    font-size: 12px;
+    color: var(--c-attr);
+  }
+  .ct-opt {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .ct-else {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .ct-foot {
+    margin: 18px 0 0;
+    padding-top: 10px;
+    border-top: 1.5px dashed var(--line);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  @container (max-width: 520px) {
+    .ct {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

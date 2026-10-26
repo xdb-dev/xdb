@@ -1,0 +1,141 @@
+---
+// A sequence: actors across the top, and the messages between them in
+// order, from top to bottom. A message can end in a result next to its
+// target. Use it when two or more actors race, or when the order of the
+// calls between them is the point.
+import Figure from "./Figure.astro";
+import { color, type Hue } from "./hues";
+
+interface Message {
+  // from and to are indexes into actors.
+  from: number;
+  to: number;
+  label: string;
+  hue?: Hue;
+  // result is what the target answers, as [text, hue].
+  result?: [string, Hue];
+}
+
+interface Props {
+  alt: string;
+  caption?: string;
+  label?: string;
+  actors: { name: string; mono?: boolean }[];
+  messages: Message[];
+  foot?: string;
+}
+
+const { alt, caption, label, actors, messages, foot } = Astro.props;
+
+const n = actors.length;
+const center = (i: number) => ((i + 0.5) * 100) / n;
+---
+
+<Figure alt={alt} caption={caption} label={label}>
+  <div class="sq" style={`--n:${n}`}>
+    {actors.map((a) => <div class:list={["sq-actor", { mono: a.mono }]}>{a.name}</div>)}
+    <div class="sq-res-head" />
+    <div class="sq-life" style={`grid-row: 2 / span ${messages.length}`}>
+      {actors.map((_, i) => <span style={`left:${center(i)}%`} />)}
+    </div>
+    {
+      messages.map((m, i) => {
+        const left = Math.min(center(m.from), center(m.to));
+        const width = Math.abs(center(m.to) - center(m.from));
+        return (
+          <>
+            <div class="sq-msg" style={`grid-row:${i + 2};--hue:${color(m.hue ?? "accent")}`}>
+              <div class:list={["sq-arrow", m.to < m.from ? "back" : "forth"]} style={`left:${left}%;width:${width}%`}>
+                <span>{m.label}</span>
+              </div>
+            </div>
+            <div class="sq-res" style={`grid-row:${i + 2};${m.result ? `color:${color(m.result[1])}` : ""}`}>{m.result?.[0]}</div>
+          </>
+        );
+      })
+    }
+  </div>
+  {foot && <p class="sq-foot">{foot}</p>}
+</Figure>
+
+<style>
+  .sq {
+    display: grid;
+    grid-template-columns: repeat(var(--n), minmax(0, 1fr)) minmax(70px, auto);
+    min-width: 420px;
+  }
+  .sq-actor {
+    padding: 4px 6px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .sq-actor.mono {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .sq-life {
+    grid-column: 1 / span var(--n);
+    position: relative;
+  }
+  .sq-life span {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left: 1.5px dashed var(--line);
+  }
+  .sq-msg {
+    grid-column: 1 / span var(--n);
+    position: relative;
+    z-index: 1;
+    height: 38px;
+  }
+  .sq-arrow {
+    position: absolute;
+    bottom: 8px;
+    height: 0;
+    border-top: 1.5px solid var(--hue);
+  }
+  .sq-arrow::after {
+    content: "";
+    position: absolute;
+    top: -6px;
+    border: 5px solid transparent;
+  }
+  .sq-arrow.forth::after {
+    right: -1px;
+    border-left: 7px solid var(--hue);
+    border-right: 0;
+  }
+  .sq-arrow.back::after {
+    left: -1px;
+    border-right: 7px solid var(--hue);
+    border-left: 0;
+  }
+  .sq-arrow span {
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--hue);
+    white-space: nowrap;
+  }
+  .sq-res {
+    grid-column: -2 / -1;
+    align-self: end;
+    padding: 0 0 2px 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .sq-foot {
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+</style>

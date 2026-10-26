@@ -1,0 +1,56 @@
+---
+// A card of a column of Flow: a title, mono lines, and a muted line.
+import Code from "./Code.astro";
+import { color, type Hue, type Line } from "./hues";
+
+interface Props {
+  card: {
+    title?: string;
+    code?: Line[];
+    sub?: string;
+    hue?: Hue;
+    dashed?: boolean;
+  };
+}
+
+const { title, code, sub, hue = "ink", dashed } = Astro.props.card;
+---
+
+<div class:list={["fl-card", { dashed }]} style={`--hue:${color(dashed ? "muted" : hue)}`}>
+  {title && <b>{title}</b>}
+  {code && <div class="fc-code">{code.map((l) => <Code line={l} />)}</div>}
+  {sub && <span>{sub}</span>}
+</div>
+
+<style>
+  .fl-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1.5px solid var(--hue);
+    background: var(--card, #fff);
+  }
+  .fl-card.dashed {
+    border-style: dashed;
+    background: transparent;
+  }
+  .fl-card b {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--hue);
+  }
+  .fc-code {
+    display: flex;
+    flex-direction: column;
+    font-size: 11.5px;
+    overflow: hidden;
+  }
+  .fl-card span {
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>

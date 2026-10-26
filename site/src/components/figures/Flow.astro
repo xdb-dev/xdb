@@ -1,0 +1,234 @@
+---
+// A flow: sources on the left, one center, and targets on the right. An
+// edge runs from each source into the center, and from the center out to
+// each target. Use it when several things pass through one place, such as
+// formats that become tuples, or clients that share one store. Leave out
+// `from` or `to` for a fan that goes one way.
+//
+// In a narrow frame, the columns stack, and a down arrow with the label of
+// the edge joins them.
+import Figure from "./Figure.astro";
+import Code from "./Code.astro";
+import FlowCard from "./FlowCard.astro";
+import type { Hue, Line } from "./hues";
+
+interface Card {
+  title?: string;
+  // code is mono lines in the card. sub is a muted line under them.
+  code?: Line[];
+  sub?: string;
+  hue?: Hue;
+  // dashed draws a card for something that is not there yet.
+  dashed?: boolean;
+}
+
+interface Center {
+  title: string;
+  code?: Line[];
+  // rows are mono lines, each on a chip of its own.
+  rows?: Line[];
+  sub?: string[];
+}
+
+interface Props {
+  alt: string;
+  caption?: string;
+  label?: string;
+  from?: Card[];
+  // into and out label the edges into and out of the center.
+  into?: string;
+  center: Center;
+  out?: string;
+  to?: Card[];
+  // note is a dashed line under the flow, for what goes back.
+  note?: string;
+}
+
+const { alt, caption, label, from = [], into, center, out, to = [], note } = Astro.props;
+
+// The edges run in a 40 x 100 box that stretches to the height of the
+// column. The cards of a column have the same height, so card i has its
+// middle at (i + 0.5) / n of the height. The center sits at the middle.
+const ys = (n: number) => Array.from({ length: n }, (_, i) => ((i + 0.5) * 100) / n);
+const curve = (y1: number, y2: number) => `M0 ${y1} C 22 ${y1}, 18 ${y2}, 40 ${y2}`;
+
+const columns = [
+  from.length > 0 && "minmax(0, 1fr) 56px",
+  "minmax(0, 1.1fr)",
+  to.length > 0 && "56px minmax(0, 1fr)",
+]
+  .filter(Boolean)
+  .join(" ");
+---
+
+<Figure alt={alt} caption={caption} label={label}>
+  <div class="fl" style={`grid-template-columns:${columns}`}>
+    {
+      from.length > 0 && (
+        <>
+          <div class="fl-col" style={`grid-template-rows:repeat(${from.length}, 1fr)`}>
+            {from.map((c) => <FlowCard card={c} />)}
+          </div>
+          <div class="fl-edge">
+            <svg viewBox="0 0 40 100" preserveAspectRatio="none" aria-hidden="true">
+              {ys(from.length).map((y) => <path d={curve(y, 50)} />)}
+            </svg>
+            {into && <span class="fl-elabel">{into}</span>}
+          </div>
+          <div class="fl-down">↓ {into}</div>
+        </>
+      )
+    }
+    <div class:list={["fl-center", { "in": from.length > 0 }]}>
+      <b>{center.title}</b>
+      {center.code && <div class="fl-code">{center.code.map((l) => <Code line={l} />)}</div>}
+      {center.rows && <div class="fl-rows">{center.rows.map((l) => <div><Code line={l} /></div>)}</div>}
+      {center.sub && center.sub.map((s) => <span class="fl-sub">{s}</span>)}
+    </div>
+    {
+      to.length > 0 && (
+        <>
+          <div class="fl-edge">
+            <svg viewBox="0 0 40 100" preserveAspectRatio="none" aria-hidden="true">
+              {ys(to.length).map((y) => <path d={curve(50, y)} />)}
+            </svg>
+            {out && <span class="fl-elabel">{out}</span>}
+          </div>
+          <div class="fl-down">↓ {out}</div>
+          <div class="fl-col to" style={`grid-template-rows:repeat(${to.length}, 1fr)`}>
+            {to.map((c) => <FlowCard card={c} />)}
+          </div>
+        </>
+      )
+    }
+  </div>
+  {note && <p class="fl-note">{note}</p>}
+</Figure>
+
+<style>
+  .fl {
+    display: grid;
+    align-items: stretch;
+  }
+  .fl-col {
+    display: grid;
+    gap: 12px;
+  }
+  /* A card keeps the height of its content. It sits in the middle of its
+     row, so its middle stays where its edge ends. */
+  .fl-col > :global(.fl-card) {
+    align-self: center;
+  }
+  .fl-edge {
+    position: relative;
+  }
+  .fl-edge svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .fl-edge path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+  }
+  .fl-elabel {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -150%);
+    padding: 0 4px;
+    background: var(--card, #fff);
+    font-size: 12px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+  .fl-down {
+    display: none;
+  }
+
+  /* The center, with an arrowhead on each side that an edge enters. */
+  .fl-center {
+    position: relative;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 14px;
+    border: 1.5px solid var(--accent);
+    background: #e8ecfb;
+    text-align: center;
+  }
+  .fl-center > b {
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .fl-center.in::before,
+  .fl-col.to > :global(.fl-card)::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -9px;
+    margin-top: -5px;
+    border: 5px solid transparent;
+    border-left: 7px solid var(--accent);
+    border-right: 0;
+  }
+  .fl-code {
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+  }
+  .fl-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-self: stretch;
+    font-size: 11.5px;
+  }
+  .fl-rows > div {
+    padding: 4px 8px;
+    border: 1px solid var(--line);
+    background: var(--card, #fff);
+    text-align: left;
+  }
+  .fl-sub {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .fl-note {
+    margin: 16px 0 0;
+    padding-top: 10px;
+    border-top: 1.5px dashed var(--line);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+
+  @container (max-width: 480px) {
+    .fl {
+      grid-template-columns: 1fr !important;
+      gap: 8px;
+    }
+    .fl-col {
+      grid-template-rows: none !important;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+    .fl-edge {
+      display: none;
+    }
+    .fl-down {
+      display: block;
+      font-size: 12px;
+      color: var(--accent);
+      text-align: center;
+    }
+    .fl-center.in::before,
+    .fl-col.to > :global(.fl-card)::before {
+      display: none;
+    }
+  }
+</style>

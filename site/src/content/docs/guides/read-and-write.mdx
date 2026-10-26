@@ -8,14 +8,23 @@ read_when:
   - You move many records at once
 ---
 
-# Read and write records
+import Flow from "../../../components/figures/Flow.astro";
+import Sequence from "../../../components/figures/Sequence.astro";
 
-Go, JSON-RPC, and the CLI send reads and writes to the same store. The store applies the same validation and versioning to each client. The examples use the CLI and the `xdb://com.example/posts` schema from [Get started](get-started.md).
+Go, JSON-RPC, and the CLI send reads and writes to the same store. The store applies the same validation and versioning to each client. The examples use the CLI and the `xdb://com.example/posts` schema from [Get started](../start.md).
 
-<figure class="frame">
-  <svg id="fig-doors" role="img" aria-label="Go, JSON-RPC and CLI arrows converge on one store, which talks to a driver."></svg>
-  <figcaption>clients share a store</figcaption>
-</figure>
+<Flow
+  alt="Go, JSON-RPC and CLI arrows converge on one store, which talks to a driver."
+  caption="clients share a store"
+  from={[
+    { title: "Go", code: [[["store.Store", "muted"]]] },
+    { title: "JSON-RPC", code: [[["records.create", "muted"]]] },
+    { title: "CLI", code: [[["xdb records create", "muted"]]] },
+  ]}
+  center={{ title: "one store", sub: ["shared validation", "same _version"] }}
+  to={[{ title: "driver", sub: "any backend", hue: "accent" }]}
+  note="the CLI calls the daemon over JSON-RPC"
+/>
 
 ## Read
 
@@ -39,7 +48,7 @@ With `-o json` or `-o yaml`, a list returns a page:
 
 If there are more records, the page also has `next_offset`. To get the next page, give that value to `--offset`. To get all the pages, pass `--page-all`. `-o ndjson` writes one record on each line.
 
-On SQLite, the store compiles the filter to SQL. On the other backends, the store scans the records and filters them. [Filters](../concepts/filters.md) lists the operators.
+On SQLite, the store compiles the filter to SQL. On the other backends, the store scans the records and filters them. [Filters](../../../../../docs/concepts/filters.md) lists the operators.
 
 ## Write
 
@@ -92,12 +101,22 @@ xdb records delete xdb://com.example/posts/p-1 --force --if-version 7
 
 If you get `CONFLICT`, read the record again. Then send the write with the current version.
 
-<figure class="frame">
-  <svg id="fig-cas" role="img" aria-label="Two agents read version 3. Agent A writes with version 3 and succeeds, moving to 4. Agent B writes with version 3 and gets a conflict, re-reads version 4, writes again and succeeds."></svg>
-  <figcaption>version checks on transactional backends</figcaption>
-</figure>
+<Sequence
+  alt="Two agents read version 3. Agent A writes with version 3 and succeeds, moving to 4. Agent B writes with version 3 and gets a conflict, re-reads version 4, writes again and succeeds."
+  caption="version checks on transactional backends"
+  actors={[{ name: "agent A" }, { name: "agent B" }, { name: "posts/p-1", mono: true }]}
+  messages={[
+    { from: 2, to: 0, label: "read · _version 3", hue: "muted" },
+    { from: 2, to: 1, label: "read · _version 3", hue: "muted" },
+    { from: 0, to: 2, label: 'write {_version: 3, title: "Hi"}', result: ["ok -> 4", "attr"] },
+    { from: 1, to: 2, label: 'write {_version: 3, title: "Yo"}', result: ["CONFLICT", "val"] },
+    { from: 2, to: 1, label: "re-read · _version 4", hue: "muted" },
+    { from: 1, to: 2, label: "write {_version: 4, ...}", result: ["ok -> 5", "attr"] },
+  ]}
+  foot="a retry uses the current version"
+/>
 
-Memory and SQLite do the check and the write in one transaction. On the filesystem and Redis backends, another write can occur between the check and the write. [Versioning](../concepts/versioning.md) gives the full contract.
+Memory and SQLite do the check and the write in one transaction. On the filesystem and Redis backends, another write can occur between the check and the write. [Versioning](../../../../../docs/concepts/versioning.md) gives the full contract.
 
 ## Validate a write without writing
 

@@ -1,0 +1,25 @@
+---
+// Nesting: containers inside containers, from the outside in, with the
+// items of the innermost one as rows. Use it for a hierarchy where each
+// level holds the next, such as namespace, schema, and record.
+import Figure from "./Figure.astro";
+import NestBox from "./NestBox.astro";
+import type { Hue, Line } from "./hues";
+
+interface Props {
+  alt: string;
+  caption?: string;
+  label?: string;
+  // layers go from the outside in. kind is the muted word before the name.
+  layers: { kind: string; name: string; hue?: Hue; note?: string }[];
+  rows: Line[];
+  // foot is a muted line under the rows of the innermost layer.
+  foot?: string;
+}
+
+const { alt, caption, label, layers, rows, foot } = Astro.props;
+---
+
+<Figure alt={alt} caption={caption} label={label}>
+  <NestBox layers={layers} rows={rows} foot={foot} />
+</Figure>

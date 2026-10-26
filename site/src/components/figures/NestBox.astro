@@ -1,0 +1,85 @@
+---
+// One layer of Nesting. It holds the next layer, or the rows at the end.
+import Code from "./Code.astro";
+import { color, type Hue, type Line } from "./hues";
+
+interface Props {
+  layers: { kind: string; name: string; hue?: Hue; note?: string }[];
+  rows: Line[];
+  foot?: string;
+}
+
+const { layers, rows, foot } = Astro.props;
+const [layer, ...inner] = layers;
+const Self = Astro.self;
+---
+
+<div class:list={["nb", { last: inner.length === 0 }]} style={`--hue:${color(layer.hue)}`}>
+  <div class="nb-head">
+    <span>{layer.kind}</span>
+    <b>{layer.name}</b>
+    {layer.note && <i>{layer.note}</i>}
+  </div>
+  {
+    inner.length > 0 ? (
+      <Self layers={inner} rows={rows} foot={foot} />
+    ) : (
+      <>
+        <div class="nb-rows">{rows.map((r) => <div><Code line={r} /></div>)}</div>
+        {foot && <p class="nb-foot">{foot}</p>}
+      </>
+    )
+  }
+</div>
+
+<style>
+  .nb {
+    padding: 10px 14px 14px;
+    border: 1.5px solid var(--hue);
+  }
+  .nb + .nb,
+  .nb .nb {
+    margin-top: 6px;
+  }
+  .nb.last {
+    background: var(--card, #fff);
+  }
+  .nb-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 8px;
+    margin-bottom: 8px;
+    color: var(--hue);
+  }
+  .nb-head span {
+    font-size: 12px;
+  }
+  .nb-head b {
+    font-family: var(--mono);
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .nb-head i {
+    margin-left: auto;
+    font-style: normal;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .nb-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .nb-rows > div {
+    padding: 6px 10px;
+    border: 1px solid var(--ink);
+  }
+  .nb-foot {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+  }
+</style>

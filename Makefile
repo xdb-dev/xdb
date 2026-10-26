@@ -64,7 +64,7 @@ services-logs: ##@services Tail service container logs
 
 # SITE
 
-.PHONY: site-install site-dev site-build site-preview site-check site-demo docs-links
+.PHONY: site-install site-dev site-build site-preview site-check site-test site-demo docs-links
 
 site-install: ##@site Install the site dependencies with pnpm
 	cd site && pnpm install
@@ -81,11 +81,15 @@ site-preview: ##@site Serve the built site
 site-check: ##@site Type-check the site
 	cd site && pnpm check
 
+site-test: ##@site Run the tests of the site
+	cd site && pnpm test
+
 site-demo: ##@site Record the terminal replay on the landing page (site/public/demo.json)
 	@bin="$$(mktemp -d)/xdb" && (cd cmd/xdb && go build -o "$$bin" .) && node site/scripts/record-demo.mjs "$$bin"
 
-docs-links: ##@site Find dead and site-absolute links in docs/
+docs-links: ##@site Find dead and site-absolute links in docs/ and the site pages
 	node site/scripts/check-links.mjs docs
+	node site/scripts/check-links.mjs site/src/content/docs
 
 # COVERAGE
 

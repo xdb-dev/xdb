@@ -3,24 +3,28 @@ import { z } from "astro/zod";
 import { glob } from "astro/loaders";
 import { docsSchema } from "@astrojs/starlight/schema";
 
-// The pages come from the /docs directory of the repository. GitHub shows
-// the same files, so one change updates both.
+// The site has two sources. The pages for the users of XDB live in
+// src/content/docs. The concept pages live in the repository's
+// /docs/concepts, so GitHub and the site show the same files. The rest of
+// /docs is not part of the site.
 //
-// Plans and research are internal notes. The pattern does not include them.
-//
-// Each ID starts with "docs/", so "/" stays free for the landing page.
-// A README.md file is the index of its directory.
+// IDs get a "docs/" prefix to leave "/" free for the landing page. A page
+// keeps its path under src/content/docs. A concept page keeps its path
+// under /docs. index.md and README.md become the index of their directory.
+const PAGES = "site/src/content/docs/";
+
 export const collections = {
   docs: defineCollection({
     loader: glob({
-      base: "../docs",
-      pattern: ["README.md", "concepts/**/*.{md,mdx}", "howto/**/*.{md,mdx}"],
+      base: "..",
+      pattern: [`${PAGES}**/*.{md,mdx}`, "docs/concepts/**/*.{md,mdx}"],
       generateId: ({ entry }) => {
         const path = entry
+          .replace(PAGES, "docs/")
           .replace(/\.mdx?$/, "")
-          .replace(/(^|\/)README$/, "")
+          .replace(/(^|\/)(index|README)$/, "")
           .replace(/\/$/, "");
-        return path ? `docs/${path}` : "docs";
+        return path || "docs";
       },
     }),
     schema: (ctx) =>

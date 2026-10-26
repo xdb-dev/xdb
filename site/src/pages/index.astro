@@ -1,3 +1,57 @@
+---
+// The landing page. Its styles and scripts are in public/, and the docs
+// load the same tokens.css. The figures are the components that the docs
+// use, so the landing page ships no script to draw them.
+import Anatomy from "../components/figures/Anatomy.astro";
+import Flow from "../components/figures/Flow.astro";
+import { grammar, tuple } from "../figures/parts";
+import type { ComponentProps } from "astro/types";
+
+type FlowProps = ComponentProps<typeof Flow>;
+
+const formats: FlowProps["from"] = [
+  {
+    title: "JSON",
+    code: [
+      [["{ ", "muted"], ['"title"', "attr"], [": ", "muted"], ['"Hello"', "val"], [",", "muted"]],
+      ["  ", ['"views"', "attr"], [": ", "muted"], ["42", "val"], [" }", "muted"]],
+    ],
+  },
+  {
+    title: "protobuf",
+    code: [
+      [["message ", "accent"], "Post {"],
+      [["  string ", "muted"], ["title", "attr"], [" = 1;", "muted"]],
+      ["}"],
+    ],
+  },
+  {
+    title: "Go struct",
+    code: [
+      [["type ", "accent"], "Post ", ["struct", "accent"], " {"],
+      [["  Title ", "attr"], ["string", "muted"]],
+      ["}"],
+    ],
+  },
+];
+
+const tuples: FlowProps["center"] = {
+  title: "tuples",
+  rows: [
+    [["p-1", "id"], ["#", "muted"], ["title", "attr"], [" = ", "muted"], ['"Hello"', "val"]],
+    [["p-1", "id"], ["#", "muted"], ["views", "attr"], [" = ", "muted"], ["42", "val"]],
+    [["p-2", "id"], ["#", "muted"], ["title", "attr"], [" = ", "muted"], ['"Hi"', "val"]],
+  ],
+  sub: ["validate · version"],
+};
+
+const backends: FlowProps["to"] = [
+  { title: "memory", code: [[["map[path][attr]", "muted"]]], hue: "accent" },
+  { title: "filesystem", code: [[["posts/p-1.json", "muted"]]], hue: "accent" },
+  { title: "redis", code: [[["HSET … title", "muted"]]], hue: "accent" },
+  { title: "sqlite", code: [[["a row per record", "muted"]]], hue: "accent" },
+];
+---
 <!doctype html>
 <html lang="en">
 <head>
@@ -50,7 +104,7 @@
   <div class="wrap hero-grid">
     <div>
       <span class="eyebrow">Easy for humans · Exact for agents</span>
-      <h1>Think in tuples.<br><span class="sketch">Storage is a detail.</span></h1>
+      <h1>Think in tuples.<br><span class="underlined">Storage is a detail.</span></h1>
       <p class="lede">XDB stores data as tuples: a path, an attribute, and a typed value. Read and write them from Go or the CLI. Keep them in memory, files, Redis, or SQLite.</p>
       <div class="row">
         <a class="btn" href="#start">Get started</a>
@@ -74,15 +128,19 @@ err := st.PutTuples(ctx, t)</pre>
       <div class="win">
         <div class="tab">shell  ·  the same tuple from the CLI</div>
 <pre><span class="pr">$</span> xdb get xdb://com.example/posts/p-1#title
-{ "_id": "p-1", …, "title": "Hello" }</pre>
+{"{"} "_id": "p-1", …, "title": "Hello" {"}"}</pre>
       </div>
     </div>
   </div>
   <div class="wrap hero-fig">
-    <figure class="frame">
-      <svg id="fig-tuple" role="img" aria-label="Anatomy of the URI xdb://com.example/posts/p-1#title = Hello, with namespace, schema, id, attr and value called out."></svg>
-      <figcaption><span>fig. 0</span><b>anatomy of a tuple</b></figcaption>
-    </figure>
+    <Anatomy
+      alt="Anatomy of the URI xdb://com.example/posts/p-1#title = Hello, with namespace, schema, id, attr and value called out."
+      label="fig. 0"
+      caption="anatomy of a tuple"
+      parts={tuple.parts}
+      groups={tuple.groups}
+      size={30}
+    />
   </div>
 </section>
 
@@ -109,7 +167,7 @@ err := st.PutTuples(ctx, t)</pre>
       </div>
       <div class="progress" aria-hidden="true"><span></span></div>
       <pre class="transcript sr-only"></pre>
-      <noscript><p class="muted small noscript">The replay needs JavaScript. The <a href="docs/howto/get-started/">get-started guide</a> shows the same commands.</p></noscript>
+      <noscript><p class="muted small noscript">The replay needs JavaScript. The <a href="docs/start/">get-started guide</a> shows the same commands.</p></noscript>
     </div>
   </div>
 </section>
@@ -122,19 +180,25 @@ err := st.PutTuples(ctx, t)</pre>
       <h2>Everything passes through tuples.</h2>
       <p class="lede">Data comes in as JSON, protobuf messages, or Go structs. XDB converts it to tuples, checks them against your schema, and hands them to the driver for your backend. Reads take the same path in reverse.</p>
     </div>
-    <figure class="frame">
-      <svg id="fig-write" role="img" aria-label="A JSON document, a protobuf message and a Go struct converge into the same tuples in the middle, which then fan out to drivers for memory, filesystem, Redis and SQLite."></svg>
-      <figcaption><span>fig. 1</span><b>formats in, backends out</b></figcaption>
-    </figure>
+    <Flow
+      alt="A JSON document, a protobuf message and a Go struct converge into the same tuples in the middle, which then fan out to drivers for memory, filesystem, Redis and SQLite."
+      label="fig. 1"
+      caption="formats in, backends out"
+      from={formats}
+      into="encode"
+      center={tuples}
+      out="driver"
+      to={backends}
+    />
     <div class="steps">
       <div class="step"><i>1</i><b>Convert</b><p>The <code>xdbjson</code>, <code>xdbproto</code>, and <code>xdbstruct</code> encoders convert each format to tuples and back.</p></div>
       <div class="step"><i>2</i><b>Check</b><p>The store validates each value against the schema and sets the record version. Every backend gets the same rules.</p></div>
       <div class="step"><i>3</i><b>Write</b><p>The driver for your backend writes the tuples as a map in memory, a JSON file, a Redis hash, or a SQLite row.</p></div>
     </div>
     <div class="row more">
-      <a class="btn ghost" href="docs/howto/import-types/">Import your types</a>
-      <a class="btn ghost" href="docs/howto/define-a-schema/">Define a schema</a>
-      <a class="btn ghost" href="docs/howto/choose-a-backend/">Choose a backend</a>
+      <a class="btn ghost" href="docs/guides/import-types/">Import your types</a>
+      <a class="btn ghost" href="docs/guides/define-a-schema/">Define a schema</a>
+      <a class="btn ghost" href="docs/guides/choose-a-backend/">Choose a backend</a>
     </div>
   </div>
 </section>
@@ -147,11 +211,14 @@ err := st.PutTuples(ctx, t)</pre>
       <h2>A CLI agents can inspect.</h2>
       <p class="lede">Resource commands follow <code>xdb &lt;resource&gt; &lt;action&gt; &lt;URI&gt; [flags]</code>. Use <code>describe</code> to discover supported actions, payload types, filters, and error codes.</p>
     </div>
-    <figure class="frame">
-      <svg id="fig-grammar" role="img" aria-label="The CLI grammar, xdb resource action URI with filter, fields, payload and output flags, each annotated."></svg>
-      <figcaption><span>fig. 2</span><b>the grammar</b></figcaption>
-    </figure>
-    <div class="row more"><a class="btn ghost" href="docs/howto/use-with-agents/">Use XDB from an agent</a></div>
+    <Anatomy
+      alt="The CLI grammar, xdb resource action URI with filter, fields, payload and output flags, each annotated."
+      label="fig. 2"
+      caption="the grammar"
+      parts={grammar}
+      size={18}
+    />
+    <div class="row more"><a class="btn ghost" href="docs/guides/use-with-agents/">Use XDB from an agent</a></div>
   </div>
 </section>
 
@@ -169,11 +236,11 @@ err := st.PutTuples(ctx, t)</pre>
 <pre>xdb init</pre></div>
       <div class="step"><i>3</i><b>Write</b><p>Define a schema and write a record. Use <code>xdb describe</code> to look up other operations.</p>
 <pre>xdb schemas create xdb://com.example/posts \
-  --json '{"fields":{"title":{"type":"string"}}}'
+  --json '{"{"}"fields":{"{"}"title":{"{"}"type":"string"{"}"}{"}"}{"}"}'
 xdb records create xdb://com.example/posts/p-1 \
-  --json '{"title":"Hello"}'</pre></div>
+  --json '{"{"}"title":"Hello"{"}"}'</pre></div>
     </div>
-    <p class="muted small note">Next: the <a href="docs/howto/get-started/">get-started guide</a> covers reads and version checks, and <code>xdb context</code> prints the agent guide.</p>
+    <p class="muted small note">Next: the <a href="docs/start/">get-started guide</a> covers reads and version checks, and <code>xdb context</code> prints the agent guide.</p>
   </div>
 </section>
 
@@ -185,12 +252,12 @@ xdb records create xdb://com.example/posts/p-1 \
       <h2>Pick the guide for your task.</h2>
     </div>
     <div class="cards">
-      <a class="card" href="docs/howto/define-a-schema/"><h3>Define a schema</h3><p>Declare fields and types, select a validation mode, and add indexes and constraints.</p></a>
-      <a class="card" href="docs/howto/import-types/"><h3>Import your types</h3><p>Create a schema from a Go struct, a protobuf message, or a JSON Schema file.</p></a>
-      <a class="card" href="docs/howto/read-and-write/"><h3>Read and write records</h3><p>Filters, version checks, dry runs, bulk data, and change streams.</p></a>
-      <a class="card" href="docs/howto/choose-a-backend/"><h3>Choose a backend</h3><p>How each driver stores a tuple, and how to select one in the config.</p></a>
-      <a class="card" href="docs/howto/use-with-agents/"><h3>Use XDB from an agent</h3><p>Discover the CLI at runtime, parse its errors, and pipe JSON between commands.</p></a>
-      <a class="card" href="docs/howto/embed-in-go/"><h3>Embed XDB in Go</h3><p>Build a store in your own service and serve it over JSON-RPC.</p></a>
+      <a class="card" href="docs/guides/define-a-schema/"><h3>Define a schema</h3><p>Declare fields and types, select a validation mode, and add indexes and constraints.</p></a>
+      <a class="card" href="docs/guides/import-types/"><h3>Import your types</h3><p>Create a schema from a Go struct, a protobuf message, or a JSON Schema file.</p></a>
+      <a class="card" href="docs/guides/read-and-write/"><h3>Read and write records</h3><p>Filters, version checks, dry runs, bulk data, and change streams.</p></a>
+      <a class="card" href="docs/guides/choose-a-backend/"><h3>Choose a backend</h3><p>How each driver stores a tuple, and how to select one in the config.</p></a>
+      <a class="card" href="docs/guides/use-with-agents/"><h3>Use XDB from an agent</h3><p>Discover the CLI at runtime, parse its errors, and pipe JSON between commands.</p></a>
+      <a class="card" href="docs/guides/embed-in-go/"><h3>Embed XDB in Go</h3><p>Build a store in your own service and serve it over JSON-RPC.</p></a>
     </div>
   </div>
 </section>
@@ -206,8 +273,6 @@ xdb records create xdb://com.example/posts/p-1 \
   </div>
 </footer>
 
-<script src="vendor/rough.js"></script>
-<script src="site.js"></script>
-<script src="replay.js"></script>
+<script is:inline src="replay.js"></script>
 </body>
 </html>

@@ -2,30 +2,44 @@ import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * GitHub and this site both show the files in /docs. A relative path to a
- * file in the repository is the only link that works on GitHub:
+ * A page and a concept page link to a file with a relative path. GitHub
+ * shows the concept pages in /docs/concepts, and a relative path is the
+ * only link that works there:
  *
- *     [Records](records.md)                    a doc
+ *     [Records](records.md)                    a concept page
  *     [errors.go](../../core/errors.go)        a source file
  *
- * This plugin rewrites these links for the site. A link to a doc becomes
- * a site route. A link to another file becomes a link to that file on
- * GitHub. Write each link so that it works on GitHub.
+ * This plugin rewrites these links for the site. A link to a page or a
+ * concept page becomes a site route. A link to another file becomes a link
+ * to that file on GitHub.
  */
 
-const DOCS_DIR = fileURLToPath(new URL("../../../docs/", import.meta.url));
+const PAGES_DIR = fileURLToPath(new URL("../content/docs/", import.meta.url));
+const CONCEPTS_DIR = fileURLToPath(new URL("../../../docs/concepts/", import.meta.url));
 const REPO_DIR = fileURLToPath(new URL("../../../", import.meta.url));
 
 const EXTERNAL = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i;
 const DOC_EXT = /\.mdx?$/;
 
-// The collection maps a README to the ID of its directory.
-// See src/content.config.ts.
-function slugFor(absPath) {
-  const rel = relative(DOCS_DIR, absPath).split(sep).join("/");
-  const noExt = rel.replace(DOC_EXT, "");
-  const noIndex = noExt.replace(/(^|\/)README$/, "");
-  return noIndex.replace(/\/$/, "");
+// The ID of the page at absPath, as src/content.config.ts makes it, or
+// undefined if the site does not show the file. An index or a README is
+// the index of its directory.
+function idFor(absPath) {
+  let rel;
+  if (isInside(PAGES_DIR, absPath)) {
+    rel = relative(PAGES_DIR, absPath);
+  } else if (isInside(CONCEPTS_DIR, absPath)) {
+    rel = `concepts/${relative(CONCEPTS_DIR, absPath)}`;
+  } else {
+    return undefined;
+  }
+  const path = rel
+    .split(sep)
+    .join("/")
+    .replace(DOC_EXT, "")
+    .replace(/(^|\/)(index|README)$/, "")
+    .replace(/\/$/, "");
+  return path ? `docs/${path}` : "docs";
 }
 
 function isInside(dir, absPath) {
@@ -68,9 +82,9 @@ export function rewriteDocLinks({ base, repo, branch = "main" }) {
 
       const target = resolve(fromDir, pathPart);
 
-      if (DOC_EXT.test(pathPart) && isInside(DOCS_DIR, target)) {
-        const slug = slugFor(target);
-        node.url = `${prefix}/${slug ? `docs/${slug}` : "docs"}/${suffix}`;
+      const id = DOC_EXT.test(pathPart) ? idFor(target) : undefined;
+      if (id) {
+        node.url = `${prefix}/${id}/${suffix}`;
         return;
       }
 

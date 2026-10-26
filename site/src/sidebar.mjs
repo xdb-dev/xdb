@@ -1,73 +1,16 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 
-// Starlight can generate a group only from src/content/docs. These pages
-// come from /docs, so this file builds the groups from that directory.
+// Starlight can generate a group only from src/content/docs. The guides
+// are there, in an order that the list below sets. The concept pages are
+// in /docs/concepts, so this file builds their group.
 //
-// A group lists its pages in the order of `order`. The sidebar adds the
-// pages that are not in a list to the end of their group, in alphabetical
-// order. Thus a new file always gets a sidebar entry.
-function slugsIn(dir) {
-  let files;
-  try {
-    files = readdirSync(new URL(`../../docs/${dir}/`, import.meta.url));
-  } catch {
-    // A missing directory gives an empty group. It does not stop the build.
-    return [];
-  }
-  return files
-    .filter((f) => /\.mdx?$/.test(f) && !/^README\.mdx?$/.test(f))
-    .map((f) => f.replace(/\.mdx?$/, ""))
-    .sort((a, b) => a.localeCompare(b));
-}
+// The concept index, docs/concepts/README.md, has one H2 per topic and a
+// list of links under it. The Concepts group follows the index: one
+// subgroup per H2, with the pages in the order of its list. A page that
+// the index does not list goes to the "More" subgroup, so each page gets
+// an entry.
 
-function ordered(names, order) {
-  const rank = (name) => order.indexOf(name) + 1 || Infinity;
-  return [...names].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
-}
-
-// The concept pages are in one directory. These groups divide them in the
-// same way as docs/concepts/README.md.
-const CONCEPT_GROUPS = [
-  {
-    label: "Data model",
-    pages: ["tuples", "records", "uris", "types", "schemas", "namespaces", "versioning"],
-  },
-  {
-    label: "Storage",
-    pages: ["stores", "drivers", "filters"],
-  },
-  {
-    label: "Formats",
-    pages: ["bring-your-own-types", "encoding"],
-  },
-  {
-    label: "CLI and daemon",
-    pages: ["config", "daemon", "errors"],
-  },
-];
-
-function conceptGroups() {
-  const all = slugsIn("concepts");
-  const listed = CONCEPT_GROUPS.flatMap((g) => g.pages);
-  const unlisted = all.filter((name) => !listed.includes(name));
-
-  const groups = CONCEPT_GROUPS.map((g) => ({
-    label: g.label,
-    items: g.pages
-      .filter((name) => all.includes(name))
-      .map((name) => ({ slug: `docs/concepts/${name}` })),
-  }));
-
-  if (unlisted.length > 0) {
-    groups.push({
-      label: "More",
-      items: unlisted.map((name) => ({ slug: `docs/concepts/${name}` })),
-    });
-  }
-  return groups;
-}
-
-const HOWTO_ORDER = [
+const GUIDES = [
   "define-a-schema",
   "import-types",
   "read-and-write",
@@ -76,41 +19,71 @@ const HOWTO_ORDER = [
   "embed-in-go",
 ];
 
+const CONCEPTS = new URL("../../docs/concepts/", import.meta.url);
+
+function guides() {
+  const onDisk = readdirSync(new URL("content/docs/guides/", import.meta.url))
+    .filter((f) => /\.mdx?$/.test(f))
+    .map((f) => f.replace(/\.mdx?$/, ""))
+    .sort();
+  const rank = (name) => GUIDES.indexOf(name) + 1 || Infinity;
+  return onDisk
+    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+    .map((name) => ({ slug: `docs/guides/${name}` }));
+}
+
+function conceptGroups() {
+  const onDisk = readdirSync(CONCEPTS)
+    .filter((f) => /\.mdx?$/.test(f) && !/^README\./.test(f))
+    .map((f) => f.replace(/\.mdx?$/, ""));
+
+  const groups = [];
+  const text = readFileSync(new URL("README.md", CONCEPTS), "utf8");
+  for (const line of text.split("\n")) {
+    const heading = line.match(/^## (.+?)\s*$/);
+    if (heading) {
+      groups.push({ label: heading[1], pages: [] });
+      continue;
+    }
+    const group = groups.at(-1);
+    if (!group) continue;
+    for (const [, page] of line.matchAll(/\]\(([\w-]+)\.mdx?\)/g)) {
+      if (onDisk.includes(page) && !group.pages.includes(page)) {
+        group.pages.push(page);
+      }
+    }
+  }
+
+  const listed = groups.flatMap((g) => g.pages);
+  const more = onDisk.filter((page) => !listed.includes(page)).sort();
+  if (more.length > 0) groups.push({ label: "More", pages: more });
+
+  return groups
+    .filter((g) => g.pages.length > 0)
+    .map((g) => ({
+      label: g.label,
+      collapsed: true,
+      items: g.pages.map((page) => ({ slug: `docs/concepts/${page}` })),
+    }));
+}
+
 export const sidebar = [
-  {
-    label: "Start here",
-    items: [
-      { slug: "docs", label: "Overview" },
-      { slug: "docs/howto/get-started" },
-    ],
-  },
-  {
-    label: "How to",
-    items: ordered(
-      slugsIn("howto").filter((name) => name !== "get-started"),
-      HOWTO_ORDER,
-    ).map((name) => ({ slug: `docs/howto/${name}` })),
-  },
+  { label: "Overview", slug: "docs" },
+  { label: "Get started", slug: "docs/start" },
+  { label: "Guides", items: guides() },
   {
     label: "Concepts",
-    items: [
-      { slug: "docs/concepts", label: "All concepts" },
-      ...conceptGroups(),
-    ],
+    collapsed: true,
+    items: [{ label: "All concepts", slug: "docs/concepts" }, ...conceptGroups()],
   },
   {
-    label: "Reference",
-    items: [
-      {
-        label: "CLI reference",
-        link: "https://github.com/xdb-dev/xdb/blob/main/cmd/xdb/cli/CONTEXT.md",
-        attrs: { target: "_blank" },
-      },
-      {
-        label: "Go API",
-        link: "https://pkg.go.dev/github.com/xdb-dev/xdb",
-        attrs: { target: "_blank" },
-      },
-    ],
+    label: "CLI reference",
+    link: "https://github.com/xdb-dev/xdb/blob/main/cmd/xdb/cli/CONTEXT.md",
+    attrs: { target: "_blank" },
+  },
+  {
+    label: "Go API",
+    link: "https://pkg.go.dev/github.com/xdb-dev/xdb",
+    attrs: { target: "_blank" },
   },
 ];

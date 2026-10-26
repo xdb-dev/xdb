@@ -7,7 +7,9 @@ read_when:
   - You write a script that parses the output of xdb
 ---
 
-# Use XDB from an agent
+import Anatomy from "../../../components/figures/Anatomy.astro";
+import Pipe from "../../../components/figures/Pipe.astro";
+import { grammar } from "../../../figures/parts";
 
 Each resource command has the same grammar:
 
@@ -15,10 +17,7 @@ Each resource command has the same grammar:
 xdb <resource> <action> <URI> [--filter CEL] [--fields MASK] [--json|--file|-] [-o FMT]
 ```
 
-<figure class="frame">
-  <svg id="fig-grammar" role="img" aria-label="The CLI grammar, xdb resource action URI with filter, fields, payload and output flags, each annotated."></svg>
-  <figcaption>the grammar</figcaption>
-</figure>
+<Anatomy alt="The CLI grammar, xdb resource action URI with filter, fields, payload and output flags, each annotated." caption="the grammar" parts={grammar} size={18} />
 
 ## Discover the CLI
 
@@ -66,7 +65,7 @@ The exit code gives the class of the error:
 | `3` | Invalid argument |
 | `4` | Internal error |
 
-[Errors](../concepts/errors.md) explains each code.
+[Errors](../../../../../docs/concepts/errors.md) explains each code.
 
 ## Pipe JSON
 
@@ -79,10 +78,16 @@ echo '{"title":"Hello"}' | xdb records create xdb://com.example/posts/p-1 -
 xdb records get xdb://com.example/posts/p-1 | jq -r .title
 ```
 
-<figure class="frame">
-  <svg id="fig-pipe" role="img" aria-label="echo pipes JSON into xdb records create, which pipes JSON into jq or xdb batch."></svg>
-  <figcaption>json in, json out</figcaption>
-</figure>
+<Pipe
+  alt="echo pipes JSON into xdb records create, which pipes JSON into jq or xdb batch."
+  caption="json in, json out"
+  steps={[
+    { line: ["echo '{\"title\":\"t\"}'"] },
+    { line: ["xdb records create <uri> -"], accent: true },
+    { line: ["jq  |  xdb batch -"] },
+  ]}
+  joints={["stdin as -", "JSON on a pipe"]}
+/>
 
 `xdb batch` reads one operation from each line of NDJSON:
 

@@ -7,14 +7,25 @@ read_when:
   - A write fails with SCHEMA_VIOLATION or UNIQUE_VIOLATION
 ---
 
-# Define a schema
+import Nesting from "../../../components/figures/Nesting.astro";
 
 A schema groups records and controls the validation of their fields. A namespace groups schemas by domain, application, or tenant.
 
-<figure class="frame">
-  <svg id="fig-nest" role="img" aria-label="Nested boxes: a namespace contains a schema, which contains a record, which is a list of tuples."></svg>
-  <figcaption>resource hierarchy</figcaption>
-</figure>
+<Nesting
+  alt="Nested boxes: a namespace contains a schema, which contains a record, which is a list of tuples."
+  caption="resource hierarchy"
+  layers={[
+    { kind: "namespace", name: "com.example", hue: "ns" },
+    { kind: "schema", name: "posts", hue: "schema", note: "strict | flexible | dynamic" },
+    { kind: "record", name: "p-1", hue: "id" },
+  ]}
+  rows={[
+    [["title", "attr"], ["  =  ", "muted"], ['"Hello"', "val"]],
+    [["author.name", "attr"], ["  =  ", "muted"], ['"Ravi"', "val"]],
+    [["views", "attr"], ["  =  ", "muted"], ["42", "val"]],
+  ]}
+  foot="a record groups tuples at one path"
+/>
 
 Each resource has a URI. The depth of the URI selects the resource:
 
@@ -44,7 +55,7 @@ xdb schemas create xdb://com.example/users --json '{
 }'
 ```
 
-The types are `string`, `integer`, `unsigned`, `float`, `boolean`, `time`, `json`, `bytes`, and `array`. An array declares the type of its elements with `elem_type`. An array of objects can also declare the fields of its items. [Types](../concepts/types.md) describes each type.
+The types are `string`, `integer`, `unsigned`, `float`, `boolean`, `time`, `json`, `bytes`, and `array`. An array declares the type of its elements with `elem_type`. An array of objects can also declare the fields of its items. [Types](../../../../../docs/concepts/types.md) describes each type.
 
 XDB adds the `_version` and `_updated` system fields to each schema.
 
@@ -106,4 +117,4 @@ xdb schemas delete xdb://com.example/users --force --cascade
 
 CAUTION: `--cascade` deletes each record in the schema.
 
-[Schemas](../concepts/schemas.md) gives the full rules.
+[Schemas](../../../../../docs/concepts/schemas.md) gives the full rules.

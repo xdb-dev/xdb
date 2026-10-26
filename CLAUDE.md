@@ -48,7 +48,8 @@ Use the typed `As*` methods (`AsStr()`, `AsInt()`, `AsBool()`, and the others) o
 ## Documentation
 
 - Write GoDoc for all public functions and types. Use `[pkg.Type]` links. Put package-level docs in `doc.go`.
-- **Concept docs** (`docs/concepts/`): one file per concept, with YAML frontmatter (`title`, `description`, `package`). When you add an abstraction, create a concept doc. When an API or a behavior changes, update the concept doc. Include Go examples that match the actual API. Update the index in `docs/concepts/README.md`.
+- **Concept docs** (`docs/concepts/`): one file per concept, with YAML frontmatter (`title`, `description`, `package`). When you add an abstraction, create a concept doc. When an API or a behavior changes, update the concept doc. Include Go examples that match the actual API. Update the index in `docs/concepts/README.md`. The site shows the concept pages under Concepts, and its sidebar follows the index. Draw a flow, a sequence, or a state as a Mermaid block.
+- **Site pages** (`site/src/content/docs/`): the overview, Get started, and one page per guide. A page draws a figure with a component from `site/src/components/figures/`. `site/README.md` has the rules.
 
 ## Project Structure
 
@@ -79,6 +80,8 @@ internal/evals/     # Agent task evaluations [module]: the harness and the xdb-e
 docs/
   concepts/         # Concept docs (one per concept)
   research/         # Research: YYYY-MM-DD-research-name.md
+site/               # The landing page and the docs site; site/README.md has the layout
+  src/content/docs/ # The pages for users: the overview, Get started, and the guides
 ```
 
 `[module]` marks a directory with its own `go.mod`, alongside `cmd/xdb`. Each one exists to keep a heavy driver or codec dependency out of the root module, so it is a separate module only when the dependency justifies it. `make` targets discover these automatically; nothing needs registering.

@@ -6,8 +6,6 @@ read_when:
   - You want a working store before you read the concepts
 ---
 
-# Get started
-
 You need Go 1.26 or later.
 
 ## Install the CLI
@@ -24,7 +22,7 @@ The `xdb` binary contains the CLI and the daemon.
 xdb init
 ```
 
-`xdb init` writes the config file to `~/.xdb/config.json` and starts the daemon. The default backend is SQLite. To use another backend, change `store.backend` in the config file. Then run `xdb daemon restart`. [Config](../concepts/config.md) lists the backends.
+`xdb init` writes the config file to `~/.xdb/config.json` and starts the daemon. The default backend is SQLite. To use another backend, change `store.backend` in the config file. Then run `xdb daemon restart`. [Config](../../../../docs/concepts/config.md) lists the backends.
 
 ## Create a schema
 
@@ -35,7 +33,7 @@ xdb schemas create xdb://com.example/posts \
   --json '{"fields":{"title":{"type":"string"},"views":{"type":"integer"}}}'
 ```
 
-The URI `xdb://com.example/posts` names the namespace `com.example` and the schema `posts`. XDB adds the `_version` and `_updated` system fields to each schema. A new schema is in strict mode. [Schemas](../concepts/schemas.md) explains the other modes.
+The URI `xdb://com.example/posts` names the namespace `com.example` and the schema `posts`. XDB adds the `_version` and `_updated` system fields to each schema. A new schema is in strict mode. [Schemas](../../../../docs/concepts/schemas.md) explains the other modes.
 
 ## Write a record
 
@@ -99,12 +97,12 @@ If another client wrote the record first, the update fails with `CONFLICT`:
 }
 ```
 
-If you get `CONFLICT`, read the record again. Then send the update with the current `_version`. [Versioning](../concepts/versioning.md) explains the contract.
+If you get `CONFLICT`, read the record again. Then send the update with the current `_version`. [Versioning](../../../../docs/concepts/versioning.md) explains the contract.
 
 ## Next steps
 
 - Run `xdb context` to print the CLI guide for agents.
 - Run `xdb describe --actions` to list the actions on each resource.
-- Read [Define a schema](define-a-schema.md) for modes, indexes, and constraints.
-- Read [Read and write records](read-and-write.md) for filters, bulk data, and change streams.
-- Read [Embed XDB in Go](embed-in-go.md) to use a store in a Go service.
+- Read [Define a schema](guides/define-a-schema.mdx) for modes, indexes, and constraints.
+- Read [Read and write records](guides/read-and-write.mdx) for filters, bulk data, and change streams.
+- Read [Embed XDB in Go](guides/embed-in-go.md) to use a store in a Go service.

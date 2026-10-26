@@ -258,34 +258,36 @@ site-search button[data-open-modal]:hover {
 }
 
 /* ---------- figures ---------- */
-/* public/site.js draws the figures with rough.js into each svg that has a
-   known id. These rules are the same as the figure rules in site.css. */
-.sl-markdown-content figure.frame {
+/* A page draws its figures with the components in
+   src/components/figures/, which carry their own styles. A Mermaid block in
+   a concept page becomes a Pele SVG at build time, in this frame. See
+   src/remark/render-mermaid.mjs. Pele reads the variables below. */
+.sl-markdown-content figure.pele-fig {
   margin-inline: 0;
   padding: 18px;
   border: 1px solid var(--line);
   background: var(--card);
 }
-.sl-markdown-content figure svg {
+.sl-markdown-content figure.pele-fig svg.pele {
   display: block;
-  width: 100%;
-  height: auto;
-}
-.sl-markdown-content figure svg text {
-  user-select: none;
-}
-.sl-markdown-content figure svg .hand {
-  font-family: var(--hand);
-}
-.sl-markdown-content figure svg .mono {
-  font-family: var(--mono);
-}
-.sl-markdown-content figcaption {
-  margin-top: 8px;
-  font-family: var(--hand);
-  font-size: 0.9rem;
-  color: var(--muted);
-  text-align: right;
+  max-width: 100%;
+  margin-inline: auto;
+  --pele-bg: var(--card);
+  --pele-fg: var(--ink);
+  --pele-muted: var(--muted);
+  --pele-line: var(--muted);
+  --pele-surface: var(--bg2);
+  --pele-surface-alt: var(--bg);
+  --pele-border: #cfcec6;
+  --pele-accent: var(--accent);
+  --pele-font: var(--sans);
+  --pele-font-mono: var(--mono);
+  --pele-radius: 0;
+  --pele-series-1: var(--c-ns);
+  --pele-series-2: var(--c-schema);
+  --pele-series-3: var(--c-id);
+  --pele-series-4: var(--c-attr);
+  --pele-series-5: var(--c-val);
 }
 
 /* ---------- code ---------- */

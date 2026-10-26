@@ -1,0 +1,65 @@
+---
+// The frame of every figure. A form in this directory draws inside it.
+// The frame is .not-content, so the prose styles of a docs page do not
+// reach the drawing. The alt is the text alternative of the whole figure.
+// label numbers the figure on the landing page, such as "fig. 1".
+interface Props {
+  alt: string;
+  caption?: string;
+  label?: string;
+  class?: string;
+}
+
+const { alt, caption, label, class: extra } = Astro.props;
+---
+
+<figure class:list={["frame", "xf", "not-content", extra]} role="img" aria-label={alt}>
+  <div class="xf-body">
+    <slot />
+  </div>
+  {
+    (label || caption) && (
+      <figcaption class="xf-caption">
+        {label && <span>{label}</span>}
+        {caption && <b>{caption}</b>}
+      </figcaption>
+    )
+  }
+</figure>
+
+<style>
+  .xf {
+    margin: 1.5rem 0;
+    padding: 22px;
+    border: 1px solid var(--line);
+    background: var(--card, #fff);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.45;
+    container-type: inline-size;
+  }
+  .xf-body {
+    overflow-x: auto;
+  }
+  .xf-caption {
+    display: flex;
+    gap: 16px;
+    justify-content: space-between;
+    margin-top: 14px;
+    font-family: var(--hand);
+    font-size: 14px;
+    color: var(--muted);
+    text-align: left;
+  }
+  .xf-caption b {
+    margin-left: auto;
+    font-weight: 400;
+    color: var(--ink);
+  }
+  @media (max-width: 640px) {
+    .xf {
+      padding: 14px;
+    }
+  }
+</style>
