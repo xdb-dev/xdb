@@ -26,4 +26,7 @@
   --c-id: #b45309;
   --c-attr: #047857;
   --c-val: #be123c;
+  /* The shape of a marker stroke, as a mask. An underline paints its
+     colour through it. */
+  --marker: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 24' preserveAspectRatio='none'%3E%3Cpath d='M3 8C30 5.5 70 6.5 110 5S170 4.5 196 3C199 6 199.5 12 197 17C165 18 130 17.5 100 19S35 19 5 21C1.5 17 1 12 3 8Z' fill-opacity='.8'/%3E%3Cpath d='M6 18C60 16.5 130 16 195 14' fill='none' stroke='black' stroke-width='2.5' stroke-opacity='.2'/%3E%3Cpath d='M10 8C70 7 140 6 192 5' fill='none' stroke='black' stroke-width='1.5' stroke-opacity='.15'/%3E%3C/svg%3E");
 }

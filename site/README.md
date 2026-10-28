@@ -19,7 +19,7 @@ The landing page is `src/pages/index.astro`. Its styles and scripts are in `publ
 
   | Section | Contents | Guides |
   | ------- | -------- | ------ |
-  | Hero | Product description, install command, one tuple in Go and the CLI, and the tuple anatomy (fig. 0) | |
+  | Hero | Product description, install command with a copy button, one tuple in Go and the CLI, and the tuple anatomy (fig. 0) | |
   | `#demo` | A recorded session of the CLI, replayed in a terminal. See below. | |
   | `#how` | Formats convert to tuples, and tuples go to any backend (fig. 1) | `import-types`, `define-a-schema`, `choose-a-backend` |
   | `#agents` | The CLI grammar (fig. 2) | `use-with-agents` |
@@ -27,8 +27,10 @@ The landing page is `src/pages/index.astro`. Its styles and scripts are in `publ
   | `#guides` | A card for each guide | all |
 
   Put feature documentation in the guides, not on the landing page. The figures are the components of the docs. See [Figures](#figures).
-- `public/tokens.css`: the colours and fonts. The docs load the same file.
-- `public/site.css`: styles. Cream background, one blue accent, dashed section rules. The `.underlined` rule draws the accent line under "Storage is a detail."
+- The nav stays at the top of the window. If the window is narrower than 760px, the nav shows only Docs and GitHub.
+- A `<button data-copy hidden>` next to a `code` or `pre` element copies its text. The script at the end of `index.astro` shows the buttons, so a page that runs no script has no copy buttons.
+- `public/tokens.css`: the colours, the fonts, and `--marker`, the shape of a marker stroke. The docs load the same file.
+- `public/site.css`: styles. Cream background, one blue accent, dashed section rules. The `.underlined` rule draws a marker stroke in the accent colour under "Storage is a detail." The `Anatomy` figure draws the same stroke in the hue of each part.
 - `public/og.html` / `public/og.png`: the social card. See below.
 - `public/fonts/Excalifont-Regular.woff2`: Excalidraw's hand-drawn font, Latin subset (SIL Open Font License 1.1). The tagline, the figure captions, and the replay labels use it.
 

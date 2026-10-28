@@ -121,8 +121,22 @@ const legend = [
     position: relative;
     color: var(--hue);
   }
+  /* A part with a callout gets a marker stroke in its hue, under the
+     descenders of the letters. */
   .an-part.called {
-    box-shadow: inset 0 -2px 0 var(--hue);
+    z-index: 0;
+  }
+  .an-part.called::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    left: -0.04em;
+    right: -0.04em;
+    bottom: -0.2em;
+    height: 0.22em;
+    background: var(--hue);
+    opacity: 0.35;
+    mask: var(--marker) 0 0 / 100% 100% no-repeat;
   }
 
   /* A callout: a stem from the part, then the label and the sub. */
